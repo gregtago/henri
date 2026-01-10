@@ -145,7 +145,7 @@ export default function AppShell() {
       const item = items.find((entryItem) => entryItem.id === entry.refId);
       return item ? { type: "item" as const, data: item } : null;
     })
-    .filter((entry): entry is { type: "case" | "item"; data: Case | Item } => Boolean(entry));
+    .filter((entry): entry is { type: "case"; data: Case } | { type: "item"; data: Item } => entry !== null);
 
   const suggestions = useMemo(() => {
     const dueToday = items.filter((item) => item.dueDate && item.dueDate.slice(0, 10) <= todayKey);
