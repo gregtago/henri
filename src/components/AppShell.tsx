@@ -693,7 +693,7 @@ export default function AppShell() {
             </section>
           ) : null}
 
-          {showDetailColumn ? (
+          {showDetailColumn && detailItem ? (
             <section className="finder-column max-w-[360px]">
               <div className="finder-header">Détail</div>
               <div className="p-3 space-y-4 text-sm">
