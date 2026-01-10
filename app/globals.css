@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-white text-slate-900;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.finder-column {
+  @apply bg-panel border border-border rounded-lg overflow-hidden flex flex-col min-w-[280px];
+}
+
+.finder-header {
+  @apply px-3 py-2 text-xs uppercase tracking-wide text-slate-500 border-b border-border;
+}
+
+.finder-list {
+  @apply flex-1 overflow-y-auto;
+}
+
+.finder-row {
+  @apply px-3 py-2 text-sm flex items-center justify-between gap-2 cursor-pointer;
+}
+
+.finder-row[data-selected="true"] {
+  @apply bg-white shadow-sm;
+}
+
+.finder-row[data-active="true"] {
+  @apply ring-1 ring-slate-300;
+}
+
+kbd {
+  @apply text-[10px] px-1 py-0.5 rounded bg-white border border-border;
+}
