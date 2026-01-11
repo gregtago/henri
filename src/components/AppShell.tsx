@@ -75,6 +75,13 @@ type DetailTarget =
     }
   | null;
 
+type ParentOption = {
+  id: string;
+  kind: "case" | "item";
+  label: string;
+  caseId?: string;
+};
+
 export default function AppShell() {
   const [user, setUser] = useState<User | null>(null);
   const [cases, setCases] = useState<Case[]>([]);
@@ -101,6 +108,10 @@ export default function AppShell() {
 
   const [activeColumn, setActiveColumn] = useState<"cases" | "items" | "subitems" | "detail">("cases");
   const [detailTarget, setDetailTarget] = useState<DetailTarget>(null);
+  const [isReparentOpen, setIsReparentOpen] = useState(false);
+  const [reparentTargetId, setReparentTargetId] = useState<string | null>(null);
+  const [reparentSearch, setReparentSearch] = useState("");
+  const [reparentCursor, setReparentCursor] = useState(0);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [importMode, setImportMode] = useState<"model" | "history">("history");
@@ -243,6 +254,18 @@ export default function AppShell() {
   const detailCase = detailTarget?.type === "case" ? cases.find((entry) => entry.id === detailTarget.id) ?? null : null;
   const detailComments = detailItem ? comments.filter((comment) => comment.itemId === detailItem.id) : [];
   const detailEvents = detailItem ? events.filter((event) => event.itemId === detailItem.id) : [];
+  const reparentTarget = reparentTargetId ? items.find((entry) => entry.id === reparentTargetId) ?? null : null;
+  const reparentHasChildren = useMemo(
+    () => (reparentTarget ? items.some((item) => item.parentItemId === reparentTarget.id) : false),
+    [items, reparentTarget]
+  );
+  const caseTitleById = useMemo(() => new Map(cases.map((entry) => [entry.id, entry.title])), [cases]);
+  const resolvedActiveColumn = useMemo(() => {
+    if (activeColumn !== "detail") return activeColumn;
+    if (detailTarget?.type === "case") return "cases";
+    if (detailItem?.level === 3) return "subitems";
+    return "items";
+  }, [activeColumn, detailItem?.level, detailTarget?.type]);
   const myDaySelections = useMemo(() => {
     const merged = new Map<string, MyDaySelection>();
     legacyMyDaySelections.forEach((entry) => merged.set(entry.id, entry));
@@ -284,7 +307,7 @@ export default function AppShell() {
   });
   const showDetailColumn = Boolean(detailTarget && (detailCase || detailItem));
   const showCasesColumn = true;
-  const showItemsColumn = Boolean(selectedCase) && detailTarget?.type !== "case";
+  const showItemsColumn = Boolean(selectedCase);
   const showSubItemsColumn = Boolean(selectedItem && subItems.length > 0) && detailTarget?.type !== "case";
 
   useEffect(() => {
@@ -319,6 +342,48 @@ export default function AppShell() {
       floatingYesterday
     };
   }, [items, myDaySelections, floatingTasks, todayKey, yesterdayKey]);
+
+  const reparentOptions = useMemo(() => {
+    if (!reparentTarget) return [];
+    const options: ParentOption[] = [];
+    cases.forEach((entry) => {
+      options.push({
+        id: entry.id,
+        kind: "case",
+        label: `N1 • ${entry.title}`
+      });
+    });
+    const allowItemParents = reparentTarget.level === 3 || !reparentHasChildren;
+    if (allowItemParents) {
+      items
+        .filter((item) => !item.parentItemId)
+        .forEach((item) => {
+          if (item.id === reparentTarget.id) return;
+          const caseLabel = caseTitleById.get(item.caseId);
+          options.push({
+            id: item.id,
+            kind: "item",
+            caseId: item.caseId,
+            label: `N2 • ${item.title}${caseLabel ? ` (${caseLabel})` : ""}`
+          });
+        });
+    }
+    const query = reparentSearch.trim().toLowerCase();
+    if (!query) return options;
+    return options.filter((option) => option.label.toLowerCase().includes(query));
+  }, [caseTitleById, cases, items, reparentHasChildren, reparentSearch, reparentTarget]);
+
+  useEffect(() => {
+    if (!isReparentOpen) return;
+    setReparentCursor(0);
+  }, [isReparentOpen, reparentSearch]);
+
+  useEffect(() => {
+    if (reparentOptions.length === 0) return;
+    if (reparentCursor >= reparentOptions.length) {
+      setReparentCursor(0);
+    }
+  }, [reparentCursor, reparentOptions.length]);
 
   const stagnantSuggestions = useMemo(() => {
     const windowKeySet = new Set(windowKeys);
@@ -362,8 +427,8 @@ export default function AppShell() {
     setSelectedSubItemId(null);
     setSelectedItemIds([]);
     setSelectedSubItemIds([]);
-    setActiveColumn("items");
-    setDetailTarget(null);
+    setActiveColumn("cases");
+    setDetailTarget({ type: "case", id });
     if (options?.range) {
       setSelectedCaseIds(selectRange(sortedCases.map((entry) => entry.id), lastCaseId, id));
     } else if (options?.multi) {
@@ -374,16 +439,12 @@ export default function AppShell() {
     setLastCaseId(id);
   };
 
-  const handleSelectItem = (id: string, options?: { multi?: boolean; range?: boolean; openDetail?: boolean }) => {
+  const handleSelectItem = (id: string, options?: { multi?: boolean; range?: boolean }) => {
     setSelectedItemId(id);
     setSelectedSubItemId(null);
     setSelectedSubItemIds([]);
-    setActiveColumn(options?.openDetail ? "detail" : "items");
-    if (options?.openDetail) {
-      setDetailTarget({ type: "item", id });
-    } else {
-      setDetailTarget(null);
-    }
+    setActiveColumn("items");
+    setDetailTarget({ type: "item", id });
     if (options?.range) {
       setSelectedItemIds(selectRange(itemsColumnItems.map((entry) => entry.id), lastItemId, id));
     } else if (options?.multi) {
@@ -394,14 +455,10 @@ export default function AppShell() {
     setLastItemId(id);
   };
 
-  const handleSelectSubItem = (id: string, options?: { multi?: boolean; range?: boolean; openDetail?: boolean }) => {
+  const handleSelectSubItem = (id: string, options?: { multi?: boolean; range?: boolean }) => {
     setSelectedSubItemId(id);
-    setActiveColumn(options?.openDetail ? "detail" : "subitems");
-    if (options?.openDetail) {
-      setDetailTarget({ type: "item", id });
-    } else {
-      setDetailTarget(null);
-    }
+    setActiveColumn("subitems");
+    setDetailTarget({ type: "item", id });
     if (options?.range) {
       setSelectedSubItemIds(selectRange(subItems.map((entry) => entry.id), lastSubItemId, id));
     } else if (options?.multi) {
@@ -414,22 +471,89 @@ export default function AppShell() {
     setLastSubItemId(id);
   };
 
-  const handleOpenDetail = () => {
-    if (selectedSubItemId) {
-      setDetailTarget({ type: "item", id: selectedSubItemId });
-      setActiveColumn("detail");
+  const handleOpenReparent = useCallback(() => {
+    if (isMyDay) return;
+    const target =
+      detailTarget?.type === "item"
+        ? detailItem
+        : activeColumn === "subitems"
+          ? selectedSubItem
+          : activeColumn === "items"
+            ? selectedItem
+            : null;
+    if (!target) {
+      showToast("Sélectionnez une tâche d’abord.");
       return;
     }
-    if (selectedItemId) {
-      setDetailTarget({ type: "item", id: selectedItemId });
-      setActiveColumn("detail");
-      return;
-    }
-    if (selectedCaseId) {
-      setDetailTarget({ type: "case", id: selectedCaseId });
-      setActiveColumn("detail");
-    }
-  };
+    setReparentTargetId(target.id);
+    setReparentSearch("");
+    setReparentCursor(0);
+    setIsReparentOpen(true);
+  }, [activeColumn, detailItem, detailTarget?.type, isMyDay, selectedItem, selectedSubItem]);
+
+  const handleConfirmReparent = useCallback(
+    async (option: ParentOption) => {
+      if (!user || !reparentTarget) return;
+      if (option.kind === "item") {
+        if (option.id === reparentTarget.id) {
+          showToast("Impossible de rattacher une tâche à elle-même.");
+          return;
+        }
+        if (reparentTarget.level === 2 && reparentHasChildren) {
+          showToast("Rattachement impossible : dépasserait 3 niveaux.");
+          return;
+        }
+        const parentItem = items.find((item) => item.id === option.id);
+        if (!parentItem) return;
+        await updateItem(user.uid, reparentTarget.id, {
+          parentItemId: parentItem.id,
+          level: 3,
+          caseId: parentItem.caseId
+        });
+        setSelectedCaseId(parentItem.caseId);
+        setSelectedCaseIds([parentItem.caseId]);
+        setSelectedItemId(parentItem.id);
+        setSelectedItemIds([parentItem.id]);
+        setSelectedSubItemId(reparentTarget.id);
+        setSelectedSubItemIds([reparentTarget.id]);
+        setDetailTarget({ type: "item", id: reparentTarget.id });
+        setIsReparentOpen(false);
+        showToast("Tâche rattachée.");
+        return;
+      }
+      const updates: Promise<void>[] = [];
+      updates.push(
+        updateItem(user.uid, reparentTarget.id, {
+          parentItemId: null,
+          level: 2,
+          caseId: option.id
+        })
+      );
+      if (reparentHasChildren && option.id !== reparentTarget.caseId) {
+        items
+          .filter((item) => item.parentItemId === reparentTarget.id)
+          .forEach((child) => {
+            updates.push(updateItem(user.uid, child.id, { caseId: option.id }));
+          });
+      }
+      await Promise.all(updates);
+      setSelectedCaseId(option.id);
+      setSelectedCaseIds([option.id]);
+      setSelectedItemId(reparentTarget.id);
+      setSelectedItemIds([reparentTarget.id]);
+      setSelectedSubItemId(null);
+      setSelectedSubItemIds([]);
+      setDetailTarget({ type: "item", id: reparentTarget.id });
+      setIsReparentOpen(false);
+      showToast("Tâche rattachée.");
+    },
+    [items, reparentHasChildren, reparentTarget, user]
+  );
+
+  const handleCloseReparent = useCallback(() => {
+    setIsReparentOpen(false);
+    setReparentTargetId(null);
+  }, []);
 
   const showToast = (message: string) => setToast(message);
 
@@ -504,7 +628,7 @@ export default function AppShell() {
     }
   };
 
-  const handleNew = async () => {
+  const handleCreateInActiveColumn = useCallback(async () => {
     if (!user) return;
     if (isMyDay) {
       await createFloatingTask(user.uid, {
@@ -514,14 +638,22 @@ export default function AppShell() {
       });
       return;
     }
-    if (!selectedCaseId) {
+    if (resolvedActiveColumn === "cases") {
       const id = await createCase(user.uid, { title: "Nouveau dossier", legalDueDate: null, caseNote: "" });
       setSelectedCaseId(id);
       setSelectedCaseIds([id]);
-      setActiveColumn("items");
+      setSelectedItemId(null);
+      setSelectedSubItemId(null);
+      setSelectedItemIds([]);
+      setSelectedSubItemIds([]);
+      setDetailTarget({ type: "case", id });
       return;
     }
-    if (!selectedItemId) {
+    if (resolvedActiveColumn === "items") {
+      if (!selectedCaseId) {
+        showToast("Sélectionnez une tâche racine d’abord.");
+        return;
+      }
       const id = await createItem(user.uid, {
         caseId: selectedCaseId,
         level: 2,
@@ -531,14 +663,23 @@ export default function AppShell() {
       });
       setSelectedItemId(id);
       setSelectedItemIds([id]);
+      setSelectedSubItemId(null);
+      setSelectedSubItemIds([]);
       setDetailTarget({ type: "item", id });
-      setActiveColumn("detail");
       return;
     }
-    const parentItemId = selectedSubItem?.parentItemId ?? selectedItemId;
+    if (!selectedItemId) {
+      showToast("Sélectionnez une tâche d’abord.");
+      return;
+    }
+    const parentCaseId = selectedItem?.caseId ?? selectedCaseId;
+    if (!parentCaseId) {
+      showToast("Sélectionnez une tâche racine d’abord.");
+      return;
+    }
     const id = await createItem(user.uid, {
-      caseId: selectedCaseId,
-      parentItemId,
+      caseId: parentCaseId,
+      parentItemId: selectedItemId,
       level: 3,
       title: "Nouvelle sous-tâche",
       status: "Créée"
@@ -546,8 +687,61 @@ export default function AppShell() {
     setSelectedSubItemId(id);
     setSelectedSubItemIds([id]);
     setDetailTarget({ type: "item", id });
-    setActiveColumn("detail");
-  };
+  }, [isMyDay, resolvedActiveColumn, selectedCaseId, selectedItem?.caseId, selectedItemId, user, todayKey]);
+
+  const handleCreateChildTask = useCallback(async () => {
+    if (!user) return;
+    if (isMyDay) {
+      await createFloatingTask(user.uid, {
+        dateKey: todayKey,
+        title: "Nouvelle tâche volante",
+        status: "Créée"
+      });
+      return;
+    }
+    if (resolvedActiveColumn === "cases") {
+      if (!selectedCaseId) {
+        showToast("Sélectionnez une tâche racine d’abord.");
+        return;
+      }
+      const id = await createItem(user.uid, {
+        caseId: selectedCaseId,
+        level: 2,
+        title: "Nouvelle tâche",
+        status: "Créée",
+        parentItemId: null
+      });
+      setSelectedItemId(id);
+      setSelectedItemIds([id]);
+      setSelectedSubItemId(null);
+      setSelectedSubItemIds([]);
+      setDetailTarget({ type: "item", id });
+      return;
+    }
+    if (resolvedActiveColumn === "items") {
+      if (!selectedItemId) {
+        showToast("Sélectionnez une tâche d’abord.");
+        return;
+      }
+      const parentCaseId = selectedItem?.caseId ?? selectedCaseId;
+      if (!parentCaseId) {
+        showToast("Sélectionnez une tâche racine d’abord.");
+        return;
+      }
+      const id = await createItem(user.uid, {
+        caseId: parentCaseId,
+        parentItemId: selectedItemId,
+        level: 3,
+        title: "Nouvelle sous-tâche",
+        status: "Créée"
+      });
+      setSelectedSubItemId(id);
+      setSelectedSubItemIds([id]);
+      setDetailTarget({ type: "item", id });
+      return;
+    }
+    showToast("Niveau maximal atteint.");
+  }, [isMyDay, resolvedActiveColumn, selectedCaseId, selectedItem?.caseId, selectedItemId, user, todayKey]);
 
   const handleAddToMyDay = async () => {
     if (!user) return;
@@ -625,6 +819,9 @@ export default function AppShell() {
       if (isEditableElement(event.target)) {
         return;
       }
+      if (isReparentOpen) {
+        return;
+      }
       if (event.key === "ArrowLeft") {
         event.preventDefault();
         if (activeColumn === "detail") {
@@ -668,11 +865,9 @@ export default function AppShell() {
             }
           } else {
             setDetailTarget({ type: "item", id: selectedItemId });
-            setActiveColumn("detail");
           }
         } else if (activeColumn === "subitems" && selectedSubItemId) {
           setDetailTarget({ type: "item", id: selectedSubItemId });
-          setActiveColumn("detail");
         }
         return;
       }
@@ -697,6 +892,9 @@ export default function AppShell() {
           if (nextId) {
             setSelectedItemId(nextId);
             setSelectedItemIds([nextId]);
+            setSelectedSubItemId(null);
+            setSelectedSubItemIds([]);
+            setDetailTarget(null);
           }
         }
         if (activeColumn === "subitems") {
@@ -728,7 +926,15 @@ export default function AppShell() {
         return;
       }
       if (event.key.toLowerCase() === "n") {
-        await handleNew();
+        if (event.shiftKey) {
+          await handleCreateChildTask();
+        } else {
+          await handleCreateInActiveColumn();
+        }
+        return;
+      }
+      if (event.key.toLowerCase() === "r") {
+        handleOpenReparent();
         return;
       }
       if (event.key.toLowerCase() === "a") {
@@ -740,10 +946,6 @@ export default function AppShell() {
           handleCommentAdd("Commentaire rapide");
           showToast("Commentaire ajouté.");
         }
-        return;
-      }
-      if (event.key.toLowerCase() === "i") {
-        handleOpenDetail();
         return;
       }
       if (event.key === "Backspace" || event.key === "Delete") {
@@ -778,9 +980,12 @@ export default function AppShell() {
       detailItem,
       detailTarget,
       sortedCases,
+      isReparentOpen,
       handleAddToMyDay,
       handleDelete,
-      handleNew,
+      handleCreateChildTask,
+      handleCreateInActiveColumn,
+      handleOpenReparent,
       handleStatusChange
     ]
   );
@@ -844,6 +1049,31 @@ export default function AppShell() {
       showToast("Feedback copié.");
     } catch (err) {
       showToast("Impossible de copier automatiquement.");
+    }
+  };
+
+  const handleReparentKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setReparentCursor((prev) => Math.min(prev + 1, Math.max(0, reparentOptions.length - 1)));
+      return;
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setReparentCursor((prev) => Math.max(0, prev - 1));
+      return;
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const option = reparentOptions[reparentCursor];
+      if (option) {
+        handleConfirmReparent(option);
+      }
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      handleCloseReparent();
     }
   };
 
@@ -1138,7 +1368,6 @@ export default function AppShell() {
                         onClick={(event) => {
                           event.stopPropagation();
                           setDetailTarget({ type: "case", id: entry.id });
-                          setActiveColumn("detail");
                         }}
                       >
                         Infos
@@ -1210,8 +1439,7 @@ export default function AppShell() {
                           })
                         : handleSelectItem(entry.id, {
                             multi: event.metaKey || event.ctrlKey,
-                            range: event.shiftKey,
-                            openDetail: !(event.metaKey || event.ctrlKey || event.shiftKey)
+                            range: event.shiftKey
                           })
                     }
                   >
@@ -1295,8 +1523,7 @@ export default function AppShell() {
                         ? handleSelectSubItem(entry.id, { multi: true })
                         : handleSelectSubItem(entry.id, {
                             multi: event.metaKey || event.ctrlKey,
-                            range: event.shiftKey,
-                            openDetail: !(event.metaKey || event.ctrlKey || event.shiftKey)
+                            range: event.shiftKey
                           })
                     }
                   >
@@ -1402,7 +1629,6 @@ export default function AppShell() {
                       className="flex items-center justify-between bg-white border border-border rounded-md px-3 py-2"
                       onClick={() => {
                         setDetailTarget({ type: entry.type, id: entry.data.id });
-                        setActiveColumn("detail");
                       }}
                     >
                       <div>
@@ -1421,7 +1647,6 @@ export default function AppShell() {
                           onClick={(event) => {
                             event.stopPropagation();
                             setDetailTarget({ type: entry.type, id: entry.data.id });
-                            setActiveColumn("detail");
                           }}
                         >
                           Détails
@@ -1578,6 +1803,63 @@ export default function AppShell() {
       {toast ? (
         <div className="fixed bottom-4 left-4 bg-white border border-border text-sm px-4 py-2 rounded-md shadow">
           {toast}
+        </div>
+      ) : null}
+
+      {isReparentOpen && reparentTarget ? (
+        <div
+          className="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-50"
+          onClick={handleCloseReparent}
+        >
+          <div
+            className="bg-white border border-border rounded-lg shadow-xl w-[360px] max-w-[90vw] p-4 space-y-3"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reparent-dialog-title"
+            aria-describedby="reparent-dialog-description"
+          >
+            <div className="flex items-center justify-between">
+              <h3 id="reparent-dialog-title" className="text-sm font-semibold">
+                Rattacher la tâche
+              </h3>
+              <button className="text-xs text-slate-500" onClick={handleCloseReparent}>
+                Fermer
+              </button>
+            </div>
+            <p id="reparent-dialog-description" className="sr-only">
+              Choisissez un parent pour rattacher la tâche sélectionnée.
+            </p>
+            <p className="text-xs text-slate-500">Tâche: {reparentTarget.title}</p>
+            <input
+              className="w-full border border-border rounded-md px-2 py-1 text-sm"
+              placeholder="Rechercher un parent..."
+              value={reparentSearch}
+              onChange={(event) => setReparentSearch(event.target.value)}
+              onKeyDown={handleReparentKeyDown}
+              autoFocus
+            />
+            <div className="border border-border rounded-md max-h-56 overflow-auto text-sm">
+              {reparentOptions.length === 0 ? (
+                <p className="px-3 py-2 text-xs text-slate-500">Aucun parent disponible.</p>
+              ) : (
+                reparentOptions.map((option, index) => (
+                  <button
+                    key={`${option.kind}-${option.id}`}
+                    type="button"
+                    className={`w-full text-left px-3 py-2 hover:bg-slate-50 ${
+                      index === reparentCursor ? "bg-slate-100" : ""
+                    }`}
+                    onClick={() => handleConfirmReparent(option)}
+                    onMouseEnter={() => setReparentCursor(index)}
+                  >
+                    {option.label}
+                  </button>
+                ))
+              )}
+            </div>
+            <p className="text-[10px] text-slate-400">Entrée pour valider, Échap pour fermer.</p>
+          </div>
         </div>
       ) : null}
 
