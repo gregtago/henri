@@ -182,6 +182,11 @@ export default function AppShell() {
 
   const selectedCase = cases.find((entry) => entry.id === selectedCaseId) || null;
   const caseItems = selectedCase ? getItemsByCase(items, selectedCase.id) : [];
+  const fallbackItems =
+    selectedCase && caseItems.length === 0
+      ? items.filter((item) => item.caseId === selectedCase.id && item.parentItemId)
+      : [];
+  const itemsColumnItems = caseItems.length > 0 ? caseItems : fallbackItems;
   const selectedItem = items.find((entry) => entry.id === selectedItemId) || null;
   const subItems = selectedItem ? getSubItems(items, selectedItem.id) : [];
   const selectedSubItem = items.find((entry) => entry.id === selectedSubItemId) || null;
@@ -260,7 +265,7 @@ export default function AppShell() {
       setDetailTarget(null);
     }
     if (options?.range) {
-      setSelectedItemIds(selectRange(caseItems.map((entry) => entry.id), lastItemId, id));
+      setSelectedItemIds(selectRange(itemsColumnItems.map((entry) => entry.id), lastItemId, id));
     } else if (options?.multi) {
       setSelectedItemIds((prev) => (prev.includes(id) ? prev.filter((entry) => entry !== id) : [...prev, id]));
     } else {
@@ -524,8 +529,8 @@ export default function AppShell() {
         event.preventDefault();
         if (activeColumn === "cases" && selectedCaseId) {
           setActiveColumn("items");
-          if (caseItems.length > 0) {
-            const firstId = caseItems[0]?.id ?? null;
+          if (itemsColumnItems.length > 0) {
+            const firstId = itemsColumnItems[0]?.id ?? null;
             if (firstId) {
               setSelectedItemId(firstId);
               setSelectedItemIds([firstId]);
@@ -565,7 +570,7 @@ export default function AppShell() {
           }
         }
         if (activeColumn === "items") {
-          const ids = caseItems.map((entry) => entry.id);
+          const ids = itemsColumnItems.map((entry) => entry.id);
           if (ids.length === 0) return;
           const index = Math.max(0, ids.indexOf(selectedItemId ?? ids[0]) + direction);
           const nextId = ids[index];
@@ -636,7 +641,7 @@ export default function AppShell() {
           setSelectedCaseIds(cases.map((entry) => entry.id));
         }
         if (activeColumn === "items") {
-          setSelectedItemIds(caseItems.map((entry) => entry.id));
+          setSelectedItemIds(itemsColumnItems.map((entry) => entry.id));
         }
         if (activeColumn === "subitems") {
           setSelectedSubItemIds(subItems.map((entry) => entry.id));
@@ -645,7 +650,7 @@ export default function AppShell() {
     },
     [
       activeColumn,
-      caseItems,
+      itemsColumnItems,
       subItems,
       selectedCaseId,
       selectedItemId,
@@ -1056,7 +1061,7 @@ export default function AppShell() {
                 </div>
               ) : null}
               <div className="finder-list">
-                {caseItems.map((entry) => (
+                {itemsColumnItems.map((entry) => (
                   <div
                     key={entry.id}
                     className="finder-row"
