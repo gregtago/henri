@@ -6,6 +6,7 @@ import {
   getDocs,
   onSnapshot,
   query,
+  Timestamp,
   updateDoc,
   writeBatch,
   where
@@ -21,6 +22,8 @@ import type {
   SeedPayload,
   Status
 } from "./types";
+import { getYesterdayKey as getYesterdayKeyUtil, getTodayKey as getTodayKeyUtil } from "./dates";
+import { getProgressLevel } from "./progress";
 
 const nowIso = () => new Date().toISOString();
 
@@ -56,11 +59,20 @@ export const subscribeFloatingTasks = (uid: string, onChange: (tasks: FloatingTa
     onChange(data);
   });
 
-export const subscribeMyDaySelections = (uid: string, onChange: (selections: MyDaySelection[]) => void) =>
-  onSnapshot(userCollection(uid, "myDaySelections"), (snapshot) => {
+export const subscribeMyDaySelections = (
+  uid: string,
+  onChange: (selections: MyDaySelection[]) => void,
+  startDate?: Date
+) => {
+  const baseQuery = userCollection(uid, "myDaySelections");
+  const selectionQuery = startDate
+    ? query(baseQuery, where("selectionDate", ">=", Timestamp.fromDate(startDate)))
+    : baseQuery;
+  return onSnapshot(selectionQuery, (snapshot) => {
     const data = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })) as MyDaySelection[];
     onChange(data);
   });
+};
 
 export const createCase = async (uid: string, payload: Omit<Case, "id" | "createdAt" | "updatedAt">) => {
   const ref = await addDoc(userCollection(uid, "cases"), {
@@ -77,6 +89,7 @@ export const updateCase = (uid: string, id: string, payload: Partial<Case>) =>
 export const createItem = async (uid: string, payload: Omit<Item, "id" | "createdAt" | "updatedAt">) => {
   const ref = await addDoc(userCollection(uid, "items"), {
     ...payload,
+    progressLevel: payload.progressLevel ?? getProgressLevel(payload.status),
     createdAt: nowIso(),
     updatedAt: nowIso()
   });
@@ -118,7 +131,10 @@ export const updateFloatingTask = (uid: string, id: string, payload: Partial<Flo
   updateDoc(doc(db, `users/${uid}/floatingTasks/${id}`), { ...payload, updatedAt: nowIso() });
 
 export const addMyDaySelection = async (uid: string, payload: Omit<MyDaySelection, "id">) => {
-  const ref = await addDoc(userCollection(uid, "myDaySelections"), payload);
+  const ref = await addDoc(userCollection(uid, "myDaySelections"), {
+    selectionDate: payload.selectionDate ?? Timestamp.fromDate(new Date()),
+    ...payload
+  });
   return ref.id;
 };
 
@@ -157,8 +173,8 @@ export const deleteFloatingTasks = async (uid: string, taskIds: string[]) => {
 export const logStatusEvent = async (uid: string, itemId: string, status: Status) => {
   await createEvent(uid, {
     itemId,
-    type: "status-change",
-    payload: { status }
+    type: "progress_changed",
+    payload: { status, progressLevel: getProgressLevel(status) }
   });
 };
 
@@ -260,13 +276,9 @@ export const getItemsByCase = (items: Item[], caseId: string) =>
 export const getSubItems = (items: Item[], parentItemId: string) =>
   items.filter((item) => item.parentItemId === parentItemId);
 
-export const getTodayKey = () => new Date().toISOString().slice(0, 10);
+export const getTodayKey = () => getTodayKeyUtil();
 
-export const getYesterdayKey = () => {
-  const date = new Date();
-  date.setDate(date.getDate() - 1);
-  return date.toISOString().slice(0, 10);
-};
+export const getYesterdayKey = () => getYesterdayKeyUtil();
 
 export const queryMyDayByDate = async (uid: string, dateKey: string) => {
   const q = query(userCollection(uid, "myDaySelections"), where("dateKey", "==", dateKey));

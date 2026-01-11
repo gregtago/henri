@@ -28,6 +28,8 @@ export type Item = {
   status: Status;
   dueDate?: string | null;
   lastReminderAt?: string | null;
+  progressLevel?: number | null;
+  lastProgressAt?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -51,6 +53,7 @@ export type Event = {
 export type MyDaySelection = {
   id: string;
   dateKey: string;
+  selectionDate?: import("firebase/firestore").Timestamp | null;
   refType: "case" | "item" | "subitem";
   refId: string;
 };
