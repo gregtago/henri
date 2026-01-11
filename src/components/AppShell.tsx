@@ -184,10 +184,6 @@ export default function AppShell() {
   }, [toast]);
 
   useEffect(() => {
-    setIsTimelineOpen(false);
-  }, [detailItem?.id, detailTarget?.type]);
-
-  useEffect(() => {
     if (!pendingDelete) {
       setUndoCountdown(0);
       return;
@@ -251,6 +247,10 @@ export default function AppShell() {
   const showCasesColumn = true;
   const showItemsColumn = Boolean(selectedCase) && detailTarget?.type !== "case";
   const showSubItemsColumn = Boolean(selectedItem && subItems.length > 0) && detailTarget?.type !== "case";
+
+  useEffect(() => {
+    setIsTimelineOpen(false);
+  }, [detailItem?.id, detailTarget?.type]);
 
   const myDayEntries = myDaySelections.filter((entry) => entry.dateKey === todayKey);
   const myDayItems = myDayEntries
