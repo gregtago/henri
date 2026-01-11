@@ -194,8 +194,7 @@ export default function AppShell() {
   const showDetailColumn = Boolean(detailTarget && (detailCase || detailItem));
   const showCasesColumn = true;
   const showItemsColumn = Boolean(selectedCase) && detailTarget?.type !== "case";
-  const showSubItemsColumn =
-    Boolean(selectedItem && (subItems.length > 0 || selectedSubItemId)) && detailTarget?.type !== "case";
+  const showSubItemsColumn = Boolean(selectedItem && subItems.length > 0) && detailTarget?.type !== "case";
 
   const myDayEntries = myDaySelections.filter((entry) => entry.dateKey === todayKey);
   const myDayItems = myDayEntries
@@ -536,6 +535,12 @@ export default function AppShell() {
         } else if (activeColumn === "items" && selectedItemId) {
           if (subItems.length > 0) {
             setActiveColumn("subitems");
+            const firstId = subItems[0]?.id ?? null;
+            if (firstId) {
+              setSelectedSubItemId(firstId);
+              setSelectedSubItemIds([firstId]);
+              setLastSubItemId(firstId);
+            }
           } else {
             setDetailTarget({ type: "item", id: selectedItemId });
             setActiveColumn("detail");
