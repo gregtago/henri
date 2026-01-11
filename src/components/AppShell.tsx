@@ -73,6 +73,8 @@ export default function AppShell() {
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [importMode, setImportMode] = useState<"model" | "history">("history");
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [feedbackText, setFeedbackText] = useState("");
   const toastTimeout = useRef<number | null>(null);
 
   const todayKey = getTodayKey();
@@ -145,7 +147,9 @@ export default function AppShell() {
       const item = items.find((entryItem) => entryItem.id === entry.refId);
       return item ? { type: "item" as const, data: item } : null;
     })
-    .filter((entry): entry is { type: "case" | "item"; data: Case | Item } => Boolean(entry));
+    .filter(
+      (entry): entry is { type: "case"; data: Case } | { type: "item"; data: Item } => entry !== null
+    );
 
   const suggestions = useMemo(() => {
     const dueToday = items.filter((item) => item.dueDate && item.dueDate.slice(0, 10) <= todayKey);
@@ -504,6 +508,19 @@ export default function AppShell() {
       parentItemId: null
     });
     await deleteFloatingTasks(user.uid, [task.id]);
+  };
+
+  const handleCopyFeedback = async () => {
+    if (!feedbackText.trim()) {
+      showToast("Ajoutez un commentaire avant de copier.");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(feedbackText.trim());
+      showToast("Feedback copié.");
+    } catch (err) {
+      showToast("Impossible de copier automatiquement.");
+    }
   };
 
   if (!user) {
@@ -939,6 +956,46 @@ export default function AppShell() {
       {toast ? (
         <div className="fixed bottom-4 left-4 bg-white border border-border text-sm px-4 py-2 rounded-md shadow">
           {toast}
+        </div>
+      ) : null}
+
+      <button
+        className="fixed bottom-4 right-4 bg-slate-900 text-white text-sm px-4 py-2 rounded-full shadow-lg"
+        onClick={() => setIsFeedbackOpen(true)}
+      >
+        Feedback
+      </button>
+
+      {isFeedbackOpen ? (
+        <div className="fixed bottom-16 right-4 w-[320px] bg-white border border-border rounded-lg shadow-xl p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold">Feedback & corrections</h3>
+            <button className="text-xs text-slate-500" onClick={() => setIsFeedbackOpen(false)}>
+              Fermer
+            </button>
+          </div>
+          <textarea
+            className="w-full border border-border rounded-md px-2 py-1 text-sm"
+            rows={5}
+            placeholder="Tapez vos commentaires ici..."
+            value={feedbackText}
+            onChange={(event) => setFeedbackText(event.target.value)}
+          />
+          <div className="flex items-center justify-between text-xs">
+            <button className="border border-border rounded-md px-2 py-1" onClick={handleCopyFeedback}>
+              Copier tout
+            </button>
+            <button
+              className="text-slate-500"
+              onClick={() => {
+                setFeedbackText("");
+                showToast("Feedback effacé.");
+              }}
+            >
+              Effacer
+            </button>
+          </div>
+          <p className="text-[10px] text-slate-400">Collez ce texte pour me partager vos corrections.</p>
         </div>
       ) : null}
     </div>
