@@ -1192,9 +1192,25 @@ export default function AppShell() {
                     className="flex items-center justify-between bg-white border border-border rounded-md px-3 py-2"
                     onClick={() => setSelectedFloatingIds([task.id])}
                   >
-                    <div>
-                      <p className="text-sm font-medium">{task.title}</p>
-                      <p className="text-xs text-slate-500">{task.status}</p>
+                    <div className="flex-1 space-y-1">
+                      <input
+                        className="w-full text-sm font-medium bg-transparent border border-transparent focus:border-border rounded px-1 -ml-1"
+                        value={task.title}
+                        onChange={(event) => updateFloatingTask(user.uid, task.id, { title: event.target.value })}
+                      />
+                      <select
+                        className="text-xs border border-border rounded-md px-2 py-1"
+                        value={task.status}
+                        onChange={(event) =>
+                          updateFloatingTask(user.uid, task.id, { status: event.target.value as Status })
+                        }
+                      >
+                        {STATUSES.map((status) => (
+                          <option key={status} value={status}>
+                            {status}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div className="flex items-center gap-2">
                       <select

@@ -12,7 +12,7 @@ body {
 }
 
 .finder-column {
-  @apply bg-panel border border-border rounded-lg overflow-hidden flex flex-col flex-1 min-w-[220px];
+  @apply bg-panel border border-border rounded-lg overflow-hidden flex flex-col flex-[0_0_25%] min-w-[220px];
 }
 
 .finder-detail {
@@ -28,8 +28,7 @@ body {
 }
 
 .finder-row {
-  @apply px-3 py-2 text-sm flex items-center justify-between gap-2 cursor-pointer text-left;
-  background-color: #f5f0e3;
+  @apply px-3 py-2 text-sm flex items-center justify-between gap-2 cursor-pointer text-left bg-white border border-transparent;
 }
 
 .finder-actionbar {
@@ -37,7 +36,7 @@ body {
 }
 
 .finder-row[data-selected="true"] {
-  @apply bg-white;
+  @apply border-black;
 }
 
 .finder-row[data-active="true"] {
