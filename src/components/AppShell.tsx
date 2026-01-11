@@ -45,7 +45,7 @@ import {
   getYesterdayKey,
   toDate
 } from "@/lib/dates";
-import { getProgressLevel } from "@/lib/progress";
+import { getProgressLevel, getProgressStageLabel } from "@/lib/progress";
 import type { Case, Comment, Event, FloatingTask, Item, MyDaySelection, Status } from "@/lib/types";
 import { STATUSES } from "@/lib/types";
 
@@ -1490,7 +1490,7 @@ export default function AppShell() {
                           <p className="text-sm font-medium">{task.title}</p>
                           <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
                             <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">
-                              Niveau {task.progressLevel}
+                              {getProgressStageLabel(task.progressLevel)}
                             </span>
                             <span>Dernière évolution: {formatDateFR(task.lastProgressDate)}</span>
                           </div>
