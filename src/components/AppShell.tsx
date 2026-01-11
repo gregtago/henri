@@ -307,7 +307,7 @@ export default function AppShell() {
   });
   const showDetailColumn = Boolean(detailTarget && (detailCase || detailItem));
   const showCasesColumn = true;
-  const showItemsColumn = Boolean(selectedCase) && detailTarget?.type !== "case";
+  const showItemsColumn = Boolean(selectedCase);
   const showSubItemsColumn = Boolean(selectedItem && subItems.length > 0) && detailTarget?.type !== "case";
 
   useEffect(() => {
@@ -428,7 +428,7 @@ export default function AppShell() {
     setSelectedItemIds([]);
     setSelectedSubItemIds([]);
     setActiveColumn("cases");
-    setDetailTarget(null);
+    setDetailTarget({ type: "case", id });
     if (options?.range) {
       setSelectedCaseIds(selectRange(sortedCases.map((entry) => entry.id), lastCaseId, id));
     } else if (options?.multi) {
@@ -439,16 +439,12 @@ export default function AppShell() {
     setLastCaseId(id);
   };
 
-  const handleSelectItem = (id: string, options?: { multi?: boolean; range?: boolean; openDetail?: boolean }) => {
+  const handleSelectItem = (id: string, options?: { multi?: boolean; range?: boolean }) => {
     setSelectedItemId(id);
     setSelectedSubItemId(null);
     setSelectedSubItemIds([]);
     setActiveColumn("items");
-    if (options?.openDetail) {
-      setDetailTarget({ type: "item", id });
-    } else {
-      setDetailTarget(null);
-    }
+    setDetailTarget({ type: "item", id });
     if (options?.range) {
       setSelectedItemIds(selectRange(itemsColumnItems.map((entry) => entry.id), lastItemId, id));
     } else if (options?.multi) {
@@ -459,14 +455,10 @@ export default function AppShell() {
     setLastItemId(id);
   };
 
-  const handleSelectSubItem = (id: string, options?: { multi?: boolean; range?: boolean; openDetail?: boolean }) => {
+  const handleSelectSubItem = (id: string, options?: { multi?: boolean; range?: boolean }) => {
     setSelectedSubItemId(id);
     setActiveColumn("subitems");
-    if (options?.openDetail) {
-      setDetailTarget({ type: "item", id });
-    } else {
-      setDetailTarget(null);
-    }
+    setDetailTarget({ type: "item", id });
     if (options?.range) {
       setSelectedSubItemIds(selectRange(subItems.map((entry) => entry.id), lastSubItemId, id));
     } else if (options?.multi) {
@@ -477,20 +469,6 @@ export default function AppShell() {
       setSelectedSubItemIds([id]);
     }
     setLastSubItemId(id);
-  };
-
-  const handleOpenDetail = () => {
-    if (selectedSubItemId) {
-      setDetailTarget({ type: "item", id: selectedSubItemId });
-      return;
-    }
-    if (selectedItemId) {
-      setDetailTarget({ type: "item", id: selectedItemId });
-      return;
-    }
-    if (selectedCaseId) {
-      setDetailTarget({ type: "case", id: selectedCaseId });
-    }
   };
 
   const handleOpenReparent = useCallback(() => {
@@ -968,10 +946,6 @@ export default function AppShell() {
           handleCommentAdd("Commentaire rapide");
           showToast("Commentaire ajouté.");
         }
-        return;
-      }
-      if (event.key.toLowerCase() === "i") {
-        handleOpenDetail();
         return;
       }
       if (event.key === "Backspace" || event.key === "Delete") {
@@ -1465,8 +1439,7 @@ export default function AppShell() {
                           })
                         : handleSelectItem(entry.id, {
                             multi: event.metaKey || event.ctrlKey,
-                            range: event.shiftKey,
-                            openDetail: !(event.metaKey || event.ctrlKey || event.shiftKey)
+                            range: event.shiftKey
                           })
                     }
                   >
@@ -1550,8 +1523,7 @@ export default function AppShell() {
                         ? handleSelectSubItem(entry.id, { multi: true })
                         : handleSelectSubItem(entry.id, {
                             multi: event.metaKey || event.ctrlKey,
-                            range: event.shiftKey,
-                            openDetail: !(event.metaKey || event.ctrlKey || event.shiftKey)
+                            range: event.shiftKey
                           })
                     }
                   >
