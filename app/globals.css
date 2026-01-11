@@ -12,7 +12,11 @@ body {
 }
 
 .finder-column {
-  @apply bg-panel border border-border rounded-lg overflow-hidden flex flex-col min-w-[280px];
+  @apply bg-panel border border-border rounded-lg overflow-hidden flex flex-col w-[320px] max-w-[320px] min-w-[240px] max-sm:w-[260px] max-sm:min-w-[200px];
+}
+
+.finder-detail {
+  @apply bg-panel border border-border rounded-lg overflow-hidden flex flex-col flex-1 min-w-0;
 }
 
 .finder-header {
@@ -24,7 +28,11 @@ body {
 }
 
 .finder-row {
-  @apply px-3 py-2 text-sm flex items-center justify-between gap-2 cursor-pointer;
+  @apply px-3 py-2 text-sm flex items-center justify-between gap-2 cursor-pointer text-left;
+}
+
+.finder-actionbar {
+  @apply px-3 py-2 border-b border-border bg-white flex flex-wrap gap-2;
 }
 
 .finder-row[data-selected="true"] {

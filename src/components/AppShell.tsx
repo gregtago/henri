@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import {
   addMyDaySelection,
@@ -46,7 +48,19 @@ type PendingDelete = {
   message: string;
   action: () => Promise<void>;
   timeoutId: number;
+  expiresAt: number;
 };
+
+type DetailTarget =
+  | {
+      type: "case";
+      id: string;
+    }
+  | {
+      type: "item";
+      id: string;
+    }
+  | null;
 
 export default function AppShell() {
   const [user, setUser] = useState<User | null>(null);
@@ -57,25 +71,35 @@ export default function AppShell() {
   const [floatingTasks, setFloatingTasks] = useState<FloatingTask[]>([]);
   const [myDaySelections, setMyDaySelections] = useState<MyDaySelection[]>([]);
 
-  const [activeTab, setActiveTab] = useState<"finder" | "myday">("finder");
-
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [selectedSubItemId, setSelectedSubItemId] = useState<string | null>(null);
+  const [lastCaseId, setLastCaseId] = useState<string | null>(null);
+  const [lastItemId, setLastItemId] = useState<string | null>(null);
+  const [lastSubItemId, setLastSubItemId] = useState<string | null>(null);
 
   const [selectedCaseIds, setSelectedCaseIds] = useState<string[]>([]);
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [selectedSubItemIds, setSelectedSubItemIds] = useState<string[]>([]);
   const [selectedFloatingIds, setSelectedFloatingIds] = useState<string[]>([]);
+  const [selectionModeItems, setSelectionModeItems] = useState(false);
+  const [selectionModeSubItems, setSelectionModeSubItems] = useState(false);
 
   const [activeColumn, setActiveColumn] = useState<"cases" | "items" | "subitems" | "detail">("cases");
-  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [detailTarget, setDetailTarget] = useState<DetailTarget>(null);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [importMode, setImportMode] = useState<"model" | "history">("history");
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
   const toastTimeout = useRef<number | null>(null);
+  const [undoCountdown, setUndoCountdown] = useState(0);
+
+  const [caseSortKey, setCaseSortKey] = useState<"title" | "createdAt" | "legalDueDate">("title");
+  const [caseSortDirection, setCaseSortDirection] = useState<"asc" | "desc">("asc");
+
+  const pathname = usePathname();
+  const isMyDay = pathname === "/my-day";
 
   const todayKey = getTodayKey();
   const yesterdayKey = getYesterdayKey();
@@ -120,22 +144,57 @@ export default function AppShell() {
     };
   }, [toast]);
 
+  useEffect(() => {
+    if (!pendingDelete) {
+      setUndoCountdown(0);
+      return;
+    }
+    const updateCountdown = () => {
+      const remaining = Math.max(0, Math.ceil((pendingDelete.expiresAt - Date.now()) / 1000));
+      setUndoCountdown(remaining);
+    };
+    updateCountdown();
+    const intervalId = window.setInterval(updateCountdown, 500);
+    return () => window.clearInterval(intervalId);
+  }, [pendingDelete]);
+
+  const sortedCases = useMemo(() => {
+    const direction = caseSortDirection === "asc" ? 1 : -1;
+    return cases
+      .map((entry, index) => ({ entry, index }))
+      .sort((a, b) => {
+        if (caseSortKey === "title") {
+          const result = a.entry.title.localeCompare(b.entry.title, "fr");
+          return result !== 0 ? result * direction : a.index - b.index;
+        }
+        if (caseSortKey === "createdAt") {
+          const result = new Date(a.entry.createdAt).getTime() - new Date(b.entry.createdAt).getTime();
+          return result !== 0 ? result * direction : a.index - b.index;
+        }
+        const aDate = a.entry.legalDueDate ? new Date(a.entry.legalDueDate).getTime() : 0;
+        const bDate = b.entry.legalDueDate ? new Date(b.entry.legalDueDate).getTime() : 0;
+        const result = aDate - bDate;
+        return result !== 0 ? result * direction : a.index - b.index;
+      })
+      .map(({ entry }) => entry);
+  }, [cases, caseSortDirection, caseSortKey]);
+
   const selectedCase = cases.find((entry) => entry.id === selectedCaseId) || null;
   const caseItems = selectedCase ? getItemsByCase(items, selectedCase.id) : [];
   const selectedItem = items.find((entry) => entry.id === selectedItemId) || null;
   const subItems = selectedItem ? getSubItems(items, selectedItem.id) : [];
   const selectedSubItem = items.find((entry) => entry.id === selectedSubItemId) || null;
 
-  const detailItem = selectedSubItem || selectedItem;
-  const detailComments = detailItem
-    ? comments.filter((comment) => comment.itemId === detailItem.id)
-    : [];
+  const detailItem = detailTarget?.type === "item" ? items.find((entry) => entry.id === detailTarget.id) ?? null : null;
+  const detailCase = detailTarget?.type === "case" ? cases.find((entry) => entry.id === detailTarget.id) ?? null : null;
+  const detailComments = detailItem ? comments.filter((comment) => comment.itemId === detailItem.id) : [];
   const detailEvents = detailItem ? events.filter((event) => event.itemId === detailItem.id) : [];
   const reminderItems = items.filter((item) => item.dueDate && item.dueDate.slice(0, 10) <= todayKey);
-  const showDetailColumn = Boolean(detailItem && isDetailOpen);
-  const showSubItemsColumn = Boolean(selectedItem && subItems.length > 0);
-  const showCasesColumn = !showDetailColumn || (detailItem?.level === 2 && subItems.length === 0);
-  const showItemsColumn = Boolean(selectedCase || detailItem);
+  const showDetailColumn = Boolean(detailTarget && (detailCase || detailItem));
+  const showCasesColumn = true;
+  const showItemsColumn = Boolean(selectedCase) && detailTarget?.type !== "case";
+  const showSubItemsColumn =
+    Boolean(selectedItem && (subItems.length > 0 || selectedSubItemId)) && detailTarget?.type !== "case";
 
   const myDayEntries = myDaySelections.filter((entry) => entry.dateKey === todayKey);
   const myDayItems = myDayEntries
@@ -162,48 +221,87 @@ export default function AppShell() {
     };
   }, [items, myDaySelections, floatingTasks, todayKey, yesterdayKey]);
 
+  const selectRange = (ids: string[], startId: string | null, endId: string) => {
+    if (!startId) return [endId];
+    const startIndex = ids.indexOf(startId);
+    const endIndex = ids.indexOf(endId);
+    if (startIndex === -1 || endIndex === -1) return [endId];
+    const [from, to] = startIndex < endIndex ? [startIndex, endIndex] : [endIndex, startIndex];
+    return ids.slice(from, to + 1);
+  };
+
   const handleSelectCase = (id: string, options?: { multi?: boolean; range?: boolean }) => {
     setSelectedCaseId(id);
     setSelectedItemId(null);
     setSelectedSubItemId(null);
+    setSelectedItemIds([]);
+    setSelectedSubItemIds([]);
     setActiveColumn("items");
-    setIsDetailOpen(false);
-    if (options?.multi) {
+    setDetailTarget(null);
+    if (options?.range) {
+      setSelectedCaseIds(selectRange(sortedCases.map((entry) => entry.id), lastCaseId, id));
+    } else if (options?.multi) {
       setSelectedCaseIds((prev) => (prev.includes(id) ? prev.filter((entry) => entry !== id) : [...prev, id]));
     } else {
       setSelectedCaseIds([id]);
     }
+    setLastCaseId(id);
   };
 
-  const handleSelectItem = (id: string, options?: { multi?: boolean }) => {
+  const handleSelectItem = (id: string, options?: { multi?: boolean; range?: boolean; openDetail?: boolean }) => {
     setSelectedItemId(id);
     setSelectedSubItemId(null);
-    setActiveColumn("items");
-    setIsDetailOpen(false);
-    if (options?.multi) {
+    setSelectedSubItemIds([]);
+    setActiveColumn(options?.openDetail ? "detail" : "items");
+    if (options?.openDetail) {
+      setDetailTarget({ type: "item", id });
+    } else {
+      setDetailTarget(null);
+    }
+    if (options?.range) {
+      setSelectedItemIds(selectRange(caseItems.map((entry) => entry.id), lastItemId, id));
+    } else if (options?.multi) {
       setSelectedItemIds((prev) => (prev.includes(id) ? prev.filter((entry) => entry !== id) : [...prev, id]));
     } else {
       setSelectedItemIds([id]);
     }
+    setLastItemId(id);
   };
 
-  const handleSelectSubItem = (id: string, options?: { multi?: boolean }) => {
+  const handleSelectSubItem = (id: string, options?: { multi?: boolean; range?: boolean; openDetail?: boolean }) => {
     setSelectedSubItemId(id);
-    setActiveColumn("subitems");
-    setIsDetailOpen(false);
-    if (options?.multi) {
+    setActiveColumn(options?.openDetail ? "detail" : "subitems");
+    if (options?.openDetail) {
+      setDetailTarget({ type: "item", id });
+    } else {
+      setDetailTarget(null);
+    }
+    if (options?.range) {
+      setSelectedSubItemIds(selectRange(subItems.map((entry) => entry.id), lastSubItemId, id));
+    } else if (options?.multi) {
       setSelectedSubItemIds((prev) =>
         prev.includes(id) ? prev.filter((entry) => entry !== id) : [...prev, id]
       );
     } else {
       setSelectedSubItemIds([id]);
     }
+    setLastSubItemId(id);
   };
 
   const handleOpenDetail = () => {
-    if (selectedItemId || selectedSubItemId) {
+    if (selectedSubItemId) {
+      setDetailTarget({ type: "item", id: selectedSubItemId });
       setActiveColumn("detail");
-      setIsDetailOpen(true);
+      return;
+    }
+    if (selectedItemId) {
+      setDetailTarget({ type: "item", id: selectedItemId });
+      setActiveColumn("detail");
+      return;
+    }
+    if (selectedCaseId) {
+      setDetailTarget({ type: "case", id: selectedCaseId });
+      setActiveColumn("detail");
     }
   };
 
@@ -213,11 +311,12 @@ export default function AppShell() {
     if (pendingDelete?.timeoutId) {
       window.clearTimeout(pendingDelete.timeoutId);
     }
+    const expiresAt = Date.now() + 15000;
     const timeoutId = window.setTimeout(async () => {
       await action();
       setPendingDelete(null);
-    }, 3500);
-    setPendingDelete({ message, action, timeoutId });
+    }, 15000);
+    setPendingDelete({ message, action, timeoutId, expiresAt });
   };
 
   const handleUndoDelete = () => {
@@ -229,7 +328,7 @@ export default function AppShell() {
 
   const handleDelete = async () => {
     if (!user) return;
-    if (activeTab === "myday") {
+    if (isMyDay) {
       if (selectedFloatingIds.length > 0) {
         scheduleDelete(`Supprimer ${selectedFloatingIds.length} tâche(s) volante(s).`, async () => {
           await deleteFloatingTasks(user.uid, selectedFloatingIds);
@@ -242,6 +341,27 @@ export default function AppShell() {
       scheduleDelete(`Supprimer ${selectedCaseIds.length} dossier(s) et leurs tâches.`, async () => {
         await Promise.all(selectedCaseIds.map((id) => deleteCaseCascade(user.uid, id, items)));
         setSelectedCaseIds([]);
+      });
+      return;
+    }
+    if (activeColumn === "detail" && detailTarget) {
+      if (detailTarget.type === "case") {
+        scheduleDelete("Supprimer le dossier et ses tâches.", async () => {
+          await deleteCaseCascade(user.uid, detailTarget.id, items);
+          setSelectedCaseIds([]);
+          setSelectedCaseId(null);
+          setDetailTarget(null);
+        });
+        return;
+      }
+      const ids = [detailTarget.id];
+      const subCount = items.filter((item) => item.parentItemId && ids.includes(item.parentItemId)).length;
+      const label = subCount > 0 ? `Supprimer 1 tâche et ${subCount} sous-tâche(s).` : "Supprimer la tâche.";
+      scheduleDelete(label, async () => {
+        await deleteItemsCascade(user.uid, ids, items);
+        setSelectedItemIds([]);
+        setSelectedSubItemIds([]);
+        setDetailTarget(null);
       });
       return;
     }
@@ -260,7 +380,7 @@ export default function AppShell() {
 
   const handleNew = async () => {
     if (!user) return;
-    if (activeTab === "myday") {
+    if (isMyDay) {
       await createFloatingTask(user.uid, {
         dateKey: todayKey,
         title: "Nouvelle tâche volante",
@@ -268,11 +388,14 @@ export default function AppShell() {
       });
       return;
     }
-    if (activeColumn === "cases") {
-      await createCase(user.uid, { title: "Nouveau dossier", legalDueDate: null });
+    if (!selectedCaseId) {
+      const id = await createCase(user.uid, { title: "Nouveau dossier", legalDueDate: null, caseNote: "" });
+      setSelectedCaseId(id);
+      setSelectedCaseIds([id]);
+      setActiveColumn("items");
       return;
     }
-    if (activeColumn === "items" && selectedCaseId) {
+    if (!selectedItemId) {
       const id = await createItem(user.uid, {
         caseId: selectedCaseId,
         level: 2,
@@ -281,23 +404,46 @@ export default function AppShell() {
         parentItemId: null
       });
       setSelectedItemId(id);
+      setSelectedItemIds([id]);
+      setDetailTarget({ type: "item", id });
+      setActiveColumn("detail");
       return;
     }
-    if (activeColumn === "subitems" && selectedItemId && selectedCaseId) {
-      const id = await createItem(user.uid, {
-        caseId: selectedCaseId,
-        parentItemId: selectedItemId,
-        level: 3,
-        title: "Nouvelle sous-tâche",
-        status: "À faire"
-      });
-      setSelectedSubItemId(id);
-    }
+    const parentItemId = selectedSubItem?.parentItemId ?? selectedItemId;
+    const id = await createItem(user.uid, {
+      caseId: selectedCaseId,
+      parentItemId,
+      level: 3,
+      title: "Nouvelle sous-tâche",
+      status: "À faire"
+    });
+    setSelectedSubItemId(id);
+    setSelectedSubItemIds([id]);
+    setDetailTarget({ type: "item", id });
+    setActiveColumn("detail");
   };
 
   const handleAddToMyDay = async () => {
     if (!user) return;
-    if (activeColumn === "cases" && selectedCaseId) {
+    if (detailTarget?.type === "case") {
+      await addMyDaySelection(user.uid, {
+        dateKey: todayKey,
+        refType: "case",
+        refId: detailTarget.id
+      });
+      showToast("Ajouté à Ma journée.");
+      return;
+    }
+    if (detailTarget?.type === "item" && detailItem) {
+      await addMyDaySelection(user.uid, {
+        dateKey: todayKey,
+        refType: detailItem.level === 2 ? "item" : "subitem",
+        refId: detailItem.id
+      });
+      showToast("Ajouté à Ma journée.");
+      return;
+    }
+    if (selectedCaseId && activeColumn === "cases") {
       await addMyDaySelection(user.uid, {
         dateKey: todayKey,
         refType: "case",
@@ -305,11 +451,19 @@ export default function AppShell() {
       });
       showToast("Ajouté à Ma journée.");
     }
-    if ((activeColumn === "items" || activeColumn === "subitems") && detailItem) {
+    if (activeColumn === "items" && selectedItemId) {
       await addMyDaySelection(user.uid, {
         dateKey: todayKey,
-        refType: detailItem.level === 2 ? "item" : "subitem",
-        refId: detailItem.id
+        refType: "item",
+        refId: selectedItemId
+      });
+      showToast("Ajouté à Ma journée.");
+    }
+    if (activeColumn === "subitems" && selectedSubItemId) {
+      await addMyDaySelection(user.uid, {
+        dateKey: todayKey,
+        refType: "subitem",
+        refId: selectedSubItemId
       });
       showToast("Ajouté à Ma journée.");
     }
@@ -334,19 +488,20 @@ export default function AppShell() {
       if (event.key === "ArrowLeft") {
         event.preventDefault();
         if (activeColumn === "detail") {
-          if (selectedSubItemId && subItems.length > 0) {
+          if (detailTarget?.type === "case") {
+            setActiveColumn("cases");
+          } else if (selectedSubItemId && subItems.length > 0) {
             setActiveColumn("subitems");
-            setIsDetailOpen(false);
           } else {
             setActiveColumn("items");
-            setIsDetailOpen(false);
           }
+          setDetailTarget(null);
         } else if (activeColumn === "subitems") {
           setActiveColumn("items");
-          setIsDetailOpen(false);
+          setDetailTarget(null);
         } else if (activeColumn === "items") {
           setActiveColumn("cases");
-          setIsDetailOpen(false);
+          setDetailTarget(null);
         }
         return;
       }
@@ -358,12 +513,12 @@ export default function AppShell() {
           if (subItems.length > 0) {
             setActiveColumn("subitems");
           } else {
+            setDetailTarget({ type: "item", id: selectedItemId });
             setActiveColumn("detail");
-            setIsDetailOpen(true);
           }
         } else if (activeColumn === "subitems" && selectedSubItemId) {
+          setDetailTarget({ type: "item", id: selectedSubItemId });
           setActiveColumn("detail");
-          setIsDetailOpen(true);
         }
         return;
       }
@@ -371,7 +526,7 @@ export default function AppShell() {
         event.preventDefault();
         const direction = event.key === "ArrowUp" ? -1 : 1;
         if (activeColumn === "cases") {
-          const ids = cases.map((entry) => entry.id);
+          const ids = sortedCases.map((entry) => entry.id);
           if (ids.length === 0) return;
           const index = Math.max(0, ids.indexOf(selectedCaseId ?? ids[0]) + direction);
           const nextId = ids[index];
@@ -408,9 +563,14 @@ export default function AppShell() {
         return;
       }
       if (event.key === "Escape") {
-        setActiveColumn("items");
-        setSelectedSubItemId(null);
-        setIsDetailOpen(false);
+        if (detailTarget?.type === "case") {
+          setActiveColumn("cases");
+        } else if (selectedSubItemId && subItems.length > 0) {
+          setActiveColumn("subitems");
+        } else {
+          setActiveColumn("items");
+        }
+        setDetailTarget(null);
         return;
       }
       if (event.key.toLowerCase() === "n") {
@@ -428,7 +588,7 @@ export default function AppShell() {
         }
         return;
       }
-      if (event.key === "Enter") {
+      if (event.key.toLowerCase() === "i") {
         handleOpenDetail();
         return;
       }
@@ -456,13 +616,14 @@ export default function AppShell() {
     },
     [
       activeColumn,
-      cases,
       caseItems,
       subItems,
       selectedCaseId,
       selectedItemId,
       selectedSubItemId,
       detailItem,
+      detailTarget,
+      sortedCases,
       handleAddToMyDay,
       handleDelete,
       handleNew,
@@ -475,14 +636,13 @@ export default function AppShell() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
-  const handleExport = async () => {
-    if (!selectedCase) return;
-    const json = exportCaseToJson(selectedCase, items);
+  const handleExport = async (caseData: Case) => {
+    const json = exportCaseToJson(caseData, items);
     const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${selectedCase.title}.json`;
+    link.download = `${caseData.title}.json`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -496,6 +656,16 @@ export default function AppShell() {
     } catch (err) {
       showToast((err as Error).message);
     }
+  };
+
+  const handleDeleteCase = async (caseId: string) => {
+    if (!user) return;
+    scheduleDelete("Supprimer le dossier et ses tâches.", async () => {
+      await deleteCaseCascade(user.uid, caseId, items);
+      setSelectedCaseIds([]);
+      setSelectedCaseId(null);
+      setDetailTarget(null);
+    });
   };
 
   const handleAttachFloating = async (task: FloatingTask, caseId: string) => {
@@ -532,24 +702,26 @@ export default function AppShell() {
       <header className="sticky top-0 bg-white border-b border-border z-10">
         <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-3">
           <div className="flex items-center gap-4">
-            <h1 className="text-lg font-semibold">Henri</h1>
+            <Link href="/" className="text-lg font-semibold tracking-wide">
+              HENRI
+            </Link>
             <nav className="flex gap-2">
-              <button
+              <Link
                 className={`px-3 py-1 text-sm rounded-md ${
-                  activeTab === "finder" ? "bg-slate-900 text-white" : "bg-slate-100"
+                  isMyDay ? "bg-slate-100 text-slate-700" : "bg-slate-900 text-white"
                 }`}
-                onClick={() => setActiveTab("finder")}
+                href="/"
               >
-                Finder
-              </button>
-              <button
+                Vue colonnes
+              </Link>
+              <Link
                 className={`px-3 py-1 text-sm rounded-md ${
-                  activeTab === "myday" ? "bg-slate-900 text-white" : "bg-slate-100"
+                  isMyDay ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"
                 }`}
-                onClick={() => setActiveTab("myday")}
+                href="/my-day"
               >
                 Ma journée
-              </button>
+              </Link>
             </nav>
           </div>
           <div className="flex items-center gap-3 text-xs text-slate-500">
@@ -561,7 +733,7 @@ export default function AppShell() {
         </div>
       </header>
 
-      {activeTab === "finder" ? (
+      {!isMyDay ? (
         <main className="max-w-7xl mx-auto px-6 py-6 space-y-4">
           {reminderItems.length > 0 ? (
             <section className="bg-panel border border-border rounded-lg px-4 py-3 text-sm flex items-center justify-between">
@@ -585,71 +757,64 @@ export default function AppShell() {
               </button>
             </section>
           ) : null}
-          <section className="flex gap-4">
+          <section className="flex gap-4 items-stretch">
           {showCasesColumn ? (
           <section className="finder-column">
-            <div className="finder-header flex items-center justify-between">
+            <div className="finder-header flex items-center justify-between gap-2">
               <span>Dossiers</span>
-              <div className="flex gap-2">
-                <button className="text-xs" onClick={handleExport}>
-                  Export
-                </button>
+              <div className="flex items-center gap-2">
                 <select
                   className="text-xs border border-border rounded-md px-1 py-0.5"
-                  value={importMode}
-                  onChange={(event) => setImportMode(event.target.value as "model" | "history")}
+                  value={caseSortKey}
+                  onChange={(event) => setCaseSortKey(event.target.value as "title" | "createdAt" | "legalDueDate")}
                 >
-                  <option value="history">Import historique</option>
-                  <option value="model">Import modèle</option>
+                  <option value="title">Nom</option>
+                  <option value="createdAt">Ancienneté</option>
+                  <option value="legalDueDate">Échéance</option>
                 </select>
-                <label className="text-xs cursor-pointer">
-                  Importer
-                  <input
-                    type="file"
-                    accept="application/json"
-                    className="hidden"
-                    onChange={(event) => handleImport(event.target.files?.[0] ?? null, importMode)}
-                  />
-                </label>
+                <button
+                  className="text-xs border border-border rounded-md px-2 py-0.5"
+                  onClick={() => setCaseSortDirection((prev) => (prev === "asc" ? "desc" : "asc"))}
+                >
+                  {caseSortDirection === "asc" ? "Asc" : "Desc"}
+                </button>
               </div>
             </div>
-            {selectedCase ? (
-              <div className="px-3 py-2 border-b border-border bg-white space-y-2">
-                <input
-                  className="w-full border border-border rounded-md px-2 py-1 text-sm"
-                  value={selectedCase.title}
-                  onChange={(event) => updateCase(user.uid, selectedCase.id, { title: event.target.value })}
-                />
-                <input
-                  type="date"
-                  className="w-full border border-border rounded-md px-2 py-1 text-sm"
-                  value={selectedCase.legalDueDate?.slice(0, 10) ?? ""}
-                  onChange={(event) =>
-                    updateCase(user.uid, selectedCase.id, {
-                      legalDueDate: event.target.value ? new Date(event.target.value).toISOString() : null
-                    })
-                  }
-                />
-              </div>
-            ) : null}
             <div className="finder-list">
-              {cases.map((entry) => (
+              {sortedCases.map((entry) => (
                 <div
                   key={entry.id}
                   className="finder-row"
                   data-selected={selectedCaseIds.includes(entry.id)}
                   data-active={selectedCaseId === entry.id}
                   onClick={(event) =>
-                    handleSelectCase(entry.id, { multi: event.metaKey || event.ctrlKey })
+                    handleSelectCase(entry.id, {
+                      multi: event.metaKey || event.ctrlKey,
+                      range: event.shiftKey
+                    })
                   }
                 >
-                  <div>
+                  <div className="flex-1">
                     <p className="font-medium">{entry.title}</p>
                     <p className="text-xs text-slate-500">
                       Échéance juridique: {entry.legalDueDate?.slice(0, 10) ?? "-"}
                     </p>
                   </div>
-                  <span className="text-xs text-slate-500">{entry.type}</span>
+                  <div className="flex flex-col items-end gap-1">
+                    {selectedCaseId === entry.id ? (
+                      <button
+                        className="text-[11px] text-slate-600 underline"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setDetailTarget({ type: "case", id: entry.id });
+                          setActiveColumn("detail");
+                        }}
+                      >
+                        Infos
+                      </button>
+                    ) : null}
+                    <span className="text-xs text-slate-500">{entry.type}</span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -658,7 +823,48 @@ export default function AppShell() {
 
           {showItemsColumn ? (
             <section className="finder-column">
-              <div className="finder-header">Tâches</div>
+              <div className="finder-header flex items-center justify-between">
+                <span>Tâches</span>
+                <button
+                  className="text-xs border border-border rounded-md px-2 py-0.5"
+                  onClick={() => {
+                    setSelectionModeItems((prev) => !prev);
+                    setSelectedItemIds([]);
+                  }}
+                >
+                  {selectionModeItems ? "Annuler" : "Sélection"}
+                </button>
+              </div>
+              {selectionModeItems ? (
+                <div className="finder-actionbar">
+                  <button className="text-xs border border-border rounded-md px-2 py-1" onClick={handleDelete}>
+                    Supprimer
+                  </button>
+                  <button
+                    className="text-xs border border-border rounded-md px-2 py-1"
+                    onClick={async () => {
+                      if (!user || selectedItemIds.length === 0) return;
+                      await Promise.all(
+                        selectedItemIds.map((id) =>
+                          addMyDaySelection(user.uid, { dateKey: todayKey, refType: "item", refId: id })
+                        )
+                      );
+                      showToast("Ajouté à Ma journée.");
+                    }}
+                  >
+                    Ajouter à Ma journée
+                  </button>
+                  <button
+                    className="text-xs text-slate-500"
+                    onClick={() => {
+                      setSelectedItemIds([]);
+                      setSelectionModeItems(false);
+                    }}
+                  >
+                    Annuler sélection
+                  </button>
+                </div>
+              ) : null}
               <div className="finder-list">
                 {caseItems.map((entry) => (
                   <div
@@ -667,15 +873,33 @@ export default function AppShell() {
                     data-selected={selectedItemIds.includes(entry.id)}
                     data-active={selectedItemId === entry.id}
                     onClick={(event) =>
-                      handleSelectItem(entry.id, { multi: event.metaKey || event.ctrlKey })
+                      selectionModeItems
+                        ? handleSelectItem(entry.id, {
+                            multi: true
+                          })
+                        : handleSelectItem(entry.id, {
+                            multi: event.metaKey || event.ctrlKey,
+                            range: event.shiftKey,
+                            openDetail: !(event.metaKey || event.ctrlKey || event.shiftKey)
+                          })
                     }
-                    onDoubleClick={handleOpenDetail}
                   >
-                    <div>
-                      <p className="font-medium">{entry.title}</p>
-                      <p className="text-xs text-slate-500">
-                        {entry.status} {entry.dueDate ? `• échéance ${entry.dueDate.slice(0, 10)}` : ""}
-                      </p>
+                    <div className="flex items-center gap-2 flex-1">
+                      {selectionModeItems ? (
+                        <input
+                          type="checkbox"
+                          checked={selectedItemIds.includes(entry.id)}
+                          onChange={() => handleSelectItem(entry.id, { multi: true })}
+                          onClick={(event) => event.stopPropagation()}
+                          className="h-4 w-4"
+                        />
+                      ) : null}
+                      <div className="flex-1">
+                        <p className="font-medium">{entry.title}</p>
+                        <p className="text-xs text-slate-500">
+                          {entry.status} {entry.dueDate ? `• échéance ${entry.dueDate.slice(0, 10)}` : ""}
+                        </p>
+                      </div>
                     </div>
                     <span className="text-xs text-slate-500">N2</span>
                   </div>
@@ -686,7 +910,48 @@ export default function AppShell() {
 
           {showSubItemsColumn ? (
             <section className="finder-column">
-              <div className="finder-header">Sous-tâches</div>
+              <div className="finder-header flex items-center justify-between">
+                <span>Sous-tâches</span>
+                <button
+                  className="text-xs border border-border rounded-md px-2 py-0.5"
+                  onClick={() => {
+                    setSelectionModeSubItems((prev) => !prev);
+                    setSelectedSubItemIds([]);
+                  }}
+                >
+                  {selectionModeSubItems ? "Annuler" : "Sélection"}
+                </button>
+              </div>
+              {selectionModeSubItems ? (
+                <div className="finder-actionbar">
+                  <button className="text-xs border border-border rounded-md px-2 py-1" onClick={handleDelete}>
+                    Supprimer
+                  </button>
+                  <button
+                    className="text-xs border border-border rounded-md px-2 py-1"
+                    onClick={async () => {
+                      if (!user || selectedSubItemIds.length === 0) return;
+                      await Promise.all(
+                        selectedSubItemIds.map((id) =>
+                          addMyDaySelection(user.uid, { dateKey: todayKey, refType: "subitem", refId: id })
+                        )
+                      );
+                      showToast("Ajouté à Ma journée.");
+                    }}
+                  >
+                    Ajouter à Ma journée
+                  </button>
+                  <button
+                    className="text-xs text-slate-500"
+                    onClick={() => {
+                      setSelectedSubItemIds([]);
+                      setSelectionModeSubItems(false);
+                    }}
+                  >
+                    Annuler sélection
+                  </button>
+                </div>
+              ) : null}
               <div className="finder-list">
                 {subItems.map((entry) => (
                   <div
@@ -695,13 +960,29 @@ export default function AppShell() {
                     data-selected={selectedSubItemIds.includes(entry.id)}
                     data-active={selectedSubItemId === entry.id}
                     onClick={(event) =>
-                      handleSelectSubItem(entry.id, { multi: event.metaKey || event.ctrlKey })
+                      selectionModeSubItems
+                        ? handleSelectSubItem(entry.id, { multi: true })
+                        : handleSelectSubItem(entry.id, {
+                            multi: event.metaKey || event.ctrlKey,
+                            range: event.shiftKey,
+                            openDetail: !(event.metaKey || event.ctrlKey || event.shiftKey)
+                          })
                     }
-                    onDoubleClick={handleOpenDetail}
                   >
-                    <div>
-                      <p className="font-medium">{entry.title}</p>
-                      <p className="text-xs text-slate-500">{entry.status}</p>
+                    <div className="flex items-center gap-2 flex-1">
+                      {selectionModeSubItems ? (
+                        <input
+                          type="checkbox"
+                          checked={selectedSubItemIds.includes(entry.id)}
+                          onChange={() => handleSelectSubItem(entry.id, { multi: true })}
+                          onClick={(event) => event.stopPropagation()}
+                          className="h-4 w-4"
+                        />
+                      ) : null}
+                      <div className="flex-1">
+                        <p className="font-medium">{entry.title}</p>
+                        <p className="text-xs text-slate-500">{entry.status}</p>
+                      </div>
                     </div>
                     <span className="text-xs text-slate-500">N3</span>
                   </div>
@@ -710,99 +991,176 @@ export default function AppShell() {
             </section>
           ) : null}
 
-          {showDetailColumn && detailItem ? (
-            <section className="finder-column max-w-[360px]">
+          {showDetailColumn && (detailItem || detailCase) ? (
+            <section className="finder-detail">
               <div className="finder-header">Détail</div>
-              <div className="p-3 space-y-4 text-sm">
-                <div>
-                  <input
-                    className="w-full border border-border rounded-md px-2 py-1 text-sm"
-                    value={detailItem.title}
-                    onChange={(event) =>
-                      updateItem(user.uid, detailItem.id, { title: event.target.value })
-                    }
-                  />
-                  <p className="text-xs text-slate-500 mt-1">Statut actuel: {detailItem.status}</p>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {STATUSES.map((status, index) => (
-                    <button
-                      key={status}
-                      className={`text-xs rounded-md border px-2 py-1 ${
-                        detailItem.status === status ? "bg-slate-900 text-white" : "bg-white"
-                      }`}
-                      onClick={() => handleStatusChange(status)}
-                    >
-                      {index + 1}. {status}
-                    </button>
-                  ))}
-                </div>
-                <div>
-                  <label className="text-xs text-slate-500">Échéance opérationnelle</label>
-                  <input
-                    type="date"
-                    className="w-full border border-border rounded-md px-2 py-1 text-sm"
-                    value={detailItem.dueDate?.slice(0, 10) ?? ""}
-                    onChange={(event) =>
-                      updateItem(user.uid, detailItem.id, {
-                        dueDate: event.target.value ? new Date(event.target.value).toISOString() : null
-                      })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-slate-500">Commentaires</label>
+              {detailCase ? (
+                <div className="p-3 space-y-4 text-sm">
                   <div className="space-y-2">
-                    {detailComments.map((comment) => (
-                      <div key={comment.id} className="text-xs bg-white border border-border rounded-md p-2">
-                        <p>{comment.body}</p>
-                        <p className="text-[10px] text-slate-400">{comment.createdAt}</p>
-                      </div>
-                    ))}
-                  </div>
-                  <textarea
-                    className="w-full border border-border rounded-md px-2 py-1 text-sm mt-2"
-                    rows={2}
-                    placeholder="Ajouter un commentaire"
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" && !event.shiftKey) {
-                        event.preventDefault();
-                        const target = event.target as HTMLTextAreaElement;
-                        if (target.value.trim()) {
-                          handleCommentAdd(target.value.trim());
-                          target.value = "";
-                        }
+                    <label className="text-xs text-slate-500">Titre du dossier</label>
+                    <input
+                      className="w-full border border-border rounded-md px-2 py-1 text-sm"
+                      value={detailCase.title}
+                      onChange={(event) =>
+                        updateCase(user.uid, detailCase.id, { title: event.target.value })
                       }
-                    }}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-slate-500">Timeline</label>
-                  <div className="space-y-2">
-                    {detailEvents.map((eventEntry) => (
-                      <div key={eventEntry.id} className="text-xs border border-border rounded-md p-2 bg-white">
-                        <p>{eventEntry.type}</p>
-                        <p className="text-[10px] text-slate-400">{eventEntry.createdAt}</p>
-                      </div>
-                    ))}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-500">Échéance juridique</label>
+                    <input
+                      type="date"
+                      className="w-full border border-border rounded-md px-2 py-1 text-sm"
+                      value={detailCase.legalDueDate?.slice(0, 10) ?? ""}
+                      onChange={(event) =>
+                        updateCase(user.uid, detailCase.id, {
+                          legalDueDate: event.target.value ? new Date(event.target.value).toISOString() : null
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-500">Note dossier</label>
+                    <textarea
+                      className="w-full border border-border rounded-md px-2 py-1 text-sm"
+                      rows={4}
+                      value={detailCase.caseNote ?? ""}
+                      onChange={(event) => updateCase(user.uid, detailCase.id, { caseNote: event.target.value })}
+                      placeholder="Ajouter une note globale"
+                    />
+                  </div>
+                  <div className="border border-border rounded-md p-3 bg-white space-y-2">
+                    <p className="text-xs text-slate-500">Actions dossier</p>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        className="text-xs border border-border rounded-md px-2 py-1"
+                        onClick={() => handleExport(detailCase)}
+                      >
+                        Exporter
+                      </button>
+                      <select
+                        className="text-xs border border-border rounded-md px-2 py-1"
+                        value={importMode}
+                        onChange={(event) => setImportMode(event.target.value as "model" | "history")}
+                      >
+                        <option value="history">Import historique</option>
+                        <option value="model">Import modèle</option>
+                      </select>
+                      <label className="text-xs border border-border rounded-md px-2 py-1 cursor-pointer">
+                        Importer
+                        <input
+                          type="file"
+                          accept="application/json"
+                          className="hidden"
+                          onChange={(event) => handleImport(event.target.files?.[0] ?? null, importMode)}
+                        />
+                      </label>
+                      <button
+                        className="text-xs border border-red-200 text-red-600 rounded-md px-2 py-1"
+                        onClick={() => {
+                          if (window.confirm("Supprimer ce dossier et toutes ses tâches ?")) {
+                            handleDeleteCase(detailCase.id);
+                          }
+                        }}
+                      >
+                        Supprimer le dossier
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-2 text-xs text-slate-500">
-                  <span>Raccourcis:</span>
-                  <span>
-                    <kbd>N</kbd> nouveau
-                  </span>
-                  <span>
-                    <kbd>A</kbd> Ma journée
-                  </span>
-                  <span>
-                    <kbd>Del</kbd> supprimer
-                  </span>
-                  <span>
-                    <kbd>1-6</kbd> statut
-                  </span>
+              ) : null}
+              {detailItem ? (
+                <div className="p-3 space-y-4 text-sm">
+                  <div>
+                    <input
+                      className="w-full border border-border rounded-md px-2 py-1 text-sm"
+                      value={detailItem.title}
+                      onChange={(event) =>
+                        updateItem(user.uid, detailItem.id, { title: event.target.value })
+                      }
+                    />
+                    <p className="text-xs text-slate-500 mt-1">Statut actuel: {detailItem.status}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {STATUSES.map((status, index) => (
+                      <button
+                        key={status}
+                        className={`text-xs rounded-md border px-2 py-1 ${
+                          detailItem.status === status ? "bg-slate-900 text-white" : "bg-white"
+                        }`}
+                        onClick={() => handleStatusChange(status)}
+                      >
+                        {index + 1}. {status}
+                      </button>
+                    ))}
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-500">Échéance opérationnelle</label>
+                    <input
+                      type="date"
+                      className="w-full border border-border rounded-md px-2 py-1 text-sm"
+                      value={detailItem.dueDate?.slice(0, 10) ?? ""}
+                      onChange={(event) =>
+                        updateItem(user.uid, detailItem.id, {
+                          dueDate: event.target.value ? new Date(event.target.value).toISOString() : null
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-500">Commentaires</label>
+                    <div className="space-y-2">
+                      {detailComments.map((comment) => (
+                        <div key={comment.id} className="text-xs bg-white border border-border rounded-md p-2">
+                          <p>{comment.body}</p>
+                          <p className="text-[10px] text-slate-400">{comment.createdAt}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <textarea
+                      className="w-full border border-border rounded-md px-2 py-1 text-sm mt-2"
+                      rows={2}
+                      placeholder="Ajouter un commentaire"
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" && !event.shiftKey) {
+                          event.preventDefault();
+                          const target = event.target as HTMLTextAreaElement;
+                          if (target.value.trim()) {
+                            handleCommentAdd(target.value.trim());
+                            target.value = "";
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-500">Timeline</label>
+                    <div className="space-y-2">
+                      {detailEvents.map((eventEntry) => (
+                        <div key={eventEntry.id} className="text-xs border border-border rounded-md p-2 bg-white">
+                          <p>{eventEntry.type}</p>
+                          <p className="text-[10px] text-slate-400">{eventEntry.createdAt}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+                    <span>Raccourcis:</span>
+                    <span>
+                      <kbd>N</kbd> nouveau
+                    </span>
+                    <span>
+                      <kbd>A</kbd> Ma journée
+                    </span>
+                    <span>
+                      <kbd>Del</kbd> supprimer
+                    </span>
+                    <span>
+                      <kbd>1-6</kbd> statut
+                    </span>
+                  </div>
                 </div>
-              </div>
+              ) : null}
             </section>
           ) : null}
           </section>
@@ -947,9 +1305,12 @@ export default function AppShell() {
       {pendingDelete ? (
         <div className="fixed bottom-4 right-4 bg-slate-900 text-white text-sm px-4 py-3 rounded-md shadow-lg">
           <p>{pendingDelete.message}</p>
-          <button className="text-xs underline mt-1" onClick={handleUndoDelete}>
-            Annuler
-          </button>
+          <div className="flex items-center justify-between gap-3 mt-1 text-xs">
+            <span>Annulation {undoCountdown}s</span>
+            <button className="underline" onClick={handleUndoDelete}>
+              Annuler
+            </button>
+          </div>
         </div>
       ) : null}
 

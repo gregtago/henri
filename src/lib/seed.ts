@@ -9,6 +9,7 @@ export const seedData: SeedPayload = {
       title: "Succession Martin",
       type: "Succession",
       legalDueDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 15).toISOString(),
+      caseNote: "Vérifier les documents manquants avant relance.",
       createdAt: now,
       updatedAt: now
     },
@@ -17,6 +18,7 @@ export const seedData: SeedPayload = {
       title: "Vente Dupont",
       type: "Vente",
       legalDueDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString(),
+      caseNote: "Préparer la checklist des diagnostics.",
       createdAt: now,
       updatedAt: now
     },
@@ -25,6 +27,7 @@ export const seedData: SeedPayload = {
       title: "Divorce Lemoine",
       type: "Divorce",
       legalDueDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 45).toISOString(),
+      caseNote: "Notes de suivi initiales.",
       createdAt: now,
       updatedAt: now
     }
