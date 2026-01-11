@@ -13,6 +13,7 @@ import {
   deleteCaseCascade,
   deleteFloatingTasks,
   deleteItemsCascade,
+  deleteMyDaySelection,
   ensureSeedData,
   exportCaseToJson,
   getItemsByCase,
@@ -201,13 +202,14 @@ export default function AppShell() {
     .map((entry) => {
       if (entry.refType === "case") {
         const caseItem = cases.find((entryCase) => entryCase.id === entry.refId);
-        return caseItem ? { type: "case" as const, data: caseItem } : null;
+        return caseItem ? { type: "case" as const, data: caseItem, selectionId: entry.id } : null;
       }
       const item = items.find((entryItem) => entryItem.id === entry.refId);
-      return item ? { type: "item" as const, data: item } : null;
+      return item ? { type: "item" as const, data: item, selectionId: entry.id } : null;
     })
     .filter(
-      (entry): entry is { type: "case"; data: Case } | { type: "item"; data: Item } => entry !== null
+      (entry): entry is { type: "case"; data: Case; selectionId: string } | { type: "item"; data: Item; selectionId: string } =>
+        entry !== null
     );
 
   const suggestions = useMemo(() => {
@@ -475,6 +477,20 @@ export default function AppShell() {
     await logStatusEvent(user.uid, detailItem.id, status);
   };
 
+  const handleMarkMyDayItemDone = async (item: Item, selectionId?: string) => {
+    if (!user) return;
+    await updateItem(user.uid, item.id, { status: "Traité" });
+    await logStatusEvent(user.uid, item.id, "Traité");
+    if (selectionId) {
+      await deleteMyDaySelection(user.uid, selectionId);
+    }
+  };
+
+  const handleMarkFloatingDone = async (taskId: string) => {
+    if (!user) return;
+    await deleteFloatingTasks(user.uid, [taskId]);
+  };
+
   const handleCommentAdd = async (body: string) => {
     if (!user || !detailItem) return;
     await createComment(user.uid, { itemId: detailItem.id, body, author: user.email ?? null });
@@ -509,6 +525,14 @@ export default function AppShell() {
         event.preventDefault();
         if (activeColumn === "cases" && selectedCaseId) {
           setActiveColumn("items");
+          if (caseItems.length > 0) {
+            const firstId = caseItems[0]?.id ?? null;
+            if (firstId) {
+              setSelectedItemId(firstId);
+              setSelectedItemIds([firstId]);
+              setLastItemId(firstId);
+            }
+          }
         } else if (activeColumn === "items" && selectedItemId) {
           if (subItems.length > 0) {
             setActiveColumn("subitems");
@@ -693,6 +717,175 @@ export default function AppShell() {
     }
   };
 
+  const detailPanel = showDetailColumn && (detailItem || detailCase) ? (
+    <section className="finder-detail">
+      <div className="finder-header">Détail</div>
+      {detailCase ? (
+        <div className="p-3 space-y-4 text-sm">
+          <div className="space-y-2">
+            <label className="text-xs text-slate-500">Titre du dossier</label>
+            <input
+              className="w-full border border-border rounded-md px-2 py-1 text-sm"
+              value={detailCase.title}
+              onChange={(event) => updateCase(user.uid, detailCase.id, { title: event.target.value })}
+            />
+          </div>
+          <div>
+            <label className="text-xs text-slate-500">Échéance juridique</label>
+            <input
+              type="date"
+              className="w-full border border-border rounded-md px-2 py-1 text-sm"
+              value={detailCase.legalDueDate?.slice(0, 10) ?? ""}
+              onChange={(event) =>
+                updateCase(user.uid, detailCase.id, {
+                  legalDueDate: event.target.value ? new Date(event.target.value).toISOString() : null
+                })
+              }
+            />
+          </div>
+          <div>
+            <label className="text-xs text-slate-500">Note dossier</label>
+            <textarea
+              className="w-full border border-border rounded-md px-2 py-1 text-sm"
+              rows={4}
+              value={detailCase.caseNote ?? ""}
+              onChange={(event) => updateCase(user.uid, detailCase.id, { caseNote: event.target.value })}
+              placeholder="Ajouter une note globale"
+            />
+          </div>
+          <div className="border border-border rounded-md p-3 bg-white space-y-2">
+            <p className="text-xs text-slate-500">Actions dossier</p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                className="text-xs border border-border rounded-md px-2 py-1"
+                onClick={() => handleExport(detailCase)}
+              >
+                Exporter
+              </button>
+              <select
+                className="text-xs border border-border rounded-md px-2 py-1"
+                value={importMode}
+                onChange={(event) => setImportMode(event.target.value as "model" | "history")}
+              >
+                <option value="history">Import historique</option>
+                <option value="model">Import modèle</option>
+              </select>
+              <label className="text-xs border border-border rounded-md px-2 py-1 cursor-pointer">
+                Importer
+                <input
+                  type="file"
+                  accept="application/json"
+                  className="hidden"
+                  onChange={(event) => handleImport(event.target.files?.[0] ?? null, importMode)}
+                />
+              </label>
+              <button
+                className="text-xs border border-red-200 text-red-600 rounded-md px-2 py-1"
+                onClick={() => {
+                  if (window.confirm("Supprimer ce dossier et toutes ses tâches ?")) {
+                    handleDeleteCase(detailCase.id);
+                  }
+                }}
+              >
+                Supprimer le dossier
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {detailItem ? (
+        <div className="p-3 space-y-4 text-sm">
+          <div>
+            <input
+              className="w-full border border-border rounded-md px-2 py-1 text-sm"
+              value={detailItem.title}
+              onChange={(event) => updateItem(user.uid, detailItem.id, { title: event.target.value })}
+            />
+            <p className="text-xs text-slate-500 mt-1">Statut actuel: {detailItem.status}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {STATUSES.map((status, index) => (
+              <button
+                key={status}
+                className={`text-xs rounded-md border px-2 py-1 ${
+                  detailItem.status === status ? "bg-slate-900 text-white" : "bg-white"
+                }`}
+                onClick={() => handleStatusChange(status)}
+              >
+                {index + 1}. {status}
+              </button>
+            ))}
+          </div>
+          <div>
+            <label className="text-xs text-slate-500">Échéance opérationnelle</label>
+            <input
+              type="date"
+              className="w-full border border-border rounded-md px-2 py-1 text-sm"
+              value={detailItem.dueDate?.slice(0, 10) ?? ""}
+              onChange={(event) =>
+                updateItem(user.uid, detailItem.id, {
+                  dueDate: event.target.value ? new Date(event.target.value).toISOString() : null
+                })
+              }
+            />
+          </div>
+          <div>
+            <label className="text-xs text-slate-500">Commentaires</label>
+            <div className="space-y-2">
+              {detailComments.map((comment) => (
+                <div key={comment.id} className="text-xs bg-white border border-border rounded-md p-2">
+                  <p>{comment.body}</p>
+                  <p className="text-[10px] text-slate-400">{comment.createdAt}</p>
+                </div>
+              ))}
+            </div>
+            <textarea
+              className="w-full border border-border rounded-md px-2 py-1 text-sm mt-2"
+              rows={2}
+              placeholder="Ajouter un commentaire"
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  const target = event.target as HTMLTextAreaElement;
+                  if (target.value.trim()) {
+                    handleCommentAdd(target.value.trim());
+                    target.value = "";
+                  }
+                }
+              }}
+            />
+          </div>
+          <div>
+            <label className="text-xs text-slate-500">Timeline</label>
+            <div className="space-y-2">
+              {detailEvents.map((eventEntry) => (
+                <div key={eventEntry.id} className="text-xs border border-border rounded-md p-2 bg-white">
+                  <p>{eventEntry.type}</p>
+                  <p className="text-[10px] text-slate-400">{eventEntry.createdAt}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+            <span>Raccourcis:</span>
+            <span>
+              <kbd>N</kbd> nouveau
+            </span>
+            <span>
+              <kbd>A</kbd> Ma journée
+            </span>
+            <span>
+              <kbd>Del</kbd> supprimer
+            </span>
+            <span>
+              <kbd>1-6</kbd> statut
+            </span>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  ) : null;
+
   if (!user) {
     return null;
   }
@@ -706,14 +899,6 @@ export default function AppShell() {
               HENRI
             </Link>
             <nav className="flex gap-2">
-              <Link
-                className={`px-3 py-1 text-sm rounded-md ${
-                  isMyDay ? "bg-slate-100 text-slate-700" : "bg-slate-900 text-white"
-                }`}
-                href="/"
-              >
-                Vue colonnes
-              </Link>
               <Link
                 className={`px-3 py-1 text-sm rounded-md ${
                   isMyDay ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"
@@ -786,7 +971,7 @@ export default function AppShell() {
                   key={entry.id}
                   className="finder-row"
                   data-selected={selectedCaseIds.includes(entry.id)}
-                  data-active={selectedCaseId === entry.id}
+                  data-active={activeColumn === "cases" && selectedCaseId === entry.id}
                   onClick={(event) =>
                     handleSelectCase(entry.id, {
                       multi: event.metaKey || event.ctrlKey,
@@ -871,7 +1056,7 @@ export default function AppShell() {
                     key={entry.id}
                     className="finder-row"
                     data-selected={selectedItemIds.includes(entry.id)}
-                    data-active={selectedItemId === entry.id}
+                    data-active={activeColumn === "items" && selectedItemId === entry.id}
                     onClick={(event) =>
                       selectionModeItems
                         ? handleSelectItem(entry.id, {
@@ -958,7 +1143,7 @@ export default function AppShell() {
                     key={entry.id}
                     className="finder-row"
                     data-selected={selectedSubItemIds.includes(entry.id)}
-                    data-active={selectedSubItemId === entry.id}
+                    data-active={activeColumn === "subitems" && selectedSubItemId === entry.id}
                     onClick={(event) =>
                       selectionModeSubItems
                         ? handleSelectSubItem(entry.id, { multi: true })
@@ -991,178 +1176,7 @@ export default function AppShell() {
             </section>
           ) : null}
 
-          {showDetailColumn && (detailItem || detailCase) ? (
-            <section className="finder-detail">
-              <div className="finder-header">Détail</div>
-              {detailCase ? (
-                <div className="p-3 space-y-4 text-sm">
-                  <div className="space-y-2">
-                    <label className="text-xs text-slate-500">Titre du dossier</label>
-                    <input
-                      className="w-full border border-border rounded-md px-2 py-1 text-sm"
-                      value={detailCase.title}
-                      onChange={(event) =>
-                        updateCase(user.uid, detailCase.id, { title: event.target.value })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-slate-500">Échéance juridique</label>
-                    <input
-                      type="date"
-                      className="w-full border border-border rounded-md px-2 py-1 text-sm"
-                      value={detailCase.legalDueDate?.slice(0, 10) ?? ""}
-                      onChange={(event) =>
-                        updateCase(user.uid, detailCase.id, {
-                          legalDueDate: event.target.value ? new Date(event.target.value).toISOString() : null
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-slate-500">Note dossier</label>
-                    <textarea
-                      className="w-full border border-border rounded-md px-2 py-1 text-sm"
-                      rows={4}
-                      value={detailCase.caseNote ?? ""}
-                      onChange={(event) => updateCase(user.uid, detailCase.id, { caseNote: event.target.value })}
-                      placeholder="Ajouter une note globale"
-                    />
-                  </div>
-                  <div className="border border-border rounded-md p-3 bg-white space-y-2">
-                    <p className="text-xs text-slate-500">Actions dossier</p>
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        className="text-xs border border-border rounded-md px-2 py-1"
-                        onClick={() => handleExport(detailCase)}
-                      >
-                        Exporter
-                      </button>
-                      <select
-                        className="text-xs border border-border rounded-md px-2 py-1"
-                        value={importMode}
-                        onChange={(event) => setImportMode(event.target.value as "model" | "history")}
-                      >
-                        <option value="history">Import historique</option>
-                        <option value="model">Import modèle</option>
-                      </select>
-                      <label className="text-xs border border-border rounded-md px-2 py-1 cursor-pointer">
-                        Importer
-                        <input
-                          type="file"
-                          accept="application/json"
-                          className="hidden"
-                          onChange={(event) => handleImport(event.target.files?.[0] ?? null, importMode)}
-                        />
-                      </label>
-                      <button
-                        className="text-xs border border-red-200 text-red-600 rounded-md px-2 py-1"
-                        onClick={() => {
-                          if (window.confirm("Supprimer ce dossier et toutes ses tâches ?")) {
-                            handleDeleteCase(detailCase.id);
-                          }
-                        }}
-                      >
-                        Supprimer le dossier
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-              {detailItem ? (
-                <div className="p-3 space-y-4 text-sm">
-                  <div>
-                    <input
-                      className="w-full border border-border rounded-md px-2 py-1 text-sm"
-                      value={detailItem.title}
-                      onChange={(event) =>
-                        updateItem(user.uid, detailItem.id, { title: event.target.value })
-                      }
-                    />
-                    <p className="text-xs text-slate-500 mt-1">Statut actuel: {detailItem.status}</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {STATUSES.map((status, index) => (
-                      <button
-                        key={status}
-                        className={`text-xs rounded-md border px-2 py-1 ${
-                          detailItem.status === status ? "bg-slate-900 text-white" : "bg-white"
-                        }`}
-                        onClick={() => handleStatusChange(status)}
-                      >
-                        {index + 1}. {status}
-                      </button>
-                    ))}
-                  </div>
-                  <div>
-                    <label className="text-xs text-slate-500">Échéance opérationnelle</label>
-                    <input
-                      type="date"
-                      className="w-full border border-border rounded-md px-2 py-1 text-sm"
-                      value={detailItem.dueDate?.slice(0, 10) ?? ""}
-                      onChange={(event) =>
-                        updateItem(user.uid, detailItem.id, {
-                          dueDate: event.target.value ? new Date(event.target.value).toISOString() : null
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-slate-500">Commentaires</label>
-                    <div className="space-y-2">
-                      {detailComments.map((comment) => (
-                        <div key={comment.id} className="text-xs bg-white border border-border rounded-md p-2">
-                          <p>{comment.body}</p>
-                          <p className="text-[10px] text-slate-400">{comment.createdAt}</p>
-                        </div>
-                      ))}
-                    </div>
-                    <textarea
-                      className="w-full border border-border rounded-md px-2 py-1 text-sm mt-2"
-                      rows={2}
-                      placeholder="Ajouter un commentaire"
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" && !event.shiftKey) {
-                          event.preventDefault();
-                          const target = event.target as HTMLTextAreaElement;
-                          if (target.value.trim()) {
-                            handleCommentAdd(target.value.trim());
-                            target.value = "";
-                          }
-                        }
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-slate-500">Timeline</label>
-                    <div className="space-y-2">
-                      {detailEvents.map((eventEntry) => (
-                        <div key={eventEntry.id} className="text-xs border border-border rounded-md p-2 bg-white">
-                          <p>{eventEntry.type}</p>
-                          <p className="text-[10px] text-slate-400">{eventEntry.createdAt}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2 text-xs text-slate-500">
-                    <span>Raccourcis:</span>
-                    <span>
-                      <kbd>N</kbd> nouveau
-                    </span>
-                    <span>
-                      <kbd>A</kbd> Ma journée
-                    </span>
-                    <span>
-                      <kbd>Del</kbd> supprimer
-                    </span>
-                    <span>
-                      <kbd>1-6</kbd> statut
-                    </span>
-                  </div>
-                </div>
-              ) : null}
-            </section>
-          ) : null}
+          {detailPanel}
           </section>
         </main>
       ) : (
@@ -1182,20 +1196,31 @@ export default function AppShell() {
                       <p className="text-sm font-medium">{task.title}</p>
                       <p className="text-xs text-slate-500">{task.status}</p>
                     </div>
-                    <select
-                      className="text-xs border border-border rounded-md px-2 py-1"
-                      onChange={(event) => handleAttachFloating(task, event.target.value)}
-                      defaultValue=""
-                    >
-                      <option value="" disabled>
-                        Rattacher
-                      </option>
-                      {cases.map((entry) => (
-                        <option key={entry.id} value={entry.id}>
-                          {entry.title}
+                    <div className="flex items-center gap-2">
+                      <select
+                        className="text-xs border border-border rounded-md px-2 py-1"
+                        onChange={(event) => handleAttachFloating(task, event.target.value)}
+                        defaultValue=""
+                      >
+                        <option value="" disabled>
+                          Rattacher
                         </option>
-                      ))}
-                    </select>
+                        {cases.map((entry) => (
+                          <option key={entry.id} value={entry.id}>
+                            {entry.title}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        className="text-xs border border-border rounded-md px-2 py-1"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleMarkFloatingDone(task.id);
+                        }}
+                      >
+                        Réalisée
+                      </button>
+                    </div>
                   </div>
                 ))}
             </div>
@@ -1210,13 +1235,47 @@ export default function AppShell() {
                 myDayItems.map((entry) => {
                   if (!entry) return null;
                   return (
-                    <div key={entry.data.id} className="bg-white border border-border rounded-md px-3 py-2">
-                      <p className="text-sm font-medium">{entry.data.title}</p>
-                      {"status" in entry.data ? (
-                        <p className="text-xs text-slate-500">{entry.data.status}</p>
-                      ) : (
-                        <p className="text-xs text-slate-500">Échéance {entry.data.legalDueDate?.slice(0, 10)}</p>
-                      )}
+                    <div
+                      key={entry.data.id}
+                      className="flex items-center justify-between bg-white border border-border rounded-md px-3 py-2"
+                      onClick={() => {
+                        setDetailTarget({ type: entry.type, id: entry.data.id });
+                        setActiveColumn("detail");
+                      }}
+                    >
+                      <div>
+                        <p className="text-sm font-medium">{entry.data.title}</p>
+                        {"status" in entry.data ? (
+                          <p className="text-xs text-slate-500">{entry.data.status}</p>
+                        ) : (
+                          <p className="text-xs text-slate-500">
+                            Échéance {entry.data.legalDueDate?.slice(0, 10)}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          className="text-xs border border-border rounded-md px-2 py-1"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setDetailTarget({ type: entry.type, id: entry.data.id });
+                            setActiveColumn("detail");
+                          }}
+                        >
+                          Détails
+                        </button>
+                        {"status" in entry.data ? (
+                          <button
+                            className="text-xs border border-border rounded-md px-2 py-1"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleMarkMyDayItemDone(entry.data, entry.selectionId);
+                            }}
+                          >
+                            Réalisée
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
                   );
                 })
@@ -1299,6 +1358,7 @@ export default function AppShell() {
               </div>
             </div>
           </section>
+          {detailPanel ? <div className="pt-2">{detailPanel}</div> : null}
         </main>
       )}
 

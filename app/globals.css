@@ -12,11 +12,11 @@ body {
 }
 
 .finder-column {
-  @apply bg-panel border border-border rounded-lg overflow-hidden flex flex-col w-[320px] max-w-[320px] min-w-[240px] max-sm:w-[260px] max-sm:min-w-[200px];
+  @apply bg-panel border border-border rounded-lg overflow-hidden flex flex-col flex-1 min-w-[220px];
 }
 
 .finder-detail {
-  @apply bg-panel border border-border rounded-lg overflow-hidden flex flex-col flex-1 min-w-0;
+  @apply bg-panel border border-border rounded-lg overflow-hidden flex flex-col flex-1 min-w-[220px];
 }
 
 .finder-header {
@@ -29,6 +29,7 @@ body {
 
 .finder-row {
   @apply px-3 py-2 text-sm flex items-center justify-between gap-2 cursor-pointer text-left;
+  background-color: #f5f0e3;
 }
 
 .finder-actionbar {
@@ -36,11 +37,11 @@ body {
 }
 
 .finder-row[data-selected="true"] {
-  @apply bg-white shadow-sm;
+  @apply bg-white;
 }
 
 .finder-row[data-active="true"] {
-  @apply ring-1 ring-slate-300;
+  @apply ring-1 ring-black;
 }
 
 kbd {
