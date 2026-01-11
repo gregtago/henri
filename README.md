@@ -40,3 +40,7 @@ npm run dev
   - `users/{uid}/myDaySelections`
   - `users/{uid}/floatingTasks`
 - Un seed est inséré au premier login si aucun dossier n'existe.
+- Les sélections "Ma journée" stockent `selectionDate` (Timestamp) pour requêter facilement les 7 derniers jours.
+- Les suggestions "Stagnantes (7 jours)" listent les tâches présentes dans Ma journée sur la fenêtre, sans évolution de statut sur la période.
+- L'historique des événements d'une tâche est masqué par défaut et accessible via “Afficher l'historique”.
+- Toutes les dates affichées dans l'UI utilisent le format JJ/MM/AAAA.

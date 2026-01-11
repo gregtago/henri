@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
+import { Timestamp } from "firebase/firestore";
 import {
   addMyDaySelection,
   createCase,
@@ -18,10 +19,9 @@ import {
   exportCaseToJson,
   getItemsByCase,
   getSubItems,
-  getTodayKey,
-  getYesterdayKey,
   importCaseFromJson,
   logStatusEvent,
+  queryMyDayByDate,
   subscribeCases,
   subscribeComments,
   subscribeEvents,
@@ -34,6 +34,16 @@ import {
 } from "@/lib/firestore";
 import { auth } from "@/lib/firebase";
 import { seedData } from "@/lib/seed";
+import {
+  dateKeyToDate,
+  formatDateFR,
+  getDateKeyFromValue,
+  getStartOfWindow,
+  getTodayKey,
+  getWindowDateKeys,
+  getYesterdayKey
+} from "@/lib/dates";
+import { getProgressLevel } from "@/lib/progress";
 import type { Case, Comment, Event, FloatingTask, Item, MyDaySelection, Status } from "@/lib/types";
 import { STATUSES } from "@/lib/types";
 
@@ -70,7 +80,8 @@ export default function AppShell() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [floatingTasks, setFloatingTasks] = useState<FloatingTask[]>([]);
-  const [myDaySelections, setMyDaySelections] = useState<MyDaySelection[]>([]);
+  const [liveMyDaySelections, setLiveMyDaySelections] = useState<MyDaySelection[]>([]);
+  const [legacyMyDaySelections, setLegacyMyDaySelections] = useState<MyDaySelection[]>([]);
 
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -93,6 +104,7 @@ export default function AppShell() {
   const [importMode, setImportMode] = useState<"model" | "history">("history");
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
+  const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const toastTimeout = useRef<number | null>(null);
   const [undoCountdown, setUndoCountdown] = useState(0);
 
@@ -104,6 +116,8 @@ export default function AppShell() {
 
   const todayKey = getTodayKey();
   const yesterdayKey = getYesterdayKey();
+  const windowKeys = useMemo(() => getWindowDateKeys(7, dateKeyToDate(todayKey) ?? new Date()), [todayKey]);
+  const startOfWindow = useMemo(() => getStartOfWindow(7, dateKeyToDate(todayKey) ?? new Date()), [todayKey]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (nextUser) => {
@@ -119,7 +133,7 @@ export default function AppShell() {
     const unsubComments = subscribeComments(user.uid, setComments);
     const unsubEvents = subscribeEvents(user.uid, setEvents);
     const unsubFloating = subscribeFloatingTasks(user.uid, setFloatingTasks);
-    const unsubMyDay = subscribeMyDaySelections(user.uid, setMyDaySelections);
+    const unsubMyDay = subscribeMyDaySelections(user.uid, setLiveMyDaySelections, startOfWindow);
     ensureSeedData(user.uid, seedData);
     return () => {
       unsubCases();
@@ -129,7 +143,31 @@ export default function AppShell() {
       unsubFloating();
       unsubMyDay();
     };
-  }, [user]);
+  }, [user, startOfWindow]);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    const loadLegacySelections = async () => {
+      const entries = await Promise.all(windowKeys.map((key) => queryMyDayByDate(user.uid, key)));
+      if (cancelled) return;
+      const merged = entries.flat().map((entry) => {
+        if (entry.selectionDate) {
+          return entry;
+        }
+        const selectionBaseDate = dateKeyToDate(entry.dateKey);
+        return {
+          ...entry,
+          selectionDate: selectionBaseDate ? Timestamp.fromDate(selectionBaseDate) : undefined
+        };
+      });
+      setLegacyMyDaySelections(merged);
+    };
+    loadLegacySelections();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, windowKeys]);
 
   useEffect(() => {
     if (toastTimeout.current) {
@@ -195,11 +233,24 @@ export default function AppShell() {
   const detailCase = detailTarget?.type === "case" ? cases.find((entry) => entry.id === detailTarget.id) ?? null : null;
   const detailComments = detailItem ? comments.filter((comment) => comment.itemId === detailItem.id) : [];
   const detailEvents = detailItem ? events.filter((event) => event.itemId === detailItem.id) : [];
-  const reminderItems = items.filter((item) => item.dueDate && item.dueDate.slice(0, 10) <= todayKey);
+  const myDaySelections = useMemo(() => {
+    const merged = new Map<string, MyDaySelection>();
+    legacyMyDaySelections.forEach((entry) => merged.set(entry.id, entry));
+    liveMyDaySelections.forEach((entry) => merged.set(entry.id, entry));
+    return Array.from(merged.values());
+  }, [legacyMyDaySelections, liveMyDaySelections]);
+  const reminderItems = items.filter((item) => {
+    const dueKey = getDateKeyFromValue(item.dueDate);
+    return dueKey ? dueKey <= todayKey : false;
+  });
   const showDetailColumn = Boolean(detailTarget && (detailCase || detailItem));
   const showCasesColumn = true;
   const showItemsColumn = Boolean(selectedCase) && detailTarget?.type !== "case";
   const showSubItemsColumn = Boolean(selectedItem && subItems.length > 0) && detailTarget?.type !== "case";
+
+  useEffect(() => {
+    setIsTimelineOpen(false);
+  }, [detailItem?.id, detailTarget?.type]);
 
   const myDayEntries = myDaySelections.filter((entry) => entry.dateKey === todayKey);
   const myDayItems = myDayEntries
@@ -217,7 +268,10 @@ export default function AppShell() {
     );
 
   const suggestions = useMemo(() => {
-    const dueToday = items.filter((item) => item.dueDate && item.dueDate.slice(0, 10) <= todayKey);
+    const dueToday = items.filter((item) => {
+      const dueKey = getDateKeyFromValue(item.dueDate);
+      return dueKey ? dueKey <= todayKey : false;
+    });
     const yesterdaySelections = myDaySelections.filter((entry) => entry.dateKey === yesterdayKey);
     const floatingYesterday = floatingTasks.filter((task) => task.dateKey === yesterdayKey);
     return {
@@ -226,6 +280,33 @@ export default function AppShell() {
       floatingYesterday
     };
   }, [items, myDaySelections, floatingTasks, todayKey, yesterdayKey]);
+
+  const stagnantSuggestions = useMemo(() => {
+    const windowKeySet = new Set(windowKeys);
+    const todaySelectionIds = new Set(
+      myDaySelections
+        .filter((entry) => entry.dateKey === todayKey && (entry.refType === "item" || entry.refType === "subitem"))
+        .map((entry) => entry.refId)
+    );
+    const windowSelectionIds = new Set(
+      myDaySelections
+        .filter((entry) => windowKeySet.has(entry.dateKey) && (entry.refType === "item" || entry.refType === "subitem"))
+        .map((entry) => entry.refId)
+    );
+    return items
+      .filter((item) => windowSelectionIds.has(item.id))
+      .filter((item) => !todaySelectionIds.has(item.id))
+      .filter((item) => getProgressLevel(item.status) !== 3)
+      .filter((item) => {
+        const referenceDate = item.lastProgressAt ? new Date(item.lastProgressAt) : new Date(item.createdAt);
+        return referenceDate.getTime() < startOfWindow.getTime();
+      })
+      .map((item) => ({
+        ...item,
+        progressLevel: item.progressLevel ?? getProgressLevel(item.status),
+        lastProgressDate: item.lastProgressAt ?? item.createdAt
+      }));
+  }, [items, myDaySelections, startOfWindow, todayKey, windowKeys]);
 
   const selectRange = (ids: string[], startId: string | null, endId: string) => {
     if (!startId) return [endId];
@@ -477,13 +558,15 @@ export default function AppShell() {
 
   const handleStatusChange = async (status: Status) => {
     if (!user || !detailItem) return;
-    await updateItem(user.uid, detailItem.id, { status });
+    const nowIso = new Date().toISOString();
+    await updateItem(user.uid, detailItem.id, { status, lastProgressAt: nowIso, progressLevel: getProgressLevel(status) });
     await logStatusEvent(user.uid, detailItem.id, status);
   };
 
   const handleMarkMyDayItemDone = async (item: Item, selectionId?: string) => {
     if (!user) return;
-    await updateItem(user.uid, item.id, { status: "Traité" });
+    const nowIso = new Date().toISOString();
+    await updateItem(user.uid, item.id, { status: "Traité", lastProgressAt: nowIso, progressLevel: getProgressLevel("Traité") });
     await logStatusEvent(user.uid, item.id, "Traité");
     if (selectionId) {
       await deleteMyDaySelection(user.uid, selectionId);
@@ -756,6 +839,9 @@ export default function AppShell() {
                 })
               }
             />
+            <p className="text-[10px] text-slate-400 mt-1">
+              Affichage: {detailCase.legalDueDate ? formatDateFR(detailCase.legalDueDate) : "-"}
+            </p>
           </div>
           <div>
             <label className="text-xs text-slate-500">Note dossier</label>
@@ -842,6 +928,9 @@ export default function AppShell() {
                 })
               }
             />
+            <p className="text-[10px] text-slate-400 mt-1">
+              Affichage: {detailItem.dueDate ? formatDateFR(detailItem.dueDate) : "-"}
+            </p>
           </div>
           <div>
             <label className="text-xs text-slate-500">Commentaires</label>
@@ -849,7 +938,7 @@ export default function AppShell() {
               {detailComments.map((comment) => (
                 <div key={comment.id} className="text-xs bg-white border border-border rounded-md p-2">
                   <p>{comment.body}</p>
-                  <p className="text-[10px] text-slate-400">{comment.createdAt}</p>
+                  <p className="text-[10px] text-slate-400">{formatDateFR(comment.createdAt)}</p>
                 </div>
               ))}
             </div>
@@ -870,15 +959,25 @@ export default function AppShell() {
             />
           </div>
           <div>
-            <label className="text-xs text-slate-500">Timeline</label>
-            <div className="space-y-2">
-              {detailEvents.map((eventEntry) => (
-                <div key={eventEntry.id} className="text-xs border border-border rounded-md p-2 bg-white">
-                  <p>{eventEntry.type}</p>
-                  <p className="text-[10px] text-slate-400">{eventEntry.createdAt}</p>
+            <button
+              className="text-xs text-slate-600 underline"
+              onClick={() => setIsTimelineOpen((prev) => !prev)}
+            >
+              {isTimelineOpen ? "Masquer l'historique" : "Afficher l'historique"}
+            </button>
+            {isTimelineOpen ? (
+              <div className="mt-2">
+                <label className="text-xs text-slate-500">Historique</label>
+                <div className="space-y-2 mt-2">
+                  {detailEvents.map((eventEntry) => (
+                    <div key={eventEntry.id} className="text-xs border border-border rounded-md p-2 bg-white">
+                      <p>{eventEntry.type}</p>
+                      <p className="text-[10px] text-slate-400">{formatDateFR(eventEntry.createdAt)}</p>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            ) : null}
           </div>
           <div className="flex flex-wrap gap-2 text-xs text-slate-500">
             <span>Raccourcis:</span>
@@ -992,7 +1091,7 @@ export default function AppShell() {
                   <div className="flex-1">
                     <p className="font-medium">{entry.title}</p>
                     <p className="text-xs text-slate-500">
-                      Échéance juridique: {entry.legalDueDate?.slice(0, 10) ?? "-"}
+                      Échéance juridique: {entry.legalDueDate ? formatDateFR(entry.legalDueDate) : "-"}
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-1">
@@ -1092,7 +1191,7 @@ export default function AppShell() {
                       <div className="flex-1">
                         <p className="font-medium">{entry.title}</p>
                         <p className="text-xs text-slate-500">
-                          {entry.status} {entry.dueDate ? `• échéance ${entry.dueDate.slice(0, 10)}` : ""}
+                          {entry.status} {entry.dueDate ? `• échéance ${formatDateFR(entry.dueDate)}` : ""}
                         </p>
                       </div>
                     </div>
@@ -1275,7 +1374,7 @@ export default function AppShell() {
                           <p className="text-xs text-slate-500">{entry.data.status}</p>
                         ) : (
                           <p className="text-xs text-slate-500">
-                            Échéance {entry.data.legalDueDate?.slice(0, 10)}
+                            Échéance {entry.data.legalDueDate ? formatDateFR(entry.data.legalDueDate) : "-"}
                           </p>
                         )}
                       </div>
@@ -1319,7 +1418,7 @@ export default function AppShell() {
                     <div key={task.id} className="flex items-center justify-between bg-white border border-border rounded-md px-3 py-2">
                       <div>
                         <p className="text-sm font-medium">{task.title}</p>
-                        <p className="text-xs text-slate-500">{task.dueDate?.slice(0, 10)}</p>
+                        <p className="text-xs text-slate-500">{task.dueDate ? formatDateFR(task.dueDate) : "-"}</p>
                       </div>
                       <button
                         className="text-xs border border-border rounded-md px-2 py-1"
@@ -1335,6 +1434,43 @@ export default function AppShell() {
                       </button>
                     </div>
                   ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 mb-2">Stagnantes (7 jours)</p>
+                <div className="space-y-2">
+                  {stagnantSuggestions.length === 0 ? (
+                    <p className="text-xs text-slate-400">Aucune suggestion stagnante.</p>
+                  ) : (
+                    stagnantSuggestions.map((task) => (
+                      <div
+                        key={task.id}
+                        className="flex items-center justify-between bg-white border border-border rounded-md px-3 py-2"
+                      >
+                        <div>
+                          <p className="text-sm font-medium">{task.title}</p>
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                            <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">
+                              Niveau {task.progressLevel}
+                            </span>
+                            <span>Dernière évolution: {formatDateFR(task.lastProgressDate)}</span>
+                          </div>
+                        </div>
+                        <button
+                          className="text-xs border border-border rounded-md px-2 py-1"
+                          onClick={() =>
+                            addMyDaySelection(user.uid, {
+                              dateKey: todayKey,
+                              refType: task.level === 2 ? "item" : "subitem",
+                              refId: task.id
+                            })
+                          }
+                        >
+                          +
+                        </button>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
               <div>

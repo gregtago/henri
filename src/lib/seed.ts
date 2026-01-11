@@ -1,4 +1,5 @@
 import type { SeedPayload } from "./types";
+import { getTodayKey } from "./dates";
 
 const now = new Date().toISOString();
 
@@ -103,7 +104,7 @@ export const seedData: SeedPayload = {
     {
       id: "",
       itemId: "Contacter héritiers",
-      type: "status-change",
+      type: "progress_changed",
       payload: { status: "Demandé" },
       createdAt: now
     }
@@ -111,7 +112,7 @@ export const seedData: SeedPayload = {
   floatingTasks: [
     {
       id: "",
-      dateKey: new Date().toISOString().slice(0, 10),
+      dateKey: getTodayKey(),
       title: "Appeler Mme Durand",
       status: "À faire",
       createdAt: now,
