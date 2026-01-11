@@ -30,7 +30,8 @@ import {
   subscribeMyDaySelections,
   updateCase,
   updateFloatingTask,
-  updateItem
+  updateItem,
+  updateItemProgress
 } from "@/lib/firestore";
 import { auth } from "@/lib/firebase";
 import { seedData } from "@/lib/seed";
@@ -41,7 +42,8 @@ import {
   getStartOfWindow,
   getTodayKey,
   getWindowDateKeys,
-  getYesterdayKey
+  getYesterdayKey,
+  toDate
 } from "@/lib/dates";
 import { getProgressLevel } from "@/lib/progress";
 import type { Case, Comment, Event, FloatingTask, Item, MyDaySelection, Status } from "@/lib/types";
@@ -106,6 +108,7 @@ export default function AppShell() {
   const [feedbackText, setFeedbackText] = useState("");
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const toastTimeout = useRef<number | null>(null);
+  const backfilledItemIds = useRef<Set<string>>(new Set());
   const [undoCountdown, setUndoCountdown] = useState(0);
 
   const [caseSortKey, setCaseSortKey] = useState<"title" | "createdAt" | "legalDueDate">("title");
@@ -116,8 +119,13 @@ export default function AppShell() {
 
   const todayKey = getTodayKey();
   const yesterdayKey = getYesterdayKey();
-  const windowKeys = useMemo(() => getWindowDateKeys(7, dateKeyToDate(todayKey) ?? new Date()), [todayKey]);
-  const startOfWindow = useMemo(() => getStartOfWindow(7, dateKeyToDate(todayKey) ?? new Date()), [todayKey]);
+  const windowKeys = useMemo(() => getWindowDateKeys(7, dateKeyToDate(yesterdayKey) ?? new Date()), [yesterdayKey]);
+  const startOfWindow = useMemo(() => getStartOfWindow(7, dateKeyToDate(yesterdayKey) ?? new Date()), [yesterdayKey]);
+  const stagnantThreshold = useMemo(() => {
+    const threshold = new Date();
+    threshold.setDate(threshold.getDate() - 7);
+    return threshold;
+  }, [todayKey]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (nextUser) => {
@@ -149,16 +157,18 @@ export default function AppShell() {
     if (!user) return;
     let cancelled = false;
     const loadLegacySelections = async () => {
-      const entries = await Promise.all(windowKeys.map((key) => queryMyDayByDate(user.uid, key)));
+      const keysToFetch = Array.from(new Set([todayKey, ...windowKeys]));
+      const entries = await Promise.all(keysToFetch.map((key) => queryMyDayByDate(user.uid, key)));
       if (cancelled) return;
       const merged = entries.flat().map((entry) => {
-        if (entry.selectionDate) {
+        const selectionBaseDate = dateKeyToDate(entry.dateKey);
+        if (entry.selectionDate && entry.dateTs) {
           return entry;
         }
-        const selectionBaseDate = dateKeyToDate(entry.dateKey);
         return {
           ...entry,
-          selectionDate: selectionBaseDate ? Timestamp.fromDate(selectionBaseDate) : undefined
+          selectionDate: entry.selectionDate ?? (selectionBaseDate ? Timestamp.fromDate(selectionBaseDate) : undefined),
+          dateTs: entry.dateTs ?? (selectionBaseDate ? Timestamp.fromDate(selectionBaseDate) : undefined)
         };
       });
       setLegacyMyDaySelections(merged);
@@ -167,7 +177,7 @@ export default function AppShell() {
     return () => {
       cancelled = true;
     };
-  }, [user, windowKeys]);
+  }, [todayKey, user, windowKeys]);
 
   useEffect(() => {
     if (toastTimeout.current) {
@@ -239,6 +249,35 @@ export default function AppShell() {
     liveMyDaySelections.forEach((entry) => merged.set(entry.id, entry));
     return Array.from(merged.values());
   }, [legacyMyDaySelections, liveMyDaySelections]);
+
+  useEffect(() => {
+    if (!user || items.length === 0) return;
+    const missing = items.filter((item) => !item.lastProgressAt && !backfilledItemIds.current.has(item.id));
+    if (missing.length === 0) return;
+    const latestEventByItem = new Map<string, Date>();
+    events
+      .filter((eventEntry) => eventEntry.type === "progress_changed")
+      .forEach((eventEntry) => {
+        const eventDate = toDate(eventEntry.createdAt);
+        if (!eventDate) return;
+        const current = latestEventByItem.get(eventEntry.itemId);
+        if (!current || eventDate > current) {
+          latestEventByItem.set(eventEntry.itemId, eventDate);
+        }
+      });
+    const runBackfill = async () => {
+      await Promise.all(
+        missing.map(async (item) => {
+          const fallbackDate = toDate(item.createdAt);
+          const lastDate = latestEventByItem.get(item.id) ?? fallbackDate;
+          if (!lastDate) return;
+          backfilledItemIds.current.add(item.id);
+          await updateItem(user.uid, item.id, { lastProgressAt: Timestamp.fromDate(lastDate) });
+        })
+      );
+    };
+    runBackfill();
+  }, [events, items, user]);
   const reminderItems = items.filter((item) => {
     const dueKey = getDateKeyFromValue(item.dueDate);
     return dueKey ? dueKey <= todayKey : false;
@@ -298,15 +337,15 @@ export default function AppShell() {
       .filter((item) => !todaySelectionIds.has(item.id))
       .filter((item) => getProgressLevel(item.status) !== 3)
       .filter((item) => {
-        const referenceDate = item.lastProgressAt ? new Date(item.lastProgressAt) : new Date(item.createdAt);
-        return referenceDate.getTime() < startOfWindow.getTime();
+        const referenceDate = toDate(item.lastProgressAt) ?? toDate(item.createdAt);
+        return referenceDate ? referenceDate.getTime() <= stagnantThreshold.getTime() : false;
       })
       .map((item) => ({
         ...item,
         progressLevel: item.progressLevel ?? getProgressLevel(item.status),
         lastProgressDate: item.lastProgressAt ?? item.createdAt
       }));
-  }, [items, myDaySelections, startOfWindow, todayKey, windowKeys]);
+  }, [items, myDaySelections, stagnantThreshold, todayKey, windowKeys]);
 
   const selectRange = (ids: string[], startId: string | null, endId: string) => {
     if (!startId) return [endId];
@@ -558,16 +597,14 @@ export default function AppShell() {
 
   const handleStatusChange = async (status: Status) => {
     if (!user || !detailItem) return;
-    const nowIso = new Date().toISOString();
-    await updateItem(user.uid, detailItem.id, { status, lastProgressAt: nowIso, progressLevel: getProgressLevel(status) });
-    await logStatusEvent(user.uid, detailItem.id, status);
+    await updateItemProgress(user.uid, detailItem.id, status);
+    await logStatusEvent(user.uid, detailItem.id, detailItem.status, status);
   };
 
   const handleMarkMyDayItemDone = async (item: Item, selectionId?: string) => {
     if (!user) return;
-    const nowIso = new Date().toISOString();
-    await updateItem(user.uid, item.id, { status: "Traité", lastProgressAt: nowIso, progressLevel: getProgressLevel("Traité") });
-    await logStatusEvent(user.uid, item.id, "Traité");
+    await updateItemProgress(user.uid, item.id, "Traité");
+    await logStatusEvent(user.uid, item.id, item.status, "Traité");
     if (selectionId) {
       await deleteMyDaySelection(user.uid, selectionId);
     }
@@ -963,11 +1000,11 @@ export default function AppShell() {
               className="text-xs text-slate-600 underline"
               onClick={() => setIsTimelineOpen((prev) => !prev)}
             >
-              {isTimelineOpen ? "Masquer l'historique" : "Afficher l'historique"}
+              {isTimelineOpen ? "Masquer la timeline" : "Afficher la timeline"}
             </button>
             {isTimelineOpen ? (
               <div className="mt-2">
-                <label className="text-xs text-slate-500">Historique</label>
+                <label className="text-xs text-slate-500">Timeline</label>
                 <div className="space-y-2 mt-2">
                   {detailEvents.map((eventEntry) => (
                     <div key={eventEntry.id} className="text-xs border border-border rounded-md p-2 bg-white">
@@ -1437,7 +1474,9 @@ export default function AppShell() {
                 </div>
               </div>
               <div>
-                <p className="text-xs text-slate-500 mb-2">Stagnantes (7 jours)</p>
+                <p className="text-xs text-slate-500 mb-2">
+                  À reproposer (stagnantes – vues dans Ma journée ces 7 derniers jours)
+                </p>
                 <div className="space-y-2">
                   {stagnantSuggestions.length === 0 ? (
                     <p className="text-xs text-slate-400">Aucune suggestion stagnante.</p>

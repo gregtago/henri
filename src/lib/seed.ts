@@ -105,7 +105,7 @@ export const seedData: SeedPayload = {
       id: "",
       itemId: "Contacter héritiers",
       type: "progress_changed",
-      payload: { status: "Demandé" },
+      payload: { from: "À faire", to: "Demandé" },
       createdAt: now
     }
   ],

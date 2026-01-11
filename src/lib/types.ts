@@ -29,7 +29,7 @@ export type Item = {
   dueDate?: string | null;
   lastReminderAt?: string | null;
   progressLevel?: number | null;
-  lastProgressAt?: string | null;
+  lastProgressAt?: string | import("firebase/firestore").Timestamp | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -54,6 +54,7 @@ export type MyDaySelection = {
   id: string;
   dateKey: string;
   selectionDate?: import("firebase/firestore").Timestamp | null;
+  dateTs?: import("firebase/firestore").Timestamp | null;
   refType: "case" | "item" | "subitem";
   refId: string;
 };
