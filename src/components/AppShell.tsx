@@ -914,6 +914,9 @@ export default function AppShell() {
           if (nextId) {
             setSelectedItemId(nextId);
             setSelectedItemIds([nextId]);
+            setSelectedSubItemId(null);
+            setSelectedSubItemIds([]);
+            setDetailTarget(null);
           }
         }
         if (activeColumn === "subitems") {
