@@ -1,12 +1,10 @@
-export type Status = "À faire" | "Demandé" | "En attente" | "Reçu" | "Traité" | "Bloqué";
+export type Status = "Créée" | "Demandé" | "Reçu" | "Traité";
 
 export const STATUSES: Status[] = [
-  "À faire",
+  "Créée",
   "Demandé",
-  "En attente",
   "Reçu",
-  "Traité",
-  "Bloqué"
+  "Traité"
 ];
 
 export type Case = {

@@ -510,7 +510,7 @@ export default function AppShell() {
       await createFloatingTask(user.uid, {
         dateKey: todayKey,
         title: "Nouvelle tâche volante",
-        status: "À faire"
+        status: "Créée"
       });
       return;
     }
@@ -526,7 +526,7 @@ export default function AppShell() {
         caseId: selectedCaseId,
         level: 2,
         title: "Nouvelle tâche",
-        status: "À faire",
+        status: "Créée",
         parentItemId: null
       });
       setSelectedItemId(id);
@@ -541,7 +541,7 @@ export default function AppShell() {
       parentItemId,
       level: 3,
       title: "Nouvelle sous-tâche",
-      status: "À faire"
+      status: "Créée"
     });
     setSelectedSubItemId(id);
     setSelectedSubItemIds([id]);
@@ -1028,7 +1028,7 @@ export default function AppShell() {
               <kbd>Del</kbd> supprimer
             </span>
             <span>
-              <kbd>1-6</kbd> statut
+              <kbd>1-4</kbd> statut
             </span>
           </div>
         </div>
