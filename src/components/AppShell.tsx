@@ -314,18 +314,6 @@ export default function AppShell() {
     setIsTimelineOpen(false);
   }, [detailItem?.id, detailTarget?.type]);
 
-  useEffect(() => {
-    if (!isReparentOpen) return;
-    setReparentCursor(0);
-  }, [isReparentOpen, reparentSearch]);
-
-  useEffect(() => {
-    if (reparentOptions.length === 0) return;
-    if (reparentCursor >= reparentOptions.length) {
-      setReparentCursor(0);
-    }
-  }, [reparentCursor, reparentOptions.length]);
-
   const myDayEntries = myDaySelections.filter((entry) => entry.dateKey === todayKey);
   const myDayItems = myDayEntries
     .map((entry) => {
@@ -384,6 +372,18 @@ export default function AppShell() {
     if (!query) return options;
     return options.filter((option) => option.label.toLowerCase().includes(query));
   }, [caseTitleById, cases, items, reparentHasChildren, reparentSearch, reparentTarget]);
+
+  useEffect(() => {
+    if (!isReparentOpen) return;
+    setReparentCursor(0);
+  }, [isReparentOpen, reparentSearch]);
+
+  useEffect(() => {
+    if (reparentOptions.length === 0) return;
+    if (reparentCursor >= reparentOptions.length) {
+      setReparentCursor(0);
+    }
+  }, [reparentCursor, reparentOptions.length]);
 
   const stagnantSuggestions = useMemo(() => {
     const windowKeySet = new Set(windowKeys);
