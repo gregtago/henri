@@ -1264,7 +1264,7 @@ export default function AppShell() {
                         >
                           Détails
                         </button>
-                        {"status" in entry.data ? (
+                        {entry.type === "item" ? (
                           <button
                             className="text-xs border border-border rounded-md px-2 py-1"
                             onClick={(event) => {
