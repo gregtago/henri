@@ -1839,13 +1839,22 @@ export default function AppShell() {
           <div
             className="bg-white border border-border rounded-lg shadow-xl w-[360px] max-w-[90vw] p-4 space-y-3"
             onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reparent-dialog-title"
+            aria-describedby="reparent-dialog-description"
           >
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">Rattacher la tâche</h3>
+              <h3 id="reparent-dialog-title" className="text-sm font-semibold">
+                Rattacher la tâche
+              </h3>
               <button className="text-xs text-slate-500" onClick={handleCloseReparent}>
                 Fermer
               </button>
             </div>
+            <p id="reparent-dialog-description" className="sr-only">
+              Choisissez un parent pour rattacher la tâche sélectionnée.
+            </p>
             <p className="text-xs text-slate-500">Tâche: {reparentTarget.title}</p>
             <input
               className="w-full border border-border rounded-md px-2 py-1 text-sm"
