@@ -28,7 +28,7 @@ body {
 }
 
 .finder-row {
-  @apply px-3 py-2 text-sm flex items-center justify-between gap-2 cursor-pointer text-left bg-white border border-transparent;
+  @apply px-3 py-2 text-sm flex items-center justify-between gap-2 cursor-pointer text-left bg-transparent border border-transparent;
 }
 
 .finder-actionbar {
@@ -36,7 +36,7 @@ body {
 }
 
 .finder-row[data-selected="true"] {
-  @apply border-black;
+  @apply border-black bg-white;
 }
 
 .finder-row[data-active="true"] {
