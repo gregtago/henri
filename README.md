@@ -41,6 +41,7 @@ npm run dev
   - `users/{uid}/floatingTasks`
 - Un seed est inséré au premier login si aucun dossier n'existe.
 - Les sélections "Ma journée" stockent `selectionDate` (Timestamp) pour requêter facilement les 7 derniers jours.
-- Les suggestions "Stagnantes (7 jours)" listent les tâches présentes dans Ma journée sur la fenêtre, sans évolution de statut sur la période.
-- L'historique des événements d'une tâche est masqué par défaut et accessible via “Afficher l'historique”.
-- Toutes les dates affichées dans l'UI utilisent le format JJ/MM/AAAA.
+- Les sélections "Ma journée" stockent aussi `dateTs` (Timestamp à minuit) pour requêter par fenêtre glissante.
+- Les suggestions "À reproposer" listent les tâches vues dans Ma journée sur les 7 derniers jours (hors aujourd'hui), sans évolution de statut sur la période (`lastProgressAt` <= maintenant - 7 jours), non traitées et absentes d'aujourd'hui.
+- L'historique (timeline) des événements d'une tâche est masqué par défaut et accessible via “Afficher la timeline”.
+- Toutes les dates affichées dans l'UI utilisent le format JJ/MM/AAAA (helper `formatDateFR`).
