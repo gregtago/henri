@@ -717,6 +717,10 @@ export default function AppShell() {
     }
   };
 
+  if (!user) {
+    return null;
+  }
+
   const detailPanel = showDetailColumn && (detailItem || detailCase) ? (
     <section className="finder-detail">
       <div className="finder-header">Détail</div>
@@ -885,10 +889,6 @@ export default function AppShell() {
       ) : null}
     </section>
   ) : null;
-
-  if (!user) {
-    return null;
-  }
 
   return (
     <div className="min-h-screen">
