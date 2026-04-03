@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
@@ -120,6 +120,12 @@ export default function AppShell() {
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const toastTimeout = useRef<number | null>(null);
   const backfilledItemIds = useRef<Set<string>>(new Set());
+  // Refs pour scroll automatique lors de la navigation clavier
+  const casesListRef = useRef<HTMLDivElement | null>(null);
+  const itemsListRef = useRef<HTMLDivElement | null>(null);
+  const subitemsListRef = useRef<HTMLDivElement | null>(null);
+  // Ref pour focus auto sur le titre après création
+  const detailTitleRef = useRef<HTMLInputElement | null>(null);
   const [undoCountdown, setUndoCountdown] = useState(0);
 
   const [caseSortKey, setCaseSortKey] = useState<"title" | "createdAt" | "legalDueDate">("title");
@@ -260,11 +266,17 @@ export default function AppShell() {
     [items, reparentTarget]
   );
   const caseTitleById = useMemo(() => new Map(cases.map((entry) => [entry.id, entry.title])), [cases]);
+  // resolvedActiveColumn : colonne logique courante, jamais "detail"
+  // On n'utilise plus "detail" comme valeur de activeColumn —
+  // le détail s'ouvre via detailTarget indépendamment de la navigation.
   const resolvedActiveColumn = useMemo(() => {
-    if (activeColumn !== "detail") return activeColumn;
-    if (detailTarget?.type === "case") return "cases";
-    if (detailItem?.level === 3) return "subitems";
-    return "items";
+    if (activeColumn === "detail") {
+      // fallback de compatibilité au cas où
+      if (detailTarget?.type === "case") return "cases" as const;
+      if (detailItem?.level === 3) return "subitems" as const;
+      return "items" as const;
+    }
+    return activeColumn;
   }, [activeColumn, detailItem?.level, detailTarget?.type]);
   const myDaySelections = useMemo(() => {
     const merged = new Map<string, MyDaySelection>();
@@ -308,11 +320,22 @@ export default function AppShell() {
   const showDetailColumn = Boolean(detailTarget && (detailCase || detailItem));
   const showCasesColumn = true;
   const showItemsColumn = Boolean(selectedCase);
-  const showSubItemsColumn = Boolean(selectedItem && subItems.length > 0) && detailTarget?.type !== "case";
+  // Colonne sous-tâches visible dès qu'une tâche N2 est sélectionnée (même sans enfants)
+  // → permet de créer des sous-tâches visuellement
+  const showSubItemsColumn = Boolean(selectedItem) && detailTarget?.type !== "case";
 
   useEffect(() => {
     setIsTimelineOpen(false);
   }, [detailItem?.id, detailTarget?.type]);
+
+  // Focus auto sur le titre quand on ouvre le détail d'une tâche
+  useEffect(() => {
+    if (detailTarget?.type === "item" && detailTitleRef.current) {
+      // Léger délai pour laisser le DOM se mettre à jour
+      const t = window.setTimeout(() => detailTitleRef.current?.focus(), 50);
+      return () => window.clearTimeout(t);
+    }
+  }, [detailTarget?.id, detailTarget?.type]);
 
   const myDayEntries = myDaySelections.filter((entry) => entry.dateKey === todayKey);
   const myDayItems = myDayEntries
@@ -874,37 +897,47 @@ export default function AppShell() {
       if (event.key === "ArrowUp" || event.key === "ArrowDown") {
         event.preventDefault();
         const direction = event.key === "ArrowUp" ? -1 : 1;
+        const scrollToRow = (listRef: React.RefObject<HTMLDivElement | null>, id: string) => {
+          if (!listRef.current) return;
+          const el = listRef.current.querySelector(`[data-id="${id}"]`) as HTMLElement | null;
+          el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        };
         if (activeColumn === "cases") {
           const ids = sortedCases.map((entry) => entry.id);
           if (ids.length === 0) return;
-          const index = Math.max(0, ids.indexOf(selectedCaseId ?? ids[0]) + direction);
-          const nextId = ids[index];
+          const cur = ids.indexOf(selectedCaseId ?? ids[0]);
+          const nextId = ids[Math.min(Math.max(0, cur + direction), ids.length - 1)];
           if (nextId) {
             setSelectedCaseId(nextId);
             setSelectedCaseIds([nextId]);
+            setDetailTarget({ type: "case", id: nextId });
+            scrollToRow(casesListRef, nextId);
           }
         }
         if (activeColumn === "items") {
           const ids = itemsColumnItems.map((entry) => entry.id);
           if (ids.length === 0) return;
-          const index = Math.max(0, ids.indexOf(selectedItemId ?? ids[0]) + direction);
-          const nextId = ids[index];
+          const cur = ids.indexOf(selectedItemId ?? ids[0]);
+          const nextId = ids[Math.min(Math.max(0, cur + direction), ids.length - 1)];
           if (nextId) {
             setSelectedItemId(nextId);
             setSelectedItemIds([nextId]);
             setSelectedSubItemId(null);
             setSelectedSubItemIds([]);
-            setDetailTarget(null);
+            setDetailTarget({ type: "item", id: nextId });
+            scrollToRow(itemsListRef, nextId);
           }
         }
         if (activeColumn === "subitems") {
           const ids = subItems.map((entry) => entry.id);
           if (ids.length === 0) return;
-          const index = Math.max(0, ids.indexOf(selectedSubItemId ?? ids[0]) + direction);
-          const nextId = ids[index];
+          const cur = ids.indexOf(selectedSubItemId ?? ids[0]);
+          const nextId = ids[Math.min(Math.max(0, cur + direction), ids.length - 1)];
           if (nextId) {
             setSelectedSubItemId(nextId);
             setSelectedSubItemIds([nextId]);
+            setDetailTarget({ type: "item", id: nextId });
+            scrollToRow(subitemsListRef, nextId);
           }
         }
         return;
@@ -930,6 +963,19 @@ export default function AppShell() {
           await handleCreateChildTask();
         } else {
           await handleCreateInActiveColumn();
+        }
+        return;
+      }
+      if (event.key.toLowerCase() === "i") {
+        // Touche I : ouvrir/fermer le panneau détail
+        if (detailTarget) {
+          setDetailTarget(null);
+        } else if (activeColumn === "cases" && selectedCaseId) {
+          setDetailTarget({ type: "case", id: selectedCaseId });
+        } else if (activeColumn === "items" && selectedItemId) {
+          setDetailTarget({ type: "item", id: selectedItemId });
+        } else if (activeColumn === "subitems" && selectedSubItemId) {
+          setDetailTarget({ type: "item", id: selectedSubItemId });
         }
         return;
       }
@@ -986,7 +1032,10 @@ export default function AppShell() {
       handleCreateChildTask,
       handleCreateInActiveColumn,
       handleOpenReparent,
-      handleStatusChange
+      handleStatusChange,
+      casesListRef,
+      itemsListRef,
+      subitemsListRef
     ]
   );
 
@@ -1207,6 +1256,7 @@ export default function AppShell() {
           <>
             {/* Titre */}
             <input
+              ref={detailTitleRef}
               className="w-full text-[20px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight mb-5 leading-snug"
               value={detailItem.title}
               onChange={(e) => updateItem(user.uid, detailItem.id, { title: e.target.value })}
@@ -1430,12 +1480,13 @@ export default function AppShell() {
                 </div>
               </div>
 
-              <div className="finder-list">
+              <div className="finder-list" ref={casesListRef}>
                 {sortedCases.map((entry) => (
                   <div
                     key={entry.id}
                     className="finder-row"
-                    data-selected={selectedCaseIds.includes(entry.id) && !selectedCaseIds.includes(entry.id) ? "true" : undefined}
+                    data-id={entry.id}
+                    data-selected={selectedCaseIds.includes(entry.id) ? "true" : undefined}
                     data-active={selectedCaseId === entry.id ? "true" : undefined}
                     onClick={(e) => handleSelectCase(entry.id, { multi: e.metaKey || e.ctrlKey, range: e.shiftKey })}
                   >
@@ -1491,11 +1542,12 @@ export default function AppShell() {
                 </div>
               )}
 
-              <div className="finder-list">
+              <div className="finder-list" ref={itemsListRef}>
                 {itemsColumnItems.map((entry) => (
                   <div
                     key={entry.id}
                     className="finder-row"
+                    data-id={entry.id}
                     data-selected={selectedItemIds.includes(entry.id) ? "true" : undefined}
                     data-active={selectedItemId === entry.id ? "true" : undefined}
                     onClick={(e) =>
@@ -1567,11 +1619,12 @@ export default function AppShell() {
                 </div>
               )}
 
-              <div className="finder-list">
+              <div className="finder-list" ref={subitemsListRef}>
                 {subItems.map((entry) => (
                   <div
                     key={entry.id}
                     className="finder-row"
+                    data-id={entry.id}
                     data-selected={selectedSubItemIds.includes(entry.id) ? "true" : undefined}
                     data-active={selectedSubItemId === entry.id ? "true" : undefined}
                     onClick={(e) =>
