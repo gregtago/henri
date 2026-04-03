@@ -1081,73 +1081,115 @@ export default function AppShell() {
     return null;
   }
 
+
+
+  // ── helpers visuels ──────────────────────────────────────────────────────
+
+  const statusClass = (s: Status) => {
+    const map: Record<Status, string> = {
+      "Créée":   "status-badge status-badge-0",
+      "Demandé": "status-badge status-badge-1",
+      "Reçu":    "status-badge status-badge-2",
+      "Traité":  "status-badge status-badge-3",
+    };
+    return map[s];
+  };
+
+  const btnGhost = "text-[11.5px] font-[inherit] bg-bg border border-border text-text-2 px-2 py-[2px] rounded cursor-pointer hover:border-border-strong hover:text-tx transition-all";
+  const btnDanger = "text-[11.5px] font-[inherit] bg-bg border border-[#fecaca] text-red-600 px-2 py-[2px] rounded cursor-pointer hover:bg-red-50 hover:border-red-400 transition-all";
+  const iconBtn = "w-6 h-6 flex items-center justify-center border-none bg-transparent rounded text-tx-3 text-sm cursor-pointer hover:bg-bg-hover hover:text-tx-2 transition-all";
+  const propKey = "w-[120px] shrink-0 text-[13px] text-tx-3 py-1 flex items-center gap-1.5";
+  const propVal = "flex-1 text-[13px] text-tx py-1 px-2 rounded min-h-[28px] flex items-center";
+
+  // ── DETAIL PANEL ─────────────────────────────────────────────────────────
+
   const detailPanel = showDetailColumn && (detailItem || detailCase) ? (
     <section className="finder-detail">
-      <div className="finder-header">Détail</div>
-      {detailCase ? (
-        <div className="p-3 space-y-4 text-sm">
-          <div className="space-y-2">
-            <label className="text-xs text-slate-500">Titre du dossier</label>
+      <div className="finder-header">
+        <span>Détail</span>
+        <div className="flex gap-1 items-center">
+          <button className={iconBtn} title="Ajouter à Ma journée (A)" onClick={handleAddToMyDay}>☀</button>
+          {detailItem && (
+            <button className={iconBtn} title="Rattacher (R)" onClick={handleOpenReparent}>⇄</button>
+          )}
+          <button
+            className={iconBtn + " !text-red-400 hover:!text-red-600"}
+            title="Supprimer (⌫)"
+            onClick={handleDelete}
+          >✕</button>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-7 py-6 space-y-0">
+
+        {/* ── DÉTAIL DOSSIER ── */}
+        {detailCase ? (
+          <>
             <input
-              className="w-full border border-border rounded-md px-2 py-1 text-sm"
+              className="w-full text-[20px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight mb-5 leading-snug"
               value={detailCase.title}
-              onChange={(event) => updateCase(user.uid, detailCase.id, { title: event.target.value })}
+              onChange={(e) => updateCase(user.uid, detailCase.id, { title: e.target.value })}
             />
-          </div>
-          <div>
-            <label className="text-xs text-slate-500">Échéance juridique</label>
-            <input
-              type="date"
-              className="w-full border border-border rounded-md px-2 py-1 text-sm"
-              value={detailCase.legalDueDate?.slice(0, 10) ?? ""}
-              onChange={(event) =>
-                updateCase(user.uid, detailCase.id, {
-                  legalDueDate: event.target.value ? new Date(event.target.value).toISOString() : null
-                })
-              }
-            />
-            <p className="text-[10px] text-slate-400 mt-1">
-              Affichage: {detailCase.legalDueDate ? formatDateFR(detailCase.legalDueDate) : "-"}
-            </p>
-          </div>
-          <div>
-            <label className="text-xs text-slate-500">Note dossier</label>
-            <textarea
-              className="w-full border border-border rounded-md px-2 py-1 text-sm"
-              rows={4}
-              value={detailCase.caseNote ?? ""}
-              onChange={(event) => updateCase(user.uid, detailCase.id, { caseNote: event.target.value })}
-              placeholder="Ajouter une note globale"
-            />
-          </div>
-          <div className="border border-border rounded-md p-3 bg-white space-y-2">
-            <p className="text-xs text-slate-500">Actions dossier</p>
+
+            {/* Échéance */}
+            <div className="flex items-start py-1 rounded hover:bg-bg-subtle group">
+              <div className={propKey}><span className="opacity-60">📅</span> Échéance</div>
+              <div className={propVal}>
+                <input
+                  type="date"
+                  className="font-[inherit] text-[13px] text-tx bg-transparent border-none outline-none w-full"
+                  value={detailCase.legalDueDate?.slice(0, 10) ?? ""}
+                  onChange={(e) =>
+                    updateCase(user.uid, detailCase.id, {
+                      legalDueDate: e.target.value ? new Date(e.target.value).toISOString() : null
+                    })
+                  }
+                />
+              </div>
+            </div>
+            {detailCase.legalDueDate && (
+              <p className="text-[11px] text-tx-3 ml-[128px] -mt-1 mb-1">{formatDateFR(detailCase.legalDueDate)}</p>
+            )}
+
+            {/* Note */}
+            <div className="flex items-start py-1 rounded hover:bg-bg-subtle mt-1">
+              <div className={propKey + " pt-1"}><span className="opacity-60">📝</span> Note</div>
+              <div className="flex-1 px-2">
+                <textarea
+                  className="w-full font-[inherit] text-[13px] text-tx bg-transparent border-none outline-none resize-none leading-relaxed min-h-[60px]"
+                  value={detailCase.caseNote ?? ""}
+                  onChange={(e) => updateCase(user.uid, detailCase.id, { caseNote: e.target.value })}
+                  placeholder="Ajouter une note…"
+                />
+              </div>
+            </div>
+
+            {/* Séparateur */}
+            <div className="h-px bg-border my-4" />
+
+            {/* Actions */}
+            <p className="text-[11.5px] font-medium text-tx-3 uppercase tracking-wide mb-3">Actions</p>
             <div className="flex flex-wrap gap-2">
-              <button
-                className="text-xs border border-border rounded-md px-2 py-1"
-                onClick={() => handleExport(detailCase)}
-              >
-                Exporter
-              </button>
+              <button className={btnGhost} onClick={() => handleExport(detailCase)}>Exporter JSON</button>
               <select
-                className="text-xs border border-border rounded-md px-2 py-1"
+                className="text-[11.5px] font-[inherit] bg-bg border border-border text-tx-2 px-2 py-[2px] rounded cursor-pointer"
                 value={importMode}
-                onChange={(event) => setImportMode(event.target.value as "model" | "history")}
+                onChange={(e) => setImportMode(e.target.value as "model" | "history")}
               >
                 <option value="history">Import historique</option>
                 <option value="model">Import modèle</option>
               </select>
-              <label className="text-xs border border-border rounded-md px-2 py-1 cursor-pointer">
-                Importer
+              <label className={btnGhost + " cursor-pointer"}>
+                Importer JSON
                 <input
                   type="file"
                   accept="application/json"
                   className="hidden"
-                  onChange={(event) => handleImport(event.target.files?.[0] ?? null, importMode)}
+                  onChange={(e) => handleImport(e.target.files?.[0] ?? null, importMode)}
                 />
               </label>
               <button
-                className="text-xs border border-red-200 text-red-600 rounded-md px-2 py-1"
+                className={btnDanger}
                 onClick={() => {
                   if (window.confirm("Supprimer ce dossier et toutes ses tâches ?")) {
                     handleDeleteCase(detailCase.id);
@@ -1157,751 +1199,668 @@ export default function AppShell() {
                 Supprimer le dossier
               </button>
             </div>
-          </div>
-        </div>
-      ) : null}
-      {detailItem ? (
-        <div className="p-3 space-y-4 text-sm">
-          <div>
+          </>
+        ) : null}
+
+        {/* ── DÉTAIL TÂCHE ── */}
+        {detailItem ? (
+          <>
+            {/* Titre */}
             <input
-              className="w-full border border-border rounded-md px-2 py-1 text-sm"
+              className="w-full text-[20px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight mb-5 leading-snug"
               value={detailItem.title}
-              onChange={(event) => updateItem(user.uid, detailItem.id, { title: event.target.value })}
+              onChange={(e) => updateItem(user.uid, detailItem.id, { title: e.target.value })}
             />
-            <p className="text-xs text-slate-500 mt-1">Statut actuel: {detailItem.status}</p>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {STATUSES.map((status, index) => (
-              <button
-                key={status}
-                className={`text-xs rounded-md border px-2 py-1 ${
-                  detailItem.status === status ? "bg-slate-900 text-white" : "bg-white"
-                }`}
-                onClick={() => handleStatusChange(status)}
-              >
-                {index + 1}. {status}
-              </button>
-            ))}
-          </div>
-          <div>
-            <label className="text-xs text-slate-500">Échéance opérationnelle</label>
-            <input
-              type="date"
-              className="w-full border border-border rounded-md px-2 py-1 text-sm"
-              value={detailItem.dueDate?.slice(0, 10) ?? ""}
-              onChange={(event) =>
-                updateItem(user.uid, detailItem.id, {
-                  dueDate: event.target.value ? new Date(event.target.value).toISOString() : null
-                })
-              }
-            />
-            <p className="text-[10px] text-slate-400 mt-1">
-              Affichage: {detailItem.dueDate ? formatDateFR(detailItem.dueDate) : "-"}
-            </p>
-          </div>
-          <div>
-            <label className="text-xs text-slate-500">Commentaires</label>
-            <div className="space-y-2">
-              {detailComments.map((comment) => (
-                <div key={comment.id} className="text-xs bg-white border border-border rounded-md p-2">
-                  <p>{comment.body}</p>
-                  <p className="text-[10px] text-slate-400">{formatDateFR(comment.createdAt)}</p>
+
+            {/* Statut */}
+            <div className="flex items-start py-1 rounded hover:bg-bg-subtle">
+              <div className={propKey}><span className="opacity-60">◎</span> Statut</div>
+              <div className="flex-1 px-2 py-1 flex flex-wrap gap-1.5">
+                {STATUSES.map((s, i) => (
+                  <button
+                    key={s}
+                    onClick={() => handleStatusChange(s)}
+                    className={`${statusClass(s)} cursor-pointer border-none transition-opacity ${
+                      detailItem.status === s ? "opacity-100" : "opacity-30 hover:opacity-60"
+                    }`}
+                  >
+                    <span className="text-[9px] mr-1 opacity-60">{i + 1}</span>{s}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Échéance */}
+            <div className="flex items-start py-1 rounded hover:bg-bg-subtle">
+              <div className={propKey}><span className="opacity-60">📅</span> Échéance</div>
+              <div className={propVal}>
+                <input
+                  type="date"
+                  className="font-[inherit] text-[13px] text-tx bg-transparent border-none outline-none w-full"
+                  value={detailItem.dueDate?.slice(0, 10) ?? ""}
+                  onChange={(e) =>
+                    updateItem(user.uid, detailItem.id, {
+                      dueDate: e.target.value ? new Date(e.target.value).toISOString() : null
+                    })
+                  }
+                />
+              </div>
+            </div>
+            {detailItem.dueDate && (
+              <p className="text-[11px] text-tx-3 ml-[128px] -mt-1 mb-1">{formatDateFR(detailItem.dueDate)}</p>
+            )}
+
+            {/* Dossier */}
+            <div className="flex items-center py-1 rounded hover:bg-bg-subtle">
+              <div className={propKey}><span className="opacity-60">📁</span> Dossier</div>
+              <div className={propVal + " text-tx-2"}>
+                {cases.find(c => c.id === detailItem.caseId)?.title ?? "—"}
+              </div>
+            </div>
+
+            {/* Parent (si N3) */}
+            {detailItem.parentItemId && (
+              <div className="flex items-center py-1 rounded hover:bg-bg-subtle">
+                <div className={propKey}><span className="opacity-60">📋</span> Parent</div>
+                <div className={propVal + " text-tx-2"}>
+                  {items.find(i => i.id === detailItem.parentItemId)?.title ?? "—"}
+                </div>
+              </div>
+            )}
+
+            {/* Séparateur */}
+            <div className="h-px bg-border my-4" />
+
+            {/* Commentaires */}
+            <p className="text-[11.5px] font-medium text-tx-3 uppercase tracking-wide mb-3">Commentaires</p>
+            <div className="space-y-2 mb-3">
+              {detailComments.map((c) => (
+                <div key={c.id} className="bg-bg-subtle rounded px-3 py-2">
+                  <p className="text-[13px] text-tx leading-relaxed">{c.body}</p>
+                  <p className="text-[11px] text-tx-3 mt-1">{formatDateFR(c.createdAt)}{c.author ? ` — ${c.author}` : ""}</p>
                 </div>
               ))}
             </div>
             <textarea
-              className="w-full border border-border rounded-md px-2 py-1 text-sm mt-2"
-              rows={2}
-              placeholder="Ajouter un commentaire"
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  const target = event.target as HTMLTextAreaElement;
-                  if (target.value.trim()) {
-                    handleCommentAdd(target.value.trim());
-                    target.value = "";
+              className="w-full font-[inherit] text-[13px] text-tx bg-bg-subtle border border-transparent rounded px-3 py-2 outline-none resize-none leading-relaxed min-h-[64px] focus:border-border-strong focus:bg-bg placeholder:text-tx-3 transition-colors"
+              placeholder="Ajouter un commentaire… (Entrée pour valider)"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  const t = e.target as HTMLTextAreaElement;
+                  if (t.value.trim()) {
+                    handleCommentAdd(t.value.trim());
+                    t.value = "";
                   }
                 }
               }}
             />
-          </div>
-          <div>
-            <button
-              className="text-xs text-slate-600 underline"
-              onClick={() => setIsTimelineOpen((prev) => !prev)}
-            >
-              {isTimelineOpen ? "Masquer la timeline" : "Afficher la timeline"}
-            </button>
-            {isTimelineOpen ? (
-              <div className="mt-2">
-                <label className="text-xs text-slate-500">Timeline</label>
-                <div className="space-y-2 mt-2">
-                  {detailEvents.map((eventEntry) => (
-                    <div key={eventEntry.id} className="text-xs border border-border rounded-md p-2 bg-white">
-                      <p>{eventEntry.type}</p>
-                      <p className="text-[10px] text-slate-400">{formatDateFR(eventEntry.createdAt)}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-          </div>
-          <div className="flex flex-wrap gap-2 text-xs text-slate-500">
-            <span>Raccourcis:</span>
-            <span>
-              <kbd>N</kbd> nouveau
-            </span>
-            <span>
-              <kbd>A</kbd> Ma journée
-            </span>
-            <span>
-              <kbd>Del</kbd> supprimer
-            </span>
-            <span>
-              <kbd>1-4</kbd> statut
-            </span>
-          </div>
-        </div>
-      ) : null}
+
+            {/* Timeline */}
+            {detailEvents.length > 0 && (
+              <>
+                <button
+                  className="text-[11.5px] text-tx-3 underline mt-3 mb-1 bg-transparent border-none cursor-pointer"
+                  onClick={() => setIsTimelineOpen(p => !p)}
+                >
+                  {isTimelineOpen ? "Masquer la timeline" : "Afficher la timeline"}
+                </button>
+                {isTimelineOpen && (
+                  <div className="space-y-1.5 mt-2">
+                    {detailEvents.map((ev) => (
+                      <div key={ev.id} className="bg-bg-subtle rounded px-3 py-1.5">
+                        <p className="text-[12px] text-tx">{ev.type}</p>
+                        <p className="text-[11px] text-tx-3">{formatDateFR(ev.createdAt)}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Séparateur */}
+            <div className="h-px bg-border my-4" />
+
+            {/* Raccourcis */}
+            <p className="text-[11.5px] font-medium text-tx-3 uppercase tracking-wide mb-2">Raccourcis</p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                ["N", "nouveau"],
+                ["⇧N", "sous-tâche"],
+                ["A", "ma journée"],
+                ["R", "rattacher"],
+                ["⌫", "supprimer"],
+                ["1–4", "statut"],
+                ["← →", "naviguer"],
+                ["↑ ↓", "déplacer"],
+              ].map(([k, label]) => (
+                <span key={k} className="flex items-center gap-1 text-[11.5px] text-tx-3">
+                  <kbd>{k}</kbd> {label}
+                </span>
+              ))}
+            </div>
+          </>
+        ) : null}
+      </div>
     </section>
   ) : null;
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // RENDER PRINCIPAL
+  // ─────────────────────────────────────────────────────────────────────────
+
   return (
-    <div className="min-h-screen">
-      <header className="sticky top-0 bg-white border-b border-border z-10">
-        <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-3">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="text-lg font-semibold tracking-wide">
-              HENRI
-            </Link>
-            <nav className="flex gap-2">
-              <Link
-                className={`px-3 py-1 text-sm rounded-md ${
-                  isMyDay ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"
-                }`}
-                href="/my-day"
-              >
-                Ma journée
-              </Link>
-            </nav>
-          </div>
-          <div className="flex items-center gap-3 text-xs text-slate-500">
-            <span>{user.email}</span>
-            <button className="text-slate-700" onClick={() => signOut(auth)}>
-              Déconnexion
-            </button>
-          </div>
+    <div className="flex flex-col h-screen overflow-hidden">
+
+      {/* ── HEADER ── */}
+      <header className="h-[44px] flex items-center justify-between px-4 border-b border-border bg-bg shrink-0 z-10">
+        <span className="text-[14px] font-semibold text-tx tracking-tight">Henri</span>
+
+        <nav className="flex gap-0.5">
+          <Link
+            href="/"
+            className={`text-[13px] px-2.5 py-1 rounded border-none bg-transparent cursor-pointer transition-all ${
+              !isMyDay ? "bg-bg-active text-tx font-medium" : "text-tx-2 hover:bg-bg-hover hover:text-tx"
+            }`}
+          >
+            Dossiers
+          </Link>
+          <Link
+            href="/my-day"
+            className={`text-[13px] px-2.5 py-1 rounded border-none bg-transparent cursor-pointer transition-all ${
+              isMyDay ? "bg-bg-active text-tx font-medium" : "text-tx-2 hover:bg-bg-hover hover:text-tx"
+            }`}
+          >
+            Ma journée
+          </Link>
+        </nav>
+
+        <div className="flex items-center gap-2.5 text-[12px] text-tx-3">
+          <span>{user.email}</span>
+          <button className={btnGhost} onClick={() => signOut(auth)}>Déconnexion</button>
         </div>
       </header>
 
-      {!isMyDay ? (
-        <main className="max-w-7xl mx-auto px-6 py-6 space-y-4">
-          {reminderItems.length > 0 ? (
-            <section className="bg-panel border border-border rounded-lg px-4 py-3 text-sm flex items-center justify-between">
-              <div>
-                <p className="font-semibold">Rappels</p>
-                <p className="text-xs text-slate-500">{reminderItems.length} tâche(s) à échéance aujourd'hui ou en retard.</p>
-              </div>
-              <button
-                className="text-xs border border-border rounded-md px-2 py-1"
-                onClick={async () => {
-                  if (!user) return;
-                  await Promise.all(
-                    reminderItems.map((item) =>
-                      updateItem(user.uid, item.id, { lastReminderAt: new Date().toISOString() })
-                    )
-                  );
-                  showToast("Rappel enregistré");
-                }}
-              >
-                Marquer comme rappelé
-              </button>
-            </section>
-          ) : null}
-          <section className="flex gap-4 items-stretch">
-          {showCasesColumn ? (
-          <section className="finder-column">
-            <div className="finder-header flex items-center justify-between gap-2">
-              <span>Dossiers</span>
-              <div className="flex items-center gap-2">
-                <select
-                  className="text-xs border border-border rounded-md px-1 py-0.5"
-                  value={caseSortKey}
-                  onChange={(event) => setCaseSortKey(event.target.value as "title" | "createdAt" | "legalDueDate")}
-                >
-                  <option value="title">Nom</option>
-                  <option value="createdAt">Ancienneté</option>
-                  <option value="legalDueDate">Échéance</option>
-                </select>
-                <button
-                  className="text-xs border border-border rounded-md px-2 py-0.5"
-                  onClick={() => setCaseSortDirection((prev) => (prev === "asc" ? "desc" : "asc"))}
-                >
-                  {caseSortDirection === "asc" ? "Asc" : "Desc"}
-                </button>
-              </div>
-            </div>
-            <div className="finder-list">
-              {sortedCases.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="finder-row"
-                  data-selected={selectedCaseIds.includes(entry.id)}
-                  data-active={activeColumn === "cases" && selectedCaseId === entry.id}
-                  onClick={(event) =>
-                    handleSelectCase(entry.id, {
-                      multi: event.metaKey || event.ctrlKey,
-                      range: event.shiftKey
-                    })
-                  }
-                >
-                  <div className="flex-1">
-                    <p className="font-medium">{entry.title}</p>
-                    <p className="text-xs text-slate-500">
-                      Échéance juridique: {entry.legalDueDate ? formatDateFR(entry.legalDueDate) : "-"}
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    {selectedCaseId === entry.id ? (
-                      <button
-                        className="text-[11px] text-slate-600 underline"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setDetailTarget({ type: "case", id: entry.id });
-                        }}
-                      >
-                        Infos
-                      </button>
-                    ) : null}
-                    <span className="text-xs text-slate-500">{entry.type}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-          ) : null}
+      {/* ── RAPPEL ÉCHÉANCES ── */}
+      {!isMyDay && reminderItems.length > 0 && (
+        <div className="reminder-bar">
+          <span><strong className="font-medium">{reminderItems.length} tâche{reminderItems.length > 1 ? "s" : ""}</strong> à échéance aujourd'hui ou en retard</span>
+          <button
+            className="text-[11.5px] font-[inherit] bg-transparent border border-[#fcd34d] text-[#92400e] px-2 py-[2px] rounded cursor-pointer"
+            onClick={async () => {
+              if (!user) return;
+              await Promise.all(reminderItems.map(item =>
+                updateItem(user.uid, item.id, { lastReminderAt: new Date().toISOString() })
+              ));
+              showToast("Rappel enregistré");
+            }}
+          >
+            Marquer comme rappelé
+          </button>
+        </div>
+      )}
 
-          {showItemsColumn ? (
-            <section className="finder-column">
-              <div className="finder-header flex items-center justify-between">
-                <span>Tâches</span>
-                <button
-                  className="text-xs border border-border rounded-md px-2 py-0.5"
-                  onClick={() => {
-                    setSelectionModeItems((prev) => !prev);
-                    setSelectedItemIds([]);
-                  }}
-                >
-                  {selectionModeItems ? "Annuler" : "Sélection"}
-                </button>
-              </div>
-              {selectionModeItems ? (
-                <div className="finder-actionbar">
-                  <button className="text-xs border border-border rounded-md px-2 py-1" onClick={handleDelete}>
-                    Supprimer
-                  </button>
+      {/* ══ VUE DOSSIERS ══ */}
+      {!isMyDay ? (
+        <div className="flex flex-1 overflow-hidden">
+
+          {/* ── COL DOSSIERS ── */}
+          {showCasesColumn && (
+            <div className="finder-column">
+              <div className="finder-header">
+                <span>Dossiers</span>
+                <div className="flex items-center gap-1">
+                  <select
+                    className="text-[11px] font-[inherit] bg-transparent border-none text-tx-3 cursor-pointer outline-none"
+                    value={caseSortKey}
+                    onChange={(e) => setCaseSortKey(e.target.value as "title" | "createdAt" | "legalDueDate")}
+                  >
+                    <option value="title">Nom</option>
+                    <option value="createdAt">Ancienneté</option>
+                    <option value="legalDueDate">Échéance</option>
+                  </select>
                   <button
-                    className="text-xs border border-border rounded-md px-2 py-1"
+                    className={iconBtn}
+                    onClick={() => setCaseSortDirection(p => p === "asc" ? "desc" : "asc")}
+                    title={caseSortDirection === "asc" ? "Croissant" : "Décroissant"}
+                  >
+                    {caseSortDirection === "asc" ? "↑" : "↓"}
+                  </button>
+                  <button className={iconBtn} title="Nouveau dossier (N)" onClick={handleCreateInActiveColumn}>+</button>
+                </div>
+              </div>
+
+              <div className="finder-list">
+                {sortedCases.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="finder-row"
+                    data-selected={selectedCaseIds.includes(entry.id) && !selectedCaseIds.includes(entry.id) ? "true" : undefined}
+                    data-active={selectedCaseId === entry.id ? "true" : undefined}
+                    onClick={(e) => handleSelectCase(entry.id, { multi: e.metaKey || e.ctrlKey, range: e.shiftKey })}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13.5px] font-medium text-tx truncate leading-snug">{entry.title}</p>
+                      <p className="text-[11px] text-tx-3 mt-0.5 truncate">
+                        {entry.legalDueDate ? (
+                          <>Éch. <span className={new Date(entry.legalDueDate) < new Date() ? "text-red-500" : ""}>{formatDateFR(entry.legalDueDate)}</span></>
+                        ) : "Pas d'échéance"}
+                      </p>
+                    </div>
+                    {entry.type && (
+                      <span className="text-[11px] text-tx-3 shrink-0">{entry.type}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── COL TÂCHES ── */}
+          {showItemsColumn && (
+            <div className="finder-column">
+              <div className="finder-header">
+                <span>Tâches</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    className={iconBtn}
+                    title="Mode sélection"
+                    onClick={() => { setSelectionModeItems(p => !p); setSelectedItemIds([]); }}
+                  >⊡</button>
+                  <button className={iconBtn} title="Nouvelle tâche (N)" onClick={handleCreateInActiveColumn}>+</button>
+                </div>
+              </div>
+
+              {selectionModeItems && (
+                <div className="finder-actionbar">
+                  <button
+                    className={btnGhost}
                     onClick={async () => {
                       if (!user || selectedItemIds.length === 0) return;
-                      await Promise.all(
-                        selectedItemIds.map((id) =>
-                          addMyDaySelection(user.uid, { dateKey: todayKey, refType: "item", refId: id })
-                        )
-                      );
+                      await Promise.all(selectedItemIds.map(id =>
+                        addMyDaySelection(user.uid, { dateKey: todayKey, refType: "item", refId: id })
+                      ));
                       showToast("Ajouté à Ma journée.");
                     }}
-                  >
-                    Ajouter à Ma journée
-                  </button>
+                  >Ma journée</button>
+                  <button className={btnDanger} onClick={handleDelete}>Supprimer</button>
                   <button
-                    className="text-xs text-slate-500"
-                    onClick={() => {
-                      setSelectedItemIds([]);
-                      setSelectionModeItems(false);
-                    }}
-                  >
-                    Annuler sélection
-                  </button>
+                    className="text-[11.5px] text-tx-3 bg-transparent border-none cursor-pointer ml-auto"
+                    onClick={() => { setSelectedItemIds([]); setSelectionModeItems(false); }}
+                  >Annuler</button>
                 </div>
-              ) : null}
+              )}
+
               <div className="finder-list">
                 {itemsColumnItems.map((entry) => (
                   <div
                     key={entry.id}
                     className="finder-row"
-                    data-selected={selectedItemIds.includes(entry.id)}
-                    data-active={activeColumn === "items" && selectedItemId === entry.id}
-                    onClick={(event) =>
+                    data-selected={selectedItemIds.includes(entry.id) ? "true" : undefined}
+                    data-active={selectedItemId === entry.id ? "true" : undefined}
+                    onClick={(e) =>
                       selectionModeItems
-                        ? handleSelectItem(entry.id, {
-                            multi: true
-                          })
-                        : handleSelectItem(entry.id, {
-                            multi: event.metaKey || event.ctrlKey,
-                            range: event.shiftKey
-                          })
+                        ? handleSelectItem(entry.id, { multi: true })
+                        : handleSelectItem(entry.id, { multi: e.metaKey || e.ctrlKey, range: e.shiftKey })
                     }
                   >
-                    <div className="flex items-center gap-2 flex-1">
-                      {selectionModeItems ? (
-                        <input
-                          type="checkbox"
-                          checked={selectedItemIds.includes(entry.id)}
-                          onChange={() => handleSelectItem(entry.id, { multi: true })}
-                          onClick={(event) => event.stopPropagation()}
-                          className="h-4 w-4"
-                        />
-                      ) : null}
-                      <div className="flex-1">
-                        <p className="font-medium">{entry.title}</p>
-                        <p className="text-xs text-slate-500">
-                          {entry.status} {entry.dueDate ? `• échéance ${formatDateFR(entry.dueDate)}` : ""}
-                        </p>
-                      </div>
+                    {selectionModeItems && (
+                      <input
+                        type="checkbox"
+                        checked={selectedItemIds.includes(entry.id)}
+                        onChange={() => handleSelectItem(entry.id, { multi: true })}
+                        onClick={e => e.stopPropagation()}
+                        className="h-3.5 w-3.5 shrink-0"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13.5px] text-tx truncate leading-snug">{entry.title}</p>
+                      <p className="text-[11px] text-tx-3 mt-0.5 truncate">
+                        {entry.dueDate ? (
+                          <>Éch. <span className={new Date(entry.dueDate) < new Date() ? "text-red-500" : ""}>{formatDateFR(entry.dueDate)}</span></>
+                        ) : (
+                          getSubItems(items, entry.id).length > 0
+                            ? `${getSubItems(items, entry.id).length} sous-tâche${getSubItems(items, entry.id).length > 1 ? "s" : ""}`
+                            : "Pas d'échéance"
+                        )}
+                      </p>
                     </div>
-                    <span className="text-xs text-slate-500">N2</span>
+                    <span className={statusClass(entry.status)}>{entry.status}</span>
                   </div>
                 ))}
               </div>
-            </section>
-          ) : null}
+            </div>
+          )}
 
-          {showSubItemsColumn ? (
-            <section className="finder-column">
-              <div className="finder-header flex items-center justify-between">
+          {/* ── COL SOUS-TÂCHES ── */}
+          {showSubItemsColumn && (
+            <div className="finder-column">
+              <div className="finder-header">
                 <span>Sous-tâches</span>
-                <button
-                  className="text-xs border border-border rounded-md px-2 py-0.5"
-                  onClick={() => {
-                    setSelectionModeSubItems((prev) => !prev);
-                    setSelectedSubItemIds([]);
-                  }}
-                >
-                  {selectionModeSubItems ? "Annuler" : "Sélection"}
-                </button>
-              </div>
-              {selectionModeSubItems ? (
-                <div className="finder-actionbar">
-                  <button className="text-xs border border-border rounded-md px-2 py-1" onClick={handleDelete}>
-                    Supprimer
-                  </button>
+                <div className="flex items-center gap-1">
                   <button
-                    className="text-xs border border-border rounded-md px-2 py-1"
+                    className={iconBtn}
+                    title="Mode sélection"
+                    onClick={() => { setSelectionModeSubItems(p => !p); setSelectedSubItemIds([]); }}
+                  >⊡</button>
+                  <button className={iconBtn} title="Nouvelle sous-tâche (⇧N)" onClick={handleCreateChildTask}>+</button>
+                </div>
+              </div>
+
+              {selectionModeSubItems && (
+                <div className="finder-actionbar">
+                  <button
+                    className={btnGhost}
                     onClick={async () => {
                       if (!user || selectedSubItemIds.length === 0) return;
-                      await Promise.all(
-                        selectedSubItemIds.map((id) =>
-                          addMyDaySelection(user.uid, { dateKey: todayKey, refType: "subitem", refId: id })
-                        )
-                      );
+                      await Promise.all(selectedSubItemIds.map(id =>
+                        addMyDaySelection(user.uid, { dateKey: todayKey, refType: "subitem", refId: id })
+                      ));
                       showToast("Ajouté à Ma journée.");
                     }}
-                  >
-                    Ajouter à Ma journée
-                  </button>
+                  >Ma journée</button>
+                  <button className={btnDanger} onClick={handleDelete}>Supprimer</button>
                   <button
-                    className="text-xs text-slate-500"
-                    onClick={() => {
-                      setSelectedSubItemIds([]);
-                      setSelectionModeSubItems(false);
-                    }}
-                  >
-                    Annuler sélection
-                  </button>
+                    className="text-[11.5px] text-tx-3 bg-transparent border-none cursor-pointer ml-auto"
+                    onClick={() => { setSelectedSubItemIds([]); setSelectionModeSubItems(false); }}
+                  >Annuler</button>
                 </div>
-              ) : null}
+              )}
+
               <div className="finder-list">
                 {subItems.map((entry) => (
                   <div
                     key={entry.id}
                     className="finder-row"
-                    data-selected={selectedSubItemIds.includes(entry.id)}
-                    data-active={activeColumn === "subitems" && selectedSubItemId === entry.id}
-                    onClick={(event) =>
+                    data-selected={selectedSubItemIds.includes(entry.id) ? "true" : undefined}
+                    data-active={selectedSubItemId === entry.id ? "true" : undefined}
+                    onClick={(e) =>
                       selectionModeSubItems
                         ? handleSelectSubItem(entry.id, { multi: true })
-                        : handleSelectSubItem(entry.id, {
-                            multi: event.metaKey || event.ctrlKey,
-                            range: event.shiftKey
-                          })
+                        : handleSelectSubItem(entry.id, { multi: e.metaKey || e.ctrlKey, range: e.shiftKey })
                     }
                   >
-                    <div className="flex items-center gap-2 flex-1">
-                      {selectionModeSubItems ? (
-                        <input
-                          type="checkbox"
-                          checked={selectedSubItemIds.includes(entry.id)}
-                          onChange={() => handleSelectSubItem(entry.id, { multi: true })}
-                          onClick={(event) => event.stopPropagation()}
-                          className="h-4 w-4"
-                        />
-                      ) : null}
-                      <div className="flex-1">
-                        <p className="font-medium">{entry.title}</p>
-                        <p className="text-xs text-slate-500">{entry.status}</p>
-                      </div>
+                    {selectionModeSubItems && (
+                      <input
+                        type="checkbox"
+                        checked={selectedSubItemIds.includes(entry.id)}
+                        onChange={() => handleSelectSubItem(entry.id, { multi: true })}
+                        onClick={e => e.stopPropagation()}
+                        className="h-3.5 w-3.5 shrink-0"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13.5px] text-tx truncate leading-snug">{entry.title}</p>
+                      <p className="text-[11px] text-tx-3 mt-0.5">
+                        {entry.dueDate ? formatDateFR(entry.dueDate) : `Créée le ${formatDateFR(entry.createdAt)}`}
+                      </p>
                     </div>
-                    <span className="text-xs text-slate-500">N3</span>
+                    <span className={statusClass(entry.status)}>{entry.status}</span>
                   </div>
                 ))}
               </div>
-            </section>
-          ) : null}
+            </div>
+          )}
 
+          {/* ── PANNEAU DÉTAIL ── */}
           {detailPanel}
-          </section>
-        </main>
+
+        </div>
+
       ) : (
-        <main className="max-w-5xl mx-auto px-6 py-6 space-y-6">
-          <section className="bg-panel border border-border rounded-lg p-4">
-            <h2 className="text-sm font-semibold mb-3">Tâches volantes</h2>
-            <div className="space-y-2">
-              {floatingTasks
-                .filter((task) => task.dateKey === todayKey)
-                .map((task) => (
-                  <div
-                    key={task.id}
-                    className="flex items-center justify-between bg-white border border-border rounded-md px-3 py-2"
-                    onClick={() => setSelectedFloatingIds([task.id])}
-                  >
+
+        /* ══ VUE MA JOURNÉE ══ */
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-2xl mx-auto px-6 py-8 space-y-8">
+
+            {/* Tâches volantes */}
+            <section>
+              <p className="text-[11.5px] font-medium text-tx-3 uppercase tracking-wide mb-3">Tâches volantes</p>
+              <div className="space-y-2">
+                {floatingTasks.filter(t => t.dateKey === todayKey).map(task => (
+                  <div key={task.id} className="flex items-center gap-3 bg-bg-subtle rounded px-3 py-2.5">
                     <div className="flex-1 space-y-1">
                       <input
-                        className="w-full text-sm font-medium bg-transparent border border-transparent focus:border-border rounded px-1 -ml-1"
+                        className="w-full text-[13.5px] font-medium text-tx bg-transparent border-none outline-none"
                         value={task.title}
-                        onChange={(event) => updateFloatingTask(user.uid, task.id, { title: event.target.value })}
+                        onChange={e => updateFloatingTask(user.uid, task.id, { title: e.target.value })}
                       />
                       <select
-                        className="text-xs border border-border rounded-md px-2 py-1"
+                        className="text-[11.5px] font-[inherit] bg-transparent border border-border text-tx-2 px-2 py-0.5 rounded cursor-pointer outline-none"
                         value={task.status}
-                        onChange={(event) =>
-                          updateFloatingTask(user.uid, task.id, { status: event.target.value as Status })
-                        }
+                        onChange={e => updateFloatingTask(user.uid, task.id, { status: e.target.value as Status })}
                       >
-                        {STATUSES.map((status) => (
-                          <option key={status} value={status}>
-                            {status}
-                          </option>
-                        ))}
+                        {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <select
-                        className="text-xs border border-border rounded-md px-2 py-1"
-                        onChange={(event) => handleAttachFloating(task, event.target.value)}
-                        defaultValue=""
-                      >
-                        <option value="" disabled>
-                          Rattacher
-                        </option>
-                        {cases.map((entry) => (
-                          <option key={entry.id} value={entry.id}>
-                            {entry.title}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        className="text-xs border border-border rounded-md px-2 py-1"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          handleMarkFloatingDone(task.id);
-                        }}
-                      >
-                        Réalisée
-                      </button>
-                    </div>
+                    <select
+                      className="text-[11.5px] font-[inherit] bg-bg border border-border text-tx-2 px-2 py-1 rounded cursor-pointer outline-none"
+                      onChange={e => handleAttachFloating(task, e.target.value)}
+                      defaultValue=""
+                    >
+                      <option value="" disabled>Rattacher…</option>
+                      {cases.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                    </select>
+                    <button
+                      className={btnGhost}
+                      onClick={e => { e.stopPropagation(); handleMarkFloatingDone(task.id); }}
+                    >Réalisée</button>
                   </div>
                 ))}
-            </div>
-          </section>
+                <button className={btnGhost} onClick={handleCreateInActiveColumn}>+ Tâche volante</button>
+              </div>
+            </section>
 
-          <section className="bg-panel border border-border rounded-lg p-4">
-            <h2 className="text-sm font-semibold mb-3">Travail du jour</h2>
-            <div className="space-y-2">
-              {myDayItems.length === 0 ? (
-                <p className="text-xs text-slate-500">Aucun élément ajouté.</p>
-              ) : (
-                myDayItems.map((entry) => {
+            {/* Travail du jour */}
+            <section>
+              <p className="text-[11.5px] font-medium text-tx-3 uppercase tracking-wide mb-3">Travail du jour</p>
+              <div className="space-y-2">
+                {myDayItems.length === 0 ? (
+                  <p className="text-[13px] text-tx-3 italic">Aucun élément ajouté.</p>
+                ) : myDayItems.map(entry => {
                   if (!entry) return null;
                   return (
                     <div
                       key={entry.data.id}
-                      className="flex items-center justify-between bg-white border border-border rounded-md px-3 py-2"
-                      onClick={() => {
-                        setDetailTarget({ type: entry.type, id: entry.data.id });
-                      }}
+                      className="flex items-center gap-3 bg-bg-subtle rounded px-3 py-2.5 cursor-pointer hover:bg-bg-hover transition-colors"
+                      onClick={() => setDetailTarget({ type: entry.type, id: entry.data.id })}
                     >
-                      <div>
-                        <p className="text-sm font-medium">{entry.data.title}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13.5px] font-medium text-tx truncate">{entry.data.title}</p>
                         {"status" in entry.data ? (
-                          <p className="text-xs text-slate-500">{entry.data.status}</p>
+                          <span className={statusClass(entry.data.status)}>{entry.data.status}</span>
                         ) : (
-                          <p className="text-xs text-slate-500">
-                            Échéance {entry.data.legalDueDate ? formatDateFR(entry.data.legalDueDate) : "-"}
-                          </p>
+                          <p className="text-[11px] text-tx-3">Éch. {entry.data.legalDueDate ? formatDateFR(entry.data.legalDueDate) : "—"}</p>
                         )}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          className="text-xs border border-border rounded-md px-2 py-1"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setDetailTarget({ type: entry.type, id: entry.data.id });
-                          }}
-                        >
-                          Détails
-                        </button>
-                        {entry.type === "item" ? (
-                          <button
-                            className="text-xs border border-border rounded-md px-2 py-1"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              handleMarkMyDayItemDone(entry.data, entry.selectionId);
-                            }}
-                          >
-                            Réalisée
-                          </button>
-                        ) : null}
+                      <div className="flex gap-1.5">
+                        <button className={btnGhost} onClick={e => { e.stopPropagation(); setDetailTarget({ type: entry.type, id: entry.data.id }); }}>Détails</button>
+                        {entry.type === "item" && (
+                          <button className={btnGhost} onClick={e => { e.stopPropagation(); handleMarkMyDayItemDone(entry.data, entry.selectionId); }}>Réalisée</button>
+                        )}
                       </div>
                     </div>
                   );
-                })
-              )}
-            </div>
-          </section>
-
-          <section className="bg-panel border border-border rounded-lg p-4">
-            <h2 className="text-sm font-semibold mb-3">Suggestions</h2>
-            <div className="space-y-3">
-              <div>
-                <p className="text-xs text-slate-500 mb-2">Échéances aujourd'hui / en retard</p>
-                <div className="space-y-2">
-                  {suggestions.dueToday.map((task) => (
-                    <div key={task.id} className="flex items-center justify-between bg-white border border-border rounded-md px-3 py-2">
-                      <div>
-                        <p className="text-sm font-medium">{task.title}</p>
-                        <p className="text-xs text-slate-500">{task.dueDate ? formatDateFR(task.dueDate) : "-"}</p>
-                      </div>
-                      <button
-                        className="text-xs border border-border rounded-md px-2 py-1"
-                        onClick={() =>
-                          addMyDaySelection(user.uid, {
-                            dateKey: todayKey,
-                            refType: task.level === 2 ? "item" : "subitem",
-                            refId: task.id
-                          })
-                        }
-                      >
-                        Ajouter
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                })}
               </div>
-              <div>
-                <p className="text-xs text-slate-500 mb-2">
-                  À reproposer (stagnantes – vues dans Ma journée ces 7 derniers jours)
-                </p>
-                <div className="space-y-2">
-                  {stagnantSuggestions.length === 0 ? (
-                    <p className="text-xs text-slate-400">Aucune suggestion stagnante.</p>
-                  ) : (
-                    stagnantSuggestions.map((task) => (
-                      <div
-                        key={task.id}
-                        className="flex items-center justify-between bg-white border border-border rounded-md px-3 py-2"
-                      >
-                        <div>
-                          <p className="text-sm font-medium">{task.title}</p>
-                          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                            <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">
-                              {getProgressStageLabel(task.progressLevel)}
-                            </span>
-                            <span>Dernière évolution: {formatDateFR(task.lastProgressDate)}</span>
+            </section>
+
+            {/* Suggestions */}
+            <section>
+              <p className="text-[11.5px] font-medium text-tx-3 uppercase tracking-wide mb-3">Suggestions</p>
+              <div className="space-y-4">
+
+                {/* Échéances */}
+                {suggestions.dueToday.length > 0 && (
+                  <div>
+                    <p className="text-[12px] text-tx-3 mb-2">Échéances aujourd'hui / en retard</p>
+                    <div className="space-y-1.5">
+                      {suggestions.dueToday.map(task => (
+                        <div key={task.id} className="flex items-center gap-3 bg-bg-subtle rounded px-3 py-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[13px] text-tx truncate">{task.title}</p>
+                            <p className="text-[11px] text-red-500">{task.dueDate ? formatDateFR(task.dueDate) : "—"}</p>
                           </div>
-                        </div>
-                        <button
-                          className="text-xs border border-border rounded-md px-2 py-1"
-                          onClick={() =>
-                            addMyDaySelection(user.uid, {
+                          <button
+                            className={btnGhost}
+                            onClick={() => addMyDaySelection(user.uid, {
                               dateKey: todayKey,
                               refType: task.level === 2 ? "item" : "subitem",
                               refId: task.id
-                            })
-                          }
-                        >
-                          +
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 mb-2">Hier (non terminés)</p>
-                <div className="space-y-2">
-                  {suggestions.yesterdaySelections.map((entry) => (
-                    <div key={entry.id} className="flex items-center justify-between bg-white border border-border rounded-md px-3 py-2">
-                      <p className="text-sm">
-                        {entry.refType === "case"
-                          ? cases.find((entryCase) => entryCase.id === entry.refId)?.title ?? entry.refId
-                          : items.find((entryItem) => entryItem.id === entry.refId)?.title ?? entry.refId}
-                      </p>
-                      <button
-                        className="text-xs border border-border rounded-md px-2 py-1"
-                        onClick={() =>
-                          addMyDaySelection(user.uid, {
-                            dateKey: todayKey,
-                            refType: entry.refType,
-                            refId: entry.refId
-                          })
-                        }
-                      >
-                        Ajouter
-                      </button>
+                            })}
+                          >Ajouter</button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 mb-2">Tâches volantes d'hier</p>
-                <div className="space-y-2">
-                  {suggestions.floatingYesterday.map((task) => (
-                    <div key={task.id} className="flex items-center justify-between bg-white border border-border rounded-md px-3 py-2">
-                      <div>
-                        <p className="text-sm font-medium">{task.title}</p>
-                        <p className="text-xs text-slate-500">Les reprendre aujourd'hui ?</p>
-                      </div>
-                      <button
-                        className="text-xs border border-border rounded-md px-2 py-1"
-                        onClick={() => updateFloatingTask(user.uid, task.id, { dateKey: todayKey })}
-                      >
-                        Reprendre
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </section>
-          {detailPanel ? <div className="pt-2">{detailPanel}</div> : null}
-        </main>
-      )}
+                  </div>
+                )}
 
-      {pendingDelete ? (
-        <div className="fixed bottom-4 right-4 bg-slate-900 text-white text-sm px-4 py-3 rounded-md shadow-lg">
-          <p>{pendingDelete.message}</p>
-          <div className="flex items-center justify-between gap-3 mt-1 text-xs">
-            <span>Annulation {undoCountdown}s</span>
-            <button className="underline" onClick={handleUndoDelete}>
-              Annuler
-            </button>
+                {/* Stagnantes */}
+                {stagnantSuggestions.length > 0 && (
+                  <div>
+                    <p className="text-[12px] text-tx-3 mb-2">Stagnantes — vues ces 7 derniers jours</p>
+                    <div className="space-y-1.5">
+                      {stagnantSuggestions.map(task => (
+                        <div key={task.id} className="flex items-center gap-3 bg-bg-subtle rounded px-3 py-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[13px] text-tx truncate">{task.title}</p>
+                            <div className="flex gap-2 items-center mt-0.5">
+                              <span className={statusClass(task.status as Status)}>{getProgressStageLabel(task.progressLevel)}</span>
+                              <span className="text-[11px] text-tx-3">Dernière évol. {formatDateFR(task.lastProgressDate)}</span>
+                            </div>
+                          </div>
+                          <button
+                            className={btnGhost}
+                            onClick={() => addMyDaySelection(user.uid, {
+                              dateKey: todayKey,
+                              refType: task.level === 2 ? "item" : "subitem",
+                              refId: task.id
+                            })}
+                          >+</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Hier */}
+                {suggestions.yesterdaySelections.length > 0 && (
+                  <div>
+                    <p className="text-[12px] text-tx-3 mb-2">Hier — non terminés</p>
+                    <div className="space-y-1.5">
+                      {suggestions.yesterdaySelections.map(entry => (
+                        <div key={entry.id} className="flex items-center gap-3 bg-bg-subtle rounded px-3 py-2">
+                          <p className="text-[13px] text-tx flex-1 truncate">
+                            {entry.refType === "case"
+                              ? cases.find(c => c.id === entry.refId)?.title ?? entry.refId
+                              : items.find(i => i.id === entry.refId)?.title ?? entry.refId}
+                          </p>
+                          <button
+                            className={btnGhost}
+                            onClick={() => addMyDaySelection(user.uid, { dateKey: todayKey, refType: entry.refType, refId: entry.refId })}
+                          >Ajouter</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Tâches volantes d'hier */}
+                {suggestions.floatingYesterday.length > 0 && (
+                  <div>
+                    <p className="text-[12px] text-tx-3 mb-2">Tâches volantes d'hier</p>
+                    <div className="space-y-1.5">
+                      {suggestions.floatingYesterday.map(task => (
+                        <div key={task.id} className="flex items-center gap-3 bg-bg-subtle rounded px-3 py-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[13px] text-tx truncate">{task.title}</p>
+                            <p className="text-[11px] text-tx-3">Les reprendre aujourd'hui ?</p>
+                          </div>
+                          <button
+                            className={btnGhost}
+                            onClick={() => updateFloatingTask(user.uid, task.id, { dateKey: todayKey })}
+                          >Reprendre</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* Détail en Ma journée */}
+            {detailPanel && <div className="pt-2">{detailPanel}</div>}
+
           </div>
         </div>
-      ) : null}
+      )}
 
-      {toast ? (
-        <div className="fixed bottom-4 left-4 bg-white border border-border text-sm px-4 py-2 rounded-md shadow">
+      {/* ── TOAST UNDO DELETE ── */}
+      {pendingDelete && (
+        <div className="toast-bar">
+          <span>{pendingDelete.message}</span>
+          <span className="text-white/60">Annulation {undoCountdown}s</span>
+          <button
+            className="text-[12px] font-[inherit] bg-white/10 border border-white/20 text-white px-2 py-0.5 rounded cursor-pointer"
+            onClick={handleUndoDelete}
+          >Annuler</button>
+        </div>
+      )}
+
+      {/* ── TOAST INFO ── */}
+      {toast && (
+        <div className="toast-bar" style={{ bottom: pendingDelete ? "64px" : "20px" }}>
           {toast}
         </div>
-      ) : null}
+      )}
 
-      {isReparentOpen && reparentTarget ? (
+      {/* ── MODAL RATTACHEMENT ── */}
+      {isReparentOpen && reparentTarget && (
         <div
-          className="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black/30 flex items-center justify-center z-50"
           onClick={handleCloseReparent}
         >
           <div
-            className="bg-white border border-border rounded-lg shadow-xl w-[360px] max-w-[90vw] p-4 space-y-3"
-            onClick={(event) => event.stopPropagation()}
+            className="bg-bg border border-border rounded-lg shadow-xl w-[360px] max-w-[90vw] p-5 space-y-4"
+            onClick={e => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
-            aria-labelledby="reparent-dialog-title"
-            aria-describedby="reparent-dialog-description"
           >
             <div className="flex items-center justify-between">
-              <h3 id="reparent-dialog-title" className="text-sm font-semibold">
-                Rattacher la tâche
-              </h3>
-              <button className="text-xs text-slate-500" onClick={handleCloseReparent}>
-                Fermer
-              </button>
+              <h3 className="text-[14px] font-semibold text-tx">Rattacher la tâche</h3>
+              <button className={iconBtn} onClick={handleCloseReparent}>✕</button>
             </div>
-            <p id="reparent-dialog-description" className="sr-only">
-              Choisissez un parent pour rattacher la tâche sélectionnée.
-            </p>
-            <p className="text-xs text-slate-500">Tâche: {reparentTarget.title}</p>
+            <p className="text-[12px] text-tx-3">{reparentTarget.title}</p>
             <input
-              className="w-full border border-border rounded-md px-2 py-1 text-sm"
-              placeholder="Rechercher un parent..."
+              className="w-full font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded px-3 py-2 outline-none focus:border-border-strong"
+              placeholder="Rechercher un parent…"
               value={reparentSearch}
-              onChange={(event) => setReparentSearch(event.target.value)}
+              onChange={e => setReparentSearch(e.target.value)}
               onKeyDown={handleReparentKeyDown}
               autoFocus
             />
-            <div className="border border-border rounded-md max-h-56 overflow-auto text-sm">
+            <div className="border border-border rounded max-h-56 overflow-auto text-[13px]">
               {reparentOptions.length === 0 ? (
-                <p className="px-3 py-2 text-xs text-slate-500">Aucun parent disponible.</p>
-              ) : (
-                reparentOptions.map((option, index) => (
-                  <button
-                    key={`${option.kind}-${option.id}`}
-                    type="button"
-                    className={`w-full text-left px-3 py-2 hover:bg-slate-50 ${
-                      index === reparentCursor ? "bg-slate-100" : ""
-                    }`}
-                    onClick={() => handleConfirmReparent(option)}
-                    onMouseEnter={() => setReparentCursor(index)}
-                  >
-                    {option.label}
-                  </button>
-                ))
-              )}
+                <p className="px-3 py-2 text-tx-3">Aucun parent disponible.</p>
+              ) : reparentOptions.map((opt, i) => (
+                <button
+                  key={`${opt.kind}-${opt.id}`}
+                  type="button"
+                  className={`w-full text-left px-3 py-2 text-tx font-[inherit] border-none bg-transparent cursor-pointer transition-colors ${
+                    i === reparentCursor ? "bg-bg-active" : "hover:bg-bg-subtle"
+                  }`}
+                  onClick={() => handleConfirmReparent(opt)}
+                  onMouseEnter={() => setReparentCursor(i)}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
-            <p className="text-[10px] text-slate-400">Entrée pour valider, Échap pour fermer.</p>
+            <p className="text-[11px] text-tx-3">↵ valider · Échap fermer</p>
           </div>
         </div>
-      ) : null}
+      )}
 
-      <button
-        className="fixed bottom-4 right-4 bg-slate-900 text-white text-sm px-4 py-2 rounded-full shadow-lg"
-        onClick={() => setIsFeedbackOpen(true)}
-      >
-        Feedback
-      </button>
-
-      {isFeedbackOpen ? (
-        <div className="fixed bottom-16 right-4 w-[320px] bg-white border border-border rounded-lg shadow-xl p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">Feedback & corrections</h3>
-            <button className="text-xs text-slate-500" onClick={() => setIsFeedbackOpen(false)}>
-              Fermer
-            </button>
-          </div>
-          <textarea
-            className="w-full border border-border rounded-md px-2 py-1 text-sm"
-            rows={5}
-            placeholder="Tapez vos commentaires ici..."
-            value={feedbackText}
-            onChange={(event) => setFeedbackText(event.target.value)}
-          />
-          <div className="flex items-center justify-between text-xs">
-            <button className="border border-border rounded-md px-2 py-1" onClick={handleCopyFeedback}>
-              Copier tout
-            </button>
-            <button
-              className="text-slate-500"
-              onClick={() => {
-                setFeedbackText("");
-                showToast("Feedback effacé.");
-              }}
-            >
-              Effacer
-            </button>
-          </div>
-          <p className="text-[10px] text-slate-400">Collez ce texte pour me partager vos corrections.</p>
-        </div>
-      ) : null}
     </div>
   );
 }

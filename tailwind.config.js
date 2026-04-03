@@ -4,10 +4,20 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        panel: "#f4f5f7",
-        border: "#d7dbe0",
-        primary: "#1f2937"
-      }
+        bg:              "var(--bg)",
+        "bg-subtle":     "var(--bg-subtle)",
+        "bg-hover":      "var(--bg-hover)",
+        "bg-active":     "var(--bg-active)",
+        border:          "var(--border)",
+        "border-strong": "var(--border-strong)",
+        tx:              "var(--text)",
+        "tx-2":          "var(--text-2)",
+        "tx-3":          "var(--text-3)",
+        accent:          "var(--accent)",
+      },
+      fontFamily: {
+        sans: ["Inter", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"],
+      },
     }
   },
   plugins: []
