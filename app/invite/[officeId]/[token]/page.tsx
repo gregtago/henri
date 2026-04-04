@@ -55,8 +55,8 @@ export default function InvitePage() {
 
         setInvitation(invData);
         setEmail(invData.email);
-      } catch {
-        setError("Erreur lors du chargement de l'invitation.");
+      } catch (err: any) {
+        setError(`Erreur : ${err?.code ?? err?.message ?? "inconnue"}`);
       }
       setLoading(false);
     };
