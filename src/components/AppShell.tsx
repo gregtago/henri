@@ -1684,8 +1684,8 @@ export default function AppShell() {
 
       {/* ── HEADER ── */}
       <header className="h-[44px] flex items-center px-4 border-b border-border bg-bg shrink-0 z-10 relative">
-        {/* Liens navigation — gauche */}
-        <nav className="flex gap-0.5 z-10">
+        {/* Liens navigation — gauche (desktop uniquement) */}
+        <nav className="hidden md:flex gap-0.5 z-10">
           <Link
             href="/"
             className={`text-[13px] px-2.5 py-1 rounded border-none bg-transparent cursor-pointer transition-all ${
@@ -1712,10 +1712,14 @@ export default function AppShell() {
         </div>
 
         {/* Actions — droite */}
-        <div className="flex items-center gap-2.5 text-[12px] text-tx-3 ml-auto z-10">
+        <div className="flex items-center gap-2 text-[12px] text-tx-3 ml-auto z-10">
           <span className="hidden sm:inline">{user.email}</span>
-          <Link href="/settings" className={btnGhost} style={{textDecoration:"none"}}>Préférences</Link>
-          <button className={btnGhost} onClick={() => signOut(auth)}>Déconnexion</button>
+          {/* Desktop : boutons texte */}
+          <Link href="/settings" className={`hidden md:inline-flex ${btnGhost}`} style={{textDecoration:"none"}}>Préférences</Link>
+          <button className={`hidden md:inline-flex ${btnGhost}`} onClick={() => signOut(auth)}>Déconnexion</button>
+          {/* Mobile : icône ⚙ + déconnexion compacte */}
+          <Link href="/settings" className="md:hidden w-8 h-8 flex items-center justify-center rounded hover:bg-bg-hover text-tx-2" style={{textDecoration:"none"}} title="Préférences">⚙</Link>
+          <button className="md:hidden w-8 h-8 flex items-center justify-center rounded hover:bg-bg-hover text-tx-2 bg-transparent border-none cursor-pointer" onClick={() => signOut(auth)} title="Déconnexion">⏻</button>
         </div>
       </header>
 
@@ -1744,18 +1748,6 @@ export default function AppShell() {
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
-
-          {/* ── BREADCRUMB MOBILE ── */}
-          <div className="mobile-breadcrumb">
-            {mobileBreadcrumb.map((crumb, i) => (
-              <React.Fragment key={i}>
-                {i > 0 && <span className="mobile-breadcrumb-sep">›</span>}
-                <button className="mobile-breadcrumb-btn" onClick={crumb.onClick}>{crumb.label}</button>
-              </React.Fragment>
-            ))}
-            {mobileBreadcrumb.length > 0 && <span className="mobile-breadcrumb-sep">›</span>}
-            <span className="mobile-breadcrumb-current">{mobileColLabel}</span>
-          </div>
 
           {/* ── COLONNES (desktop: flex row normal, mobile: slider) ── */}
           <div className="flex flex-1 overflow-hidden md:overflow-visible">
@@ -1998,30 +1990,32 @@ export default function AppShell() {
             </div>{/* fin finder-mobile-slider */}
           </div>{/* fin colonnes wrapper */}
 
-          {/* ── BANDE "MA JOURNÉE" toujours à droite ── */}
-          {settings.sideTabs && (
-            <Link href="/my-day" className="side-tab side-tab-myday" title="Aller à Ma journée">
-              <div className="side-tab-inner">
-                <span className="side-tab-label">Ma journée</span>
-              </div>
-            </Link>
-          )}
+          {/* ── BARRE BAS MOBILE ── */}
+          <div className="mobile-bottom-bar">
+            {/* Fil d'Ariane — élément courant seulement */}
+            <div className="mobile-bottom-crumbs">
+              {mobileBreadcrumb.map((crumb, i) => (
+                <React.Fragment key={i}>
+                  {i > 0 && <span className="mobile-breadcrumb-sep">›</span>}
+                  <button className="mobile-breadcrumb-btn" onClick={crumb.onClick}>{crumb.label}</button>
+                </React.Fragment>
+              ))}
+              {mobileBreadcrumb.length > 0 && <span className="mobile-breadcrumb-sep">›</span>}
+              <span className="mobile-breadcrumb-current">{mobileColLabel}</span>
+            </div>
+            {/* Bouton Ma journée */}
+            <Link href="/my-day" className="mobile-nav-btn">☀ Ma journée</Link>
+          </div>
 
         </div>
 
       ) : (
 
         /* ══ VUE MA JOURNÉE — 2 colonnes ══ */
-        <div className="flex flex-1 overflow-hidden bg-white">
+        <div className="flex flex-col flex-1 overflow-hidden bg-white">
 
-          {/* ── BANDE "DOSSIERS" à gauche ── */}
-          {settings.sideTabs && (
-            <Link href="/" className="side-tab side-tab-dossiers" title="Retour aux Dossiers">
-              <div className="side-tab-inner">
-                <span className="side-tab-label">Dossiers</span>
-              </div>
-            </Link>
-          )}
+          {/* Colonnes */}
+          <div className="flex flex-1 overflow-hidden">
 
           {/* ── COL GAUCHE : LISTE DU JOUR ── */}
           <div className="flex flex-col flex-1 overflow-hidden border-r border-border bg-white">
@@ -2279,6 +2273,14 @@ export default function AppShell() {
                 </div>
               </>
             )}
+          </div>
+
+          </div>{/* fin div colonnes */}
+
+          {/* ── BARRE BAS MOBILE — Ma journée ── */}
+          <div className="mobile-bottom-bar">
+            <span className="mobile-breadcrumb-current">Ma journée</span>
+            <Link href="/" className="mobile-nav-btn">⬅ Dossiers</Link>
           </div>
 
         </div>
