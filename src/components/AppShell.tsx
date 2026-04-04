@@ -436,10 +436,10 @@ export default function AppShell() {
       const dueTs = dueDate ? dueDate.getTime() : Infinity;
       const statusEl = "status" in data
         ? <span className={statusClass(data.status)}>{data.status}</span>
-        : <span className="text-[11px] text-tx-3">Dossier</span>;
+        : <span className="text-[12.5px] text-tx-3">Dossier</span>;
       const removeBtn = (
         <button
-          className="w-5 h-5 flex items-center justify-center text-[11px] text-tx-3 bg-transparent border-none cursor-pointer hover:text-red-500 rounded shrink-0"
+          className="w-5 h-5 flex items-center justify-center text-[12.5px] text-tx-3 bg-transparent border-none cursor-pointer hover:text-red-500 rounded shrink-0"
           onClick={e => { e.stopPropagation(); deleteMyDaySelection(user!.uid, selectionId); }}
           title="Retirer de Ma journée"
         >✕</button>
@@ -1314,11 +1314,11 @@ export default function AppShell() {
   // ── helpers visuels (statusClass défini plus haut) ──────────────────────
 
 
-  const btnGhost = "text-[11.5px] font-[inherit] bg-bg border border-border text-text-2 px-2 py-[2px] rounded cursor-pointer hover:border-border-strong hover:text-tx transition-all";
-  const btnDanger = "text-[11.5px] font-[inherit] bg-bg border border-[#fecaca] text-red-600 px-2 py-[2px] rounded cursor-pointer hover:bg-red-50 hover:border-red-400 transition-all";
+  const btnGhost = "text-[14px] font-[inherit] bg-bg border border-border text-text-2 px-2 py-[2px] rounded cursor-pointer hover:border-border-strong hover:text-tx transition-all";
+  const btnDanger = "text-[14px] font-[inherit] bg-bg border border-[#fecaca] text-red-600 px-2 py-[2px] rounded cursor-pointer hover:bg-red-50 hover:border-red-400 transition-all";
   const iconBtn = "w-6 h-6 flex items-center justify-center border-none bg-transparent rounded text-tx-3 text-sm cursor-pointer hover:bg-bg-hover hover:text-tx-2 transition-all";
-  const propKey = "w-[120px] shrink-0 text-[13px] text-tx-3 py-1 flex items-center gap-1.5";
-  const propVal = "flex-1 text-[13px] text-tx py-1 px-2 rounded min-h-[28px] flex items-center";
+  const propKey = "w-[120px] shrink-0 text-[14px] text-tx-3 py-1 flex items-center gap-1.5";
+  const propVal = "flex-1 text-[14px] text-tx py-1 px-2 rounded min-h-[28px] flex items-center";
 
   // ── DETAIL PANEL ─────────────────────────────────────────────────────────
 
@@ -1345,7 +1345,7 @@ export default function AppShell() {
         {detailCase ? (
           <>
             <input
-              className="w-full text-[20px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight mb-5 leading-snug cursor-default focus:cursor-text rounded px-1 -mx-1"
+              className="w-full text-[22px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight mb-5 leading-snug cursor-default focus:cursor-text rounded px-1 -mx-1"
               value={detailCase.title}
               readOnly
               onDoubleClick={e => { const t = e.target as HTMLInputElement; t.readOnly = false; t.focus(); t.select(); t.style.background = "#eff6ff"; }}
@@ -1379,7 +1379,7 @@ export default function AppShell() {
                 <input
                   key={detailCase.id + "-due"}
                   type="date"
-                  className="font-[inherit] text-[13px] text-tx bg-transparent border-none outline-none w-full"
+                  className="font-[inherit] text-[14px] text-tx bg-transparent border-none outline-none w-full"
                   defaultValue={detailCase.legalDueDate?.slice(0, 10) ?? ""}
                   onBlur={(e) => {
                     if (!e.target.value) {
@@ -1395,7 +1395,7 @@ export default function AppShell() {
               </div>
             </div>
             {detailCase.legalDueDate && (
-              <p className="text-[11px] text-tx-3 ml-[128px] -mt-1 mb-1">{formatDateFR(detailCase.legalDueDate)}</p>
+              <p className="text-[12.5px] text-tx-3 ml-[128px] -mt-1 mb-1">{formatDateFR(detailCase.legalDueDate)}</p>
             )}
 
             {/* Note */}
@@ -1403,7 +1403,7 @@ export default function AppShell() {
               <div className={propKey + " pt-1"}><span className="opacity-60">📝</span> Note</div>
               <div className="flex-1 px-2">
                 <textarea
-                  className="w-full font-[inherit] text-[13px] text-tx bg-transparent border-none outline-none resize-none leading-relaxed min-h-[60px]"
+                  className="w-full font-[inherit] text-[14px] text-tx bg-transparent border-none outline-none resize-none leading-relaxed min-h-[60px]"
                   value={detailCase.caseNote ?? ""}
                   onChange={(e) => updateCase(user.uid, detailCase.id, { caseNote: e.target.value })}
                   placeholder="Ajouter une note…"
@@ -1415,7 +1415,7 @@ export default function AppShell() {
             <div className="h-px bg-border my-4" />
 
             {/* Actions */}
-            <p className="text-[11.5px] font-medium text-tx-3 uppercase tracking-wide mb-3">Actions</p>
+            <p className="text-[14px] font-medium text-tx-3 uppercase tracking-wide mb-3">Actions</p>
             <div className="flex flex-wrap gap-2">
               <button className={btnGhost} onClick={() => handleExport(detailCase)}>Exporter JSON</button>
               <button
@@ -1444,7 +1444,7 @@ export default function AppShell() {
             {/* Titre */}
             <input
               ref={detailTitleRef}
-              className="w-full text-[20px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight mb-5 leading-snug cursor-default focus:cursor-text rounded px-1 -mx-1"
+              className="w-full text-[22px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight mb-5 leading-snug cursor-default focus:cursor-text rounded px-1 -mx-1"
               value={detailItem.title}
               readOnly
               onDoubleClick={e => { const t = e.target as HTMLInputElement; t.readOnly = false; t.focus(); t.select(); t.style.background = "#eff6ff"; t.style.borderRadius = "4px"; }}
@@ -1495,7 +1495,7 @@ export default function AppShell() {
                 <input
                   key={detailItem.id + "-due"}
                   type="date"
-                  className="font-[inherit] text-[13px] text-tx bg-transparent border-none outline-none w-full"
+                  className="font-[inherit] text-[14px] text-tx bg-transparent border-none outline-none w-full"
                   defaultValue={detailItem.dueDate?.slice(0, 10) ?? ""}
                   onBlur={(e) => {
                     if (!e.target.value) { updateItem(user.uid, detailItem.id, { dueDate: null }); return; }
@@ -1508,7 +1508,7 @@ export default function AppShell() {
               </div>
             </div>
             {detailItem.dueDate && (
-              <p className="text-[11px] text-tx-3 ml-[128px] -mt-1 mb-1">{formatDateFR(detailItem.dueDate)}</p>
+              <p className="text-[12.5px] text-tx-3 ml-[128px] -mt-1 mb-1">{formatDateFR(detailItem.dueDate)}</p>
             )}
 
             {/* Dossier */}
@@ -1533,17 +1533,17 @@ export default function AppShell() {
             <div className="h-px bg-border my-4" />
 
             {/* Commentaires */}
-            <p className="text-[11.5px] font-medium text-tx-3 uppercase tracking-wide mb-3">Commentaires</p>
+            <p className="text-[14px] font-medium text-tx-3 uppercase tracking-wide mb-3">Commentaires</p>
             <div className="space-y-2 mb-3">
               {detailComments.map((c) => (
                 <div key={c.id} className="bg-bg-subtle rounded px-3 py-2">
-                  <p className="text-[13px] text-tx leading-relaxed">{c.body}</p>
-                  <p className="text-[11px] text-tx-3 mt-1">{formatDateFR(c.createdAt)}{c.author ? ` — ${c.author}` : ""}</p>
+                  <p className="text-[14px] text-tx leading-relaxed">{c.body}</p>
+                  <p className="text-[12.5px] text-tx-3 mt-1">{formatDateFR(c.createdAt)}{c.author ? ` — ${c.author}` : ""}</p>
                 </div>
               ))}
             </div>
             <textarea
-              className="w-full font-[inherit] text-[13px] text-tx bg-bg-subtle border border-transparent rounded px-3 py-2 outline-none resize-none leading-relaxed min-h-[64px] focus:border-border-strong focus:bg-bg placeholder:text-tx-3 transition-colors"
+              className="w-full font-[inherit] text-[14px] text-tx bg-bg-subtle border border-transparent rounded px-3 py-2 outline-none resize-none leading-relaxed min-h-[64px] focus:border-border-strong focus:bg-bg placeholder:text-tx-3 transition-colors"
               placeholder="Ajouter un commentaire… (Entrée pour valider)"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
@@ -1561,7 +1561,7 @@ export default function AppShell() {
             {detailEvents.length > 0 && (
               <>
                 <button
-                  className="text-[11.5px] text-tx-3 underline mt-3 mb-1 bg-transparent border-none cursor-pointer"
+                  className="text-[14px] text-tx-3 underline mt-3 mb-1 bg-transparent border-none cursor-pointer"
                   onClick={() => setIsTimelineOpen(p => !p)}
                 >
                   {isTimelineOpen ? "Masquer la timeline" : "Afficher la timeline"}
@@ -1571,7 +1571,7 @@ export default function AppShell() {
                     {detailEvents.map((ev) => (
                       <div key={ev.id} className="bg-bg-subtle rounded px-3 py-1.5">
                         <p className="text-[12px] text-tx">{ev.type}</p>
-                        <p className="text-[11px] text-tx-3">{formatDateFR(ev.createdAt)}</p>
+                        <p className="text-[12.5px] text-tx-3">{formatDateFR(ev.createdAt)}</p>
                       </div>
                     ))}
                   </div>
@@ -1635,7 +1635,7 @@ export default function AppShell() {
         <div className="reminder-bar">
           <span><strong className="font-medium">{reminderItems.length} tâche{reminderItems.length > 1 ? "s" : ""}</strong> à échéance aujourd'hui ou en retard</span>
           <button
-            className="text-[11.5px] font-[inherit] bg-transparent border border-[#fcd34d] text-[#92400e] px-2 py-[2px] rounded cursor-pointer"
+            className="text-[14px] font-[inherit] bg-transparent border border-[#fcd34d] text-[#92400e] px-2 py-[2px] rounded cursor-pointer"
             onClick={async () => {
               if (!user) return;
               await Promise.all(reminderItems.map(item =>
@@ -1660,7 +1660,7 @@ export default function AppShell() {
                 <span>{showArchived ? "Dossiers archivés" : "Dossiers"}</span>
                 <div className="flex items-center gap-1">
                   <select
-                    className="text-[11px] font-[inherit] bg-transparent border-none text-tx-3 cursor-pointer outline-none"
+                    className="text-[12.5px] font-[inherit] bg-transparent border-none text-tx-3 cursor-pointer outline-none"
                     value={caseSortKey}
                     onChange={(e) => setCaseSortKey(e.target.value as "title" | "createdAt" | "legalDueDate")}
                   >
@@ -1690,15 +1690,15 @@ export default function AppShell() {
                     onClick={(e) => handleSelectCase(entry.id, { multi: e.metaKey || e.ctrlKey, range: e.shiftKey })}
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="text-[13.5px] font-medium text-tx truncate leading-snug">{entry.title}</p>
-                      <p className="text-[11px] text-tx-3 mt-0.5 truncate">
+                      <p className="text-[15px] font-medium text-tx truncate leading-snug">{entry.title}</p>
+                      <p className="text-[12.5px] text-tx-3 mt-0.5 truncate">
                         {entry.legalDueDate ? (
                           <>Éch. <span className={new Date(entry.legalDueDate) < new Date() ? "text-red-500" : ""}>{formatDateFR(entry.legalDueDate)}</span></>
                         ) : "Pas d'échéance"}
                       </p>
                     </div>
                     {entry.type && (
-                      <span className="text-[11px] text-tx-3 shrink-0">{entry.type}</span>
+                      <span className="text-[12.5px] text-tx-3 shrink-0">{entry.type}</span>
                     )}
                   </div>
                 ))}
@@ -1707,14 +1707,14 @@ export default function AppShell() {
               {/* Pied de colonne : liens Archivés + Importer */}
               <div className="border-t border-border px-3 py-2 space-y-0.5">
                 <button
-                  className={`w-full text-left text-[11.5px] px-2 py-1.5 rounded cursor-pointer border-none transition-colors ${
+                  className={`w-full text-left text-[14px] px-2 py-1.5 rounded cursor-pointer border-none transition-colors ${
                     showArchived ? "bg-bg-active text-tx font-medium" : "bg-transparent text-tx-3 hover:bg-bg-hover hover:text-tx-2"
                   }`}
                   onClick={() => { setShowArchived(p => !p); setSelectedCaseId(null); setDetailTarget(null); }}
                 >
                   {showArchived ? "← Dossiers actifs" : `📦 Archivés (${archivedCases.length})`}
                 </button>
-                <label className="w-full text-left text-[11.5px] px-2 py-1.5 rounded cursor-pointer bg-transparent text-tx-3 hover:bg-bg-hover hover:text-tx-2 flex items-center gap-1.5 transition-colors">
+                <label className="w-full text-left text-[14px] px-2 py-1.5 rounded cursor-pointer bg-transparent text-tx-3 hover:bg-bg-hover hover:text-tx-2 flex items-center gap-1.5 transition-colors">
                   <span>⬆ Importer un dossier</span>
                   <input type="file" accept="application/json" className="hidden" onChange={async (e) => {
                     const file = e.target.files?.[0];
@@ -1762,7 +1762,7 @@ export default function AppShell() {
                   >Ma journée</button>
                   <button className={btnDanger} onClick={handleDelete}>Supprimer</button>
                   <button
-                    className="text-[11.5px] text-tx-3 bg-transparent border-none cursor-pointer ml-auto"
+                    className="text-[14px] text-tx-3 bg-transparent border-none cursor-pointer ml-auto"
                     onClick={() => { setSelectedItemIds([]); setSelectionModeItems(false); }}
                   >Annuler</button>
                 </div>
@@ -1792,8 +1792,8 @@ export default function AppShell() {
                       />
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="text-[13.5px] text-tx truncate leading-snug">{entry.title}</p>
-                      <p className="text-[11px] text-tx-3 mt-0.5 truncate">
+                      <p className="text-[15px] text-tx truncate leading-snug">{entry.title}</p>
+                      <p className="text-[12.5px] text-tx-3 mt-0.5 truncate">
                         {entry.dueDate ? (
                           <>Éch. <span className={new Date(entry.dueDate) < new Date() ? "text-red-500" : ""}>{formatDateFR(entry.dueDate)}</span></>
                         ) : (
@@ -1839,7 +1839,7 @@ export default function AppShell() {
                   >Ma journée</button>
                   <button className={btnDanger} onClick={handleDelete}>Supprimer</button>
                   <button
-                    className="text-[11.5px] text-tx-3 bg-transparent border-none cursor-pointer ml-auto"
+                    className="text-[14px] text-tx-3 bg-transparent border-none cursor-pointer ml-auto"
                     onClick={() => { setSelectedSubItemIds([]); setSelectionModeSubItems(false); }}
                   >Annuler</button>
                 </div>
@@ -1869,8 +1869,8 @@ export default function AppShell() {
                       />
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="text-[13.5px] text-tx truncate leading-snug">{entry.title}</p>
-                      <p className="text-[11px] text-tx-3 mt-0.5">
+                      <p className="text-[15px] text-tx truncate leading-snug">{entry.title}</p>
+                      <p className="text-[12.5px] text-tx-3 mt-0.5">
                         {entry.dueDate ? formatDateFR(entry.dueDate) : `Créée le ${formatDateFR(entry.createdAt)}`}
                       </p>
                     </div>
@@ -1936,8 +1936,8 @@ export default function AppShell() {
                         onClick={e => { e.stopPropagation(); handleMarkFloatingDone(task.id); }} title="Réalisée" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[11px]">⭐</span>
-                          <p className="text-[13.5px] font-medium text-tx truncate">{task.title}</p>
+                          <span className="text-[12.5px]">⭐</span>
+                          <p className="text-[15px] font-medium text-tx truncate">{task.title}</p>
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className={statusClass(task.status)}>{task.status}</span>
@@ -1955,7 +1955,7 @@ export default function AppShell() {
                       <button className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer hover:border-accent hover:bg-blue-50 transition-colors"
                         onClick={e => { e.stopPropagation(); const sel = myDaySelections.find(s => s.id === entry.selectionId); if (!sel) return; const item = items.find(i => i.id === sel.refId); if (item) handleMarkMyDayItemDone(item, entry.selectionId); }} title="Réalisée" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-[13.5px] text-tx truncate leading-snug">{entry.title}</p>
+                        <p className="text-[15px] text-tx truncate leading-snug">{entry.title}</p>
                         <div className="flex items-center gap-2 mt-0.5">
                           {entry.statusEl}
                           <span className={`text-[11px] ${entry.overdue ? "text-red-500" : "text-tx-3"}`}>Éch. {entry.dueStr}</span>
@@ -1973,7 +1973,7 @@ export default function AppShell() {
                       <button className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer hover:border-accent hover:bg-blue-50 transition-colors"
                         onClick={e => { e.stopPropagation(); const sel = myDaySelections.find(s => s.id === entry.selectionId); if (!sel) return; const item = items.find(i => i.id === sel.refId); if (item) handleMarkMyDayItemDone(item, entry.selectionId); }} title="Réalisée" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-[13.5px] text-tx truncate leading-snug">{entry.title}</p>
+                        <p className="text-[15px] text-tx truncate leading-snug">{entry.title}</p>
                         <div className="mt-0.5">{entry.statusEl}</div>
                       </div>
                       {entry.removeBtn}
@@ -1988,7 +1988,7 @@ export default function AppShell() {
                       <button className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer hover:border-accent transition-colors"
                         onClick={e => { e.stopPropagation(); handleMarkFloatingDone(task.id); }} title="Réalisée" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-[13.5px] text-tx truncate">{task.title}</p>
+                        <p className="text-[15px] text-tx truncate">{task.title}</p>
                         <span className={statusClass(task.status)}>{task.status}</span>
                       </div>
                     </div>
@@ -2000,9 +2000,9 @@ export default function AppShell() {
             {/* Saisie tâche volante */}
             <div className="border-t border-border bg-bg p-3">
               <div className="flex items-center gap-2 bg-bg-subtle border border-border rounded-lg px-3 py-2">
-                <span className="text-[13px] text-tx-3">✏</span>
+                <span className="text-[14px] text-tx-3">✏</span>
                 <input
-                  className="flex-1 font-[inherit] text-[13.5px] text-tx bg-transparent border-none outline-none placeholder:text-tx-3"
+                  className="flex-1 font-[inherit] text-[15px] text-tx bg-transparent border-none outline-none placeholder:text-tx-3"
                   placeholder="Nouvelle tâche volante… (Entrée)"
                   onKeyDown={async e => {
                     if (e.key === "Enter") {
@@ -2019,7 +2019,7 @@ export default function AppShell() {
           </div>
 
           {/* ── COL DROITE : DÉTAIL ou SUGGESTIONS ── */}
-          <div className="flex flex-col overflow-hidden bg-white" style={{width:"300px", flexShrink:0}}>
+          <div className="flex flex-col overflow-hidden bg-white" style={{width:"340px", flexShrink:0}}>
 
             {myDayDetailId ? (
               /* Détail tâche sélectionnée */
@@ -2051,7 +2051,7 @@ export default function AppShell() {
                           <div className="flex-1 px-2 py-1 flex flex-wrap gap-1.5">
                             {STATUSES.map((s, i) => (
                               <button key={s} onClick={() => updateFloatingTask(user.uid, task.id, { status: s })}
-                                className={`${statusClass(s)} cursor-pointer border-none transition-opacity text-[11px] ${task.status === s ? "opacity-100" : "opacity-30 hover:opacity-60"}`}>
+                                className={`${statusClass(s)} cursor-pointer border-none transition-opacity text-[12.5px] ${task.status === s ? "opacity-100" : "opacity-30 hover:opacity-60"}`}>
                                 <span className="text-[9px] mr-1 opacity-60">{i + 1}</span>{s}
                               </button>
                             ))}
@@ -2060,7 +2060,7 @@ export default function AppShell() {
                         <div className="flex items-center py-1 rounded hover:bg-bg-subtle">
                           <div className={propKey}><span className="opacity-60">📅</span> Échéance</div>
                           <div className="flex-1 px-2">
-                            <input key={task.id + "-due"} type="date" className="font-[inherit] text-[13px] text-tx bg-transparent border-none outline-none"
+                            <input key={task.id + "-due"} type="date" className="font-[inherit] text-[14px] text-tx bg-transparent border-none outline-none"
                               defaultValue={task.dueDate?.slice(0,10) ?? ""}
                               onBlur={e => { if (!e.target.value) { updateFloatingTask(user.uid, task.id, { dueDate: null }); return; } const [y,m,d] = e.target.value.split("-").map(Number); if (y < 1900 || y > 2100) return; updateFloatingTask(user.uid, task.id, { dueDate: new Date(y,m-1,d,12).toISOString() }); }} />
                           </div>
@@ -2068,7 +2068,7 @@ export default function AppShell() {
                         <div className="flex items-center py-1 rounded hover:bg-bg-subtle">
                           <div className={propKey}><span className="opacity-60">📁</span> Rattacher</div>
                           <div className="flex-1 px-2">
-                            <select className="font-[inherit] text-[13px] text-tx-2 bg-transparent border border-border rounded px-2 py-1 outline-none cursor-pointer w-full"
+                            <select className="font-[inherit] text-[14px] text-tx-2 bg-transparent border border-border rounded px-2 py-1 outline-none cursor-pointer w-full"
                               onChange={e => handleAttachFloating(task, e.target.value)} defaultValue="">
                               <option value="" disabled>Choisir un dossier…</option>
                               {cases.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
@@ -2096,7 +2096,7 @@ export default function AppShell() {
 
                   {suggestions.floatingYesterday.length === 0 && suggestions.yesterdaySelections.length === 0 && suggestions.dueToday.length === 0 && stagnantSuggestions.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full gap-2 px-6 text-center">
-                      <p className="text-[13px] text-tx-3">Aucune suggestion pour aujourd'hui.</p>
+                      <p className="text-[14px] text-tx-3">Aucune suggestion pour aujourd'hui.</p>
                     </div>
                   ) : (
                     <>
@@ -2107,9 +2107,9 @@ export default function AppShell() {
                             <div key={task.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-subtle group cursor-default">
                               <div className="flex-1 min-w-0">
                                 <p className="text-[12.5px] text-tx truncate">{task.title}</p>
-                                <p className="text-[11px] text-red-400">{task.dueDate ? formatDateFR(task.dueDate) : "—"}</p>
+                                <p className="text-[12.5px] text-red-400">{task.dueDate ? formatDateFR(task.dueDate) : "—"}</p>
                               </div>
-                              <button className="opacity-0 group-hover:opacity-100 shrink-0 text-[11px] text-accent border border-[#93c5fd] rounded px-2 py-0.5 bg-transparent cursor-pointer transition-opacity"
+                              <button className="opacity-0 group-hover:opacity-100 shrink-0 text-[12.5px] text-accent border border-[#93c5fd] rounded px-2 py-0.5 bg-transparent cursor-pointer transition-opacity"
                                 onClick={() => addMyDaySelection(user.uid, { dateKey: todayKey, refType: task.level === 2 ? "item" : "subitem", refId: task.id })}>+ Ajouter</button>
                             </div>
                           ))}
@@ -2127,7 +2127,7 @@ export default function AppShell() {
                             return (
                               <div key={entry.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-subtle group cursor-default">
                                 <p className="flex-1 text-[12.5px] text-tx truncate">{title}</p>
-                                <button className="opacity-0 group-hover:opacity-100 shrink-0 text-[11px] text-accent border border-[#93c5fd] rounded px-2 py-0.5 bg-transparent cursor-pointer transition-opacity"
+                                <button className="opacity-0 group-hover:opacity-100 shrink-0 text-[12.5px] text-accent border border-[#93c5fd] rounded px-2 py-0.5 bg-transparent cursor-pointer transition-opacity"
                                   onClick={() => addMyDaySelection(user.uid, { dateKey: todayKey, refType: entry.refType, refId: entry.refId })}>+ Ajouter</button>
                               </div>
                             );
@@ -2141,7 +2141,7 @@ export default function AppShell() {
                           {suggestions.floatingYesterday.map(task => (
                             <div key={task.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-subtle group cursor-default">
                               <p className="flex-1 text-[12.5px] text-tx truncate">{task.title}</p>
-                              <button className="opacity-0 group-hover:opacity-100 shrink-0 text-[11px] text-accent border border-[#93c5fd] rounded px-2 py-0.5 bg-transparent cursor-pointer transition-opacity"
+                              <button className="opacity-0 group-hover:opacity-100 shrink-0 text-[12.5px] text-accent border border-[#93c5fd] rounded px-2 py-0.5 bg-transparent cursor-pointer transition-opacity"
                                 onClick={() => updateFloatingTask(user.uid, task.id, { dateKey: todayKey })}>↩ Reprendre</button>
                             </div>
                           ))}
@@ -2157,7 +2157,7 @@ export default function AppShell() {
                                 <p className="text-[12.5px] text-tx truncate">{task.title}</p>
                                 <span className={statusClass(task.status as Status)}>{task.status}</span>
                               </div>
-                              <button className="opacity-0 group-hover:opacity-100 shrink-0 text-[11px] text-accent border border-[#93c5fd] rounded px-2 py-0.5 bg-transparent cursor-pointer transition-opacity"
+                              <button className="opacity-0 group-hover:opacity-100 shrink-0 text-[12.5px] text-accent border border-[#93c5fd] rounded px-2 py-0.5 bg-transparent cursor-pointer transition-opacity"
                                 onClick={() => addMyDaySelection(user.uid, { dateKey: todayKey, refType: task.level === 2 ? "item" : "subitem", refId: task.id })}>+ Ajouter</button>
                             </div>
                           ))}
@@ -2177,7 +2177,7 @@ export default function AppShell() {
       {!isMyDay && (
         <>
           <button
-            className="fixed bottom-5 right-5 w-8 h-8 rounded-full bg-tx text-bg text-[13px] font-semibold border-none cursor-pointer flex items-center justify-center shadow-lg hover:opacity-80 transition-opacity z-40"
+            className="fixed bottom-5 right-5 w-8 h-8 rounded-full bg-tx text-bg text-[14px] font-semibold border-none cursor-pointer flex items-center justify-center shadow-lg hover:opacity-80 transition-opacity z-40"
             onClick={() => setIsShortcutsOpen(p => !p)}
             title="Raccourcis clavier"
           >?</button>
@@ -2188,7 +2188,7 @@ export default function AppShell() {
                 onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-4">
                   <p className="text-[12px] font-semibold text-tx uppercase tracking-wide">Raccourcis clavier</p>
-                  <button className="text-tx-3 text-[13px] bg-transparent border-none cursor-pointer hover:text-tx"
+                  <button className="text-tx-3 text-[14px] bg-transparent border-none cursor-pointer hover:text-tx"
                     onClick={() => setIsShortcutsOpen(false)}>✕</button>
                 </div>
                 <div className="space-y-2">
@@ -2207,7 +2207,7 @@ export default function AppShell() {
                   ].map(([k, label]) => (
                     <div key={k} className="flex items-center justify-between">
                       <span className="text-[12.5px] text-tx-2">{label}</span>
-                      <kbd className="text-[11px]">{k}</kbd>
+                      <kbd className="text-[12.5px]">{k}</kbd>
                     </div>
                   ))}
                 </div>
@@ -2254,14 +2254,14 @@ export default function AppShell() {
             </div>
             <p className="text-[12px] text-tx-3">{reparentTarget.title}</p>
             <input
-              className="w-full font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded px-3 py-2 outline-none focus:border-border-strong"
+              className="w-full font-[inherit] text-[14px] text-tx bg-bg-subtle border border-border rounded px-3 py-2 outline-none focus:border-border-strong"
               placeholder="Rechercher un parent…"
               value={reparentSearch}
               onChange={e => setReparentSearch(e.target.value)}
               onKeyDown={handleReparentKeyDown}
               autoFocus
             />
-            <div className="border border-border rounded max-h-56 overflow-auto text-[13px]">
+            <div className="border border-border rounded max-h-56 overflow-auto text-[14px]">
               {reparentOptions.length === 0 ? (
                 <p className="px-3 py-2 text-tx-3">Aucun parent disponible.</p>
               ) : reparentOptions.map((opt, i) => (
@@ -2278,7 +2278,7 @@ export default function AppShell() {
                 </button>
               ))}
             </div>
-            <p className="text-[11px] text-tx-3">↵ valider · Échap fermer</p>
+            <p className="text-[12.5px] text-tx-3">↵ valider · Échap fermer</p>
           </div>
         </div>
       )}
