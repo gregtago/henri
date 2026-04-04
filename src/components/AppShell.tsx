@@ -1567,7 +1567,7 @@ export default function AppShell() {
       {/* ── HEADER ── */}
       <header className="h-[44px] flex items-center justify-between px-4 border-b border-border bg-bg shrink-0 z-10">
         <Link href="/">
-          <img src="/logo-henri.png" alt="Henri" style={{width:"250px", height:"auto"}} />
+          <img src="/logo-henri.png" alt="Henri" style={{height:"36px", width:"auto"}} />
         </Link>
 
         <nav className="flex gap-0.5">

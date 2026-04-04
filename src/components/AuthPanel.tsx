@@ -57,7 +57,7 @@ export default function AuthPanel() {
       <div className="w-full max-w-sm bg-bg border border-border rounded-xl shadow-sm p-7 space-y-5">
 
         <div className="space-y-1">
-          <img src="/logo-henri.png" alt="Henri" style={{width:"250px", height:"auto"}} />
+          <img src="/logo-henri.png" alt="Henri" style={{width:"220px", height:"auto"}} />
           <p className="text-[13px] text-tx-3">Gestion notariale</p>
         </div>
 
