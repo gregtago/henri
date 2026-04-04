@@ -124,7 +124,6 @@ export default function AppShell() {
   const [members, setMembers] = useState<import("@/lib/office-types").OfficeMember[]>([]);
   const [myDayDetailId, setMyDayDetailId] = useState<string | null>(null);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
-  const [assignSearch, setAssignSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [importMode, setImportMode] = useState<"model" | "history">("history");
   const [isImportOpen, setIsImportOpen] = useState(false); // "f-{id}" pour volante, selectionId pour dossier
@@ -1357,6 +1356,68 @@ export default function AppShell() {
   const propKey = "w-[120px] shrink-0 text-[14px] text-tx-3 py-1 flex items-center gap-1.5";
   const propVal = "flex-1 text-[14px] text-tx py-1 px-2 rounded min-h-[28px] flex items-center";
 
+
+  // Composant inline pour le champ d'assignation (dossier ou tâche)
+  const AssignField = ({
+    assignedTo,
+    onAdd,
+    onRemove,
+  }: {
+    assignedTo: string[];
+    onAdd: (uid: string) => void;
+    onRemove: (uid: string) => void;
+  }) => {
+    const [search, setSearch] = React.useState("");
+    if (members.length <= 1) return null;
+    const filtered = members
+      .filter(m => !assignedTo.includes(m.uid))
+      .filter(m => {
+        const q = search.toLowerCase();
+        return !q || (m.displayName ?? "").toLowerCase().includes(q) || m.email.toLowerCase().includes(q);
+      });
+    return (
+      <div className="flex items-start py-1 rounded hover:bg-bg-subtle">
+        <div className={propKey}><span className="opacity-60">👤</span> Attribuer à</div>
+        <div className="flex-1 px-2 py-1 space-y-2">
+          <div className="flex flex-wrap gap-1.5">
+            {assignedTo.map(uid => {
+              const m = members.find(m => m.uid === uid);
+              if (!m) return null;
+              return (
+                <span key={uid} className="flex items-center gap-1 text-[12px] bg-accent text-white px-2 py-0.5 rounded">
+                  {m.displayName || m.email.split("@")[0]}
+                  <button className="text-white/70 hover:text-white bg-transparent border-none cursor-pointer text-[11px]"
+                    onClick={() => onRemove(uid)}>✕</button>
+                </span>
+              );
+            })}
+          </div>
+          <div className="relative">
+            <input
+              className="w-full font-[inherit] text-[12.5px] text-tx bg-bg-subtle border border-border rounded px-2.5 py-1.5 outline-none focus:border-border-strong transition-colors placeholder:text-tx-3"
+              placeholder="Rechercher un membre…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+            {search.trim() && (
+              <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-bg border border-border rounded shadow-lg overflow-hidden">
+                {filtered.map(m => (
+                  <button key={m.uid}
+                    className="w-full text-left px-3 py-2 text-[12.5px] text-tx hover:bg-bg-hover font-[inherit] border-none bg-transparent cursor-pointer"
+                    onClick={() => { onAdd(m.uid); setSearch(""); }}>
+                    <span className="font-medium">{m.displayName || m.email.split("@")[0]}</span>
+                    {m.displayName && <span className="text-tx-3 ml-1.5">{m.email}</span>}
+                  </button>
+                ))}
+                {filtered.length === 0 && <p className="px-3 py-2 text-[12px] text-tx-3">Aucun membre trouvé.</p>}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // ── DETAIL PANEL ─────────────────────────────────────────────────────────
 
   const detailPanel = showDetailColumn && (detailItem || detailCase) ? (
@@ -1455,69 +1516,11 @@ export default function AppShell() {
               </div>
             </div>
 
-            {/* Attribuer à */}
-            {members.length > 1 && (
-              <div className="flex items-start py-1 rounded hover:bg-bg-subtle">
-                <div className={propKey}><span className="opacity-60">👤</span> Attribuer à</div>
-                <div className="flex-1 px-2 py-1 space-y-2">
-                  {/* Membres déjà assignés */}
-                  <div className="flex flex-wrap gap-1.5">
-                    {(detailCase.assignedTo ?? []).map(uid => {
-                      const m = members.find(m => m.uid === uid);
-                      if (!m) return null;
-                      const label = m.displayName || m.email.split("@")[0];
-                      return (
-                        <span key={uid} className="flex items-center gap-1 text-[12px] bg-accent text-white px-2 py-0.5 rounded">
-                          {label}
-                          <button
-                            className="text-white/70 hover:text-white bg-transparent border-none cursor-pointer text-[11px] leading-none"
-                            onClick={() => updateCase(officeId!, detailCase.id, { assignedTo: (detailCase.assignedTo ?? []).filter(id => id !== uid) })}
-                          >✕</button>
-                        </span>
-                      );
-                    })}
-                  </div>
-                  {/* Recherche pour ajouter */}
-                  <div className="relative">
-                    <input
-                      className="w-full font-[inherit] text-[12.5px] text-tx bg-bg-subtle border border-border rounded px-2.5 py-1.5 outline-none focus:border-border-strong transition-colors placeholder:text-tx-3"
-                      placeholder="Rechercher un membre…"
-                      value={assignSearch}
-                      onChange={e => setAssignSearch(e.target.value)}
-                    />
-                    {assignSearch.trim() && (
-                      <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-bg border border-border rounded shadow-lg overflow-hidden">
-                        {members
-                          .filter(m => !(detailCase.assignedTo ?? []).includes(m.uid))
-                          .filter(m => {
-                            const q = assignSearch.toLowerCase();
-                            return (m.displayName ?? "").toLowerCase().includes(q) || m.email.toLowerCase().includes(q);
-                          })
-                          .map(m => (
-                            <button
-                              key={m.uid}
-                              className="w-full text-left px-3 py-2 text-[12.5px] text-tx hover:bg-bg-hover font-[inherit] border-none bg-transparent cursor-pointer"
-                              onClick={() => {
-                                updateCase(officeId!, detailCase.id, { assignedTo: [...(detailCase.assignedTo ?? []), m.uid] });
-                                setAssignSearch("");
-                              }}
-                            >
-                              <span className="font-medium">{m.displayName || m.email.split("@")[0]}</span>
-                              {m.displayName && <span className="text-tx-3 ml-1.5">{m.email}</span>}
-                            </button>
-                          ))}
-                        {members.filter(m => !(detailCase.assignedTo ?? []).includes(m.uid)).filter(m => {
-                          const q = assignSearch.toLowerCase();
-                          return (m.displayName ?? "").toLowerCase().includes(q) || m.email.toLowerCase().includes(q);
-                        }).length === 0 && (
-                          <p className="px-3 py-2 text-[12px] text-tx-3">Aucun membre trouvé.</p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
+            <AssignField
+              assignedTo={detailCase.assignedTo ?? []}
+              onAdd={uid => updateCase(officeId!, detailCase.id, { assignedTo: [...(detailCase.assignedTo ?? []), uid] })}
+              onRemove={uid => updateCase(officeId!, detailCase.id, { assignedTo: (detailCase.assignedTo ?? []).filter(id => id !== uid) })}
+            />
 
             {/* Séparateur */}
             <div className="h-px bg-border my-4" />
@@ -1643,6 +1646,12 @@ export default function AppShell() {
                 </div>
               </div>
             )}
+
+            <AssignField
+              assignedTo={detailItem.assignedTo ?? []}
+              onAdd={uid => updateItem(officeId!, detailItem.id, { assignedTo: [...(detailItem.assignedTo ?? []), uid] })}
+              onRemove={uid => updateItem(officeId!, detailItem.id, { assignedTo: (detailItem.assignedTo ?? []).filter(id => id !== uid) })}
+            />
 
             {/* Séparateur */}
             <div className="h-px bg-border my-4" />
