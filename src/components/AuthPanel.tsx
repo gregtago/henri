@@ -34,8 +34,17 @@ export default function AuthPanel() {
         url: window.location.origin,
       });
       setResetSent(true);
-    } catch {
-      setError("Impossible d'envoyer l'email. Vérifiez l'adresse.");
+    } catch (err: any) {
+      const code = err?.code ?? "";
+      if (code === "auth/user-not-found") {
+        setError("Aucun compte trouvé avec cet email.");
+      } else if (code === "auth/invalid-email") {
+        setError("Adresse email invalide.");
+      } else if (code === "auth/too-many-requests") {
+        setError("Trop de tentatives. Réessayez dans quelques minutes.");
+      } else {
+        setError(`Erreur : ${code || err?.message || "inconnue"}`);
+      }
     }
   };
 
