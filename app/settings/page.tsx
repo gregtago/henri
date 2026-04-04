@@ -62,6 +62,13 @@ export default function SettingsPage() {
           </Link>
         </div>
         <div className="flex items-center gap-2">
+          <Link
+            href="/office"
+            className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-3 px-3 py-1.5 rounded cursor-pointer hover:border-border-strong hover:text-tx-2 transition-all"
+            style={{textDecoration:"none"}}
+          >
+            Mon étude
+          </Link>
           <button
             onClick={handleReset}
             className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-3 px-3 py-1.5 rounded cursor-pointer hover:border-border-strong hover:text-tx-2 transition-all"
