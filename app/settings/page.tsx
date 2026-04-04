@@ -55,7 +55,7 @@ export default function SettingsPage() {
       <header className="h-[44px] flex items-center justify-between px-5 border-b border-border bg-bg shrink-0">
         <div className="flex items-center gap-3">
           <Link href="/" className="flex items-center">
-            <img src="/logo-henri.png" alt="Henri" className="h-6 w-auto" />
+            <img src="/logo-henri.png" alt="Henri" style={{width:"250px", height:"auto"}} />
           </Link>
           <span className="text-[11px] text-tx-3 select-none">/ Préférences</span>
         </div>

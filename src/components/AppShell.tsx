@@ -328,7 +328,10 @@ export default function AppShell() {
   }, [events, items, user]);
   const reminderItems = items.filter((item) => {
     const dueKey = getDateKeyFromValue(item.dueDate);
-    return dueKey ? dueKey <= todayKey : false;
+    if (!dueKey || dueKey > todayKey) return false;
+    // Exclure si déjà rappelé aujourd'hui
+    const reminderKey = getDateKeyFromValue(item.lastReminderAt);
+    return reminderKey !== todayKey;
   });
   const showDetailColumn = Boolean(detailTarget && (detailCase || detailItem));
   const showCasesColumn = true;
@@ -1535,7 +1538,7 @@ export default function AppShell() {
       {/* ── HEADER ── */}
       <header className="h-[44px] flex items-center justify-between px-4 border-b border-border bg-bg shrink-0 z-10">
         <Link href="/">
-          <img src="/logo-henri.png" alt="Henri" className="h-6 w-auto" />
+          <img src="/logo-henri.png" alt="Henri" style={{width:"250px", height:"auto"}} />
         </Link>
 
         <nav className="flex gap-0.5">
