@@ -381,14 +381,16 @@ export default function AppShell() {
 
 
   // ── HELPER STATUT ────────────────────────────────────────────────────────
-  const statusClass = (s: Status): string => {
-    const map: Record<Status, string> = {
+  const statusClass = (s: string): string => {
+    // Compatibilité avec anciens statuts
+    const compat: Record<string, string> = {
+      "À faire": "status-badge status-badge-0",
       "Créée":   "status-badge status-badge-0",
       "Demandé": "status-badge status-badge-1",
       "Reçu":    "status-badge status-badge-2",
       "Traité":  "status-badge status-badge-3",
     };
-    return map[s];
+    return compat[s] ?? "status-badge status-badge-0";
   };
 
   // ── TÂCHES DU JOUR — tri priorité ─────────────────────────────────────────
@@ -1294,7 +1296,20 @@ export default function AppShell() {
               readOnly
               onDoubleClick={e => { (e.target as HTMLInputElement).readOnly = false; (e.target as HTMLInputElement).focus(); }}
               onBlur={e => { (e.target as HTMLInputElement).readOnly = true; }}
-              onKeyDown={e => { if (e.key === "Escape") { (e.target as HTMLInputElement).readOnly = true; (e.target as HTMLInputElement).blur(); e.stopPropagation(); } }}
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  (e.target as HTMLInputElement).readOnly = true;
+                  (e.target as HTMLInputElement).blur();
+                  e.stopPropagation();
+                }
+                if (e.key === "Escape") {
+                  (e.target as HTMLInputElement).value = detailCase.title;
+                  (e.target as HTMLInputElement).readOnly = true;
+                  (e.target as HTMLInputElement).blur();
+                  e.stopPropagation();
+                }
+              }}
               onChange={(e) => updateCase(user.uid, detailCase.id, { title: e.target.value })}
             />
 
@@ -1386,7 +1401,21 @@ export default function AppShell() {
               readOnly
               onDoubleClick={e => { (e.target as HTMLInputElement).readOnly = false; (e.target as HTMLInputElement).focus(); }}
               onBlur={e => { (e.target as HTMLInputElement).readOnly = true; }}
-              onKeyDown={e => { if (e.key === "Escape") { (e.target as HTMLInputElement).readOnly = true; (e.target as HTMLInputElement).blur(); e.stopPropagation(); } }}
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  (e.target as HTMLInputElement).readOnly = true;
+                  (e.target as HTMLInputElement).blur();
+                  e.stopPropagation();
+                }
+                if (e.key === "Escape") {
+                  // Restaurer l'ancienne valeur
+                  (e.target as HTMLInputElement).value = detailItem.title;
+                  (e.target as HTMLInputElement).readOnly = true;
+                  (e.target as HTMLInputElement).blur();
+                  e.stopPropagation();
+                }
+              }}
               onChange={(e) => updateItem(user.uid, detailItem.id, { title: e.target.value })}
             />
 
