@@ -160,9 +160,9 @@ export default function SettingsPage() {
                 </div>
                 <button
                   onClick={() => update("sideTabs", !s.sideTabs)}
-                  className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer border-none ${s.sideTabs ? "bg-accent" : "bg-border-strong"}`}
+                  style={{background: s.sideTabs ? "var(--accent)" : "var(--border-strong)", position:"relative", width:40, height:22, borderRadius:11, cursor:"pointer", border:"none", flexShrink:0, transition:"background 0.2s"}}
                 >
-                  <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${s.sideTabs ? "translate-x-5" : "translate-x-0.5"}`} />
+                  <span style={{position:"absolute", top:3, left: s.sideTabs ? 21 : 3, width:16, height:16, background:"white", borderRadius:"50%", boxShadow:"0 1px 3px rgba(0,0,0,0.2)", transition:"left 0.2s", display:"block"}} />
                 </button>
               </div>
 
@@ -227,9 +227,9 @@ export default function SettingsPage() {
                 </div>
                 <button
                   onClick={() => update("sound", !s.sound)}
-                  className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer border-none ${s.sound ? "bg-accent" : "bg-border-strong"}`}
+                  style={{background: s.sound ? "var(--accent)" : "var(--border-strong)", position:"relative", width:40, height:22, borderRadius:11, cursor:"pointer", border:"none", flexShrink:0, transition:"background 0.2s"}}
                 >
-                  <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${s.sound ? "translate-x-5" : "translate-x-0.5"}`} />
+                  <span style={{position:"absolute", top:3, left: s.sound ? 21 : 3, width:16, height:16, background:"white", borderRadius:"50%", boxShadow:"0 1px 3px rgba(0,0,0,0.2)", transition:"left 0.2s", display:"block"}} />
                 </button>
               </div>
 

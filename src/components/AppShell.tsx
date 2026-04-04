@@ -120,7 +120,8 @@ export default function AppShell() {
   const [feedbackText, setFeedbackText] = useState("");
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
-  const [myDayDetailId, setMyDayDetailId] = useState<string | null>(null); // "f-{id}" pour volante, selectionId pour dossier
+  const [myDayDetailId, setMyDayDetailId] = useState<string | null>(null);
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false); // "f-{id}" pour volante, selectionId pour dossier
   const toastTimeout = useRef<number | null>(null);
   const backfilledItemIds = useRef<Set<string>>(new Set());
   // Refs pour scroll automatique lors de la navigation clavier
@@ -343,6 +344,15 @@ export default function AppShell() {
   useEffect(() => {
     setIsTimelineOpen(false);
   }, [detailItem?.id, detailTarget?.type]);
+
+  // Titre d'onglet dynamique
+  useEffect(() => {
+    if (isMyDay) { document.title = "Ma journée — Henri"; return; }
+    if (detailCase) { document.title = `${detailCase.title} — Henri`; return; }
+    if (detailItem) { document.title = `${detailItem.title} — Henri`; return; }
+    if (selectedCase) { document.title = `${selectedCase.title} — Henri`; return; }
+    document.title = "Henri";
+  }, [isMyDay, detailCase, detailItem, selectedCase]);
 
   // PAS de focus auto sur le titre — ça bloquerait les raccourcis clavier
   // Le focus se fait uniquement via F2 ou double-clic sur le titre
@@ -956,24 +966,38 @@ export default function AppShell() {
       }
       if (event.key === "ArrowLeft") {
         event.preventDefault();
-        if (activeColumn === "detail") {
-          if (detailTarget?.type === "case") {
-            setActiveColumn("cases");
-          } else if (selectedSubItemId && subItems.length > 0) {
-            setActiveColumn("subitems");
-          } else {
-            setActiveColumn("items");
-          }
-          setDetailTarget(null);
-        } else if (activeColumn === "subitems") {
+        if (activeColumn === "subitems") {
+          // subitems → items : effacer complètement la sélection sous-tâche
+          // et rouvrir le détail de la tâche parente
           setActiveColumn("items");
           setSelectedSubItemId(null);
           setSelectedSubItemIds([]);
-          setDetailTarget(detailTarget?.type === "item" && selectedItemId
-            ? { type: "item", id: selectedItemId } : null);
+          setLastSubItemId(null);
+          if (selectedItemId) {
+            setDetailTarget({ type: "item", id: selectedItemId });
+          }
         } else if (activeColumn === "items") {
+          // items → cases : garder le dossier sélectionné actif
+          // fermer le détail tâche, ouvrir le détail dossier
           setActiveColumn("cases");
+          setSelectedItemId(null);
+          setSelectedItemIds([]);
+          setSelectedSubItemId(null);
+          setSelectedSubItemIds([]);
+          setLastItemId(null);
+          setLastSubItemId(null);
+          if (selectedCaseId) {
+            setDetailTarget({ type: "case", id: selectedCaseId });
+          } else {
+            setDetailTarget(null);
+          }
+        } else if (activeColumn === "cases") {
+          // cases : fermer le détail si ouvert
           setDetailTarget(null);
+        } else if (activeColumn === "detail") {
+          // fallback legacy
+          setDetailTarget(null);
+          setActiveColumn("cases");
         }
         return;
       }
@@ -981,12 +1005,17 @@ export default function AppShell() {
         event.preventDefault();
         if (activeColumn === "cases" && selectedCaseId) {
           setActiveColumn("items");
+          // Toujours repartir de zéro sur les sous-tâches
+          setSelectedSubItemId(null);
+          setSelectedSubItemIds([]);
+          setLastSubItemId(null);
           if (itemsColumnItems.length > 0) {
             const firstId = itemsColumnItems[0]?.id ?? null;
             if (firstId) {
               setSelectedItemId(firstId);
               setSelectedItemIds([firstId]);
               setLastItemId(firstId);
+              setDetailTarget({ type: "item", id: firstId });
             }
           }
         } else if (activeColumn === "items" && selectedItemId) {
@@ -1079,10 +1108,10 @@ export default function AppShell() {
         return;
       }
       if (event.key === " " && detailTarget) {
-        // Espace : focus sur le titre pour renommer
         event.preventDefault();
         if (detailTitleRef.current) {
           detailTitleRef.current.readOnly = false;
+          detailTitleRef.current.style.background = "#eff6ff";
           detailTitleRef.current.focus();
           detailTitleRef.current.select();
         }
@@ -1291,22 +1320,27 @@ export default function AppShell() {
         {detailCase ? (
           <>
             <input
-              className="w-full text-[20px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight mb-5 leading-snug cursor-default focus:cursor-text"
+              className="w-full text-[20px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight mb-5 leading-snug cursor-default focus:cursor-text rounded px-1 -mx-1"
               value={detailCase.title}
               readOnly
-              onDoubleClick={e => { (e.target as HTMLInputElement).readOnly = false; (e.target as HTMLInputElement).focus(); }}
-              onBlur={e => { (e.target as HTMLInputElement).readOnly = true; }}
+              onDoubleClick={e => { const t = e.target as HTMLInputElement; t.readOnly = false; t.focus(); t.select(); t.style.background = "#eff6ff"; }}
+              onFocus={e => { if (!e.target.readOnly) { e.target.style.background = "#eff6ff"; } }}
+              onBlur={e => { e.target.readOnly = true; e.target.style.background = "transparent"; }}
               onKeyDown={e => {
                 if (e.key === "Enter") {
                   e.preventDefault();
-                  (e.target as HTMLInputElement).readOnly = true;
-                  (e.target as HTMLInputElement).blur();
+                  const t = e.target as HTMLInputElement;
+                  t.readOnly = true;
+                  t.style.background = "transparent";
+                  t.blur();
                   e.stopPropagation();
                 }
                 if (e.key === "Escape") {
-                  (e.target as HTMLInputElement).value = detailCase.title;
-                  (e.target as HTMLInputElement).readOnly = true;
-                  (e.target as HTMLInputElement).blur();
+                  const t = e.target as HTMLInputElement;
+                  t.value = detailCase.title;
+                  t.readOnly = true;
+                  t.style.background = "transparent";
+                  t.blur();
                   e.stopPropagation();
                 }
               }}
@@ -1396,23 +1430,26 @@ export default function AppShell() {
             {/* Titre */}
             <input
               ref={detailTitleRef}
-              className="w-full text-[20px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight mb-5 leading-snug cursor-default focus:cursor-text"
+              className="w-full text-[20px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight mb-5 leading-snug cursor-default focus:cursor-text rounded px-1 -mx-1"
               value={detailItem.title}
               readOnly
-              onDoubleClick={e => { (e.target as HTMLInputElement).readOnly = false; (e.target as HTMLInputElement).focus(); }}
-              onBlur={e => { (e.target as HTMLInputElement).readOnly = true; }}
+              onDoubleClick={e => { const t = e.target as HTMLInputElement; t.readOnly = false; t.focus(); t.select(); t.style.background = "#eff6ff"; t.style.borderRadius = "4px"; }}
+              onFocus={e => { if (!e.target.readOnly) { e.target.style.background = "#eff6ff"; } }}
+              onBlur={e => { e.target.readOnly = true; e.target.style.background = "transparent"; }}
               onKeyDown={e => {
                 if (e.key === "Enter") {
                   e.preventDefault();
                   (e.target as HTMLInputElement).readOnly = true;
+                  (e.target as HTMLInputElement).style.background = "transparent";
                   (e.target as HTMLInputElement).blur();
                   e.stopPropagation();
                 }
                 if (e.key === "Escape") {
-                  // Restaurer l'ancienne valeur
-                  (e.target as HTMLInputElement).value = detailItem.title;
-                  (e.target as HTMLInputElement).readOnly = true;
-                  (e.target as HTMLInputElement).blur();
+                  const t = e.target as HTMLInputElement;
+                  t.value = detailItem.title;
+                  t.readOnly = true;
+                  t.style.background = "transparent";
+                  t.blur();
                   e.stopPropagation();
                 }
               }}
@@ -1528,29 +1565,7 @@ export default function AppShell() {
               </>
             )}
 
-            {/* Séparateur */}
-            <div className="h-px bg-border my-4" />
 
-            {/* Raccourcis */}
-            <p className="text-[11.5px] font-medium text-tx-3 uppercase tracking-wide mb-2">Raccourcis</p>
-            <div className="flex flex-wrap gap-2">
-              {[
-                ["N", "nouveau"],
-                ["⇧N", "sous-tâche"],
-                ["Espace", "renommer"],
-                ["A", "ma journée"],
-                ["I", "détail"],
-                ["R", "rattacher"],
-                ["⌫", "supprimer"],
-                ["1–4", "statut"],
-                ["← →", "naviguer"],
-                ["↑ ↓", "déplacer"],
-              ].map(([k, label]) => (
-                <span key={k} className="flex items-center gap-1 text-[11.5px] text-tx-3">
-                  <kbd>{k}</kbd> {label}
-                </span>
-              ))}
-            </div>
           </>
         ) : null}
       </div>
@@ -1565,12 +1580,9 @@ export default function AppShell() {
     <div className="flex flex-col h-screen overflow-hidden">
 
       {/* ── HEADER ── */}
-      <header className="h-[44px] flex items-center justify-between px-4 border-b border-border bg-bg shrink-0 z-10">
-        <Link href="/">
-          <img src="/logo-henri.png" alt="Henri" style={{height:"36px", width:"auto"}} />
-        </Link>
-
-        <nav className="flex gap-0.5">
+      <header className="h-[44px] flex items-center px-4 border-b border-border bg-bg shrink-0 z-10 relative">
+        {/* Liens navigation — gauche */}
+        <nav className="flex gap-0.5 z-10">
           <Link
             href="/"
             className={`text-[13px] px-2.5 py-1 rounded border-none bg-transparent cursor-pointer transition-all ${
@@ -1589,8 +1601,16 @@ export default function AppShell() {
           </Link>
         </nav>
 
-        <div className="flex items-center gap-2.5 text-[12px] text-tx-3">
-          <span>{user.email}</span>
+        {/* Logo — centré absolument */}
+        <div className="absolute left-0 right-0 flex justify-center pointer-events-none">
+          <Link href="/" className="pointer-events-auto">
+            <img src="/logo-henri.png" alt="Henri" style={{height:"36px", width:"auto"}} />
+          </Link>
+        </div>
+
+        {/* Actions — droite */}
+        <div className="flex items-center gap-2.5 text-[12px] text-tx-3 ml-auto z-10">
+          <span className="hidden sm:inline">{user.email}</span>
           <Link href="/settings" className={btnGhost} style={{textDecoration:"none"}}>Préférences</Link>
           <button className={btnGhost} onClick={() => signOut(auth)}>Déconnexion</button>
         </div>
@@ -2110,6 +2130,50 @@ export default function AppShell() {
           </div>
 
         </div>
+      )}
+
+      {/* ── BOUTON ? RACCOURCIS ── */}
+      {!isMyDay && (
+        <>
+          <button
+            className="fixed bottom-5 right-5 w-8 h-8 rounded-full bg-tx text-bg text-[13px] font-semibold border-none cursor-pointer flex items-center justify-center shadow-lg hover:opacity-80 transition-opacity z-40"
+            onClick={() => setIsShortcutsOpen(p => !p)}
+            title="Raccourcis clavier"
+          >?</button>
+          {isShortcutsOpen && (
+            <div className="fixed inset-0 bg-black/20 z-50 flex items-end justify-end p-16"
+              onClick={() => setIsShortcutsOpen(false)}>
+              <div className="bg-bg border border-border rounded-xl shadow-xl p-5 w-72"
+                onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-[12px] font-semibold text-tx uppercase tracking-wide">Raccourcis clavier</p>
+                  <button className="text-tx-3 text-[13px] bg-transparent border-none cursor-pointer hover:text-tx"
+                    onClick={() => setIsShortcutsOpen(false)}>✕</button>
+                </div>
+                <div className="space-y-2">
+                  {[
+                    ["N", "Nouveau au niveau courant"],
+                    ["⇧N", "Créer une sous-tâche"],
+                    ["Espace", "Renommer"],
+                    ["A", "Ajouter à Ma journée"],
+                    ["I", "Ouvrir / fermer le détail"],
+                    ["R", "Rattacher une tâche"],
+                    ["⌫", "Supprimer"],
+                    ["1 – 4", "Changer le statut"],
+                    ["← →", "Naviguer entre colonnes"],
+                    ["↑ ↓", "Déplacer la sélection"],
+                    ["Ctrl+A", "Tout sélectionner"],
+                  ].map(([k, label]) => (
+                    <div key={k} className="flex items-center justify-between">
+                      <span className="text-[12.5px] text-tx-2">{label}</span>
+                      <kbd className="text-[11px]">{k}</kbd>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* ── TOAST UNDO DELETE ── */}
