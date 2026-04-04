@@ -238,8 +238,12 @@ export default function AppShell() {
           const result = new Date(a.entry.createdAt).getTime() - new Date(b.entry.createdAt).getTime();
           return result !== 0 ? result * direction : a.index - b.index;
         }
-        const aDate = a.entry.legalDueDate ? new Date(a.entry.legalDueDate).getTime() : 0;
-        const bDate = b.entry.legalDueDate ? new Date(b.entry.legalDueDate).getTime() : 0;
+        // Sans date = toujours à la fin, quelle que soit la direction
+        const aDate = a.entry.legalDueDate ? new Date(a.entry.legalDueDate).getTime() : null;
+        const bDate = b.entry.legalDueDate ? new Date(b.entry.legalDueDate).getTime() : null;
+        if (aDate === null && bDate === null) return a.index - b.index;
+        if (aDate === null) return 1;  // a sans date → fin
+        if (bDate === null) return -1; // b sans date → fin
         const result = aDate - bDate;
         return result !== 0 ? result * direction : a.index - b.index;
       })
@@ -671,11 +675,11 @@ export default function AppShell() {
     if (pendingDelete?.timeoutId) {
       window.clearTimeout(pendingDelete.timeoutId);
     }
-    const expiresAt = Date.now() + 15000;
+    const expiresAt = Date.now() + 5000;
     const timeoutId = window.setTimeout(async () => {
       await action();
       setPendingDelete(null);
-    }, 15000);
+    }, 5000);
     setPendingDelete({ message, action, timeoutId, expiresAt });
   };
 
@@ -949,7 +953,10 @@ export default function AppShell() {
           setDetailTarget(null);
         } else if (activeColumn === "subitems") {
           setActiveColumn("items");
-          setDetailTarget(null);
+          setSelectedSubItemId(null);
+          setSelectedSubItemIds([]);
+          setDetailTarget(detailTarget?.type === "item" && selectedItemId
+            ? { type: "item", id: selectedItemId } : null);
         } else if (activeColumn === "items") {
           setActiveColumn("cases");
           setDetailTarget(null);
@@ -1057,11 +1064,14 @@ export default function AppShell() {
         }
         return;
       }
-      if (event.key === "F2") {
-        // F2 : renommer — focus sur le champ titre
+      if (event.key === " " && detailTarget) {
+        // Espace : focus sur le titre pour renommer
         event.preventDefault();
-        detailTitleRef.current?.focus();
-        detailTitleRef.current?.select();
+        if (detailTitleRef.current) {
+          detailTitleRef.current.readOnly = false;
+          detailTitleRef.current.focus();
+          detailTitleRef.current.select();
+        }
         return;
       }
       if (event.key.toLowerCase() === "i") {
@@ -1284,11 +1294,16 @@ export default function AppShell() {
                   type="date"
                   className="font-[inherit] text-[13px] text-tx bg-transparent border-none outline-none w-full"
                   value={detailCase.legalDueDate?.slice(0, 10) ?? ""}
-                  onChange={(e) =>
-                    updateCase(user.uid, detailCase.id, {
-                      legalDueDate: e.target.value ? new Date(e.target.value).toISOString() : null
-                    })
-                  }
+                  onChange={(e) => {
+                    if (!e.target.value) {
+                      updateCase(user.uid, detailCase.id, { legalDueDate: null });
+                      return;
+                    }
+                    // Construire la date en heure locale pour éviter le décalage UTC
+                    const [y, m, d] = e.target.value.split("-").map(Number);
+                    const local = new Date(y, m - 1, d, 12, 0, 0);
+                    updateCase(user.uid, detailCase.id, { legalDueDate: local.toISOString() });
+                  }}
                 />
               </div>
             </div>
@@ -1388,11 +1403,12 @@ export default function AppShell() {
                   type="date"
                   className="font-[inherit] text-[13px] text-tx bg-transparent border-none outline-none w-full"
                   value={detailItem.dueDate?.slice(0, 10) ?? ""}
-                  onChange={(e) =>
-                    updateItem(user.uid, detailItem.id, {
-                      dueDate: e.target.value ? new Date(e.target.value).toISOString() : null
-                    })
-                  }
+                  onChange={(e) => {
+                    if (!e.target.value) { updateItem(user.uid, detailItem.id, { dueDate: null }); return; }
+                    const [y, m, d] = e.target.value.split("-").map(Number);
+                    const local = new Date(y, m - 1, d, 12, 0, 0);
+                    updateItem(user.uid, detailItem.id, { dueDate: local.toISOString() });
+                  }}
                 />
               </div>
             </div>
@@ -1477,7 +1493,7 @@ export default function AppShell() {
               {[
                 ["N", "nouveau"],
                 ["⇧N", "sous-tâche"],
-                ["F2", "renommer"],
+                ["Espace", "renommer"],
                 ["A", "ma journée"],
                 ["I", "détail"],
                 ["R", "rattacher"],
@@ -1760,12 +1776,26 @@ export default function AppShell() {
           {/* ── PANNEAU DÉTAIL ── */}
           {detailPanel}
 
+          {/* ── BANDE "MA JOURNÉE" à droite ── */}
+          <Link href="/my-day" className="side-tab side-tab-myday" title="Aller à Ma journée">
+            <div className="side-tab-inner">
+              <span className="side-tab-label">Ma journée</span>
+            </div>
+          </Link>
+
         </div>
 
       ) : (
 
         /* ══ VUE MA JOURNÉE ══ */
         <div className="flex flex-1 overflow-hidden">
+
+          {/* ── BANDE "DOSSIERS" à gauche ── */}
+          <Link href="/" className="side-tab side-tab-dossiers" title="Retour aux Dossiers">
+            <div className="side-tab-inner">
+              <span className="side-tab-label">Dossiers</span>
+            </div>
+          </Link>
 
           {/* ── LISTE GAUCHE ── */}
           <div className="flex flex-col border-r border-border bg-bg" style={{width: "320px", flexShrink: 0}}>

@@ -106,21 +106,18 @@ body {
 
 .finder-row:hover { background: var(--bg-subtle); }
 
-.finder-row[data-selected="true"] {
-  background: var(--bg-hover);
-  border-left: 2px solid var(--border-strong);
-  padding-left: 12px;
-}
-
+/* Sélectionné dans la colonne courante (focus actif) */
 .finder-row[data-active="true"] {
-  background: #e8f0fe;
+  background: #dbeafe;
   border-left: 2px solid #2f6eff;
   padding-left: 12px;
 }
 
-.finder-row[data-active="true"] .finder-row-title {
-  color: #1a3a8f;
-  font-weight: 500;
+/* Sélectionné dans une colonne parente (contexte inactif) */
+.finder-row[data-selected="true"] {
+  background: #f0f4ff;
+  border-left: 2px solid #93c5fd;
+  padding-left: 12px;
 }
 
 /* ── INLINE CREATE ROW ── */
@@ -220,4 +217,67 @@ kbd {
   font-size: 12.5px;
   color: #92400e;
   flex-shrink: 0;
+}
+
+/* ── PANNEAU LATÉRAL NAVIGATION ── */
+.side-tab {
+  width: 28px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: width 0.15s ease, opacity 0.15s ease;
+  position: relative;
+  border: none;
+  background: none;
+  padding: 0;
+}
+
+.side-tab:hover {
+  width: 32px;
+}
+
+.side-tab-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.side-tab-label {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* Panneau "Ma journée" à droite de la vue Dossiers */
+.side-tab-myday {
+  background: #dbeafe;
+  border-left: 1px solid #93c5fd;
+}
+.side-tab-myday .side-tab-label {
+  color: #1d4ed8;
+  transform: rotate(180deg);
+}
+.side-tab-myday:hover {
+  background: #bfdbfe;
+}
+
+/* Panneau "Dossiers" à gauche de la vue Ma journée */
+.side-tab-dossiers {
+  background: var(--bg-subtle);
+  border-right: 1px solid var(--border);
+}
+.side-tab-dossiers .side-tab-label {
+  color: var(--text-2);
+}
+.side-tab-dossiers:hover {
+  background: var(--bg-hover);
 }
