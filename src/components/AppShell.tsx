@@ -115,13 +115,15 @@ export default function AppShell() {
   const [reparentCursor, setReparentCursor] = useState(0);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [importMode, setImportMode] = useState<"model" | "history">("history");
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [myDayDetailId, setMyDayDetailId] = useState<string | null>(null);
-  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false); // "f-{id}" pour volante, selectionId pour dossier
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const [importMode, setImportMode] = useState<"model" | "history">("history");
+  const [isImportOpen, setIsImportOpen] = useState(false); // "f-{id}" pour volante, selectionId pour dossier
   const toastTimeout = useRef<number | null>(null);
   const backfilledItemIds = useRef<Set<string>>(new Set());
   // Refs pour scroll automatique lors de la navigation clavier
@@ -234,9 +236,13 @@ export default function AppShell() {
     return () => window.clearInterval(intervalId);
   }, [pendingDelete]);
 
+  const activeCases = useMemo(() => cases.filter(c => !c.archived), [cases]);
+  const archivedCases = useMemo(() => cases.filter(c => c.archived), [cases]);
+
   const sortedCases = useMemo(() => {
     const direction = caseSortDirection === "asc" ? 1 : -1;
-    return cases
+    const source = showArchived ? archivedCases : activeCases;
+    return source
       .map((entry, index) => ({ entry, index }))
       .sort((a, b) => {
         if (caseSortKey === "title") {
@@ -257,7 +263,7 @@ export default function AppShell() {
         return result !== 0 ? result * direction : a.index - b.index;
       })
       .map(({ entry }) => entry);
-  }, [cases, caseSortDirection, caseSortKey]);
+  }, [cases, caseSortDirection, caseSortKey, showArchived, activeCases, archivedCases]);
 
   const selectedCase = cases.find((entry) => entry.id === selectedCaseId) || null;
   const caseItems = selectedCase ? getItemsByCase(items, selectedCase.id) : [];
@@ -889,7 +895,7 @@ export default function AppShell() {
         refType: "case",
         refId: detailTarget.id
       });
-      showToast("Ajouté à Ma journée.");
+      showToast("☀ Ajouté à Ma journée.");
       return;
     }
     if (detailTarget?.type === "item" && detailItem) {
@@ -898,7 +904,7 @@ export default function AppShell() {
         refType: detailItem.level === 2 ? "item" : "subitem",
         refId: detailItem.id
       });
-      showToast("Ajouté à Ma journée.");
+      showToast("☀ Ajouté à Ma journée.");
       return;
     }
     if (selectedCaseId && activeColumn === "cases") {
@@ -907,7 +913,7 @@ export default function AppShell() {
         refType: "case",
         refId: selectedCaseId
       });
-      showToast("Ajouté à Ma journée.");
+      showToast("☀ Ajouté à Ma journée.");
     }
     if (activeColumn === "items" && selectedItemId) {
       await addMyDaySelection(user.uid, {
@@ -915,7 +921,7 @@ export default function AppShell() {
         refType: "item",
         refId: selectedItemId
       });
-      showToast("Ajouté à Ma journée.");
+      showToast("☀ Ajouté à Ma journée.");
     }
     if (activeColumn === "subitems" && selectedSubItemId) {
       await addMyDaySelection(user.uid, {
@@ -923,7 +929,7 @@ export default function AppShell() {
         refType: "subitem",
         refId: selectedSubItemId
       });
-      showToast("Ajouté à Ma journée.");
+      showToast("☀ Ajouté à Ma journée.");
     }
   };
 
@@ -1085,7 +1091,10 @@ export default function AppShell() {
       }
       if (event.key === "Tab") {
         event.preventDefault();
-        showToast("Niveau maximal atteint");
+        // Tab : basculer entre Dossiers et Ma journée
+        if (typeof window !== "undefined") {
+          window.location.href = isMyDay ? "/" : "/my-day";
+        }
         return;
       }
       if (event.key === "Escape") {
@@ -1215,6 +1224,22 @@ export default function AppShell() {
       showToast("Import terminé.");
     } catch (err) {
       showToast((err as Error).message);
+    }
+  };
+
+  const handleArchiveCase = async (caseId: string, archive: boolean) => {
+    if (!user) return;
+    await updateCase(user.uid, caseId, {
+      archived: archive,
+      archivedAt: archive ? new Date().toISOString() : null
+    });
+    if (archive) {
+      setSelectedCaseId(null);
+      setSelectedCaseIds([]);
+      setDetailTarget(null);
+      showToast("Dossier archivé.");
+    } else {
+      showToast("Dossier restauré.");
     }
   };
 
@@ -1393,23 +1418,12 @@ export default function AppShell() {
             <p className="text-[11.5px] font-medium text-tx-3 uppercase tracking-wide mb-3">Actions</p>
             <div className="flex flex-wrap gap-2">
               <button className={btnGhost} onClick={() => handleExport(detailCase)}>Exporter JSON</button>
-              <select
-                className="text-[11.5px] font-[inherit] bg-bg border border-border text-tx-2 px-2 py-[2px] rounded cursor-pointer"
-                value={importMode}
-                onChange={(e) => setImportMode(e.target.value as "model" | "history")}
+              <button
+                className={btnGhost}
+                onClick={() => handleArchiveCase(detailCase.id, !detailCase.archived)}
               >
-                <option value="history">Import historique</option>
-                <option value="model">Import modèle</option>
-              </select>
-              <label className={btnGhost + " cursor-pointer"}>
-                Importer JSON
-                <input
-                  type="file"
-                  accept="application/json"
-                  className="hidden"
-                  onChange={(e) => handleImport(e.target.files?.[0] ?? null, importMode)}
-                />
-              </label>
+                {detailCase.archived ? "Restaurer" : "Archiver"}
+              </button>
               <button
                 className={btnDanger}
                 onClick={() => {
@@ -1418,7 +1432,7 @@ export default function AppShell() {
                   }
                 }}
               >
-                Supprimer le dossier
+                Supprimer
               </button>
             </div>
           </>
@@ -1643,7 +1657,7 @@ export default function AppShell() {
           {showCasesColumn && (
             <div className="finder-column">
               <div className="finder-header">
-                <span>Dossiers</span>
+                <span>{showArchived ? "Dossiers archivés" : "Dossiers"}</span>
                 <div className="flex items-center gap-1">
                   <select
                     className="text-[11px] font-[inherit] bg-transparent border-none text-tx-3 cursor-pointer outline-none"
@@ -1689,6 +1703,33 @@ export default function AppShell() {
                   </div>
                 ))}
               </div>
+
+              {/* Pied de colonne : liens Archivés + Importer */}
+              <div className="border-t border-border px-3 py-2 space-y-0.5">
+                <button
+                  className={`w-full text-left text-[11.5px] px-2 py-1.5 rounded cursor-pointer border-none transition-colors ${
+                    showArchived ? "bg-bg-active text-tx font-medium" : "bg-transparent text-tx-3 hover:bg-bg-hover hover:text-tx-2"
+                  }`}
+                  onClick={() => { setShowArchived(p => !p); setSelectedCaseId(null); setDetailTarget(null); }}
+                >
+                  {showArchived ? "← Dossiers actifs" : `📦 Archivés (${archivedCases.length})`}
+                </button>
+                <label className="w-full text-left text-[11.5px] px-2 py-1.5 rounded cursor-pointer bg-transparent text-tx-3 hover:bg-bg-hover hover:text-tx-2 flex items-center gap-1.5 transition-colors">
+                  <span>⬆ Importer un dossier</span>
+                  <input type="file" accept="application/json" className="hidden" onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file || !user) return;
+                    const text = await file.text();
+                    try {
+                      await importCaseFromJson(user.uid, text, importMode);
+                      showToast("Dossier importé.");
+                    } catch (err) {
+                      showToast((err as Error).message);
+                    }
+                    e.target.value = "";
+                  }} />
+                </label>
+              </div>
             </div>
           )}
 
@@ -1716,7 +1757,7 @@ export default function AppShell() {
                       await Promise.all(selectedItemIds.map(id =>
                         addMyDaySelection(user.uid, { dateKey: todayKey, refType: "item", refId: id })
                       ));
-                      showToast("Ajouté à Ma journée.");
+                      showToast("☀ Ajouté à Ma journée.");
                     }}
                   >Ma journée</button>
                   <button className={btnDanger} onClick={handleDelete}>Supprimer</button>
@@ -1793,7 +1834,7 @@ export default function AppShell() {
                       await Promise.all(selectedSubItemIds.map(id =>
                         addMyDaySelection(user.uid, { dateKey: todayKey, refType: "subitem", refId: id })
                       ));
-                      showToast("Ajouté à Ma journée.");
+                      showToast("☀ Ajouté à Ma journée.");
                     }}
                   >Ma journée</button>
                   <button className={btnDanger} onClick={handleDelete}>Supprimer</button>

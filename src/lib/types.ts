@@ -13,6 +13,8 @@ export type Case = {
   type?: string;
   legalDueDate?: string | null;
   caseNote?: string | null;
+  archived?: boolean;
+  archivedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 };
