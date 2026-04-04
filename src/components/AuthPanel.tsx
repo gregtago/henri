@@ -30,9 +30,7 @@ export default function AuthPanel() {
       return;
     }
     try {
-      await sendPasswordResetEmail(auth, email.trim(), {
-        url: window.location.origin,
-      });
+      await sendPasswordResetEmail(auth, email.trim());
       setResetSent(true);
     } catch (err: any) {
       const code = err?.code ?? "";
