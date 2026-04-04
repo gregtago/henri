@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { loadSettings, applySettings, type UserSettings, DEFAULT_SETTINGS } from "@/lib/settings";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
@@ -118,6 +119,7 @@ export default function AppShell() {
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+  const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [myDayDetailId, setMyDayDetailId] = useState<string | null>(null); // "f-{id}" pour volante, selectionId pour dossier
   const toastTimeout = useRef<number | null>(null);
   const backfilledItemIds = useRef<Set<string>>(new Set());
@@ -129,8 +131,8 @@ export default function AppShell() {
   const detailTitleRef = useRef<HTMLInputElement | null>(null);
   const [undoCountdown, setUndoCountdown] = useState(0);
 
-  const [caseSortKey, setCaseSortKey] = useState<"title" | "createdAt" | "legalDueDate">("title");
-  const [caseSortDirection, setCaseSortDirection] = useState<"asc" | "desc">("asc");
+  const [caseSortKey, setCaseSortKey] = useState<"title" | "createdAt" | "legalDueDate">(settings.defaultSort);
+  const [caseSortDirection, setCaseSortDirection] = useState<"asc" | "desc">(settings.defaultSortDir);
 
   const pathname = usePathname();
   const isMyDay = pathname === "/my-day";
@@ -144,6 +146,12 @@ export default function AppShell() {
     threshold.setDate(threshold.getDate() - 7);
     return threshold;
   }, [todayKey]);
+
+  useEffect(() => {
+    const s = loadSettings();
+    setSettings(s);
+    applySettings(s);
+  }, []);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (nextUser) => {
@@ -654,6 +662,7 @@ export default function AppShell() {
 
   // Son de complétion (Web Audio API, pas de fichier externe)
   const playDone = () => {
+    if (!settings.sound) return;
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const osc = ctx.createOscillator();
@@ -675,11 +684,11 @@ export default function AppShell() {
     if (pendingDelete?.timeoutId) {
       window.clearTimeout(pendingDelete.timeoutId);
     }
-    const expiresAt = Date.now() + 5000;
+    const expiresAt = Date.now() + (settings.deleteDelay * 1000);
     const timeoutId = window.setTimeout(async () => {
       await action();
       setPendingDelete(null);
-    }, 5000);
+    }, settings.deleteDelay * 1000);
     setPendingDelete({ message, action, timeoutId, expiresAt });
   };
 
@@ -1291,16 +1300,17 @@ export default function AppShell() {
               <div className={propKey}><span className="opacity-60">📅</span> Échéance</div>
               <div className={propVal}>
                 <input
+                  key={detailCase.id + "-due"}
                   type="date"
                   className="font-[inherit] text-[13px] text-tx bg-transparent border-none outline-none w-full"
-                  value={detailCase.legalDueDate?.slice(0, 10) ?? ""}
-                  onChange={(e) => {
+                  defaultValue={detailCase.legalDueDate?.slice(0, 10) ?? ""}
+                  onBlur={(e) => {
                     if (!e.target.value) {
                       updateCase(user.uid, detailCase.id, { legalDueDate: null });
                       return;
                     }
-                    // Construire la date en heure locale pour éviter le décalage UTC
                     const [y, m, d] = e.target.value.split("-").map(Number);
+                    if (y < 1900 || y > 2100) return;
                     const local = new Date(y, m - 1, d, 12, 0, 0);
                     updateCase(user.uid, detailCase.id, { legalDueDate: local.toISOString() });
                   }}
@@ -1400,12 +1410,14 @@ export default function AppShell() {
               <div className={propKey}><span className="opacity-60">📅</span> Échéance</div>
               <div className={propVal}>
                 <input
+                  key={detailItem.id + "-due"}
                   type="date"
                   className="font-[inherit] text-[13px] text-tx bg-transparent border-none outline-none w-full"
-                  value={detailItem.dueDate?.slice(0, 10) ?? ""}
-                  onChange={(e) => {
+                  defaultValue={detailItem.dueDate?.slice(0, 10) ?? ""}
+                  onBlur={(e) => {
                     if (!e.target.value) { updateItem(user.uid, detailItem.id, { dueDate: null }); return; }
                     const [y, m, d] = e.target.value.split("-").map(Number);
+                    if (y < 1900 || y > 2100) return;
                     const local = new Date(y, m - 1, d, 12, 0, 0);
                     updateItem(user.uid, detailItem.id, { dueDate: local.toISOString() });
                   }}
@@ -1522,7 +1534,9 @@ export default function AppShell() {
 
       {/* ── HEADER ── */}
       <header className="h-[44px] flex items-center justify-between px-4 border-b border-border bg-bg shrink-0 z-10">
-        <span className="text-[14px] font-semibold text-tx tracking-tight">Henri</span>
+        <Link href="/">
+          <img src="/logo-henri.png" alt="Henri" className="h-6 w-auto" />
+        </Link>
 
         <nav className="flex gap-0.5">
           <Link
@@ -1545,6 +1559,7 @@ export default function AppShell() {
 
         <div className="flex items-center gap-2.5 text-[12px] text-tx-3">
           <span>{user.email}</span>
+          <Link href="/settings" className={btnGhost} style={{textDecoration:"none"}}>Préférences</Link>
           <button className={btnGhost} onClick={() => signOut(auth)}>Déconnexion</button>
         </div>
       </header>
@@ -1780,11 +1795,13 @@ export default function AppShell() {
           {!showDetailColumn && <div className="flex-1" />}
 
           {/* ── BANDE "MA JOURNÉE" toujours à droite ── */}
-          <Link href="/my-day" className="side-tab side-tab-myday" title="Aller à Ma journée">
-            <div className="side-tab-inner">
-              <span className="side-tab-label">Ma journée</span>
-            </div>
-          </Link>
+          {settings.sideTabs && (
+            <Link href="/my-day" className="side-tab side-tab-myday" title="Aller à Ma journée">
+              <div className="side-tab-inner">
+                <span className="side-tab-label">Ma journée</span>
+              </div>
+            </Link>
+          )}
 
         </div>
 
@@ -1794,11 +1811,13 @@ export default function AppShell() {
         <div className="flex flex-1 overflow-hidden bg-white">
 
           {/* ── BANDE "DOSSIERS" à gauche ── */}
-          <Link href="/" className="side-tab side-tab-dossiers" title="Retour aux Dossiers">
-            <div className="side-tab-inner">
-              <span className="side-tab-label">Dossiers</span>
-            </div>
-          </Link>
+          {settings.sideTabs && (
+            <Link href="/" className="side-tab side-tab-dossiers" title="Retour aux Dossiers">
+              <div className="side-tab-inner">
+                <span className="side-tab-label">Dossiers</span>
+              </div>
+            </Link>
+          )}
 
           {/* ── COL GAUCHE : LISTE DU JOUR ── */}
           <div className="flex flex-col flex-1 overflow-hidden border-r border-border bg-white">
@@ -1948,9 +1967,9 @@ export default function AppShell() {
                         <div className="flex items-center py-1 rounded hover:bg-bg-subtle">
                           <div className={propKey}><span className="opacity-60">📅</span> Échéance</div>
                           <div className="flex-1 px-2">
-                            <input type="date" className="font-[inherit] text-[13px] text-tx bg-transparent border-none outline-none"
-                              value={task.dueDate?.slice(0,10) ?? ""}
-                              onChange={e => { if (!e.target.value) { updateFloatingTask(user.uid, task.id, { dueDate: null }); return; } const [y,m,d] = e.target.value.split("-").map(Number); updateFloatingTask(user.uid, task.id, { dueDate: new Date(y,m-1,d,12).toISOString() }); }} />
+                            <input key={task.id + "-due"} type="date" className="font-[inherit] text-[13px] text-tx bg-transparent border-none outline-none"
+                              defaultValue={task.dueDate?.slice(0,10) ?? ""}
+                              onBlur={e => { if (!e.target.value) { updateFloatingTask(user.uid, task.id, { dueDate: null }); return; } const [y,m,d] = e.target.value.split("-").map(Number); if (y < 1900 || y > 2100) return; updateFloatingTask(user.uid, task.id, { dueDate: new Date(y,m-1,d,12).toISOString() }); }} />
                           </div>
                         </div>
                         <div className="flex items-center py-1 rounded hover:bg-bg-subtle">

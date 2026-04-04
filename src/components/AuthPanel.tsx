@@ -56,9 +56,9 @@ export default function AuthPanel() {
     <div className="min-h-screen flex items-center justify-center bg-bg-subtle">
       <div className="w-full max-w-sm bg-bg border border-border rounded-xl shadow-sm p-7 space-y-5">
 
-        <div>
-          <h1 className="text-[18px] font-semibold text-tx tracking-tight">Henri</h1>
-          <p className="text-[13px] text-tx-3 mt-0.5">Gestion notariale</p>
+        <div className="space-y-1">
+          <img src="/logo-henri.png" alt="Henri" className="h-9 w-auto" />
+          <p className="text-[13px] text-tx-3">Gestion notariale</p>
         </div>
 
         {mode === "login" ? (
