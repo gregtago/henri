@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadSettings, applySettings, type UserSettings, DEFAULT_SETTINGS } from "@/lib/settings";
-import { getUserOfficeId } from "@/lib/office-firestore";
+import { getUserOfficeId, subscribeOfficeMembers } from "@/lib/office-firestore";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
@@ -121,6 +121,7 @@ export default function AppShell() {
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [officeId, setOfficeId] = useState<string | null>(null);
+  const [members, setMembers] = useState<import("@/lib/office-types").OfficeMember[]>([]);
   const [myDayDetailId, setMyDayDetailId] = useState<string | null>(null);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
@@ -174,6 +175,7 @@ export default function AppShell() {
 
   useEffect(() => {
     if (!user || !officeId) return;
+    const unsubMembers = subscribeOfficeMembers(officeId, setMembers);
     const unsubCases = subscribeCases(officeId, setCases);
     const unsubItems = subscribeItems(officeId, setItems);
     const unsubComments = subscribeComments(officeId, setComments);
@@ -182,6 +184,7 @@ export default function AppShell() {
     const unsubMyDay = subscribeMyDaySelections(user.uid, setLiveMyDaySelections, startOfWindow);
     ensureSeedData(officeId, seedData);
     return () => {
+      unsubMembers();
       unsubCases();
       unsubItems();
       unsubComments();
@@ -273,6 +276,18 @@ export default function AppShell() {
       })
       .map(({ entry }) => entry);
   }, [cases, caseSortDirection, caseSortKey, showArchived, activeCases, archivedCases]);
+
+  // Filtrer les dossiers visibles : créateur ou assigné
+  // Admin voit tout, les autres voient leurs dossiers + ceux assignés
+  const currentMember = members.find(m => m.uid === user?.uid);
+  const isAdmin = currentMember?.role === "admin";
+  const visibleSortedCases = isAdmin
+    ? sortedCases
+    : sortedCases.filter(c =>
+        !c.createdBy || // dossiers anciens sans createdBy → visibles par tous
+        c.createdBy === user?.uid ||
+        (c.assignedTo ?? []).includes(user?.uid ?? "")
+      );
 
   const selectedCase = cases.find((entry) => entry.id === selectedCaseId) || null;
   const caseItems = selectedCase ? getItemsByCase(items, selectedCase.id) : [];
@@ -563,7 +578,7 @@ export default function AppShell() {
     setActiveColumn("cases");
     setDetailTarget({ type: "case", id });
     if (options?.range) {
-      setSelectedCaseIds(selectRange(sortedCases.map((entry) => entry.id), lastCaseId, id));
+      setSelectedCaseIds(selectRange(visibleSortedCases.map((entry) => entry.id), lastCaseId, id));
     } else if (options?.multi) {
       setSelectedCaseIds((prev) => (prev.includes(id) ? prev.filter((entry) => entry !== id) : [...prev, id]));
     } else {
@@ -792,7 +807,7 @@ export default function AppShell() {
       return;
     }
     if (resolvedActiveColumn === "cases") {
-      const id = await createCase(officeId!, { title: "Nouveau dossier", legalDueDate: null, caseNote: "" });
+      const id = await createCase(officeId!, { title: "Nouveau dossier", legalDueDate: null, caseNote: "", createdBy: user.uid, assignedTo: [user.uid] });
       setSelectedCaseId(id);
       setSelectedCaseIds([id]);
       setSelectedItemId(null);
@@ -1063,7 +1078,7 @@ export default function AppShell() {
           el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
         };
         if (activeColumn === "cases") {
-          const ids = sortedCases.map((entry) => entry.id);
+          const ids = visibleSortedCases.map((entry) => entry.id);
           if (ids.length === 0) return;
           const cur = ids.indexOf(selectedCaseId ?? ids[0]);
           const nextId = ids[Math.min(Math.max(0, cur + direction), ids.length - 1)];
@@ -1432,6 +1447,37 @@ export default function AppShell() {
               </div>
             </div>
 
+            {/* Attribuer à */}
+            {members.length > 1 && (
+              <div className="flex items-start py-1 rounded hover:bg-bg-subtle">
+                <div className={propKey}><span className="opacity-60">👤</span> Attribuer à</div>
+                <div className="flex-1 px-2 py-1 flex flex-wrap gap-1.5">
+                  {members.map(m => {
+                    const assigned = (detailCase.assignedTo ?? []).includes(m.uid);
+                    return (
+                      <button
+                        key={m.uid}
+                        onClick={() => {
+                          const current = detailCase.assignedTo ?? [];
+                          const next = assigned
+                            ? current.filter(id => id !== m.uid)
+                            : [...current, m.uid];
+                          updateCase(officeId!, detailCase.id, { assignedTo: next });
+                        }}
+                        className={`text-[12px] px-2.5 py-1 rounded border cursor-pointer font-[inherit] transition-all ${
+                          assigned
+                            ? "bg-accent text-white border-accent"
+                            : "bg-bg-subtle border-border text-tx-2 hover:border-border-strong"
+                        }`}
+                      >
+                        {m.email.split("@")[0]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Séparateur */}
             <div className="h-px bg-border my-4" />
 
@@ -1708,7 +1754,7 @@ export default function AppShell() {
               </div>
 
               <div className="finder-list" ref={casesListRef}>
-                {sortedCases.map((entry) => (
+                {visibleSortedCases.map((entry) => (
                   <div
                     key={entry.id}
                     className="finder-row"

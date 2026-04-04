@@ -15,6 +15,8 @@ export type Case = {
   caseNote?: string | null;
   archived?: boolean;
   archivedAt?: string | null;
+  createdBy?: string;         // uid du créateur
+  assignedTo?: string[];      // uids des membres assignés
   createdAt: string;
   updatedAt: string;
 };
@@ -28,6 +30,7 @@ export type Item = {
   status: Status;
   dueDate?: string | null;
   lastReminderAt?: string | null;
+  assignedTo?: string[];      // uid du membre assigné (tâche spécifique)
   progressLevel?: number | null;
   lastProgressAt?: string | import("firebase/firestore").Timestamp | null;
   createdAt: string;
