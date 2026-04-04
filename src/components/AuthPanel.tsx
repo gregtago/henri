@@ -2,10 +2,8 @@
 
 import { useState } from "react";
 import {
-  GoogleAuthProvider,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
-  signInWithPopup
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
@@ -25,15 +23,6 @@ export default function AuthPanel() {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setError(null);
-    try {
-      await signInWithPopup(auth, new GoogleAuthProvider());
-    } catch {
-      setError("Connexion Google impossible.");
-    }
-  };
-
   const handleReset = async () => {
     setError(null);
     if (!email.trim()) {
@@ -41,7 +30,9 @@ export default function AuthPanel() {
       return;
     }
     try {
-      await sendPasswordResetEmail(auth, email.trim());
+      await sendPasswordResetEmail(auth, email.trim(), {
+        url: window.location.origin,
+      });
       setResetSent(true);
     } catch {
       setError("Impossible d'envoyer l'email. Vérifiez l'adresse.");
@@ -94,18 +85,7 @@ export default function AuthPanel() {
               </button>
             </div>
 
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-border" />
-              </div>
-              <div className="relative flex justify-center">
-                <span className="bg-bg px-2 text-[11px] text-tx-3">ou</span>
-              </div>
-            </div>
 
-            <button className={btnSecondary} onClick={handleGoogleLogin}>
-              Continuer avec Google
-            </button>
           </>
         ) : (
           <>

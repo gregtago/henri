@@ -52,12 +52,14 @@ export default function SettingsPage() {
     <div className="min-h-screen bg-bg-subtle flex flex-col">
 
       {/* Header */}
-      <header className="h-[44px] flex items-center justify-between px-5 border-b border-border bg-bg shrink-0">
-        <div className="flex items-center gap-3">
-          <Link href="/" className="flex items-center">
+      <header className="h-[44px] flex items-center justify-between px-5 border-b border-border bg-bg shrink-0 relative">
+        <div className="flex items-center gap-3 z-10">
+          <span className="text-[13px] text-tx-2 select-none">← <Link href="/" className="hover:text-tx transition-colors">Retour</Link></span>
+        </div>
+        <div className="absolute left-0 right-0 flex justify-center pointer-events-none">
+          <Link href="/" className="pointer-events-auto">
             <img src="/logo-henri.png" alt="Henri" style={{height:"36px", width:"auto"}} />
           </Link>
-          <span className="text-[11px] text-tx-3 select-none">/ Préférences</span>
         </div>
         <div className="flex items-center gap-2">
           <button

@@ -944,6 +944,10 @@ export default function AppShell() {
     playDone();
     await updateItemProgress(user.uid, item.id, "Traité");
     await logStatusEvent(user.uid, item.id, item.status, "Traité");
+    // Supprimer l'échéance si la tâche est marquée traitée
+    if (item.dueDate) {
+      await updateItem(user.uid, item.id, { dueDate: null });
+    }
     if (selectionId) {
       await deleteMyDaySelection(user.uid, selectionId);
     }
@@ -1140,6 +1144,7 @@ export default function AppShell() {
         return;
       }
       if (event.key.toLowerCase() === "r") {
+        event.preventDefault();
         handleOpenReparent();
         return;
       }
@@ -1395,7 +1400,14 @@ export default function AppShell() {
               </div>
             </div>
             {detailCase.legalDueDate && (
-              <p className="text-[12.5px] text-tx-3 ml-[128px] -mt-1 mb-1">{formatDateFR(detailCase.legalDueDate)}</p>
+              <div className="flex items-center gap-2 ml-[128px] -mt-1 mb-1">
+                <p className="text-[12.5px] text-tx-3">{formatDateFR(detailCase.legalDueDate)}</p>
+                <button
+                  className="text-[11px] text-tx-3 hover:text-red-500 bg-transparent border-none cursor-pointer transition-colors"
+                  onClick={() => updateCase(user.uid, detailCase.id, { legalDueDate: null })}
+                  title="Supprimer l'échéance"
+                >✕</button>
+              </div>
             )}
 
             {/* Note */}
@@ -1508,7 +1520,14 @@ export default function AppShell() {
               </div>
             </div>
             {detailItem.dueDate && (
-              <p className="text-[12.5px] text-tx-3 ml-[128px] -mt-1 mb-1">{formatDateFR(detailItem.dueDate)}</p>
+              <div className="flex items-center gap-2 ml-[128px] -mt-1 mb-1">
+                <p className="text-[12.5px] text-tx-3">{formatDateFR(detailItem.dueDate)}</p>
+                <button
+                  className="text-[11px] text-tx-3 hover:text-red-500 bg-transparent border-none cursor-pointer transition-colors"
+                  onClick={() => updateItem(user.uid, detailItem.id, { dueDate: null })}
+                  title="Supprimer l'échéance"
+                >✕</button>
+              </div>
             )}
 
             {/* Dossier */}
