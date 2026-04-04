@@ -294,7 +294,12 @@ kbd {
 
 @media (min-width: 768px) {
   .finder-mobile-slider {
-    display: contents;
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    overflow: hidden;
+    transform: none !important;
+    transition: none !important;
   }
   .mobile-breadcrumb { display: none; }
 }

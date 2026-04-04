@@ -585,6 +585,9 @@ export default function AppShell() {
       setSelectedItemIds([id]);
     }
     setLastItemId(id);
+    // Mobile : avancer vers Sous-tâches (ou Détail si pas de sous-tâches)
+    const hasSubs = items.some(i => i.parentItemId === id);
+    setMobileColIndex(hasSubs ? 2 : 3);
   };
 
   const handleSelectSubItem = (id: string, options?: { multi?: boolean; range?: boolean }) => {
@@ -601,6 +604,8 @@ export default function AppShell() {
       setSelectedSubItemIds([id]);
     }
     setLastSubItemId(id);
+    // Mobile : avancer vers Détail
+    setMobileColIndex(3);
   };
 
   const handleOpenReparent = useCallback(() => {
@@ -1614,6 +1619,63 @@ export default function AppShell() {
   ) : null;
 
   // ─────────────────────────────────────────────────────────────────────────
+  // MOBILE HELPERS
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // Calcul du nombre de colonnes visibles (pour le slider)
+  const mobileColumns = [
+    true,                // 0 — Dossiers toujours présent
+    showItemsColumn,     // 1 — Tâches
+    showSubItemsColumn,  // 2 — Sous-tâches
+    showDetailColumn,    // 3 — Détail
+  ];
+  const lastVisibleCol = mobileColumns.reduce((acc, v, i) => (v ? i : acc), 0);
+  // S'assurer que mobileColIndex ne dépasse pas le dernier visible
+  const clampedColIndex = Math.min(mobileColIndex, lastVisibleCol);
+
+  // Translation CSS du slider
+  const mobileSliderStyle = { transform: `translateX(-${clampedColIndex * 100}vw)` };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    const dy = e.changedTouches[0].clientY - touchStartY.current;
+    touchStartX.current = null;
+    touchStartY.current = null;
+    // Ignorer si le geste est plutôt vertical
+    if (Math.abs(dy) > Math.abs(dx)) return;
+    if (Math.abs(dx) < 50) return;
+    if (dx < 0) {
+      // Swipe gauche → avancer si possible
+      if (clampedColIndex < lastVisibleCol) setMobileColIndex(clampedColIndex + 1);
+    } else {
+      // Swipe droite → reculer
+      if (clampedColIndex > 0) setMobileColIndex(clampedColIndex - 1);
+    }
+  };
+
+  // Breadcrumb mobile
+  const mobileBreadcrumb = (() => {
+    const crumbs: { label: string; onClick: () => void }[] = [
+      { label: "Dossiers", onClick: () => { setMobileColIndex(0); setSelectedCaseId(null); setDetailTarget(null); } },
+    ];
+    if (clampedColIndex >= 1 && selectedCase) {
+      crumbs.push({ label: selectedCase.title, onClick: () => setMobileColIndex(1) });
+    }
+    if (clampedColIndex >= 2 && selectedItem) {
+      crumbs.push({ label: selectedItem.title, onClick: () => setMobileColIndex(2) });
+    }
+    return crumbs;
+  })();
+
+  const mobileColLabel = ["Dossiers", "Tâches", "Sous-tâches", "Détail"][clampedColIndex] ?? "Henri";
+
+  // ─────────────────────────────────────────────────────────────────────────
   // RENDER PRINCIPAL
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -1678,7 +1740,26 @@ export default function AppShell() {
 
       {/* ══ VUE DOSSIERS ══ */}
       {!isMyDay ? (
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-col flex-1 overflow-hidden"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
+
+          {/* ── BREADCRUMB MOBILE ── */}
+          <div className="mobile-breadcrumb">
+            {mobileBreadcrumb.map((crumb, i) => (
+              <React.Fragment key={i}>
+                {i > 0 && <span className="mobile-breadcrumb-sep">›</span>}
+                <button className="mobile-breadcrumb-btn" onClick={crumb.onClick}>{crumb.label}</button>
+              </React.Fragment>
+            ))}
+            {mobileBreadcrumb.length > 0 && <span className="mobile-breadcrumb-sep">›</span>}
+            <span className="mobile-breadcrumb-current">{mobileColLabel}</span>
+          </div>
+
+          {/* ── COLONNES (desktop: flex row normal, mobile: slider) ── */}
+          <div className="flex flex-1 overflow-hidden md:overflow-visible">
+            <div className="finder-mobile-slider flex-1 md:flex md:flex-row md:overflow-hidden" style={mobileSliderStyle}>
 
           {/* ── COL DOSSIERS ── */}
           {showCasesColumn && (
@@ -1912,7 +1993,10 @@ export default function AppShell() {
           {detailPanel}
 
           {/* Spacer pour coller la bande à droite si pas de détail */}
-          {!showDetailColumn && <div className="flex-1" />}
+          {!showDetailColumn && <div className="flex-1 hidden md:block" />}
+
+            </div>{/* fin finder-mobile-slider */}
+          </div>{/* fin colonnes wrapper */}
 
           {/* ── BANDE "MA JOURNÉE" toujours à droite ── */}
           {settings.sideTabs && (
