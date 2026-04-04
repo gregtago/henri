@@ -277,16 +277,28 @@ export default function AppShell() {
       .map(({ entry }) => entry);
   }, [cases, caseSortDirection, caseSortKey, showArchived, activeCases, archivedCases]);
 
-  // Filtrer les dossiers visibles : créateur ou explicitement assigné
+  // Filtrer les dossiers visibles
   const currentMember = members.find(m => m.uid === user?.uid);
   const isAdmin = currentMember?.role === "admin";
+  const myUid = user?.uid ?? "";
+  // Index des dossiers dont au moins une tâche est assignée à l'utilisateur
+  const caseIdsWithMyTask = useMemo(() => {
+    const set = new Set<string>();
+    items.forEach(item => {
+      if ((item.assignedTo ?? []).includes(myUid)) set.add(item.caseId);
+    });
+    return set;
+  }, [items, myUid]);
+
   const visibleSortedCases = isAdmin
     ? sortedCases
     : sortedCases.filter(c => {
-        // Dossier sans createdBy = ancien dossier → visible uniquement si assigné ou seul membre
-        if (!c.createdBy) return (c.assignedTo ?? []).includes(user?.uid ?? "") || members.length <= 1;
-        // Visible si créateur OU dans la liste assignedTo
-        return c.createdBy === user?.uid || (c.assignedTo ?? []).includes(user?.uid ?? "");
+        if (!c.createdBy) return (c.assignedTo ?? []).includes(myUid) || caseIdsWithMyTask.has(c.id) || members.length <= 1;
+        return (
+          c.createdBy === myUid ||
+          (c.assignedTo ?? []).includes(myUid) ||
+          caseIdsWithMyTask.has(c.id)
+        );
       });
 
   const selectedCase = cases.find((entry) => entry.id === selectedCaseId) || null;
