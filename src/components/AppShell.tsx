@@ -314,19 +314,20 @@ export default function AppShell() {
   // - Sinon → seulement les tâches assignées à lui (ou sans assignation si dossier assigné)
   const isOwnerOfCase = selectedCase?.createdBy === myUid || !selectedCase?.createdBy;
   const isCaseAssignedToMe = (selectedCase?.assignedTo ?? []).includes(myUid);
-  const itemsColumnItems = (isAdmin || isOwnerOfCase || isCaseAssignedToMe)
+  // Accès complet au dossier : admin, créateur, ou dossier assigné directement
+  const hasFullCaseAccess = isAdmin || isOwnerOfCase || isCaseAssignedToMe;
+  const itemsColumnItems = hasFullCaseAccess
     ? allItemsColumnItems
+    // Accès partiel (via tâche assignée) : ne montrer que les tâches explicitement assignées
     : allItemsColumnItems.filter(item =>
-        (item.assignedTo ?? []).length === 0 ||
         (item.assignedTo ?? []).includes(myUid)
       );
 
   const selectedItem = items.find((entry) => entry.id === selectedItemId) || null;
   const allSubItems = selectedItem ? getSubItems(items, selectedItem.id) : [];
-  const subItems = (isAdmin || isOwnerOfCase || isCaseAssignedToMe)
+  const subItems = hasFullCaseAccess
     ? allSubItems
     : allSubItems.filter(item =>
-        (item.assignedTo ?? []).length === 0 ||
         (item.assignedTo ?? []).includes(myUid)
       );
   const selectedSubItem = items.find((entry) => entry.id === selectedSubItemId) || null;
