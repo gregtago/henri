@@ -151,6 +151,9 @@ export const acceptInvitation = async (
 
 // ── Gestion membres ──────────────────────────────────────────────────────────
 
+export const updateMemberDisplayName = (officeId: string, uid: string, displayName: string) =>
+  updateDoc(doc(db, `offices/${officeId}/members/${uid}`), { displayName });
+
 export const updateMemberRole = (officeId: string, uid: string, role: OfficeRole) =>
   updateDoc(doc(db, `offices/${officeId}/members/${uid}`), { role });
 

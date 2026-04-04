@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import { getUserOfficeId, getOfficeMember, updateMemberDisplayName } from "@/lib/office-firestore";
 import Link from "next/link";
 import {
   DEFAULT_SETTINGS,
@@ -16,6 +19,10 @@ import {
 export default function SettingsPage() {
   const [s, setS] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [saved, setSaved] = useState(false);
+  const [displayName, setDisplayName] = useState("");
+  const [displayNameSaved, setDisplayNameSaved] = useState(false);
+  const [officeId, setOfficeId] = useState<string | null>(null);
+  const [uid, setUid] = useState<string | null>(null);
 
   useEffect(() => {
     const loaded = loadSettings();
@@ -23,11 +30,31 @@ export default function SettingsPage() {
     applySettings(loaded);
   }, []);
 
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (!user) return;
+      setUid(user.uid);
+      const oid = await getUserOfficeId(user.uid);
+      const eff = oid ?? user.uid;
+      setOfficeId(eff);
+      const member = await getOfficeMember(eff, user.uid);
+      if (member?.displayName) setDisplayName(member.displayName);
+    });
+    return () => unsub();
+  }, []);
+
   const update = <K extends keyof UserSettings>(key: K, value: UserSettings[K]) => {
     const next = { ...s, [key]: value };
     setS(next);
     applySettings(next);
     setSaved(false);
+  };
+
+  const handleSaveDisplayName = async () => {
+    if (!officeId || !uid) return;
+    await updateMemberDisplayName(officeId, uid, displayName.trim());
+    setDisplayNameSaved(true);
+    setTimeout(() => setDisplayNameSaved(false), 2000);
   };
 
   const handleSave = () => {
@@ -91,6 +118,38 @@ export default function SettingsPage() {
       {/* Contenu */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-xl mx-auto px-5 py-10 space-y-8">
+
+          {/* ── PROFIL ── */}
+          <section>
+            <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-4">Profil</h2>
+            <div className="bg-bg border border-border rounded-xl overflow-hidden px-4">
+              <div className={row}>
+                <div>
+                  <p className={label}>Nom d'affichage</p>
+                  <p className={sublabel}>Visible par les membres de votre étude pour l'assignation</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded px-3 py-1.5 outline-none focus:border-border-strong transition-colors w-40"
+                    placeholder="Prénom Nom"
+                    value={displayName}
+                    onChange={e => setDisplayName(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && handleSaveDisplayName()}
+                  />
+                  <button
+                    onClick={handleSaveDisplayName}
+                    className={`text-[12px] font-[inherit] px-3 py-1.5 rounded cursor-pointer transition-all ${
+                      displayNameSaved
+                        ? "bg-green-600 text-white border border-green-600"
+                        : "bg-tx text-bg border border-tx hover:opacity-90"
+                    }`}
+                  >
+                    {displayNameSaved ? "✓" : "Enregistrer"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
 
           {/* ── APPARENCE ── */}
           <section>

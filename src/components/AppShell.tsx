@@ -124,6 +124,7 @@ export default function AppShell() {
   const [members, setMembers] = useState<import("@/lib/office-types").OfficeMember[]>([]);
   const [myDayDetailId, setMyDayDetailId] = useState<string | null>(null);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+  const [assignSearch, setAssignSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [importMode, setImportMode] = useState<"model" | "history">("history");
   const [isImportOpen, setIsImportOpen] = useState(false); // "f-{id}" pour volante, selectionId pour dossier
@@ -1458,29 +1459,62 @@ export default function AppShell() {
             {members.length > 1 && (
               <div className="flex items-start py-1 rounded hover:bg-bg-subtle">
                 <div className={propKey}><span className="opacity-60">👤</span> Attribuer à</div>
-                <div className="flex-1 px-2 py-1 flex flex-wrap gap-1.5">
-                  {members.map(m => {
-                    const assigned = (detailCase.assignedTo ?? []).includes(m.uid);
-                    return (
-                      <button
-                        key={m.uid}
-                        onClick={() => {
-                          const current = detailCase.assignedTo ?? [];
-                          const next = assigned
-                            ? current.filter(id => id !== m.uid)
-                            : [...current, m.uid];
-                          updateCase(officeId!, detailCase.id, { assignedTo: next });
-                        }}
-                        className={`text-[12px] px-2.5 py-1 rounded border cursor-pointer font-[inherit] transition-all ${
-                          assigned
-                            ? "bg-accent text-white border-accent"
-                            : "bg-bg-subtle border-border text-tx-2 hover:border-border-strong"
-                        }`}
-                      >
-                        {m.email.split("@")[0]}
-                      </button>
-                    );
-                  })}
+                <div className="flex-1 px-2 py-1 space-y-2">
+                  {/* Membres déjà assignés */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {(detailCase.assignedTo ?? []).map(uid => {
+                      const m = members.find(m => m.uid === uid);
+                      if (!m) return null;
+                      const label = m.displayName || m.email.split("@")[0];
+                      return (
+                        <span key={uid} className="flex items-center gap-1 text-[12px] bg-accent text-white px-2 py-0.5 rounded">
+                          {label}
+                          <button
+                            className="text-white/70 hover:text-white bg-transparent border-none cursor-pointer text-[11px] leading-none"
+                            onClick={() => updateCase(officeId!, detailCase.id, { assignedTo: (detailCase.assignedTo ?? []).filter(id => id !== uid) })}
+                          >✕</button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                  {/* Recherche pour ajouter */}
+                  <div className="relative">
+                    <input
+                      className="w-full font-[inherit] text-[12.5px] text-tx bg-bg-subtle border border-border rounded px-2.5 py-1.5 outline-none focus:border-border-strong transition-colors placeholder:text-tx-3"
+                      placeholder="Rechercher un membre…"
+                      value={assignSearch}
+                      onChange={e => setAssignSearch(e.target.value)}
+                    />
+                    {assignSearch.trim() && (
+                      <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-bg border border-border rounded shadow-lg overflow-hidden">
+                        {members
+                          .filter(m => !(detailCase.assignedTo ?? []).includes(m.uid))
+                          .filter(m => {
+                            const q = assignSearch.toLowerCase();
+                            return (m.displayName ?? "").toLowerCase().includes(q) || m.email.toLowerCase().includes(q);
+                          })
+                          .map(m => (
+                            <button
+                              key={m.uid}
+                              className="w-full text-left px-3 py-2 text-[12.5px] text-tx hover:bg-bg-hover font-[inherit] border-none bg-transparent cursor-pointer"
+                              onClick={() => {
+                                updateCase(officeId!, detailCase.id, { assignedTo: [...(detailCase.assignedTo ?? []), m.uid] });
+                                setAssignSearch("");
+                              }}
+                            >
+                              <span className="font-medium">{m.displayName || m.email.split("@")[0]}</span>
+                              {m.displayName && <span className="text-tx-3 ml-1.5">{m.email}</span>}
+                            </button>
+                          ))}
+                        {members.filter(m => !(detailCase.assignedTo ?? []).includes(m.uid)).filter(m => {
+                          const q = assignSearch.toLowerCase();
+                          return (m.displayName ?? "").toLowerCase().includes(q) || m.email.toLowerCase().includes(q);
+                        }).length === 0 && (
+                          <p className="px-3 py-2 text-[12px] text-tx-3">Aucun membre trouvé.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
