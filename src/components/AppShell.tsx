@@ -797,9 +797,9 @@ export default function AppShell() {
   };
 
   const handleCreateInActiveColumn = useCallback(async () => {
-    if (!user) return;
+    if (!user || !officeId) return;
     if (isMyDay) {
-      await createFloatingTask(officeId!, {
+      await createFloatingTask(officeId, {
         dateKey: todayKey,
         title: "Nouvelle tâche volante",
         status: "Créée"
@@ -807,7 +807,7 @@ export default function AppShell() {
       return;
     }
     if (resolvedActiveColumn === "cases") {
-      const id = await createCase(officeId!, { title: "Nouveau dossier", legalDueDate: null, caseNote: "", createdBy: user.uid, assignedTo: [user.uid] });
+      const id = await createCase(officeId, { title: "Nouveau dossier", legalDueDate: null, caseNote: "", createdBy: user.uid, assignedTo: [user.uid] });
       setSelectedCaseId(id);
       setSelectedCaseIds([id]);
       setSelectedItemId(null);
@@ -1336,6 +1336,13 @@ export default function AppShell() {
 
   if (!user) {
     return null;
+  }
+  if (!officeId) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-tx-3 text-[13px]">
+        Chargement de votre étude…
+      </div>
+    );
   }
 
 
