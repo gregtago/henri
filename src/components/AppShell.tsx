@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadSettings, applySettings, type UserSettings, DEFAULT_SETTINGS } from "@/lib/settings";
+import { getUserOfficeId } from "@/lib/office-firestore";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
@@ -119,6 +120,7 @@ export default function AppShell() {
   const [feedbackText, setFeedbackText] = useState("");
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
+  const [officeId, setOfficeId] = useState<string | null>(null);
   const [myDayDetailId, setMyDayDetailId] = useState<string | null>(null);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
@@ -157,21 +159,28 @@ export default function AppShell() {
   }, []);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (nextUser) => {
+    const unsub = onAuthStateChanged(auth, async (nextUser) => {
       setUser(nextUser);
+      if (nextUser) {
+        const oid = await getUserOfficeId(nextUser.uid);
+        // Fallback : utiliser uid comme officeId en mode solo
+        setOfficeId(oid ?? nextUser.uid);
+      } else {
+        setOfficeId(null);
+      }
     });
     return () => unsub();
   }, []);
 
   useEffect(() => {
-    if (!user) return;
-    const unsubCases = subscribeCases(user.uid, setCases);
-    const unsubItems = subscribeItems(user.uid, setItems);
-    const unsubComments = subscribeComments(user.uid, setComments);
-    const unsubEvents = subscribeEvents(user.uid, setEvents);
-    const unsubFloating = subscribeFloatingTasks(user.uid, setFloatingTasks);
+    if (!user || !officeId) return;
+    const unsubCases = subscribeCases(officeId, setCases);
+    const unsubItems = subscribeItems(officeId, setItems);
+    const unsubComments = subscribeComments(officeId, setComments);
+    const unsubEvents = subscribeEvents(officeId, setEvents);
+    const unsubFloating = subscribeFloatingTasks(officeId, setFloatingTasks);
     const unsubMyDay = subscribeMyDaySelections(user.uid, setLiveMyDaySelections, startOfWindow);
-    ensureSeedData(user.uid, seedData);
+    ensureSeedData(officeId, seedData);
     return () => {
       unsubCases();
       unsubItems();
@@ -180,7 +189,7 @@ export default function AppShell() {
       unsubFloating();
       unsubMyDay();
     };
-  }, [user, startOfWindow]);
+  }, [user, officeId, startOfWindow]);
 
   useEffect(() => {
     if (!user) return;
@@ -327,7 +336,7 @@ export default function AppShell() {
           const lastDate = latestEventByItem.get(item.id) ?? fallbackDate;
           if (!lastDate) return;
           backfilledItemIds.current.add(item.id);
-          await updateItem(user.uid, item.id, { lastProgressAt: Timestamp.fromDate(lastDate) });
+          await updateItem(officeId!, item.id, { lastProgressAt: Timestamp.fromDate(lastDate) });
         })
       );
     };
@@ -629,7 +638,7 @@ export default function AppShell() {
         }
         const parentItem = items.find((item) => item.id === option.id);
         if (!parentItem) return;
-        await updateItem(user.uid, reparentTarget.id, {
+        await updateItem(officeId!, reparentTarget.id, {
           parentItemId: parentItem.id,
           level: 3,
           caseId: parentItem.caseId
@@ -647,7 +656,7 @@ export default function AppShell() {
       }
       const updates: Promise<void>[] = [];
       updates.push(
-        updateItem(user.uid, reparentTarget.id, {
+        updateItem(officeId!, reparentTarget.id, {
           parentItemId: null,
           level: 2,
           caseId: option.id
@@ -657,7 +666,7 @@ export default function AppShell() {
         items
           .filter((item) => item.parentItemId === reparentTarget.id)
           .forEach((child) => {
-            updates.push(updateItem(user.uid, child.id, { caseId: option.id }));
+            updates.push(updateItem(officeId!, child.id, { caseId: option.id }));
           });
       }
       await Promise.all(updates);
@@ -725,7 +734,7 @@ export default function AppShell() {
     if (isMyDay) {
       if (selectedFloatingIds.length > 0) {
         scheduleDelete(`Supprimer ${selectedFloatingIds.length} tâche(s) volante(s).`, async () => {
-          await deleteFloatingTasks(user.uid, selectedFloatingIds);
+          await deleteFloatingTasks(officeId!, selectedFloatingIds);
           setSelectedFloatingIds([]);
         });
       }
@@ -733,7 +742,7 @@ export default function AppShell() {
     }
     if (activeColumn === "cases" && selectedCaseIds.length > 0) {
       scheduleDelete(`Supprimer ${selectedCaseIds.length} dossier(s) et leurs tâches.`, async () => {
-        await Promise.all(selectedCaseIds.map((id) => deleteCaseCascade(user.uid, id, items)));
+        await Promise.all(selectedCaseIds.map((id) => deleteCaseCascade(officeId!, id, items)));
         setSelectedCaseIds([]);
       });
       return;
@@ -741,7 +750,7 @@ export default function AppShell() {
     if (activeColumn === "detail" && detailTarget) {
       if (detailTarget.type === "case") {
         scheduleDelete("Supprimer le dossier et ses tâches.", async () => {
-          await deleteCaseCascade(user.uid, detailTarget.id, items);
+          await deleteCaseCascade(officeId!, detailTarget.id, items);
           setSelectedCaseIds([]);
           setSelectedCaseId(null);
           setDetailTarget(null);
@@ -752,7 +761,7 @@ export default function AppShell() {
       const subCount = items.filter((item) => item.parentItemId && ids.includes(item.parentItemId)).length;
       const label = subCount > 0 ? `Supprimer 1 tâche et ${subCount} sous-tâche(s).` : "Supprimer la tâche.";
       scheduleDelete(label, async () => {
-        await deleteItemsCascade(user.uid, ids, items);
+        await deleteItemsCascade(officeId!, ids, items);
         setSelectedItemIds([]);
         setSelectedSubItemIds([]);
         setDetailTarget(null);
@@ -765,7 +774,7 @@ export default function AppShell() {
       const subCount = items.filter((item) => item.parentItemId && ids.includes(item.parentItemId)).length;
       const label = subCount > 0 ? `Supprimer ${ids.length} tâche(s) et ${subCount} sous-tâche(s).` : `Supprimer ${ids.length} tâche(s).`;
       scheduleDelete(label, async () => {
-        await deleteItemsCascade(user.uid, ids, items);
+        await deleteItemsCascade(officeId!, ids, items);
         setSelectedItemIds([]);
         setSelectedSubItemIds([]);
       });
@@ -775,7 +784,7 @@ export default function AppShell() {
   const handleCreateInActiveColumn = useCallback(async () => {
     if (!user) return;
     if (isMyDay) {
-      await createFloatingTask(user.uid, {
+      await createFloatingTask(officeId!, {
         dateKey: todayKey,
         title: "Nouvelle tâche volante",
         status: "Créée"
@@ -783,7 +792,7 @@ export default function AppShell() {
       return;
     }
     if (resolvedActiveColumn === "cases") {
-      const id = await createCase(user.uid, { title: "Nouveau dossier", legalDueDate: null, caseNote: "" });
+      const id = await createCase(officeId!, { title: "Nouveau dossier", legalDueDate: null, caseNote: "" });
       setSelectedCaseId(id);
       setSelectedCaseIds([id]);
       setSelectedItemId(null);
@@ -798,7 +807,7 @@ export default function AppShell() {
         showToast("Sélectionnez une tâche racine d’abord.");
         return;
       }
-      const id = await createItem(user.uid, {
+      const id = await createItem(officeId!, {
         caseId: selectedCaseId,
         level: 2,
         title: "Nouvelle tâche",
@@ -821,7 +830,7 @@ export default function AppShell() {
       showToast("Sélectionnez une tâche racine d’abord.");
       return;
     }
-    const id = await createItem(user.uid, {
+    const id = await createItem(officeId!, {
       caseId: parentCaseId,
       parentItemId: selectedItemId,
       level: 3,
@@ -836,7 +845,7 @@ export default function AppShell() {
   const handleCreateChildTask = useCallback(async () => {
     if (!user) return;
     if (isMyDay) {
-      await createFloatingTask(user.uid, {
+      await createFloatingTask(officeId!, {
         dateKey: todayKey,
         title: "Nouvelle tâche volante",
         status: "Créée"
@@ -848,7 +857,7 @@ export default function AppShell() {
         showToast("Sélectionnez une tâche racine d’abord.");
         return;
       }
-      const id = await createItem(user.uid, {
+      const id = await createItem(officeId!, {
         caseId: selectedCaseId,
         level: 2,
         title: "Nouvelle tâche",
@@ -872,7 +881,7 @@ export default function AppShell() {
         showToast("Sélectionnez une tâche racine d’abord.");
         return;
       }
-      const id = await createItem(user.uid, {
+      const id = await createItem(officeId!, {
         caseId: parentCaseId,
         parentItemId: selectedItemId,
         level: 3,
@@ -935,18 +944,18 @@ export default function AppShell() {
 
   const handleStatusChange = async (status: Status) => {
     if (!user || !detailItem) return;
-    await updateItemProgress(user.uid, detailItem.id, status);
-    await logStatusEvent(user.uid, detailItem.id, detailItem.status, status);
+    await updateItemProgress(officeId!, detailItem.id, status);
+    await logStatusEvent(officeId!, detailItem.id, detailItem.status, status);
   };
 
   const handleMarkMyDayItemDone = async (item: Item, selectionId?: string) => {
     if (!user) return;
     playDone();
-    await updateItemProgress(user.uid, item.id, "Traité");
-    await logStatusEvent(user.uid, item.id, item.status, "Traité");
+    await updateItemProgress(officeId!, item.id, "Traité");
+    await logStatusEvent(officeId!, item.id, item.status, "Traité");
     // Supprimer l'échéance si la tâche est marquée traitée
     if (item.dueDate) {
-      await updateItem(user.uid, item.id, { dueDate: null });
+      await updateItem(officeId!, item.id, { dueDate: null });
     }
     if (selectionId) {
       await deleteMyDaySelection(user.uid, selectionId);
@@ -957,13 +966,13 @@ export default function AppShell() {
   const handleMarkFloatingDone = async (taskId: string) => {
     if (!user) return;
     playDone();
-    await deleteFloatingTasks(user.uid, [taskId]);
+    await deleteFloatingTasks(officeId!, [taskId]);
     setMyDayDetailId(null);
   };
 
   const handleCommentAdd = async (body: string) => {
     if (!user || !detailItem) return;
-    await createComment(user.uid, { itemId: detailItem.id, body, author: user.email ?? null });
+    await createComment(officeId!, { itemId: detailItem.id, body, author: user.email ?? null });
   };
 
   const handleKeyDown = useCallback(
@@ -1225,7 +1234,7 @@ export default function AppShell() {
     if (!user || !file) return;
     const text = await file.text();
     try {
-      await importCaseFromJson(user.uid, text, mode);
+      await importCaseFromJson(officeId!, text, mode);
       showToast("Import terminé.");
     } catch (err) {
       showToast((err as Error).message);
@@ -1234,7 +1243,7 @@ export default function AppShell() {
 
   const handleArchiveCase = async (caseId: string, archive: boolean) => {
     if (!user) return;
-    await updateCase(user.uid, caseId, {
+    await updateCase(officeId!, caseId, {
       archived: archive,
       archivedAt: archive ? new Date().toISOString() : null
     });
@@ -1251,7 +1260,7 @@ export default function AppShell() {
   const handleDeleteCase = async (caseId: string) => {
     if (!user) return;
     scheduleDelete("Supprimer le dossier et ses tâches.", async () => {
-      await deleteCaseCascade(user.uid, caseId, items);
+      await deleteCaseCascade(officeId!, caseId, items);
       setSelectedCaseIds([]);
       setSelectedCaseId(null);
       setDetailTarget(null);
@@ -1260,14 +1269,14 @@ export default function AppShell() {
 
   const handleAttachFloating = async (task: FloatingTask, caseId: string) => {
     if (!user) return;
-    await createItem(user.uid, {
+    await createItem(officeId!, {
       caseId,
       level: 2,
       title: task.title,
       status: "Créée",  // toujours "Créée" quand on rattache
       parentItemId: null
     });
-    await deleteFloatingTasks(user.uid, [task.id]);
+    await deleteFloatingTasks(officeId!, [task.id]);
     setMyDayDetailId(null);
     showToast(`"${task.title}" rattachée au dossier.`);
   };
@@ -1374,7 +1383,7 @@ export default function AppShell() {
                   e.stopPropagation();
                 }
               }}
-              onChange={(e) => updateCase(user.uid, detailCase.id, { title: e.target.value })}
+              onChange={(e) => updateCase(officeId!, detailCase.id, { title: e.target.value })}
             />
 
             {/* Échéance */}
@@ -1388,13 +1397,13 @@ export default function AppShell() {
                   defaultValue={detailCase.legalDueDate?.slice(0, 10) ?? ""}
                   onBlur={(e) => {
                     if (!e.target.value) {
-                      updateCase(user.uid, detailCase.id, { legalDueDate: null });
+                      updateCase(officeId!, detailCase.id, { legalDueDate: null });
                       return;
                     }
                     const [y, m, d] = e.target.value.split("-").map(Number);
                     if (y < 1900 || y > 2100) return;
                     const local = new Date(y, m - 1, d, 12, 0, 0);
-                    updateCase(user.uid, detailCase.id, { legalDueDate: local.toISOString() });
+                    updateCase(officeId!, detailCase.id, { legalDueDate: local.toISOString() });
                   }}
                 />
               </div>
@@ -1404,7 +1413,7 @@ export default function AppShell() {
                 <p className="text-[12.5px] text-tx-3">{formatDateFR(detailCase.legalDueDate)}</p>
                 <button
                   className="text-[11px] text-tx-3 hover:text-red-500 bg-transparent border-none cursor-pointer transition-colors"
-                  onClick={() => updateCase(user.uid, detailCase.id, { legalDueDate: null })}
+                  onClick={() => updateCase(officeId!, detailCase.id, { legalDueDate: null })}
                   title="Supprimer l'échéance"
                 >✕</button>
               </div>
@@ -1417,7 +1426,7 @@ export default function AppShell() {
                 <textarea
                   className="w-full font-[inherit] text-[14px] text-tx bg-transparent border-none outline-none resize-none leading-relaxed min-h-[60px]"
                   value={detailCase.caseNote ?? ""}
-                  onChange={(e) => updateCase(user.uid, detailCase.id, { caseNote: e.target.value })}
+                  onChange={(e) => updateCase(officeId!, detailCase.id, { caseNote: e.target.value })}
                   placeholder="Ajouter une note…"
                 />
               </div>
@@ -1479,7 +1488,7 @@ export default function AppShell() {
                   e.stopPropagation();
                 }
               }}
-              onChange={(e) => updateItem(user.uid, detailItem.id, { title: e.target.value })}
+              onChange={(e) => updateItem(officeId!, detailItem.id, { title: e.target.value })}
             />
 
             {/* Statut */}
@@ -1510,11 +1519,11 @@ export default function AppShell() {
                   className="font-[inherit] text-[14px] text-tx bg-transparent border-none outline-none w-full"
                   defaultValue={detailItem.dueDate?.slice(0, 10) ?? ""}
                   onBlur={(e) => {
-                    if (!e.target.value) { updateItem(user.uid, detailItem.id, { dueDate: null }); return; }
+                    if (!e.target.value) { updateItem(officeId!, detailItem.id, { dueDate: null }); return; }
                     const [y, m, d] = e.target.value.split("-").map(Number);
                     if (y < 1900 || y > 2100) return;
                     const local = new Date(y, m - 1, d, 12, 0, 0);
-                    updateItem(user.uid, detailItem.id, { dueDate: local.toISOString() });
+                    updateItem(officeId!, detailItem.id, { dueDate: local.toISOString() });
                   }}
                 />
               </div>
@@ -1524,7 +1533,7 @@ export default function AppShell() {
                 <p className="text-[12.5px] text-tx-3">{formatDateFR(detailItem.dueDate)}</p>
                 <button
                   className="text-[11px] text-tx-3 hover:text-red-500 bg-transparent border-none cursor-pointer transition-colors"
-                  onClick={() => updateItem(user.uid, detailItem.id, { dueDate: null })}
+                  onClick={() => updateItem(officeId!, detailItem.id, { dueDate: null })}
                   title="Supprimer l'échéance"
                 >✕</button>
               </div>
@@ -1658,7 +1667,7 @@ export default function AppShell() {
             onClick={async () => {
               if (!user) return;
               await Promise.all(reminderItems.map(item =>
-                updateItem(user.uid, item.id, { lastReminderAt: new Date().toISOString() })
+                updateItem(officeId!, item.id, { lastReminderAt: new Date().toISOString() })
               ));
               showToast("Rappel enregistré");
             }}
@@ -1740,7 +1749,7 @@ export default function AppShell() {
                     if (!file || !user) return;
                     const text = await file.text();
                     try {
-                      await importCaseFromJson(user.uid, text, importMode);
+                      await importCaseFromJson(officeId!, text, importMode);
                       showToast("Dossier importé.");
                     } catch (err) {
                       showToast((err as Error).message);
@@ -1763,7 +1772,7 @@ export default function AppShell() {
                     title="Mode sélection"
                     onClick={() => { setSelectionModeItems(p => !p); setSelectedItemIds([]); }}
                   >⊡</button>
-                  <button className={iconBtn} title="Nouvelle tâche (N)" onClick={async () => { setActiveColumn("items"); if (!user || !selectedCaseId) { showToast("Sélectionnez un dossier d'abord."); return; } const id = await createItem(user.uid, { caseId: selectedCaseId, level: 2, title: "Nouvelle tâche", status: "Créée", parentItemId: null }); setSelectedItemId(id); setSelectedItemIds([id]); setDetailTarget({ type: "item", id }); }}>+</button>
+                  <button className={iconBtn} title="Nouvelle tâche (N)" onClick={async () => { setActiveColumn("items"); if (!user || !selectedCaseId) { showToast("Sélectionnez un dossier d'abord."); return; } const id = await createItem(officeId!, { caseId: selectedCaseId, level: 2, title: "Nouvelle tâche", status: "Créée", parentItemId: null }); setSelectedItemId(id); setSelectedItemIds([id]); setDetailTarget({ type: "item", id }); }}>+</button>
                 </div>
               </div>
 
@@ -1840,7 +1849,7 @@ export default function AppShell() {
                     title="Mode sélection"
                     onClick={() => { setSelectionModeSubItems(p => !p); setSelectedSubItemIds([]); }}
                   >⊡</button>
-                  <button className={iconBtn} title="Nouvelle sous-tâche (⇧N)" onClick={async () => { setActiveColumn("subitems"); if (!user || !selectedItemId) { showToast("Sélectionnez une tâche d'abord."); return; } const parentCaseId = selectedItem?.caseId ?? selectedCaseId; if (!parentCaseId) return; const id = await createItem(user.uid, { caseId: parentCaseId, parentItemId: selectedItemId, level: 3, title: "Nouvelle sous-tâche", status: "Créée" }); setSelectedSubItemId(id); setSelectedSubItemIds([id]); setDetailTarget({ type: "item", id }); }}>+</button>
+                  <button className={iconBtn} title="Nouvelle sous-tâche (⇧N)" onClick={async () => { setActiveColumn("subitems"); if (!user || !selectedItemId) { showToast("Sélectionnez une tâche d'abord."); return; } const parentCaseId = selectedItem?.caseId ?? selectedCaseId; if (!parentCaseId) return; const id = await createItem(officeId!, { caseId: parentCaseId, parentItemId: selectedItemId, level: 3, title: "Nouvelle sous-tâche", status: "Créée" }); setSelectedSubItemId(id); setSelectedSubItemIds([id]); setDetailTarget({ type: "item", id }); }}>+</button>
                 </div>
               </div>
 
@@ -2028,7 +2037,7 @@ export default function AppShell() {
                       const t = e.target as HTMLInputElement;
                       const val = t.value.trim();
                       if (!val || !user) return;
-                      await createFloatingTask(user.uid, { dateKey: todayKey, title: val, status: "Créée" });
+                      await createFloatingTask(officeId!, { dateKey: todayKey, title: val, status: "Créée" });
                       t.value = "";
                     }
                   }}
@@ -2052,7 +2061,7 @@ export default function AppShell() {
                         <span>Tâche volante</span>
                         <div className="flex gap-1">
                           <button className={iconBtn} title={task.starred ? "Retirer l'étoile" : "Prioritaire ⭐"}
-                            onClick={() => updateFloatingTask(user.uid, task.id, { starred: !task.starred })}>{task.starred ? "⭐" : "☆"}</button>
+                            onClick={() => updateFloatingTask(officeId!, task.id, { starred: !task.starred })}>{task.starred ? "⭐" : "☆"}</button>
                           <button className={iconBtn + " !text-green-500"} onClick={() => handleMarkFloatingDone(task.id)} title="Réalisée">✓</button>
                           <button className={iconBtn} onClick={() => setMyDayDetailId(null)} title="Fermer">✕</button>
                         </div>
@@ -2063,13 +2072,13 @@ export default function AppShell() {
                           value={task.title} readOnly
                           onDoubleClick={e => { (e.target as HTMLInputElement).readOnly = false; (e.target as HTMLInputElement).focus(); }}
                           onBlur={e => { (e.target as HTMLInputElement).readOnly = true; }}
-                          onChange={e => updateFloatingTask(user.uid, task.id, { title: e.target.value })}
+                          onChange={e => updateFloatingTask(officeId!, task.id, { title: e.target.value })}
                         />
                         <div className="flex items-center py-1 rounded hover:bg-bg-subtle">
                           <div className={propKey}><span className="opacity-60">◎</span> Statut</div>
                           <div className="flex-1 px-2 py-1 flex flex-wrap gap-1.5">
                             {STATUSES.map((s, i) => (
-                              <button key={s} onClick={() => updateFloatingTask(user.uid, task.id, { status: s })}
+                              <button key={s} onClick={() => updateFloatingTask(officeId!, task.id, { status: s })}
                                 className={`${statusClass(s)} cursor-pointer border-none transition-opacity text-[12.5px] ${task.status === s ? "opacity-100" : "opacity-30 hover:opacity-60"}`}>
                                 <span className="text-[9px] mr-1 opacity-60">{i + 1}</span>{s}
                               </button>
@@ -2081,7 +2090,7 @@ export default function AppShell() {
                           <div className="flex-1 px-2">
                             <input key={task.id + "-due"} type="date" className="font-[inherit] text-[14px] text-tx bg-transparent border-none outline-none"
                               defaultValue={task.dueDate?.slice(0,10) ?? ""}
-                              onBlur={e => { if (!e.target.value) { updateFloatingTask(user.uid, task.id, { dueDate: null }); return; } const [y,m,d] = e.target.value.split("-").map(Number); if (y < 1900 || y > 2100) return; updateFloatingTask(user.uid, task.id, { dueDate: new Date(y,m-1,d,12).toISOString() }); }} />
+                              onBlur={e => { if (!e.target.value) { updateFloatingTask(officeId!, task.id, { dueDate: null }); return; } const [y,m,d] = e.target.value.split("-").map(Number); if (y < 1900 || y > 2100) return; updateFloatingTask(officeId!, task.id, { dueDate: new Date(y,m-1,d,12).toISOString() }); }} />
                           </div>
                         </div>
                         <div className="flex items-center py-1 rounded hover:bg-bg-subtle">
@@ -2161,7 +2170,7 @@ export default function AppShell() {
                             <div key={task.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-subtle group cursor-default">
                               <p className="flex-1 text-[12.5px] text-tx truncate">{task.title}</p>
                               <button className="opacity-0 group-hover:opacity-100 shrink-0 text-[12.5px] text-accent border border-[#93c5fd] rounded px-2 py-0.5 bg-transparent cursor-pointer transition-opacity"
-                                onClick={() => updateFloatingTask(user.uid, task.id, { dateKey: todayKey })}>↩ Reprendre</button>
+                                onClick={() => updateFloatingTask(officeId!, task.id, { dateKey: todayKey })}>↩ Reprendre</button>
                             </div>
                           ))}
                         </div>

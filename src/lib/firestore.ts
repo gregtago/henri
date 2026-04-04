@@ -28,35 +28,45 @@ import { getProgressLevel } from "./progress";
 
 const nowIso = () => new Date().toISOString();
 
-export const userCollection = (uid: string, path: string) => collection(db, `users/${uid}/${path}`);
+// ── Collection helper — pointe vers l'étude ───────────────────────────────────
+// officeId = CRPCEN de l'étude. uid conservé pour myDaySelections (personnel).
+export const officeCollection = (officeId: string, path: string) =>
+  collection(db, `offices/${officeId}/${path}`);
 
-export const subscribeCases = (uid: string, onChange: (cases: Case[]) => void) =>
-  onSnapshot(userCollection(uid, "cases"), (snapshot) => {
-    const data = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })) as Case[];
+// Rétrocompatibilité solo (uid = officeId en mode solo)
+export const userCollection = (uid: string, path: string) =>
+  collection(db, `users/${uid}/${path}`);
+
+// ── SOUSCRIPTIONS ─────────────────────────────────────────────────────────────
+
+export const subscribeCases = (officeId: string, onChange: (cases: Case[]) => void) =>
+  onSnapshot(officeCollection(officeId, "cases"), (snapshot) => {
+    const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as Case[];
     onChange(data);
   });
 
-export const subscribeItems = (uid: string, onChange: (items: Item[]) => void) =>
-  onSnapshot(userCollection(uid, "items"), (snapshot) => {
-    const data = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })) as Item[];
+export const subscribeItems = (officeId: string, onChange: (items: Item[]) => void) =>
+  onSnapshot(officeCollection(officeId, "items"), (snapshot) => {
+    const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as Item[];
     onChange(data);
   });
 
-export const subscribeComments = (uid: string, onChange: (comments: Comment[]) => void) =>
-  onSnapshot(userCollection(uid, "comments"), (snapshot) => {
-    const data = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })) as Comment[];
+export const subscribeComments = (officeId: string, onChange: (comments: Comment[]) => void) =>
+  onSnapshot(officeCollection(officeId, "comments"), (snapshot) => {
+    const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as Comment[];
     onChange(data);
   });
 
-export const subscribeEvents = (uid: string, onChange: (events: Event[]) => void) =>
-  onSnapshot(userCollection(uid, "events"), (snapshot) => {
-    const data = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })) as Event[];
+export const subscribeEvents = (officeId: string, onChange: (events: Event[]) => void) =>
+  onSnapshot(officeCollection(officeId, "events"), (snapshot) => {
+    const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as Event[];
     onChange(data);
   });
 
-export const subscribeFloatingTasks = (uid: string, onChange: (tasks: FloatingTask[]) => void) =>
-  onSnapshot(userCollection(uid, "floatingTasks"), (snapshot) => {
-    const data = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })) as FloatingTask[];
+// myDaySelections reste personnel (par utilisateur, pas par étude)
+export const subscribeFloatingTasks = (officeId: string, onChange: (tasks: FloatingTask[]) => void) =>
+  onSnapshot(officeCollection(officeId, "floatingTasks"), (snapshot) => {
+    const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as FloatingTask[];
     onChange(data);
   });
 
@@ -70,13 +80,15 @@ export const subscribeMyDaySelections = (
     ? query(baseQuery, where("dateTs", ">=", Timestamp.fromDate(startDate)))
     : baseQuery;
   return onSnapshot(selectionQuery, (snapshot) => {
-    const data = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })) as MyDaySelection[];
+    const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as MyDaySelection[];
     onChange(data);
   });
 };
 
-export const createCase = async (uid: string, payload: Omit<Case, "id" | "createdAt" | "updatedAt">) => {
-  const ref = await addDoc(userCollection(uid, "cases"), {
+// ── DOSSIERS ──────────────────────────────────────────────────────────────────
+
+export const createCase = async (officeId: string, payload: Omit<Case, "id" | "createdAt" | "updatedAt">) => {
+  const ref = await addDoc(officeCollection(officeId, "cases"), {
     ...payload,
     createdAt: nowIso(),
     updatedAt: nowIso()
@@ -84,11 +96,13 @@ export const createCase = async (uid: string, payload: Omit<Case, "id" | "create
   return ref.id;
 };
 
-export const updateCase = (uid: string, id: string, payload: Partial<Case>) =>
-  updateDoc(doc(db, `users/${uid}/cases/${id}`), { ...payload, updatedAt: nowIso() });
+export const updateCase = (officeId: string, id: string, payload: Partial<Case>) =>
+  updateDoc(doc(db, `offices/${officeId}/cases/${id}`), { ...payload, updatedAt: nowIso() });
 
-export const createItem = async (uid: string, payload: Omit<Item, "id" | "createdAt" | "updatedAt">) => {
-  const ref = await addDoc(userCollection(uid, "items"), {
+// ── TÂCHES ────────────────────────────────────────────────────────────────────
+
+export const createItem = async (officeId: string, payload: Omit<Item, "id" | "createdAt" | "updatedAt">) => {
+  const ref = await addDoc(officeCollection(officeId, "items"), {
     ...payload,
     progressLevel: payload.progressLevel ?? getProgressLevel(payload.status),
     lastProgressAt: payload.lastProgressAt ?? serverTimestamp(),
@@ -98,38 +112,42 @@ export const createItem = async (uid: string, payload: Omit<Item, "id" | "create
   return ref.id;
 };
 
-export const updateItem = (uid: string, id: string, payload: Partial<Item>) =>
-  updateDoc(doc(db, `users/${uid}/items/${id}`), { ...payload, updatedAt: nowIso() });
+export const updateItem = (officeId: string, id: string, payload: Partial<Item>) =>
+  updateDoc(doc(db, `offices/${officeId}/items/${id}`), { ...payload, updatedAt: nowIso() });
 
-export const updateItemProgress = (uid: string, id: string, status: Status) =>
-  updateDoc(doc(db, `users/${uid}/items/${id}`), {
+export const updateItemProgress = (officeId: string, id: string, status: Status) =>
+  updateDoc(doc(db, `offices/${officeId}/items/${id}`), {
     status,
     progressLevel: getProgressLevel(status),
     lastProgressAt: serverTimestamp(),
     updatedAt: nowIso()
   });
 
-export const createComment = async (uid: string, payload: Omit<Comment, "id" | "createdAt">) => {
-  const ref = await addDoc(userCollection(uid, "comments"), {
+// ── COMMENTAIRES & EVENTS ─────────────────────────────────────────────────────
+
+export const createComment = async (officeId: string, payload: Omit<Comment, "id" | "createdAt">) => {
+  const ref = await addDoc(officeCollection(officeId, "comments"), {
     ...payload,
     createdAt: nowIso()
   });
   return ref.id;
 };
 
-export const createEvent = async (uid: string, payload: Omit<Event, "id" | "createdAt">) => {
-  const ref = await addDoc(userCollection(uid, "events"), {
+export const createEvent = async (officeId: string, payload: Omit<Event, "id" | "createdAt">) => {
+  const ref = await addDoc(officeCollection(officeId, "events"), {
     ...payload,
     createdAt: nowIso()
   });
   return ref.id;
 };
+
+// ── TÂCHES VOLANTES ───────────────────────────────────────────────────────────
 
 export const createFloatingTask = async (
-  uid: string,
+  officeId: string,
   payload: Omit<FloatingTask, "id" | "createdAt" | "updatedAt">
 ) => {
-  const ref = await addDoc(userCollection(uid, "floatingTasks"), {
+  const ref = await addDoc(officeCollection(officeId, "floatingTasks"), {
     ...payload,
     createdAt: nowIso(),
     updatedAt: nowIso()
@@ -137,8 +155,10 @@ export const createFloatingTask = async (
   return ref.id;
 };
 
-export const updateFloatingTask = (uid: string, id: string, payload: Partial<FloatingTask>) =>
-  updateDoc(doc(db, `users/${uid}/floatingTasks/${id}`), { ...payload, updatedAt: nowIso() });
+export const updateFloatingTask = (officeId: string, id: string, payload: Partial<FloatingTask>) =>
+  updateDoc(doc(db, `offices/${officeId}/floatingTasks/${id}`), { ...payload, updatedAt: nowIso() });
+
+// ── MA JOURNÉE (personnel — reste sur users/) ─────────────────────────────────
 
 export const addMyDaySelection = async (uid: string, payload: Omit<MyDaySelection, "id">) => {
   const dateBase = dateKeyToDate(payload.dateKey) ?? new Date();
@@ -153,58 +173,62 @@ export const addMyDaySelection = async (uid: string, payload: Omit<MyDaySelectio
 export const deleteMyDaySelection = (uid: string, id: string) =>
   deleteDoc(doc(db, `users/${uid}/myDaySelections/${id}`));
 
-export const deleteCaseCascade = async (uid: string, caseId: string, items: Item[]) => {
+// ── SUPPRESSION ───────────────────────────────────────────────────────────────
+
+export const deleteCaseCascade = async (officeId: string, caseId: string, items: Item[]) => {
   const batch = writeBatch(db);
-  batch.delete(doc(db, `users/${uid}/cases/${caseId}`));
+  batch.delete(doc(db, `offices/${officeId}/cases/${caseId}`));
   items.filter((item) => item.caseId === caseId).forEach((item) => {
-    batch.delete(doc(db, `users/${uid}/items/${item.id}`));
+    batch.delete(doc(db, `offices/${officeId}/items/${item.id}`));
   });
   await batch.commit();
 };
 
-export const deleteItemsCascade = async (uid: string, itemIds: string[], items: Item[]) => {
+export const deleteItemsCascade = async (officeId: string, itemIds: string[], items: Item[]) => {
   const batch = writeBatch(db);
   const toDelete = new Set(itemIds);
   items.forEach((item) => {
     if (toDelete.has(item.id)) {
-      batch.delete(doc(db, `users/${uid}/items/${item.id}`));
+      batch.delete(doc(db, `offices/${officeId}/items/${item.id}`));
     }
     if (item.parentItemId && toDelete.has(item.parentItemId)) {
-      batch.delete(doc(db, `users/${uid}/items/${item.id}`));
+      batch.delete(doc(db, `offices/${officeId}/items/${item.id}`));
     }
   });
   await batch.commit();
 };
 
-export const deleteFloatingTasks = async (uid: string, taskIds: string[]) => {
+export const deleteFloatingTasks = async (officeId: string, taskIds: string[]) => {
   const batch = writeBatch(db);
-  taskIds.forEach((id) => batch.delete(doc(db, `users/${uid}/floatingTasks/${id}`)));
+  taskIds.forEach((id) => batch.delete(doc(db, `offices/${officeId}/floatingTasks/${id}`)));
   await batch.commit();
 };
 
-export const logStatusEvent = async (uid: string, itemId: string, fromStatus: Status, toStatus: Status) => {
-  await createEvent(uid, {
+// ── EVENTS ────────────────────────────────────────────────────────────────────
+
+export const logStatusEvent = async (officeId: string, itemId: string, fromStatus: Status, toStatus: Status) => {
+  await createEvent(officeId, {
     itemId,
     type: "progress_changed",
     payload: { from: fromStatus, to: toStatus }
   });
 };
 
-export const ensureSeedData = async (uid: string, seed: SeedPayload) => {
-  const casesSnap = await getDocs(userCollection(uid, "cases"));
-  if (!casesSnap.empty) {
-    return;
-  }
+// ── SEED DATA ─────────────────────────────────────────────────────────────────
+
+export const ensureSeedData = async (officeId: string, seed: SeedPayload) => {
+  const casesSnap = await getDocs(officeCollection(officeId, "cases"));
+  if (!casesSnap.empty) return;
   const batch = writeBatch(db);
   const caseIdMap = new Map<string, string>();
   seed.cases.forEach((entry) => {
-    const ref = doc(userCollection(uid, "cases"));
+    const ref = doc(officeCollection(officeId, "cases"));
     caseIdMap.set(entry.title, ref.id);
     batch.set(ref, { ...entry, id: ref.id });
   });
   const itemIdMap = new Map<string, string>();
   seed.items.forEach((entry) => {
-    const ref = doc(userCollection(uid, "items"));
+    const ref = doc(officeCollection(officeId, "items"));
     const mappedCaseId = caseIdMap.get(entry.caseId) ?? entry.caseId;
     const payload = {
       ...entry,
@@ -216,57 +240,35 @@ export const ensureSeedData = async (uid: string, seed: SeedPayload) => {
     batch.set(ref, payload);
   });
   seed.comments.forEach((entry) => {
-    const ref = doc(userCollection(uid, "comments"));
-    const itemId = itemIdMap.get(entry.itemId) ?? entry.itemId;
-    batch.set(ref, { ...entry, id: ref.id, itemId });
+    const ref = doc(officeCollection(officeId, "comments"));
+    batch.set(ref, { ...entry, id: ref.id, itemId: itemIdMap.get(entry.itemId) ?? entry.itemId });
   });
   seed.events.forEach((entry) => {
-    const ref = doc(userCollection(uid, "events"));
-    const itemId = itemIdMap.get(entry.itemId) ?? entry.itemId;
-    batch.set(ref, { ...entry, id: ref.id, itemId });
+    const ref = doc(officeCollection(officeId, "events"));
+    batch.set(ref, { ...entry, id: ref.id, itemId: itemIdMap.get(entry.itemId) ?? entry.itemId });
   });
   seed.floatingTasks.forEach((entry) => {
-    const ref = doc(userCollection(uid, "floatingTasks"));
-    batch.set(ref, { ...entry, id: ref.id });
-  });
-  seed.myDaySelections.forEach((entry) => {
-    const ref = doc(userCollection(uid, "myDaySelections"));
+    const ref = doc(officeCollection(officeId, "floatingTasks"));
     batch.set(ref, { ...entry, id: ref.id });
   });
   await batch.commit();
 };
 
+// ── IMPORT / EXPORT ───────────────────────────────────────────────────────────
+
 export const validateImportDepth = (items: Item[]) => items.every((item) => item.level <= 3);
 
 export const exportCaseToJson = (caseData: Case, items: Item[]) =>
-  JSON.stringify(
-    {
-      case: caseData,
-      items: items.filter((item) => item.caseId === caseData.id)
-    },
-    null,
-    2
-  );
+  JSON.stringify({ case: caseData, items: items.filter((item) => item.caseId === caseData.id) }, null, 2);
 
-export const importCaseFromJson = async (
-  uid: string,
-  raw: string,
-  mode: "model" | "history"
-) => {
+export const importCaseFromJson = async (officeId: string, raw: string, mode: "model" | "history") => {
   const parsed = JSON.parse(raw) as { case: Case; items: Item[] };
-  if (!validateImportDepth(parsed.items)) {
-    throw new Error("Structure > 3 niveaux détectée.");
-  }
+  if (!validateImportDepth(parsed.items)) throw new Error("Structure > 3 niveaux détectée.");
   const batch = writeBatch(db);
-  const caseRef = doc(userCollection(uid, "cases"));
-  batch.set(caseRef, {
-    ...parsed.case,
-    id: caseRef.id,
-    createdAt: nowIso(),
-    updatedAt: nowIso()
-  });
+  const caseRef = doc(officeCollection(officeId, "cases"));
+  batch.set(caseRef, { ...parsed.case, id: caseRef.id, createdAt: nowIso(), updatedAt: nowIso() });
   parsed.items.forEach((item) => {
-    const ref = doc(userCollection(uid, "items"));
+    const ref = doc(officeCollection(officeId, "items"));
     batch.set(ref, {
       ...item,
       id: ref.id,
@@ -279,6 +281,8 @@ export const importCaseFromJson = async (
   await batch.commit();
 };
 
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+
 export const getItemsByParent = (items: Item[], parentItemId: string | null) =>
   items.filter((item) => (parentItemId ? item.parentItemId === parentItemId : !item.parentItemId));
 
@@ -289,11 +293,10 @@ export const getSubItems = (items: Item[], parentItemId: string) =>
   items.filter((item) => item.parentItemId === parentItemId);
 
 export const getTodayKey = () => getTodayKeyUtil();
-
 export const getYesterdayKey = () => getYesterdayKeyUtil();
 
 export const queryMyDayByDate = async (uid: string, dateKey: string) => {
   const q = query(userCollection(uid, "myDaySelections"), where("dateKey", "==", dateKey));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })) as MyDaySelection[];
+  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as MyDaySelection[];
 };
