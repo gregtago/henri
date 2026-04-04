@@ -909,7 +909,7 @@ export default function AppShell() {
       return;
     }
     showToast("Niveau maximal atteint.");
-  }, [isMyDay, resolvedActiveColumn, selectedCaseId, selectedItem?.caseId, selectedItemId, user, todayKey]);
+  }, [isMyDay, resolvedActiveColumn, selectedCaseId, selectedItem?.caseId, selectedItemId, user, todayKey, officeId]);
 
   const handleAddToMyDay = async () => {
     if (!user) return;
