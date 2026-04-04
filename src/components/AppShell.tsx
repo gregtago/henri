@@ -118,6 +118,7 @@ export default function AppShell() {
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+  const [myDayDetailId, setMyDayDetailId] = useState<string | null>(null); // "f-{id}" pour volante, selectionId pour dossier
   const toastTimeout = useRef<number | null>(null);
   const backfilledItemIds = useRef<Set<string>>(new Set());
   // Refs pour scroll automatique lors de la navigation clavier
@@ -331,11 +332,26 @@ export default function AppShell() {
   // Focus auto sur le titre quand on ouvre le détail d'une tâche
   useEffect(() => {
     if (detailTarget?.type === "item" && detailTitleRef.current) {
-      // Léger délai pour laisser le DOM se mettre à jour
       const t = window.setTimeout(() => detailTitleRef.current?.focus(), 50);
       return () => window.clearTimeout(t);
     }
   }, [detailTarget?.id, detailTarget?.type]);
+
+  // Sync myDayDetailId → detailTarget pour le panneau détail dossier/tâche
+  useEffect(() => {
+    if (!myDayDetailId || myDayDetailId.startsWith("f-")) {
+      if (isMyDay) setDetailTarget(null);
+      return;
+    }
+    // myDayDetailId est un selectionId → trouver le refId/refType
+    const sel = myDaySelections.find(s => s.id === myDayDetailId);
+    if (!sel) return;
+    if (sel.refType === "case") {
+      setDetailTarget({ type: "case", id: sel.refId });
+    } else {
+      setDetailTarget({ type: "item", id: sel.refId });
+    }
+  }, [myDayDetailId, myDaySelections, isMyDay]);
 
   const myDayEntries = myDaySelections.filter((entry) => entry.dateKey === todayKey);
   const myDayItems = myDayEntries
@@ -351,6 +367,62 @@ export default function AppShell() {
       (entry): entry is { type: "case"; data: Case; selectionId: string } | { type: "item"; data: Item; selectionId: string } =>
         entry !== null
     );
+
+
+  // ── HELPER STATUT ────────────────────────────────────────────────────────
+  const statusClass = (s: Status): string => {
+    const map: Record<Status, string> = {
+      "Créée":   "status-badge status-badge-0",
+      "Demandé": "status-badge status-badge-1",
+      "Reçu":    "status-badge status-badge-2",
+      "Traité":  "status-badge status-badge-3",
+    };
+    return map[s];
+  };
+
+  // ── TÂCHES DU JOUR — tri priorité ─────────────────────────────────────────
+  const todayFloating = floatingTasks.filter(t => t.dateKey === todayKey);
+
+  // Construire la liste unifiée triée pour Ma journée
+  const myDaySorted = useMemo(() => {
+    type Entry = {
+      key: string;
+      title: string;
+      hasDue: boolean;
+      dueStr: string;
+      overdue: boolean;
+      dueTs: number;
+      statusEl: React.ReactNode;
+      removeBtn: React.ReactNode;
+      selectionId: string;
+    };
+    const entries: Entry[] = myDayItems.map(entry => {
+      if (!entry) return null;
+      const { data, selectionId } = entry;
+      const dueRaw = "dueDate" in data ? data.dueDate : ("legalDueDate" in data ? data.legalDueDate : null);
+      const dueDate = dueRaw ? new Date(dueRaw) : null;
+      const hasDue = Boolean(dueDate);
+      const overdue = hasDue && dueDate! < new Date();
+      const dueStr = dueDate ? formatDateFR(dueRaw) : "";
+      const dueTs = dueDate ? dueDate.getTime() : Infinity;
+      const statusEl = "status" in data
+        ? <span className={statusClass(data.status)}>{data.status}</span>
+        : <span className="text-[11px] text-tx-3">Dossier</span>;
+      const removeBtn = (
+        <button
+          className="w-5 h-5 flex items-center justify-center text-[11px] text-tx-3 bg-transparent border-none cursor-pointer hover:text-tx rounded opacity-0 group-hover:opacity-100"
+          onClick={e => { e.stopPropagation(); deleteMyDaySelection(user!.uid, selectionId); }}
+          title="Retirer"
+        >✕</button>
+      );
+      return { key: selectionId, title: data.title, hasDue, dueStr, overdue, dueTs, statusEl, removeBtn, selectionId } as Entry;
+    }).filter(Boolean) as Entry[];
+
+    // Trier : avec échéance d'abord (par date), sans échéance ensuite
+    const withDue = entries.filter(e => e.hasDue).sort((a, b) => a.dueTs - b.dueTs);
+    const withoutDue = entries.filter(e => !e.hasDue);
+    return [...withDue, ...withoutDue];
+  }, [myDayItems, formatDateFR, statusClass, user]);
 
   const suggestions = useMemo(() => {
     const dueToday = items.filter((item) => {
@@ -1132,17 +1204,8 @@ export default function AppShell() {
 
 
 
-  // ── helpers visuels ──────────────────────────────────────────────────────
+  // ── helpers visuels (statusClass défini plus haut) ──────────────────────
 
-  const statusClass = (s: Status) => {
-    const map: Record<Status, string> = {
-      "Créée":   "status-badge status-badge-0",
-      "Demandé": "status-badge status-badge-1",
-      "Reçu":    "status-badge status-badge-2",
-      "Traité":  "status-badge status-badge-3",
-    };
-    return map[s];
-  };
 
   const btnGhost = "text-[11.5px] font-[inherit] bg-bg border border-border text-text-2 px-2 py-[2px] rounded cursor-pointer hover:border-border-strong hover:text-tx transition-all";
   const btnDanger = "text-[11.5px] font-[inherit] bg-bg border border-[#fecaca] text-red-600 px-2 py-[2px] rounded cursor-pointer hover:bg-red-50 hover:border-red-400 transition-all";
@@ -1663,256 +1726,228 @@ export default function AppShell() {
       ) : (
 
         /* ══ VUE MA JOURNÉE ══ */
-        <div className="flex-1 overflow-y-auto bg-bg-subtle">
-          <div className="max-w-xl mx-auto px-5 py-8 space-y-6">
+        <div className="flex flex-1 overflow-hidden">
 
-            {/* Date du jour */}
-            <div>
-              <h1 className="text-[22px] font-semibold text-tx tracking-tight leading-none">Ma journée</h1>
-              <p className="text-[13px] text-tx-3 mt-1">
+          {/* ── LISTE GAUCHE ── */}
+          <div className="flex flex-col border-r border-border bg-bg" style={{width: "320px", flexShrink: 0}}>
+
+            {/* Header */}
+            <div className="finder-header">
+              <span>
                 {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
-              </p>
+              </span>
+              <span className="text-tx-3">{myDaySorted.length} élément{myDaySorted.length > 1 ? "s" : ""}</span>
             </div>
 
-            {/* ── TRAVAIL DU JOUR ── */}
-            <section>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[11.5px] font-medium text-tx-3 uppercase tracking-wide">Travail du jour</p>
-                <span className="text-[11px] text-tx-3">{myDayItems.length} élément{myDayItems.length > 1 ? "s" : ""}</span>
-              </div>
-              <div className="bg-bg rounded-lg border border-border overflow-hidden">
-                {myDayItems.length === 0 ? (
-                  <div className="px-4 py-6 text-center">
-                    <p className="text-[13px] text-tx-3">Aucun élément pour aujourd'hui.</p>
-                    <p className="text-[12px] text-tx-3 mt-1">Utilisez <kbd>A</kbd> depuis les dossiers pour ajouter des tâches.</p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-border">
-                    {myDayItems.map(entry => {
-                      if (!entry) return null;
-                      const isExpanded = detailTarget?.id === entry.data.id;
-                      return (
-                        <div key={entry.data.id}>
-                          {/* Ligne principale */}
-                          <div
-                            className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${isExpanded ? "bg-bg-subtle" : "hover:bg-bg-subtle"}`}
-                            onClick={() => setDetailTarget(isExpanded ? null : { type: entry.type, id: entry.data.id })}
-                          >
-                            {/* Indicateur expansion */}
-                            <span className="text-[11px] text-tx-3 w-3 shrink-0">{isExpanded ? "▾" : "▸"}</span>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-[13.5px] font-medium text-tx truncate">{entry.data.title}</p>
-                              {"status" in entry.data ? (
-                                <div className="flex items-center gap-2 mt-0.5">
-                                  <span className={statusClass(entry.data.status)}>{entry.data.status}</span>
-                                  {(() => { const it = entry.data as Item; return it.dueDate ? <span className={`text-[11px] ${new Date(it.dueDate) < new Date() ? "text-red-500" : "text-tx-3"}`}>Éch. {formatDateFR(it.dueDate)}</span> : null; })()}
-                                </div>
-                              ) : (
-                                <p className="text-[11px] text-tx-3 mt-0.5">
-                                  {(entry.data as Case).legalDueDate ? `Éch. ${formatDateFR((entry.data as Case).legalDueDate)}` : "Dossier"}
-                                </p>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
-                              {entry.type === "item" && (
-                                <button
-                                  className={btnGhost}
-                                  onClick={() => handleMarkMyDayItemDone(entry.data as Item, entry.selectionId)}
-                                >✓ Réalisée</button>
-                              )}
-                              <button
-                                className={btnGhost + " !text-tx-3"}
-                                onClick={() => deleteMyDaySelection(user.uid, entry.selectionId)}
-                                title="Retirer de Ma journée"
-                              >✕</button>
-                            </div>
-                          </div>
+            {/* Liste scrollable */}
+            <div className="flex-1 overflow-y-auto">
+              {myDaySorted.length === 0 && todayFloating.length === 0 ? (
+                <div className="px-4 py-8 text-center space-y-1">
+                  <p className="text-[13px] text-tx-3">Journée vide.</p>
+                  <p className="text-[12px] text-tx-3">Utilisez <kbd>A</kbd> depuis les dossiers.</p>
+                </div>
+              ) : (
+                <div className="py-1">
 
-                          {/* Détail inline expansible */}
-                          {isExpanded && detailItem && detailItem.id === entry.data.id && (
-                            <div className="px-4 pb-4 pt-1 bg-bg-subtle border-t border-border space-y-3">
-                              {/* Statuts */}
-                              <div className="flex flex-wrap gap-1.5">
-                                {STATUSES.map((s, i) => (
-                                  <button
-                                    key={s}
-                                    onClick={() => handleStatusChange(s)}
-                                    className={`${statusClass(s)} cursor-pointer border-none transition-opacity text-[11px] ${detailItem.status === s ? "opacity-100" : "opacity-30 hover:opacity-60"}`}
-                                  >
-                                    <span className="text-[9px] mr-1 opacity-60">{i + 1}</span>{s}
-                                  </button>
-                                ))}
-                              </div>
-                              {/* Commentaires */}
-                              {detailComments.length > 0 && (
-                                <div className="space-y-1.5">
-                                  {detailComments.map(c => (
-                                    <div key={c.id} className="bg-bg rounded px-3 py-2 border border-border">
-                                      <p className="text-[12.5px] text-tx">{c.body}</p>
-                                      <p className="text-[10.5px] text-tx-3 mt-1">{formatDateFR(c.createdAt)}</p>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                              <textarea
-                                className="w-full font-[inherit] text-[12.5px] text-tx bg-bg border border-border rounded px-3 py-2 outline-none resize-none leading-relaxed min-h-[52px] focus:border-border-strong placeholder:text-tx-3 transition-colors"
-                                placeholder="Commentaire… (Entrée pour valider)"
-                                onKeyDown={e => {
-                                  if (e.key === "Enter" && !e.shiftKey) {
-                                    e.preventDefault();
-                                    const t = e.target as HTMLTextAreaElement;
-                                    if (t.value.trim()) { handleCommentAdd(t.value.trim()); t.value = ""; }
-                                  }
-                                }}
-                              />
-                            </div>
-                          )}
-
-                          {/* Détail dossier inline */}
-                          {isExpanded && detailCase && detailCase.id === entry.data.id && (
-                            <div className="px-4 pb-4 pt-1 bg-bg-subtle border-t border-border space-y-2">
-                              {detailCase.caseNote && (
-                                <p className="text-[12.5px] text-tx-2 leading-relaxed">{detailCase.caseNote}</p>
-                              )}
-                              {detailCase.legalDueDate && (
-                                <p className="text-[12px] text-tx-3">Échéance : {formatDateFR(detailCase.legalDueDate)}</p>
-                              )}
-                            </div>
-                          )}
+                  {/* Tâches volantes ⭐ en premier */}
+                  {todayFloating.filter(t => t.starred).map(task => (
+                    <div
+                      key={task.id}
+                      className="finder-row"
+                      data-active={myDayDetailId === `f-${task.id}` ? "true" : undefined}
+                      onClick={() => setMyDayDetailId(myDayDetailId === `f-${task.id}` ? null : `f-${task.id}`)}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px]">⭐</span>
+                          <p className="text-[13.5px] font-medium text-tx truncate">{task.title}</p>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </section>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className={statusClass(task.status)}>{task.status}</span>
+                          {task.dueDate && <span className={`text-[11px] ${new Date(task.dueDate) < new Date() ? "text-red-500" : "text-tx-3"}`}>Éch. {formatDateFR(task.dueDate)}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
 
-            {/* ── TÂCHES VOLANTES ── */}
-            <section>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[11.5px] font-medium text-tx-3 uppercase tracking-wide">Tâches volantes</p>
-                <button className={btnGhost} onClick={handleCreateInActiveColumn}>+ Ajouter</button>
+                  {/* Tâches avec échéance (dossier + volantes non étoilées), triées par date */}
+                  {myDaySorted.filter(e => e.hasDue).map(entry => (
+                    <div
+                      key={entry.key}
+                      className="finder-row"
+                      data-active={myDayDetailId === entry.key ? "true" : undefined}
+                      onClick={() => setMyDayDetailId(myDayDetailId === entry.key ? null : entry.key)}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13.5px] text-tx truncate leading-snug">{entry.title}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {entry.statusEl}
+                          <span className={`text-[11px] ${entry.overdue ? "text-red-500" : "text-tx-3"}`}>Éch. {entry.dueStr}</span>
+                        </div>
+                      </div>
+                      {entry.removeBtn}
+                    </div>
+                  ))}
+
+                  {/* Tâches sans échéance */}
+                  {myDaySorted.filter(e => !e.hasDue).map(entry => (
+                    <div
+                      key={entry.key}
+                      className="finder-row"
+                      data-active={myDayDetailId === entry.key ? "true" : undefined}
+                      onClick={() => setMyDayDetailId(myDayDetailId === entry.key ? null : entry.key)}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13.5px] text-tx truncate leading-snug">{entry.title}</p>
+                        <div className="mt-0.5">{entry.statusEl}</div>
+                      </div>
+                      {entry.removeBtn}
+                    </div>
+                  ))}
+
+                  {/* Volantes non étoilées sans échéance */}
+                  {todayFloating.filter(t => !t.starred && !t.dueDate).map(task => (
+                    <div
+                      key={task.id}
+                      className="finder-row"
+                      data-active={myDayDetailId === `f-${task.id}` ? "true" : undefined}
+                      onClick={() => setMyDayDetailId(myDayDetailId === `f-${task.id}` ? null : `f-${task.id}`)}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13.5px] text-tx truncate">{task.title}</p>
+                        <span className={statusClass(task.status)}>{task.status}</span>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Suggestions séparées */}
+                  {(suggestions.dueToday.length > 0 || stagnantSuggestions.length > 0 || suggestions.yesterdaySelections.length > 0 || suggestions.floatingYesterday.length > 0) && (
+                    <>
+                      <div className="px-4 py-1.5 mt-2">
+                        <p className="text-[10.5px] font-medium text-tx-3 uppercase tracking-wide">Suggestions</p>
+                      </div>
+                      {suggestions.dueToday.map(task => (
+                        <div key={task.id} className="finder-row opacity-60 hover:opacity-100">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[13px] text-tx truncate">{task.title}</p>
+                            <p className="text-[11px] text-red-500">Éch. {task.dueDate ? formatDateFR(task.dueDate) : "—"}</p>
+                          </div>
+                          <button className={iconBtn} onClick={e => { e.stopPropagation(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: task.level === 2 ? "item" : "subitem", refId: task.id }); }} title="Ajouter à Ma journée">+</button>
+                        </div>
+                      ))}
+                      {stagnantSuggestions.map(task => (
+                        <div key={task.id} className="finder-row opacity-60 hover:opacity-100">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[13px] text-tx truncate">{task.title}</p>
+                            <span className={statusClass(task.status as Status)}>{getProgressStageLabel(task.progressLevel)}</span>
+                          </div>
+                          <button className={iconBtn} onClick={e => { e.stopPropagation(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: task.level === 2 ? "item" : "subitem", refId: task.id }); }} title="Ajouter">+</button>
+                        </div>
+                      ))}
+                      {suggestions.yesterdaySelections.map(entry => (
+                        <div key={entry.id} className="finder-row opacity-60 hover:opacity-100">
+                          <p className="text-[13px] text-tx flex-1 truncate">
+                            {entry.refType === "case" ? cases.find(c => c.id === entry.refId)?.title : items.find(i => i.id === entry.refId)?.title}
+                          </p>
+                          <button className={iconBtn} onClick={e => { e.stopPropagation(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: entry.refType, refId: entry.refId }); }} title="Reprendre">+</button>
+                        </div>
+                      ))}
+                      {suggestions.floatingYesterday.map(task => (
+                        <div key={task.id} className="finder-row opacity-60 hover:opacity-100">
+                          <p className="text-[13px] text-tx flex-1 truncate">{task.title}</p>
+                          <button className={iconBtn} onClick={e => { e.stopPropagation(); updateFloatingTask(user.uid, task.id, { dateKey: todayKey }); }} title="Reprendre">↩</button>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* ── ZONE SAISIE TÂCHE VOLANTE (flottante en bas) ── */}
+            <div className="border-t border-border bg-bg p-3">
+              <div className="flex items-center gap-2 bg-bg-subtle border border-border rounded-lg px-3 py-2">
+                <span className="text-[13px] text-tx-3">✏</span>
+                <input
+                  className="flex-1 font-[inherit] text-[13.5px] text-tx bg-transparent border-none outline-none placeholder:text-tx-3"
+                  placeholder="Nouvelle tâche volante… (Entrée)"
+                  onKeyDown={async e => {
+                    if (e.key === "Enter") {
+                      const t = e.target as HTMLInputElement;
+                      const val = t.value.trim();
+                      if (!val || !user) return;
+                      await createFloatingTask(user.uid, { dateKey: todayKey, title: val, status: "Créée" });
+                      t.value = "";
+                    }
+                  }}
+                />
               </div>
-              <div className="bg-bg rounded-lg border border-border overflow-hidden">
-                {floatingTasks.filter(t => t.dateKey === todayKey).length === 0 ? (
-                  <div className="px-4 py-5 text-center">
-                    <p className="text-[13px] text-tx-3">Aucune tâche volante.</p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-border">
-                    {floatingTasks.filter(t => t.dateKey === todayKey).map(task => (
-                      <div key={task.id} className="flex items-center gap-3 px-4 py-3">
-                        <div className="flex-1 min-w-0 space-y-1">
-                          <input
-                            className="w-full text-[13.5px] font-medium text-tx bg-transparent border-none outline-none"
-                            value={task.title}
-                            onChange={e => updateFloatingTask(user.uid, task.id, { title: e.target.value })}
-                          />
-                          <div className="flex items-center gap-2">
-                            <select
-                              className="text-[11px] font-[inherit] bg-transparent border border-border text-tx-2 px-1.5 py-0.5 rounded cursor-pointer outline-none"
-                              value={task.status}
-                              onChange={e => updateFloatingTask(user.uid, task.id, { status: e.target.value as Status })}
-                            >
-                              {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                            <select
-                              className="text-[11px] font-[inherit] bg-transparent border border-border text-tx-2 px-1.5 py-0.5 rounded cursor-pointer outline-none"
-                              onChange={e => handleAttachFloating(task, e.target.value)}
-                              defaultValue=""
-                            >
-                              <option value="" disabled>Rattacher à un dossier…</option>
+            </div>
+          </div>
+
+          {/* ── DÉTAIL DROITE ── */}
+          <div className="flex-1 flex flex-col overflow-hidden bg-bg">
+            {myDayDetailId ? (
+              (() => {
+                // Tâche volante
+                if (myDayDetailId.startsWith("f-")) {
+                  const task = todayFloating.find(t => `f-${t.id}` === myDayDetailId);
+                  if (!task) return null;
+                  return (
+                    <>
+                      <div className="finder-header">
+                        <span>Tâche volante</span>
+                        <div className="flex gap-1">
+                          <button className={iconBtn} title={task.starred ? "Retirer l'étoile" : "Marquer prioritaire ⭐"} onClick={() => updateFloatingTask(user.uid, task.id, { starred: !task.starred })}>{task.starred ? "⭐" : "☆"}</button>
+                          <button className={iconBtn + " !text-red-400"} onClick={() => handleMarkFloatingDone(task.id)} title="Marquer réalisée">✓</button>
+                        </div>
+                      </div>
+                      <div className="flex-1 overflow-y-auto px-7 py-6 space-y-4">
+                        <input
+                          className="w-full text-[20px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight leading-snug"
+                          value={task.title}
+                          onChange={e => updateFloatingTask(user.uid, task.id, { title: e.target.value })}
+                        />
+                        <div className="flex items-center py-1 rounded hover:bg-bg-subtle">
+                          <div className={propKey}><span className="opacity-60">◎</span> Statut</div>
+                          <div className="flex-1 px-2 py-1 flex flex-wrap gap-1.5">
+                            {STATUSES.map((s, i) => (
+                              <button key={s} onClick={() => updateFloatingTask(user.uid, task.id, { status: s })} className={`${statusClass(s)} cursor-pointer border-none transition-opacity text-[11px] ${task.status === s ? "opacity-100" : "opacity-30 hover:opacity-60"}`}>
+                                <span className="text-[9px] mr-1 opacity-60">{i + 1}</span>{s}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex items-center py-1 rounded hover:bg-bg-subtle">
+                          <div className={propKey}><span className="opacity-60">📁</span> Rattacher</div>
+                          <div className="flex-1 px-2">
+                            <select className="font-[inherit] text-[13px] text-tx-2 bg-transparent border border-border rounded px-2 py-1 outline-none cursor-pointer" onChange={e => handleAttachFloating(task, e.target.value)} defaultValue="">
+                              <option value="" disabled>Choisir un dossier…</option>
                               {cases.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
                             </select>
                           </div>
                         </div>
-                        <button
-                          className={btnGhost}
-                          onClick={() => handleMarkFloatingDone(task.id)}
-                        >✓ Réalisée</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </section>
-
-            {/* ── SUGGESTIONS ── */}
-            {(suggestions.dueToday.length > 0 || stagnantSuggestions.length > 0 || suggestions.yesterdaySelections.length > 0 || suggestions.floatingYesterday.length > 0) && (
-              <section>
-                <p className="text-[11.5px] font-medium text-tx-3 uppercase tracking-wide mb-2">Suggestions</p>
-                <div className="bg-bg rounded-lg border border-border overflow-hidden divide-y divide-border">
-
-                  {/* Échéances dépassées */}
-                  {suggestions.dueToday.map(task => (
-                    <div key={task.id} className="flex items-center gap-3 px-4 py-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13px] text-tx truncate">{task.title}</p>
-                        <p className="text-[11px] text-red-500 mt-0.5">Éch. {task.dueDate ? formatDateFR(task.dueDate) : "—"}</p>
-                      </div>
-                      <button
-                        className={btnGhost}
-                        onClick={() => addMyDaySelection(user.uid, { dateKey: todayKey, refType: task.level === 2 ? "item" : "subitem", refId: task.id })}
-                      >+ Ajouter</button>
-                    </div>
-                  ))}
-
-                  {/* Stagnantes */}
-                  {stagnantSuggestions.map(task => (
-                    <div key={task.id} className="flex items-center gap-3 px-4 py-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13px] text-tx truncate">{task.title}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className={statusClass(task.status as Status)}>{getProgressStageLabel(task.progressLevel)}</span>
-                          <span className="text-[11px] text-tx-3">Sans activité depuis {formatDateFR(task.lastProgressDate)}</span>
+                        <div className="flex items-center py-1 rounded hover:bg-bg-subtle">
+                          <div className={propKey}><span className="opacity-60">📅</span> Échéance</div>
+                          <div className="flex-1 px-2">
+                            <input type="date" className="font-[inherit] text-[13px] text-tx bg-transparent border-none outline-none" value={task.dueDate?.slice(0, 10) ?? ""} onChange={e => updateFloatingTask(user.uid, task.id, { dueDate: e.target.value || null })} />
+                          </div>
                         </div>
                       </div>
-                      <button
-                        className={btnGhost}
-                        onClick={() => addMyDaySelection(user.uid, { dateKey: todayKey, refType: task.level === 2 ? "item" : "subitem", refId: task.id })}
-                      >+ Ajouter</button>
-                    </div>
-                  ))}
-
-                  {/* Hier non terminés */}
-                  {suggestions.yesterdaySelections.map(entry => (
-                    <div key={entry.id} className="flex items-center gap-3 px-4 py-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13px] text-tx truncate">
-                          {entry.refType === "case"
-                            ? cases.find(c => c.id === entry.refId)?.title ?? entry.refId
-                            : items.find(i => i.id === entry.refId)?.title ?? entry.refId}
-                        </p>
-                        <p className="text-[11px] text-tx-3 mt-0.5">Non terminé hier</p>
-                      </div>
-                      <button
-                        className={btnGhost}
-                        onClick={() => addMyDaySelection(user.uid, { dateKey: todayKey, refType: entry.refType, refId: entry.refId })}
-                      >+ Ajouter</button>
-                    </div>
-                  ))}
-
-                  {/* Tâches volantes d'hier */}
-                  {suggestions.floatingYesterday.map(task => (
-                    <div key={task.id} className="flex items-center gap-3 px-4 py-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13px] text-tx truncate">{task.title}</p>
-                        <p className="text-[11px] text-tx-3 mt-0.5">Tâche volante d'hier</p>
-                      </div>
-                      <button
-                        className={btnGhost}
-                        onClick={() => updateFloatingTask(user.uid, task.id, { dateKey: todayKey })}
-                      >Reprendre</button>
-                    </div>
-                  ))}
-
-                </div>
-              </section>
+                    </>
+                  );
+                }
+                // Tâche de dossier — utiliser le détail existant
+                return detailPanel;
+              })()
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-tx-3 text-[13px]">
+                Sélectionnez une tâche pour voir le détail
+              </div>
             )}
-
           </div>
-        </div>
-      )}
+
+        </div>      )}
 
       {/* ── TOAST UNDO DELETE ── */}
       {pendingDelete && (

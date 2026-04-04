@@ -62,6 +62,8 @@ export type FloatingTask = {
   dateKey: string;
   title: string;
   status: Status;
+  starred?: boolean;  // tâche volante prioritaire (⭐)
+  dueDate?: string | null;
   createdAt: string;
   updatedAt: string;
 };
