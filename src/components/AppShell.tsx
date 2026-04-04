@@ -307,9 +307,28 @@ export default function AppShell() {
     selectedCase && caseItems.length === 0
       ? items.filter((item) => item.caseId === selectedCase.id && item.parentItemId)
       : [];
-  const itemsColumnItems = caseItems.length > 0 ? caseItems : fallbackItems;
+  const allItemsColumnItems = caseItems.length > 0 ? caseItems : fallbackItems;
+
+  // Filtrer les tâches visibles selon le rôle :
+  // - Admin ou créateur du dossier → voit tout
+  // - Sinon → seulement les tâches assignées à lui (ou sans assignation si dossier assigné)
+  const isOwnerOfCase = selectedCase?.createdBy === myUid || !selectedCase?.createdBy;
+  const isCaseAssignedToMe = (selectedCase?.assignedTo ?? []).includes(myUid);
+  const itemsColumnItems = (isAdmin || isOwnerOfCase || isCaseAssignedToMe)
+    ? allItemsColumnItems
+    : allItemsColumnItems.filter(item =>
+        (item.assignedTo ?? []).length === 0 ||
+        (item.assignedTo ?? []).includes(myUid)
+      );
+
   const selectedItem = items.find((entry) => entry.id === selectedItemId) || null;
-  const subItems = selectedItem ? getSubItems(items, selectedItem.id) : [];
+  const allSubItems = selectedItem ? getSubItems(items, selectedItem.id) : [];
+  const subItems = (isAdmin || isOwnerOfCase || isCaseAssignedToMe)
+    ? allSubItems
+    : allSubItems.filter(item =>
+        (item.assignedTo ?? []).length === 0 ||
+        (item.assignedTo ?? []).includes(myUid)
+      );
   const selectedSubItem = items.find((entry) => entry.id === selectedSubItemId) || null;
 
   const detailItem = detailTarget?.type === "item" ? items.find((entry) => entry.id === detailTarget.id) ?? null : null;
