@@ -277,17 +277,17 @@ export default function AppShell() {
       .map(({ entry }) => entry);
   }, [cases, caseSortDirection, caseSortKey, showArchived, activeCases, archivedCases]);
 
-  // Filtrer les dossiers visibles : créateur ou assigné
-  // Admin voit tout, les autres voient leurs dossiers + ceux assignés
+  // Filtrer les dossiers visibles : créateur ou explicitement assigné
   const currentMember = members.find(m => m.uid === user?.uid);
   const isAdmin = currentMember?.role === "admin";
   const visibleSortedCases = isAdmin
     ? sortedCases
-    : sortedCases.filter(c =>
-        !c.createdBy || // dossiers anciens sans createdBy → visibles par tous
-        c.createdBy === user?.uid ||
-        (c.assignedTo ?? []).includes(user?.uid ?? "")
-      );
+    : sortedCases.filter(c => {
+        // Dossier sans createdBy = ancien dossier → visible uniquement si assigné ou seul membre
+        if (!c.createdBy) return (c.assignedTo ?? []).includes(user?.uid ?? "") || members.length <= 1;
+        // Visible si créateur OU dans la liste assignedTo
+        return c.createdBy === user?.uid || (c.assignedTo ?? []).includes(user?.uid ?? "");
+      });
 
   const selectedCase = cases.find((entry) => entry.id === selectedCaseId) || null;
   const caseItems = selectedCase ? getItemsByCase(items, selectedCase.id) : [];
