@@ -127,17 +127,26 @@ export const acceptInvitation = async (
 ): Promise<void> => {
   const now = new Date().toISOString();
 
+  // 1. Rejoindre l'étude — le membre peut écrire son propre profil
   await setDoc(doc(db, `offices/${officeId}/members/${uid}`), {
     uid, email, role, joinedAt: now,
   } as OfficeMember);
 
+  // 2. Rattacher l'utilisateur à l'étude dans son profil
   await setDoc(doc(db, `users/${uid}/profile/office`), {
     officeId, joinedAt: now,
   });
 
-  await updateDoc(doc(db, `offices/${officeId}/invitations/${invitationId}`), {
-    usedAt: now,
-  });
+  // 3. Marquer l'invitation comme utilisée — best effort
+  // (peut échouer si l'utilisateur n'est pas admin, ce qui est normal)
+  try {
+    await updateDoc(doc(db, `offices/${officeId}/invitations/${invitationId}`), {
+      usedAt: now,
+    });
+  } catch {
+    // Pas bloquant — l'invitation sera ignorée à la prochaine tentative
+    // via la vérification de doublon sur members/{uid}
+  }
 };
 
 // ── Gestion membres ──────────────────────────────────────────────────────────
