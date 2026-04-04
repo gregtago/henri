@@ -124,6 +124,12 @@ export default function AppShell() {
   const [showArchived, setShowArchived] = useState(false);
   const [importMode, setImportMode] = useState<"model" | "history">("history");
   const [isImportOpen, setIsImportOpen] = useState(false); // "f-{id}" pour volante, selectionId pour dossier
+
+  // ── MOBILE : colonne visible ──
+  // 0 = Dossiers, 1 = Tâches, 2 = Sous-tâches, 3 = Détail
+  const [mobileColIndex, setMobileColIndex] = useState(0);
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
   const toastTimeout = useRef<number | null>(null);
   const backfilledItemIds = useRef<Set<string>>(new Set());
   // Refs pour scroll automatique lors de la navigation clavier
@@ -561,6 +567,8 @@ export default function AppShell() {
       setSelectedCaseIds([id]);
     }
     setLastCaseId(id);
+    // Mobile : avancer vers la colonne Tâches
+    setMobileColIndex(1);
   };
 
   const handleSelectItem = (id: string, options?: { multi?: boolean; range?: boolean }) => {
