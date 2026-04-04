@@ -1663,186 +1663,252 @@ export default function AppShell() {
       ) : (
 
         /* ══ VUE MA JOURNÉE ══ */
-        <div className="flex-1 overflow-y-auto">
-          <div className="max-w-2xl mx-auto px-6 py-8 space-y-8">
+        <div className="flex-1 overflow-y-auto bg-bg-subtle">
+          <div className="max-w-xl mx-auto px-5 py-8 space-y-6">
 
-            {/* Tâches volantes */}
+            {/* Date du jour */}
+            <div>
+              <h1 className="text-[22px] font-semibold text-tx tracking-tight leading-none">Ma journée</h1>
+              <p className="text-[13px] text-tx-3 mt-1">
+                {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
+              </p>
+            </div>
+
+            {/* ── TRAVAIL DU JOUR ── */}
             <section>
-              <p className="text-[11.5px] font-medium text-tx-3 uppercase tracking-wide mb-3">Tâches volantes</p>
-              <div className="space-y-2">
-                {floatingTasks.filter(t => t.dateKey === todayKey).map(task => (
-                  <div key={task.id} className="flex items-center gap-3 bg-bg-subtle rounded px-3 py-2.5">
-                    <div className="flex-1 space-y-1">
-                      <input
-                        className="w-full text-[13.5px] font-medium text-tx bg-transparent border-none outline-none"
-                        value={task.title}
-                        onChange={e => updateFloatingTask(user.uid, task.id, { title: e.target.value })}
-                      />
-                      <select
-                        className="text-[11.5px] font-[inherit] bg-transparent border border-border text-tx-2 px-2 py-0.5 rounded cursor-pointer outline-none"
-                        value={task.status}
-                        onChange={e => updateFloatingTask(user.uid, task.id, { status: e.target.value as Status })}
-                      >
-                        {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    </div>
-                    <select
-                      className="text-[11.5px] font-[inherit] bg-bg border border-border text-tx-2 px-2 py-1 rounded cursor-pointer outline-none"
-                      onChange={e => handleAttachFloating(task, e.target.value)}
-                      defaultValue=""
-                    >
-                      <option value="" disabled>Rattacher…</option>
-                      {cases.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
-                    </select>
-                    <button
-                      className={btnGhost}
-                      onClick={e => { e.stopPropagation(); handleMarkFloatingDone(task.id); }}
-                    >Réalisée</button>
-                  </div>
-                ))}
-                <button className={btnGhost} onClick={handleCreateInActiveColumn}>+ Tâche volante</button>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[11.5px] font-medium text-tx-3 uppercase tracking-wide">Travail du jour</p>
+                <span className="text-[11px] text-tx-3">{myDayItems.length} élément{myDayItems.length > 1 ? "s" : ""}</span>
               </div>
-            </section>
-
-            {/* Travail du jour */}
-            <section>
-              <p className="text-[11.5px] font-medium text-tx-3 uppercase tracking-wide mb-3">Travail du jour</p>
-              <div className="space-y-2">
+              <div className="bg-bg rounded-lg border border-border overflow-hidden">
                 {myDayItems.length === 0 ? (
-                  <p className="text-[13px] text-tx-3 italic">Aucun élément ajouté.</p>
-                ) : myDayItems.map(entry => {
-                  if (!entry) return null;
-                  return (
-                    <div
-                      key={entry.data.id}
-                      className="flex items-center gap-3 bg-bg-subtle rounded px-3 py-2.5 cursor-pointer hover:bg-bg-hover transition-colors"
-                      onClick={() => setDetailTarget({ type: entry.type, id: entry.data.id })}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13.5px] font-medium text-tx truncate">{entry.data.title}</p>
-                        {"status" in entry.data ? (
-                          <span className={statusClass(entry.data.status)}>{entry.data.status}</span>
-                        ) : (
-                          <p className="text-[11px] text-tx-3">Éch. {entry.data.legalDueDate ? formatDateFR(entry.data.legalDueDate) : "—"}</p>
-                        )}
-                      </div>
-                      <div className="flex gap-1.5">
-                        <button className={btnGhost} onClick={e => { e.stopPropagation(); setDetailTarget({ type: entry.type, id: entry.data.id }); }}>Détails</button>
-                        {entry.type === "item" && (
-                          <button className={btnGhost} onClick={e => { e.stopPropagation(); handleMarkMyDayItemDone(entry.data, entry.selectionId); }}>Réalisée</button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-
-            {/* Suggestions */}
-            <section>
-              <p className="text-[11.5px] font-medium text-tx-3 uppercase tracking-wide mb-3">Suggestions</p>
-              <div className="space-y-4">
-
-                {/* Échéances */}
-                {suggestions.dueToday.length > 0 && (
-                  <div>
-                    <p className="text-[12px] text-tx-3 mb-2">Échéances aujourd'hui / en retard</p>
-                    <div className="space-y-1.5">
-                      {suggestions.dueToday.map(task => (
-                        <div key={task.id} className="flex items-center gap-3 bg-bg-subtle rounded px-3 py-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[13px] text-tx truncate">{task.title}</p>
-                            <p className="text-[11px] text-red-500">{task.dueDate ? formatDateFR(task.dueDate) : "—"}</p>
-                          </div>
-                          <button
-                            className={btnGhost}
-                            onClick={() => addMyDaySelection(user.uid, {
-                              dateKey: todayKey,
-                              refType: task.level === 2 ? "item" : "subitem",
-                              refId: task.id
-                            })}
-                          >Ajouter</button>
-                        </div>
-                      ))}
-                    </div>
+                  <div className="px-4 py-6 text-center">
+                    <p className="text-[13px] text-tx-3">Aucun élément pour aujourd'hui.</p>
+                    <p className="text-[12px] text-tx-3 mt-1">Utilisez <kbd>A</kbd> depuis les dossiers pour ajouter des tâches.</p>
                   </div>
-                )}
-
-                {/* Stagnantes */}
-                {stagnantSuggestions.length > 0 && (
-                  <div>
-                    <p className="text-[12px] text-tx-3 mb-2">Stagnantes — vues ces 7 derniers jours</p>
-                    <div className="space-y-1.5">
-                      {stagnantSuggestions.map(task => (
-                        <div key={task.id} className="flex items-center gap-3 bg-bg-subtle rounded px-3 py-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[13px] text-tx truncate">{task.title}</p>
-                            <div className="flex gap-2 items-center mt-0.5">
-                              <span className={statusClass(task.status as Status)}>{getProgressStageLabel(task.progressLevel)}</span>
-                              <span className="text-[11px] text-tx-3">Dernière évol. {formatDateFR(task.lastProgressDate)}</span>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {myDayItems.map(entry => {
+                      if (!entry) return null;
+                      const isExpanded = detailTarget?.id === entry.data.id;
+                      return (
+                        <div key={entry.data.id}>
+                          {/* Ligne principale */}
+                          <div
+                            className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${isExpanded ? "bg-bg-subtle" : "hover:bg-bg-subtle"}`}
+                            onClick={() => setDetailTarget(isExpanded ? null : { type: entry.type, id: entry.data.id })}
+                          >
+                            {/* Indicateur expansion */}
+                            <span className="text-[11px] text-tx-3 w-3 shrink-0">{isExpanded ? "▾" : "▸"}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[13.5px] font-medium text-tx truncate">{entry.data.title}</p>
+                              {"status" in entry.data ? (
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className={statusClass(entry.data.status)}>{entry.data.status}</span>
+                                  {(() => { const it = entry.data as Item; return it.dueDate ? <span className={`text-[11px] ${new Date(it.dueDate) < new Date() ? "text-red-500" : "text-tx-3"}`}>Éch. {formatDateFR(it.dueDate)}</span> : null; })()}
+                                </div>
+                              ) : (
+                                <p className="text-[11px] text-tx-3 mt-0.5">
+                                  {(entry.data as Case).legalDueDate ? `Éch. ${formatDateFR((entry.data as Case).legalDueDate)}` : "Dossier"}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
+                              {entry.type === "item" && (
+                                <button
+                                  className={btnGhost}
+                                  onClick={() => handleMarkMyDayItemDone(entry.data as Item, entry.selectionId)}
+                                >✓ Réalisée</button>
+                              )}
+                              <button
+                                className={btnGhost + " !text-tx-3"}
+                                onClick={() => deleteMyDaySelection(user.uid, entry.selectionId)}
+                                title="Retirer de Ma journée"
+                              >✕</button>
                             </div>
                           </div>
-                          <button
-                            className={btnGhost}
-                            onClick={() => addMyDaySelection(user.uid, {
-                              dateKey: todayKey,
-                              refType: task.level === 2 ? "item" : "subitem",
-                              refId: task.id
-                            })}
-                          >+</button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
 
-                {/* Hier */}
-                {suggestions.yesterdaySelections.length > 0 && (
-                  <div>
-                    <p className="text-[12px] text-tx-3 mb-2">Hier — non terminés</p>
-                    <div className="space-y-1.5">
-                      {suggestions.yesterdaySelections.map(entry => (
-                        <div key={entry.id} className="flex items-center gap-3 bg-bg-subtle rounded px-3 py-2">
-                          <p className="text-[13px] text-tx flex-1 truncate">
-                            {entry.refType === "case"
-                              ? cases.find(c => c.id === entry.refId)?.title ?? entry.refId
-                              : items.find(i => i.id === entry.refId)?.title ?? entry.refId}
-                          </p>
-                          <button
-                            className={btnGhost}
-                            onClick={() => addMyDaySelection(user.uid, { dateKey: todayKey, refType: entry.refType, refId: entry.refId })}
-                          >Ajouter</button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                          {/* Détail inline expansible */}
+                          {isExpanded && detailItem && detailItem.id === entry.data.id && (
+                            <div className="px-4 pb-4 pt-1 bg-bg-subtle border-t border-border space-y-3">
+                              {/* Statuts */}
+                              <div className="flex flex-wrap gap-1.5">
+                                {STATUSES.map((s, i) => (
+                                  <button
+                                    key={s}
+                                    onClick={() => handleStatusChange(s)}
+                                    className={`${statusClass(s)} cursor-pointer border-none transition-opacity text-[11px] ${detailItem.status === s ? "opacity-100" : "opacity-30 hover:opacity-60"}`}
+                                  >
+                                    <span className="text-[9px] mr-1 opacity-60">{i + 1}</span>{s}
+                                  </button>
+                                ))}
+                              </div>
+                              {/* Commentaires */}
+                              {detailComments.length > 0 && (
+                                <div className="space-y-1.5">
+                                  {detailComments.map(c => (
+                                    <div key={c.id} className="bg-bg rounded px-3 py-2 border border-border">
+                                      <p className="text-[12.5px] text-tx">{c.body}</p>
+                                      <p className="text-[10.5px] text-tx-3 mt-1">{formatDateFR(c.createdAt)}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              <textarea
+                                className="w-full font-[inherit] text-[12.5px] text-tx bg-bg border border-border rounded px-3 py-2 outline-none resize-none leading-relaxed min-h-[52px] focus:border-border-strong placeholder:text-tx-3 transition-colors"
+                                placeholder="Commentaire… (Entrée pour valider)"
+                                onKeyDown={e => {
+                                  if (e.key === "Enter" && !e.shiftKey) {
+                                    e.preventDefault();
+                                    const t = e.target as HTMLTextAreaElement;
+                                    if (t.value.trim()) { handleCommentAdd(t.value.trim()); t.value = ""; }
+                                  }
+                                }}
+                              />
+                            </div>
+                          )}
 
-                {/* Tâches volantes d'hier */}
-                {suggestions.floatingYesterday.length > 0 && (
-                  <div>
-                    <p className="text-[12px] text-tx-3 mb-2">Tâches volantes d'hier</p>
-                    <div className="space-y-1.5">
-                      {suggestions.floatingYesterday.map(task => (
-                        <div key={task.id} className="flex items-center gap-3 bg-bg-subtle rounded px-3 py-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[13px] text-tx truncate">{task.title}</p>
-                            <p className="text-[11px] text-tx-3">Les reprendre aujourd'hui ?</p>
-                          </div>
-                          <button
-                            className={btnGhost}
-                            onClick={() => updateFloatingTask(user.uid, task.id, { dateKey: todayKey })}
-                          >Reprendre</button>
+                          {/* Détail dossier inline */}
+                          {isExpanded && detailCase && detailCase.id === entry.data.id && (
+                            <div className="px-4 pb-4 pt-1 bg-bg-subtle border-t border-border space-y-2">
+                              {detailCase.caseNote && (
+                                <p className="text-[12.5px] text-tx-2 leading-relaxed">{detailCase.caseNote}</p>
+                              )}
+                              {detailCase.legalDueDate && (
+                                <p className="text-[12px] text-tx-3">Échéance : {formatDateFR(detailCase.legalDueDate)}</p>
+                              )}
+                            </div>
+                          )}
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
             </section>
 
-            {/* Détail en Ma journée */}
-            {detailPanel && <div className="pt-2">{detailPanel}</div>}
+            {/* ── TÂCHES VOLANTES ── */}
+            <section>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[11.5px] font-medium text-tx-3 uppercase tracking-wide">Tâches volantes</p>
+                <button className={btnGhost} onClick={handleCreateInActiveColumn}>+ Ajouter</button>
+              </div>
+              <div className="bg-bg rounded-lg border border-border overflow-hidden">
+                {floatingTasks.filter(t => t.dateKey === todayKey).length === 0 ? (
+                  <div className="px-4 py-5 text-center">
+                    <p className="text-[13px] text-tx-3">Aucune tâche volante.</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {floatingTasks.filter(t => t.dateKey === todayKey).map(task => (
+                      <div key={task.id} className="flex items-center gap-3 px-4 py-3">
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <input
+                            className="w-full text-[13.5px] font-medium text-tx bg-transparent border-none outline-none"
+                            value={task.title}
+                            onChange={e => updateFloatingTask(user.uid, task.id, { title: e.target.value })}
+                          />
+                          <div className="flex items-center gap-2">
+                            <select
+                              className="text-[11px] font-[inherit] bg-transparent border border-border text-tx-2 px-1.5 py-0.5 rounded cursor-pointer outline-none"
+                              value={task.status}
+                              onChange={e => updateFloatingTask(user.uid, task.id, { status: e.target.value as Status })}
+                            >
+                              {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            <select
+                              className="text-[11px] font-[inherit] bg-transparent border border-border text-tx-2 px-1.5 py-0.5 rounded cursor-pointer outline-none"
+                              onChange={e => handleAttachFloating(task, e.target.value)}
+                              defaultValue=""
+                            >
+                              <option value="" disabled>Rattacher à un dossier…</option>
+                              {cases.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                            </select>
+                          </div>
+                        </div>
+                        <button
+                          className={btnGhost}
+                          onClick={() => handleMarkFloatingDone(task.id)}
+                        >✓ Réalisée</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* ── SUGGESTIONS ── */}
+            {(suggestions.dueToday.length > 0 || stagnantSuggestions.length > 0 || suggestions.yesterdaySelections.length > 0 || suggestions.floatingYesterday.length > 0) && (
+              <section>
+                <p className="text-[11.5px] font-medium text-tx-3 uppercase tracking-wide mb-2">Suggestions</p>
+                <div className="bg-bg rounded-lg border border-border overflow-hidden divide-y divide-border">
+
+                  {/* Échéances dépassées */}
+                  {suggestions.dueToday.map(task => (
+                    <div key={task.id} className="flex items-center gap-3 px-4 py-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] text-tx truncate">{task.title}</p>
+                        <p className="text-[11px] text-red-500 mt-0.5">Éch. {task.dueDate ? formatDateFR(task.dueDate) : "—"}</p>
+                      </div>
+                      <button
+                        className={btnGhost}
+                        onClick={() => addMyDaySelection(user.uid, { dateKey: todayKey, refType: task.level === 2 ? "item" : "subitem", refId: task.id })}
+                      >+ Ajouter</button>
+                    </div>
+                  ))}
+
+                  {/* Stagnantes */}
+                  {stagnantSuggestions.map(task => (
+                    <div key={task.id} className="flex items-center gap-3 px-4 py-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] text-tx truncate">{task.title}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className={statusClass(task.status as Status)}>{getProgressStageLabel(task.progressLevel)}</span>
+                          <span className="text-[11px] text-tx-3">Sans activité depuis {formatDateFR(task.lastProgressDate)}</span>
+                        </div>
+                      </div>
+                      <button
+                        className={btnGhost}
+                        onClick={() => addMyDaySelection(user.uid, { dateKey: todayKey, refType: task.level === 2 ? "item" : "subitem", refId: task.id })}
+                      >+ Ajouter</button>
+                    </div>
+                  ))}
+
+                  {/* Hier non terminés */}
+                  {suggestions.yesterdaySelections.map(entry => (
+                    <div key={entry.id} className="flex items-center gap-3 px-4 py-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] text-tx truncate">
+                          {entry.refType === "case"
+                            ? cases.find(c => c.id === entry.refId)?.title ?? entry.refId
+                            : items.find(i => i.id === entry.refId)?.title ?? entry.refId}
+                        </p>
+                        <p className="text-[11px] text-tx-3 mt-0.5">Non terminé hier</p>
+                      </div>
+                      <button
+                        className={btnGhost}
+                        onClick={() => addMyDaySelection(user.uid, { dateKey: todayKey, refType: entry.refType, refId: entry.refId })}
+                      >+ Ajouter</button>
+                    </div>
+                  ))}
+
+                  {/* Tâches volantes d'hier */}
+                  {suggestions.floatingYesterday.map(task => (
+                    <div key={task.id} className="flex items-center gap-3 px-4 py-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] text-tx truncate">{task.title}</p>
+                        <p className="text-[11px] text-tx-3 mt-0.5">Tâche volante d'hier</p>
+                      </div>
+                      <button
+                        className={btnGhost}
+                        onClick={() => updateFloatingTask(user.uid, task.id, { dateKey: todayKey })}
+                      >Reprendre</button>
+                    </div>
+                  ))}
+
+                </div>
+              </section>
+            )}
 
           </div>
         </div>
