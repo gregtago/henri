@@ -1776,7 +1776,10 @@ export default function AppShell() {
           {/* ── PANNEAU DÉTAIL ── */}
           {detailPanel}
 
-          {/* ── BANDE "MA JOURNÉE" à droite ── */}
+          {/* Spacer pour coller la bande à droite si pas de détail */}
+          {!showDetailColumn && <div className="flex-1" />}
+
+          {/* ── BANDE "MA JOURNÉE" toujours à droite ── */}
           <Link href="/my-day" className="side-tab side-tab-myday" title="Aller à Ma journée">
             <div className="side-tab-inner">
               <span className="side-tab-label">Ma journée</span>
@@ -1787,8 +1790,8 @@ export default function AppShell() {
 
       ) : (
 
-        /* ══ VUE MA JOURNÉE ══ */
-        <div className="flex flex-1 overflow-hidden">
+        /* ══ VUE MA JOURNÉE — 3 colonnes ══ */
+        <div className="flex flex-1 overflow-hidden bg-white">
 
           {/* ── BANDE "DOSSIERS" à gauche ── */}
           <Link href="/" className="side-tab side-tab-dossiers" title="Retour aux Dossiers">
@@ -1797,40 +1800,103 @@ export default function AppShell() {
             </div>
           </Link>
 
-          {/* ── LISTE GAUCHE ── */}
-          <div className="flex flex-col border-r border-border bg-bg" style={{width: "320px", flexShrink: 0}}>
-
-            {/* Header */}
+          {/* ── COL GAUCHE : SUGGESTIONS ── */}
+          <div className="flex flex-col border-r border-border overflow-hidden bg-bg-subtle" style={{width:"210px",flexShrink:0}}>
             <div className="finder-header">
-              <span>
-                {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
-              </span>
+              <span>Suggestions</span>
+            </div>
+            <div className="flex-1 overflow-y-auto py-1">
+
+              {suggestions.floatingYesterday.length > 0 && (
+                <div className="px-3 pt-2 pb-1">
+                  <p className="text-[10px] font-medium text-tx-3 uppercase tracking-wide mb-1.5">Hier — volantes</p>
+                  {suggestions.floatingYesterday.map(task => (
+                    <div key={task.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-hover group cursor-default">
+                      <p className="flex-1 text-[12px] text-tx-2 truncate">{task.title}</p>
+                      <button className="opacity-0 group-hover:opacity-100 text-[10px] text-accent border border-[#93c5fd] rounded px-1.5 py-0.5 bg-transparent cursor-pointer transition-opacity shrink-0"
+                        onClick={() => updateFloatingTask(user.uid, task.id, { dateKey: todayKey })}>↩</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {suggestions.yesterdaySelections.length > 0 && (
+                <div className="px-3 pt-2 pb-1">
+                  <p className="text-[10px] font-medium text-tx-3 uppercase tracking-wide mb-1.5">Hier — non terminés</p>
+                  {suggestions.yesterdaySelections.map(entry => {
+                    const title = entry.refType === "case"
+                      ? cases.find(c => c.id === entry.refId)?.title
+                      : items.find(i => i.id === entry.refId)?.title;
+                    if (!title) return null;
+                    return (
+                      <div key={entry.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-hover group cursor-default">
+                        <p className="flex-1 text-[12px] text-tx-2 truncate">{title}</p>
+                        <button className="opacity-0 group-hover:opacity-100 text-[10px] text-accent border border-[#93c5fd] rounded px-1.5 py-0.5 bg-transparent cursor-pointer transition-opacity shrink-0"
+                          onClick={() => addMyDaySelection(user.uid, { dateKey: todayKey, refType: entry.refType, refId: entry.refId })}>+</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {suggestions.dueToday.length > 0 && (
+                <div className="px-3 pt-2 pb-1">
+                  <p className="text-[10px] font-medium text-tx-3 uppercase tracking-wide mb-1.5">Échéances</p>
+                  {suggestions.dueToday.map(task => (
+                    <div key={task.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-hover group cursor-default">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] text-tx-2 truncate">{task.title}</p>
+                        <p className="text-[10px] text-red-400">{task.dueDate ? formatDateFR(task.dueDate) : "—"}</p>
+                      </div>
+                      <button className="opacity-0 group-hover:opacity-100 text-[10px] text-accent border border-[#93c5fd] rounded px-1.5 py-0.5 bg-transparent cursor-pointer transition-opacity shrink-0"
+                        onClick={() => addMyDaySelection(user.uid, { dateKey: todayKey, refType: task.level === 2 ? "item" : "subitem", refId: task.id })}>+</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {stagnantSuggestions.length > 0 && (
+                <div className="px-3 pt-2 pb-1">
+                  <p className="text-[10px] font-medium text-tx-3 uppercase tracking-wide mb-1.5">Stagnantes</p>
+                  {stagnantSuggestions.map(task => (
+                    <div key={task.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-hover group cursor-default">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] text-tx-2 truncate">{task.title}</p>
+                        <span className={statusClass(task.status as Status)}>{task.status}</span>
+                      </div>
+                      <button className="opacity-0 group-hover:opacity-100 text-[10px] text-accent border border-[#93c5fd] rounded px-1.5 py-0.5 bg-transparent cursor-pointer transition-opacity shrink-0"
+                        onClick={() => addMyDaySelection(user.uid, { dateKey: todayKey, refType: task.level === 2 ? "item" : "subitem", refId: task.id })}>+</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {suggestions.floatingYesterday.length === 0 && suggestions.yesterdaySelections.length === 0 && suggestions.dueToday.length === 0 && stagnantSuggestions.length === 0 && (
+                <p className="text-[12px] text-tx-3 text-center px-4 py-6">Aucune suggestion.</p>
+              )}
+            </div>
+          </div>
+
+          {/* ── COL CENTRE : TRAVAIL DU JOUR ── */}
+          <div className="flex flex-col flex-1 overflow-hidden border-r border-border bg-white">
+            <div className="finder-header">
+              <span>{new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}</span>
               <span className="text-tx-3">{(() => { const n = myDaySorted.length + todayFloating.length; return `${n} élément${n > 1 ? "s" : ""}`; })()}</span>
             </div>
 
-            {/* Liste scrollable */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto py-1">
               {myDaySorted.length === 0 && todayFloating.length === 0 ? (
-                <div className="px-4 py-8 text-center space-y-1">
-                  <p className="text-[13px] text-tx-3">Journée vide.</p>
-                  <p className="text-[12px] text-tx-3">Utilisez <kbd>A</kbd> depuis les dossiers.</p>
+                <div className="flex flex-col items-center justify-center h-full gap-2 text-center px-6">
+                  <p className="text-[14px] text-tx-3">Journée vide</p>
+                  <p className="text-[12px] text-tx-3">Utilisez <kbd>A</kbd> depuis les dossiers<br/>ou ajoutez depuis les suggestions.</p>
                 </div>
               ) : (
-                <div className="py-1">
-
-                  {/* Tâches volantes ⭐ en premier */}
+                <div>
                   {todayFloating.filter(t => t.starred).map(task => (
-                    <div
-                      key={task.id}
-                      className="finder-row group"
-                      data-active={myDayDetailId === `f-${task.id}` ? "true" : undefined}
-                      onClick={() => setMyDayDetailId(myDayDetailId === `f-${task.id}` ? null : `f-${task.id}`)}
-                    >
-                      <button
-                        className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer flex items-center justify-center hover:border-accent transition-colors"
-                        onClick={e => { e.stopPropagation(); handleMarkFloatingDone(task.id); }}
-                        title="Marquer réalisée"
-                      />
+                    <div key={task.id} className="finder-row group" data-active={myDayDetailId === `f-${task.id}` ? "true" : undefined}
+                      onClick={() => setMyDayDetailId(myDayDetailId === `f-${task.id}` ? null : `f-${task.id}`)}>
+                      <button className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer hover:border-accent transition-colors"
+                        onClick={e => { e.stopPropagation(); handleMarkFloatingDone(task.id); }} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
                           <span className="text-[11px]">⭐</span>
@@ -1844,25 +1910,11 @@ export default function AppShell() {
                     </div>
                   ))}
 
-                  {/* Tâches avec échéance (dossier + volantes non étoilées), triées par date */}
                   {myDaySorted.filter(e => e.hasDue).map(entry => (
-                    <div
-                      key={entry.key}
-                      className="finder-row group"
-                      data-active={myDayDetailId === entry.key ? "true" : undefined}
-                      onClick={() => setMyDayDetailId(myDayDetailId === entry.key ? null : entry.key)}
-                    >
-                      <button
-                        className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer flex items-center justify-center hover:border-accent hover:bg-blue-50 transition-colors"
-                        onClick={e => {
-                          e.stopPropagation();
-                          const sel = myDaySelections.find(s => s.id === entry.selectionId);
-                          if (!sel) return;
-                          const item = items.find(i => i.id === sel.refId);
-                          if (item) handleMarkMyDayItemDone(item, entry.selectionId);
-                        }}
-                        title="Marquer réalisée"
-                      />
+                    <div key={entry.key} className="finder-row group" data-active={myDayDetailId === entry.key ? "true" : undefined}
+                      onClick={() => setMyDayDetailId(myDayDetailId === entry.key ? null : entry.key)}>
+                      <button className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer hover:border-accent hover:bg-blue-50 transition-colors"
+                        onClick={e => { e.stopPropagation(); const sel = myDaySelections.find(s => s.id === entry.selectionId); if (!sel) return; const item = items.find(i => i.id === sel.refId); if (item) handleMarkMyDayItemDone(item, entry.selectionId); }} />
                       <div className="flex-1 min-w-0">
                         <p className="text-[13.5px] text-tx truncate leading-snug">{entry.title}</p>
                         <div className="flex items-center gap-2 mt-0.5">
@@ -1874,25 +1926,11 @@ export default function AppShell() {
                     </div>
                   ))}
 
-                  {/* Tâches sans échéance */}
                   {myDaySorted.filter(e => !e.hasDue).map(entry => (
-                    <div
-                      key={entry.key}
-                      className="finder-row group"
-                      data-active={myDayDetailId === entry.key ? "true" : undefined}
-                      onClick={() => setMyDayDetailId(myDayDetailId === entry.key ? null : entry.key)}
-                    >
-                      <button
-                        className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer flex items-center justify-center hover:border-accent hover:bg-blue-50 transition-colors"
-                        onClick={e => {
-                          e.stopPropagation();
-                          const sel = myDaySelections.find(s => s.id === entry.selectionId);
-                          if (!sel) return;
-                          const item = items.find(i => i.id === sel.refId);
-                          if (item) handleMarkMyDayItemDone(item, entry.selectionId);
-                        }}
-                        title="Marquer réalisée"
-                      />
+                    <div key={entry.key} className="finder-row group" data-active={myDayDetailId === entry.key ? "true" : undefined}
+                      onClick={() => setMyDayDetailId(myDayDetailId === entry.key ? null : entry.key)}>
+                      <button className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer hover:border-accent hover:bg-blue-50 transition-colors"
+                        onClick={e => { e.stopPropagation(); const sel = myDaySelections.find(s => s.id === entry.selectionId); if (!sel) return; const item = items.find(i => i.id === sel.refId); if (item) handleMarkMyDayItemDone(item, entry.selectionId); }} />
                       <div className="flex-1 min-w-0">
                         <p className="text-[13.5px] text-tx truncate leading-snug">{entry.title}</p>
                         <div className="mt-0.5">{entry.statusEl}</div>
@@ -1901,71 +1939,22 @@ export default function AppShell() {
                     </div>
                   ))}
 
-                  {/* Volantes non étoilées sans échéance */}
                   {todayFloating.filter(t => !t.starred && !t.dueDate).map(task => (
-                    <div
-                      key={task.id}
-                      className="finder-row group"
-                      data-active={myDayDetailId === `f-${task.id}` ? "true" : undefined}
-                      onClick={() => setMyDayDetailId(myDayDetailId === `f-${task.id}` ? null : `f-${task.id}`)}
-                    >
-                      <button
-                        className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer flex items-center justify-center hover:border-accent transition-colors"
-                        onClick={e => { e.stopPropagation(); handleMarkFloatingDone(task.id); }}
-                        title="Marquer réalisée"
-                      />
+                    <div key={task.id} className="finder-row group" data-active={myDayDetailId === `f-${task.id}` ? "true" : undefined}
+                      onClick={() => setMyDayDetailId(myDayDetailId === `f-${task.id}` ? null : `f-${task.id}`)}>
+                      <button className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer hover:border-accent transition-colors"
+                        onClick={e => { e.stopPropagation(); handleMarkFloatingDone(task.id); }} />
                       <div className="flex-1 min-w-0">
                         <p className="text-[13.5px] text-tx truncate">{task.title}</p>
                         <span className={statusClass(task.status)}>{task.status}</span>
                       </div>
                     </div>
                   ))}
-
-                  {/* Suggestions séparées */}
-                  {(suggestions.dueToday.length > 0 || stagnantSuggestions.length > 0 || suggestions.yesterdaySelections.length > 0 || suggestions.floatingYesterday.length > 0) && (
-                    <>
-                      <div className="px-4 py-1.5 mt-2">
-                        <p className="text-[10.5px] font-medium text-tx-3 uppercase tracking-wide">Suggestions</p>
-                      </div>
-                      {suggestions.dueToday.map(task => (
-                        <div key={task.id} className="finder-row opacity-60 hover:opacity-100">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[13px] text-tx truncate">{task.title}</p>
-                            <p className="text-[11px] text-red-500">Éch. {task.dueDate ? formatDateFR(task.dueDate) : "—"}</p>
-                          </div>
-                          <button className={iconBtn} onClick={e => { e.stopPropagation(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: task.level === 2 ? "item" : "subitem", refId: task.id }); }} title="Ajouter à Ma journée">+</button>
-                        </div>
-                      ))}
-                      {stagnantSuggestions.map(task => (
-                        <div key={task.id} className="finder-row opacity-60 hover:opacity-100">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[13px] text-tx truncate">{task.title}</p>
-                            <span className={statusClass(task.status as Status)}>{getProgressStageLabel(task.progressLevel)}</span>
-                          </div>
-                          <button className={iconBtn} onClick={e => { e.stopPropagation(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: task.level === 2 ? "item" : "subitem", refId: task.id }); }} title="Ajouter">+</button>
-                        </div>
-                      ))}
-                      {suggestions.yesterdaySelections.map(entry => (
-                        <div key={entry.id} className="finder-row opacity-60 hover:opacity-100">
-                          <p className="text-[13px] text-tx flex-1 truncate">
-                            {entry.refType === "case" ? cases.find(c => c.id === entry.refId)?.title : items.find(i => i.id === entry.refId)?.title}
-                          </p>
-                          <button className={iconBtn} onClick={e => { e.stopPropagation(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: entry.refType, refId: entry.refId }); }} title="Reprendre">+</button>
-                        </div>
-                      ))}
-                      {suggestions.floatingYesterday.map(task => (
-                        <div key={task.id} className="finder-row opacity-60 hover:opacity-100">
-                          <p className="text-[13px] text-tx flex-1 truncate">{task.title}</p>
-                          <button className={iconBtn} onClick={e => { e.stopPropagation(); updateFloatingTask(user.uid, task.id, { dateKey: todayKey }); }} title="Reprendre">↩</button>
-                        </div>
-                      ))}
-                    </>
-                  )}
                 </div>
               )}
             </div>
 
-            {/* ── ZONE SAISIE TÂCHE VOLANTE (flottante en bas) ── */}
+            {/* Saisie tâche volante */}
             <div className="border-t border-border bg-bg p-3">
               <div className="flex items-center gap-2 bg-bg-subtle border border-border rounded-lg px-3 py-2">
                 <span className="text-[13px] text-tx-3">✏</span>
@@ -1986,11 +1975,10 @@ export default function AppShell() {
             </div>
           </div>
 
-          {/* ── DÉTAIL DROITE ── */}
-          <div className="flex-1 flex flex-col overflow-hidden bg-bg">
+          {/* ── COL DROITE : DÉTAIL ── */}
+          <div className="flex flex-col overflow-hidden bg-white" style={{width:"300px",flexShrink:0}}>
             {myDayDetailId ? (
               (() => {
-                // Tâche volante
                 if (myDayDetailId.startsWith("f-")) {
                   const task = todayFloating.find(t => `f-${t.id}` === myDayDetailId);
                   if (!task) return null;
@@ -1999,56 +1987,67 @@ export default function AppShell() {
                       <div className="finder-header">
                         <span>Tâche volante</span>
                         <div className="flex gap-1">
-                          <button className={iconBtn} title={task.starred ? "Retirer l'étoile" : "Marquer prioritaire ⭐"} onClick={() => updateFloatingTask(user.uid, task.id, { starred: !task.starred })}>{task.starred ? "⭐" : "☆"}</button>
-                          <button className={iconBtn + " !text-red-400"} onClick={() => handleMarkFloatingDone(task.id)} title="Marquer réalisée">✓</button>
+                          <button className={iconBtn} title={task.starred ? "Retirer l'étoile" : "Prioritaire ⭐"}
+                            onClick={() => updateFloatingTask(user.uid, task.id, { starred: !task.starred })}>{task.starred ? "⭐" : "☆"}</button>
+                          <button className={iconBtn + " !text-green-500"} onClick={() => handleMarkFloatingDone(task.id)} title="Réalisée">✓</button>
                         </div>
                       </div>
-                      <div className="flex-1 overflow-y-auto px-7 py-6 space-y-4">
+                      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-1">
                         <input
-                          className="w-full text-[20px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight leading-snug"
-                          value={task.title}
+                          className="w-full text-[18px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight leading-snug cursor-default focus:cursor-text mb-4"
+                          value={task.title} readOnly
+                          onDoubleClick={e => { (e.target as HTMLInputElement).readOnly = false; (e.target as HTMLInputElement).focus(); }}
+                          onBlur={e => { (e.target as HTMLInputElement).readOnly = true; }}
                           onChange={e => updateFloatingTask(user.uid, task.id, { title: e.target.value })}
                         />
                         <div className="flex items-center py-1 rounded hover:bg-bg-subtle">
                           <div className={propKey}><span className="opacity-60">◎</span> Statut</div>
                           <div className="flex-1 px-2 py-1 flex flex-wrap gap-1.5">
                             {STATUSES.map((s, i) => (
-                              <button key={s} onClick={() => updateFloatingTask(user.uid, task.id, { status: s })} className={`${statusClass(s)} cursor-pointer border-none transition-opacity text-[11px] ${task.status === s ? "opacity-100" : "opacity-30 hover:opacity-60"}`}>
+                              <button key={s} onClick={() => updateFloatingTask(user.uid, task.id, { status: s })}
+                                className={`${statusClass(s)} cursor-pointer border-none transition-opacity text-[11px] ${task.status === s ? "opacity-100" : "opacity-30 hover:opacity-60"}`}>
                                 <span className="text-[9px] mr-1 opacity-60">{i + 1}</span>{s}
                               </button>
                             ))}
                           </div>
                         </div>
                         <div className="flex items-center py-1 rounded hover:bg-bg-subtle">
-                          <div className={propKey}><span className="opacity-60">📁</span> Rattacher</div>
+                          <div className={propKey}><span className="opacity-60">📅</span> Échéance</div>
                           <div className="flex-1 px-2">
-                            <select className="font-[inherit] text-[13px] text-tx-2 bg-transparent border border-border rounded px-2 py-1 outline-none cursor-pointer" onChange={e => handleAttachFloating(task, e.target.value)} defaultValue="">
-                              <option value="" disabled>Choisir un dossier…</option>
-                              {cases.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
-                            </select>
+                            <input type="date" className="font-[inherit] text-[13px] text-tx bg-transparent border-none outline-none"
+                              value={task.dueDate?.slice(0,10) ?? ""}
+                              onChange={e => { if (!e.target.value) { updateFloatingTask(user.uid, task.id, { dueDate: null }); return; } const [y,m,d] = e.target.value.split("-").map(Number); updateFloatingTask(user.uid, task.id, { dueDate: new Date(y,m-1,d,12).toISOString() }); }} />
                           </div>
                         </div>
                         <div className="flex items-center py-1 rounded hover:bg-bg-subtle">
-                          <div className={propKey}><span className="opacity-60">📅</span> Échéance</div>
+                          <div className={propKey}><span className="opacity-60">📁</span> Rattacher</div>
                           <div className="flex-1 px-2">
-                            <input type="date" className="font-[inherit] text-[13px] text-tx bg-transparent border-none outline-none" value={task.dueDate?.slice(0, 10) ?? ""} onChange={e => updateFloatingTask(user.uid, task.id, { dueDate: e.target.value || null })} />
+                            <select className="font-[inherit] text-[13px] text-tx-2 bg-transparent border border-border rounded px-2 py-1 outline-none cursor-pointer w-full"
+                              onChange={e => handleAttachFloating(task, e.target.value)} defaultValue="">
+                              <option value="" disabled>Choisir un dossier…</option>
+                              {cases.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                            </select>
                           </div>
                         </div>
                       </div>
                     </>
                   );
                 }
-                // Tâche de dossier — utiliser le détail existant
-                return detailPanel;
+                return detailPanel ?? (
+                  <div className="flex-1 flex items-center justify-center text-tx-3 text-[13px] px-6 text-center">
+                    Sélectionnez une tâche pour voir le détail.
+                  </div>
+                );
               })()
             ) : (
-              <div className="flex-1 flex items-center justify-center text-tx-3 text-[13px]">
-                Sélectionnez une tâche pour voir le détail
+              <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center px-6">
+                <p className="text-[13px] text-tx-3">Sélectionnez une tâche<br/>pour voir le détail.</p>
               </div>
             )}
           </div>
 
-        </div>      )}
+        </div>
+      )}
 
       {/* ── TOAST UNDO DELETE ── */}
       {pendingDelete && (
