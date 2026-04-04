@@ -329,13 +329,9 @@ export default function AppShell() {
     setIsTimelineOpen(false);
   }, [detailItem?.id, detailTarget?.type]);
 
-  // Focus auto sur le titre quand on ouvre le détail d'une tâche
-  useEffect(() => {
-    if (detailTarget?.type === "item" && detailTitleRef.current) {
-      const t = window.setTimeout(() => detailTitleRef.current?.focus(), 50);
-      return () => window.clearTimeout(t);
-    }
-  }, [detailTarget?.id, detailTarget?.type]);
+  // PAS de focus auto sur le titre — ça bloquerait les raccourcis clavier
+  // Le focus se fait uniquement via F2 ou double-clic sur le titre
+  // (useEffect supprimé volontairement)
 
   // Sync myDayDetailId → detailTarget pour le panneau détail dossier/tâche
   useEffect(() => {
@@ -410,9 +406,9 @@ export default function AppShell() {
         : <span className="text-[11px] text-tx-3">Dossier</span>;
       const removeBtn = (
         <button
-          className="w-5 h-5 flex items-center justify-center text-[11px] text-tx-3 bg-transparent border-none cursor-pointer hover:text-tx rounded opacity-0 group-hover:opacity-100"
+          className="w-5 h-5 flex items-center justify-center text-[11px] text-tx-3 bg-transparent border-none cursor-pointer hover:text-red-500 rounded shrink-0"
           onClick={e => { e.stopPropagation(); deleteMyDaySelection(user!.uid, selectionId); }}
-          title="Retirer"
+          title="Retirer de Ma journée"
         >✕</button>
       );
       return { key: selectionId, title: data.title, hasDue, dueStr, overdue, dueTs, statusEl, removeBtn, selectionId } as Entry;
@@ -1061,6 +1057,13 @@ export default function AppShell() {
         }
         return;
       }
+      if (event.key === "F2") {
+        // F2 : renommer — focus sur le champ titre
+        event.preventDefault();
+        detailTitleRef.current?.focus();
+        detailTitleRef.current?.select();
+        return;
+      }
       if (event.key.toLowerCase() === "i") {
         // Touche I : ouvrir/fermer le panneau détail
         if (detailTarget) {
@@ -1130,7 +1133,8 @@ export default function AppShell() {
       handleStatusChange,
       casesListRef,
       itemsListRef,
-      subitemsListRef
+      subitemsListRef,
+      detailTitleRef
     ]
   );
 
@@ -1177,10 +1181,12 @@ export default function AppShell() {
       caseId,
       level: 2,
       title: task.title,
-      status: task.status,
+      status: "Créée",  // toujours "Créée" quand on rattache
       parentItemId: null
     });
     await deleteFloatingTasks(user.uid, [task.id]);
+    setMyDayDetailId(null);
+    showToast(`"${task.title}" rattachée au dossier.`);
   };
 
   const handleCopyFeedback = async () => {
@@ -1261,8 +1267,12 @@ export default function AppShell() {
         {detailCase ? (
           <>
             <input
-              className="w-full text-[20px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight mb-5 leading-snug"
+              className="w-full text-[20px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight mb-5 leading-snug cursor-default focus:cursor-text"
               value={detailCase.title}
+              readOnly
+              onDoubleClick={e => { (e.target as HTMLInputElement).readOnly = false; (e.target as HTMLInputElement).focus(); }}
+              onBlur={e => { (e.target as HTMLInputElement).readOnly = true; }}
+              onKeyDown={e => { if (e.key === "Escape") { (e.target as HTMLInputElement).readOnly = true; (e.target as HTMLInputElement).blur(); e.stopPropagation(); } }}
               onChange={(e) => updateCase(user.uid, detailCase.id, { title: e.target.value })}
             />
 
@@ -1343,8 +1353,12 @@ export default function AppShell() {
             {/* Titre */}
             <input
               ref={detailTitleRef}
-              className="w-full text-[20px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight mb-5 leading-snug"
+              className="w-full text-[20px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight mb-5 leading-snug cursor-default focus:cursor-text"
               value={detailItem.title}
+              readOnly
+              onDoubleClick={e => { (e.target as HTMLInputElement).readOnly = false; (e.target as HTMLInputElement).focus(); }}
+              onBlur={e => { (e.target as HTMLInputElement).readOnly = true; }}
+              onKeyDown={e => { if (e.key === "Escape") { (e.target as HTMLInputElement).readOnly = true; (e.target as HTMLInputElement).blur(); e.stopPropagation(); } }}
               onChange={(e) => updateItem(user.uid, detailItem.id, { title: e.target.value })}
             />
 
@@ -1463,7 +1477,9 @@ export default function AppShell() {
               {[
                 ["N", "nouveau"],
                 ["⇧N", "sous-tâche"],
+                ["F2", "renommer"],
                 ["A", "ma journée"],
+                ["I", "détail"],
                 ["R", "rattacher"],
                 ["⌫", "supprimer"],
                 ["1–4", "statut"],
