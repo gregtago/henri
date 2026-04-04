@@ -652,6 +652,25 @@ export default function AppShell() {
 
   const showToast = (message: string) => setToast(message);
 
+  // Son de complétion (Web Audio API, pas de fichier externe)
+  const playDone = () => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(660, ctx.currentTime);
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.18, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.35);
+    } catch {}
+  };
+
+
   const scheduleDelete = (message: string, action: () => Promise<void>) => {
     if (pendingDelete?.timeoutId) {
       window.clearTimeout(pendingDelete.timeoutId);
@@ -892,16 +911,20 @@ export default function AppShell() {
 
   const handleMarkMyDayItemDone = async (item: Item, selectionId?: string) => {
     if (!user) return;
+    playDone();
     await updateItemProgress(user.uid, item.id, "Traité");
     await logStatusEvent(user.uid, item.id, item.status, "Traité");
     if (selectionId) {
       await deleteMyDaySelection(user.uid, selectionId);
     }
+    setMyDayDetailId(null);
   };
 
   const handleMarkFloatingDone = async (taskId: string) => {
     if (!user) return;
+    playDone();
     await deleteFloatingTasks(user.uid, [taskId]);
+    setMyDayDetailId(null);
   };
 
   const handleCommentAdd = async (body: string) => {
@@ -1736,7 +1759,7 @@ export default function AppShell() {
               <span>
                 {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
               </span>
-              <span className="text-tx-3">{myDaySorted.length} élément{myDaySorted.length > 1 ? "s" : ""}</span>
+              <span className="text-tx-3">{(() => { const n = myDaySorted.length + todayFloating.length; return `${n} élément${n > 1 ? "s" : ""}`; })()}</span>
             </div>
 
             {/* Liste scrollable */}
@@ -1753,10 +1776,15 @@ export default function AppShell() {
                   {todayFloating.filter(t => t.starred).map(task => (
                     <div
                       key={task.id}
-                      className="finder-row"
+                      className="finder-row group"
                       data-active={myDayDetailId === `f-${task.id}` ? "true" : undefined}
                       onClick={() => setMyDayDetailId(myDayDetailId === `f-${task.id}` ? null : `f-${task.id}`)}
                     >
+                      <button
+                        className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer flex items-center justify-center hover:border-accent transition-colors"
+                        onClick={e => { e.stopPropagation(); handleMarkFloatingDone(task.id); }}
+                        title="Marquer réalisée"
+                      />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
                           <span className="text-[11px]">⭐</span>
@@ -1774,10 +1802,21 @@ export default function AppShell() {
                   {myDaySorted.filter(e => e.hasDue).map(entry => (
                     <div
                       key={entry.key}
-                      className="finder-row"
+                      className="finder-row group"
                       data-active={myDayDetailId === entry.key ? "true" : undefined}
                       onClick={() => setMyDayDetailId(myDayDetailId === entry.key ? null : entry.key)}
                     >
+                      <button
+                        className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer flex items-center justify-center hover:border-accent hover:bg-blue-50 transition-colors"
+                        onClick={e => {
+                          e.stopPropagation();
+                          const sel = myDaySelections.find(s => s.id === entry.selectionId);
+                          if (!sel) return;
+                          const item = items.find(i => i.id === sel.refId);
+                          if (item) handleMarkMyDayItemDone(item, entry.selectionId);
+                        }}
+                        title="Marquer réalisée"
+                      />
                       <div className="flex-1 min-w-0">
                         <p className="text-[13.5px] text-tx truncate leading-snug">{entry.title}</p>
                         <div className="flex items-center gap-2 mt-0.5">
@@ -1793,10 +1832,21 @@ export default function AppShell() {
                   {myDaySorted.filter(e => !e.hasDue).map(entry => (
                     <div
                       key={entry.key}
-                      className="finder-row"
+                      className="finder-row group"
                       data-active={myDayDetailId === entry.key ? "true" : undefined}
                       onClick={() => setMyDayDetailId(myDayDetailId === entry.key ? null : entry.key)}
                     >
+                      <button
+                        className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer flex items-center justify-center hover:border-accent hover:bg-blue-50 transition-colors"
+                        onClick={e => {
+                          e.stopPropagation();
+                          const sel = myDaySelections.find(s => s.id === entry.selectionId);
+                          if (!sel) return;
+                          const item = items.find(i => i.id === sel.refId);
+                          if (item) handleMarkMyDayItemDone(item, entry.selectionId);
+                        }}
+                        title="Marquer réalisée"
+                      />
                       <div className="flex-1 min-w-0">
                         <p className="text-[13.5px] text-tx truncate leading-snug">{entry.title}</p>
                         <div className="mt-0.5">{entry.statusEl}</div>
@@ -1809,10 +1859,15 @@ export default function AppShell() {
                   {todayFloating.filter(t => !t.starred && !t.dueDate).map(task => (
                     <div
                       key={task.id}
-                      className="finder-row"
+                      className="finder-row group"
                       data-active={myDayDetailId === `f-${task.id}` ? "true" : undefined}
                       onClick={() => setMyDayDetailId(myDayDetailId === `f-${task.id}` ? null : `f-${task.id}`)}
                     >
+                      <button
+                        className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer flex items-center justify-center hover:border-accent transition-colors"
+                        onClick={e => { e.stopPropagation(); handleMarkFloatingDone(task.id); }}
+                        title="Marquer réalisée"
+                      />
                       <div className="flex-1 min-w-0">
                         <p className="text-[13.5px] text-tx truncate">{task.title}</p>
                         <span className={statusClass(task.status)}>{task.status}</span>

@@ -108,10 +108,19 @@ body {
 
 .finder-row[data-selected="true"] {
   background: var(--bg-hover);
+  border-left: 2px solid var(--border-strong);
+  padding-left: 12px;
 }
 
 .finder-row[data-active="true"] {
-  background: var(--bg-active);
+  background: #e8f0fe;
+  border-left: 2px solid #2f6eff;
+  padding-left: 12px;
+}
+
+.finder-row[data-active="true"] .finder-row-title {
+  color: #1a3a8f;
+  font-weight: 500;
 }
 
 /* ── INLINE CREATE ROW ── */
