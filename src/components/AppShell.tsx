@@ -293,11 +293,12 @@ export default function AppShell() {
   const visibleSortedCases = isAdmin
     ? sortedCases
     : sortedCases.filter(c => {
-        if (!c.createdBy) return (c.assignedTo ?? []).includes(myUid) || caseIdsWithMyTask.has(c.id) || members.length <= 1;
+        // Dossier sans ownerId = ancien dossier solo → visible par tous si seul membre
+        if (!c.ownerId) return (c.assignedTo ?? []).includes(myUid) || caseIdsWithMyTask.has(c.id) || members.length <= 1;
         return (
-          c.createdBy === myUid ||
-          (c.assignedTo ?? []).includes(myUid) ||
-          caseIdsWithMyTask.has(c.id)
+          c.ownerId === myUid ||              // responsable
+          (c.assignedTo ?? []).includes(myUid) ||  // assigné au dossier
+          caseIdsWithMyTask.has(c.id)         // assigné à une tâche du dossier
         );
       });
 
@@ -312,9 +313,11 @@ export default function AppShell() {
   // Filtrer les tâches visibles selon le rôle :
   // - Admin ou créateur du dossier → voit tout
   // - Sinon → seulement les tâches assignées à lui (ou sans assignation si dossier assigné)
-  const isOwnerOfCase = selectedCase?.createdBy === myUid || !selectedCase?.createdBy;
+  // Créateur du dossier (en mode solo ou si pas encore migré et seul membre)
+  const isOwnerOfCase = selectedCase?.ownerId === myUid ||
+    (!selectedCase?.ownerId && members.length <= 1);
   const isCaseAssignedToMe = (selectedCase?.assignedTo ?? []).includes(myUid);
-  // Accès complet au dossier : admin, créateur, ou dossier assigné directement
+  // Accès complet : admin, créateur du dossier, ou dossier assigné directement
   const hasFullCaseAccess = isAdmin || isOwnerOfCase || isCaseAssignedToMe;
   const itemsColumnItems = hasFullCaseAccess
     ? allItemsColumnItems
@@ -839,7 +842,7 @@ export default function AppShell() {
       return;
     }
     if (resolvedActiveColumn === "cases") {
-      const id = await createCase(officeId, { title: "Nouveau dossier", legalDueDate: null, caseNote: "", createdBy: user.uid, assignedTo: [user.uid] });
+      const id = await createCase(officeId, { title: "Nouveau dossier", legalDueDate: null, caseNote: "", ownerId: user.uid, assignedTo: [user.uid] });
       setSelectedCaseId(id);
       setSelectedCaseIds([id]);
       setSelectedItemId(null);
@@ -1394,10 +1397,12 @@ export default function AppShell() {
     assignedTo,
     onAdd,
     onRemove,
+    canManage = true,
   }: {
     assignedTo: string[];
     onAdd: (uid: string) => void;
     onRemove: (uid: string) => void;
+    canManage?: boolean;
   }) => {
     const [search, setSearch] = React.useState("");
     if (members.length <= 1) return null;
@@ -1535,6 +1540,20 @@ export default function AppShell() {
               </div>
             )}
 
+            {/* Responsable */}
+            <div className="flex items-center py-1 rounded hover:bg-bg-subtle">
+              <div className={propKey}><span className="opacity-60">🔑</span> Responsable</div>
+              <div className={propVal + " text-tx-2"}>
+                {(() => { const m = members.find(m => m.uid === detailCase.ownerId); return m ? (m.displayName || m.email.split("@")[0]) : "—"; })()}
+                {isAdmin && detailCase.ownerId !== myUid && (
+                  <button
+                    className="ml-2 text-[11px] text-accent bg-transparent border-none cursor-pointer underline"
+                    onClick={() => updateCase(officeId!, detailCase.id, { ownerId: myUid })}
+                  >Me désigner</button>
+                )}
+              </div>
+            </div>
+
             {/* Note */}
             <div className="flex items-start py-1 rounded hover:bg-bg-subtle mt-1">
               <div className={propKey + " pt-1"}><span className="opacity-60">📝</span> Note</div>
@@ -1552,6 +1571,7 @@ export default function AppShell() {
               assignedTo={detailCase.assignedTo ?? []}
               onAdd={uid => updateCase(officeId!, detailCase.id, { assignedTo: [...(detailCase.assignedTo ?? []), uid] })}
               onRemove={uid => updateCase(officeId!, detailCase.id, { assignedTo: (detailCase.assignedTo ?? []).filter(id => id !== uid) })}
+              canManage={isAdmin || detailCase.ownerId === myUid}
             />
 
             {/* Séparateur */}
@@ -1683,6 +1703,7 @@ export default function AppShell() {
               assignedTo={detailItem.assignedTo ?? []}
               onAdd={uid => updateItem(officeId!, detailItem.id, { assignedTo: [...(detailItem.assignedTo ?? []), uid] })}
               onRemove={uid => updateItem(officeId!, detailItem.id, { assignedTo: (detailItem.assignedTo ?? []).filter(id => id !== uid) })}
+              canManage={isAdmin || cases.find(c => c.id === detailItem.caseId)?.ownerId === myUid}
             />
 
             {/* Séparateur */}

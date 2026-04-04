@@ -15,7 +15,7 @@ export type Case = {
   caseNote?: string | null;
   archived?: boolean;
   archivedAt?: string | null;
-  createdBy?: string;         // uid du créateur
+  ownerId?: string;           // uid du responsable du dossier (seul lui peut gérer les assignations)
   assignedTo?: string[];      // uids des membres assignés
   createdAt: string;
   updatedAt: string;
