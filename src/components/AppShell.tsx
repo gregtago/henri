@@ -49,6 +49,8 @@ import {
 import { getProgressLevel, getProgressStageLabel } from "@/lib/progress";
 import type { Case, Comment, Event, FloatingTask, Item, MyDaySelection, Status } from "@/lib/types";
 import { STATUSES } from "@/lib/types";
+import { RecurrencePicker } from "./RecurrencePicker";
+import { formatRecurrence } from "@/lib/recurrence";
 
 const isEditableElement = (element: EventTarget | null) => {
   if (!(element instanceof HTMLElement)) {
@@ -2007,7 +2009,10 @@ export default function AppShell() {
                       <button className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer hover:border-accent transition-colors"
                         onClick={e => { e.stopPropagation(); handleMarkFloatingDone(task.id); }} title="Réalisée" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-[15px] text-tx truncate">{task.title}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-[15px] text-tx truncate">{task.title}</p>
+                          {task.recurrence && <span className="text-[11px] text-tx-3 shrink-0" title={formatRecurrence(task.recurrence)}>🔁</span>}
+                        </div>
                         <span className={statusClass(task.status)}>{task.status}</span>
                       </div>
                     </div>
@@ -2092,6 +2097,15 @@ export default function AppShell() {
                               <option value="" disabled>Choisir un dossier…</option>
                               {cases.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
                             </select>
+                          </div>
+                        </div>
+                        <div className="py-2 px-2 rounded hover:bg-bg-subtle">
+                          <div className={propKey + " mb-2"}><span className="opacity-60">🔁</span> Récurrence</div>
+                          <div className="pl-1">
+                            <RecurrencePicker
+                              value={task.recurrence ?? null}
+                              onChange={r => updateFloatingTask(user.uid, task.id, { recurrence: r ?? undefined })}
+                            />
                           </div>
                         </div>
                       </div>

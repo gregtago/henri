@@ -59,6 +59,27 @@ export type MyDaySelection = {
   refId: string;
 };
 
+export type RecurrenceFrequency = "daily" | "weekly" | "monthly";
+
+export type Recurrence = {
+  frequency: RecurrenceFrequency;
+  interval: number; // toutes les N [jours / semaines / mois]
+  // Si weekly : quel jour de la semaine (0=dim, 1=lun, …, 6=sam)
+  dayOfWeek?: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  // Si monthly :
+  monthlyMode?: "dayOfMonth" | "dayOfWeek";
+  dayOfMonth?: number;                  // 1–28, ou -1 = dernier jour du mois
+  weekOfMonth?: 1 | 2 | 3 | 4 | -1;   // -1 = dernier
+};
+
+export type RecurringTemplate = {
+  id: string;
+  title: string;
+  recurrence: Recurrence;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type FloatingTask = {
   id: string;
   dateKey: string;
@@ -66,6 +87,8 @@ export type FloatingTask = {
   status: Status;
   starred?: boolean;  // tâche volante prioritaire (⭐)
   dueDate?: string | null;
+  recurrence?: Recurrence | null;
+  recurringTemplateId?: string | null; // référence au template d'origine
   createdAt: string;
   updatedAt: string;
 };
@@ -77,4 +100,5 @@ export type SeedPayload = {
   events: Event[];
   floatingTasks: FloatingTask[];
   myDaySelections: MyDaySelection[];
+  recurringTemplates: RecurringTemplate[];
 };

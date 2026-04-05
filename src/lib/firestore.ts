@@ -20,6 +20,8 @@ import type {
   FloatingTask,
   Item,
   MyDaySelection,
+  Recurrence,
+  RecurringTemplate,
   SeedPayload,
   Status
 } from "./types";
@@ -181,6 +183,42 @@ export const deleteFloatingTasks = async (uid: string, taskIds: string[]) => {
   taskIds.forEach((id) => batch.delete(doc(db, `users/${uid}/floatingTasks/${id}`)));
   await batch.commit();
 };
+
+// ── Recurring Templates ──────────────────────────────────────────────────────
+
+export const subscribeRecurringTemplates = (
+  uid: string,
+  onChange: (templates: RecurringTemplate[]) => void
+) =>
+  onSnapshot(userCollection(uid, "recurringTemplates"), (snapshot) => {
+    const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as RecurringTemplate[];
+    onChange(data);
+  });
+
+export const createRecurringTemplate = async (
+  uid: string,
+  payload: Omit<RecurringTemplate, "id" | "createdAt" | "updatedAt">
+) => {
+  const ref = await addDoc(userCollection(uid, "recurringTemplates"), {
+    ...payload,
+    createdAt: nowIso(),
+    updatedAt: nowIso()
+  });
+  return ref.id;
+};
+
+export const updateRecurringTemplate = (
+  uid: string,
+  id: string,
+  payload: Partial<RecurringTemplate>
+) =>
+  updateDoc(doc(db, `users/${uid}/recurringTemplates/${id}`), {
+    ...payload,
+    updatedAt: nowIso()
+  });
+
+export const deleteRecurringTemplate = (uid: string, id: string) =>
+  deleteDoc(doc(db, `users/${uid}/recurringTemplates/${id}`));
 
 export const logStatusEvent = async (uid: string, itemId: string, fromStatus: Status, toStatus: Status) => {
   await createEvent(uid, {
