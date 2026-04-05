@@ -332,28 +332,19 @@ export default function AppShell() {
     : (caseItems.length > 0 ? caseItems : fallbackItems);
 
   // Filtrer les tâches visibles selon le rôle :
-  // - Admin ou créateur du dossier → voit tout
-  // - Sinon → seulement les tâches assignées à lui (ou sans assignation si dossier assigné)
-  // Créateur du dossier (en mode solo ou si pas encore migré et seul membre)
+  // Règle simple : dès qu'un utilisateur a accès à un dossier, il voit TOUTES ses tâches.
+  // Accès = responsable OU dossier assigné OU au moins une tâche assignée.
   const isOwnerOfCase = selectedCase?.ownerId === myUid ||
     (!selectedCase?.ownerId && members.length <= 1);
   const isCaseAssignedToMe = (selectedCase?.assignedTo ?? []).includes(myUid);
-  // Accès complet : admin, créateur du dossier, ou dossier assigné directement
-  const hasFullCaseAccess = isAdmin || isOwnerOfCase || isCaseAssignedToMe;
-  const itemsColumnItems = hasFullCaseAccess
-    ? allItemsColumnItems
-    // Accès partiel (via tâche assignée) : ne montrer que les tâches explicitement assignées
-    : allItemsColumnItems.filter(item =>
-        (item.assignedTo ?? []).includes(myUid)
-      );
+  const hasCaseTaskAssignedToMe = selectedCase ? caseIdsWithMyTask.has(selectedCase.id) : false;
+  const hasFullCaseAccess = isAdmin || isOwnerOfCase || isCaseAssignedToMe || hasCaseTaskAssignedToMe;
+  // Si accès au dossier → toutes les tâches visibles, sinon rien
+  const itemsColumnItems = hasFullCaseAccess ? allItemsColumnItems : [];
 
   const selectedItem = items.find((entry) => entry.id === selectedItemId) || null;
   const allSubItems = selectedItem ? getSubItems(items, selectedItem.id) : [];
-  const subItems = hasFullCaseAccess
-    ? allSubItems
-    : allSubItems.filter(item =>
-        (item.assignedTo ?? []).includes(myUid)
-      );
+  const subItems = hasFullCaseAccess ? allSubItems : [];
   const selectedSubItem = items.find((entry) => entry.id === selectedSubItemId) || null;
 
   const detailItem = detailTarget?.type === "item" ? items.find((entry) => entry.id === detailTarget.id) ?? null : null;
