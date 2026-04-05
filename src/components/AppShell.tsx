@@ -1942,8 +1942,8 @@ export default function AppShell() {
             </Link>
           )}
 
-          {/* ── COL GAUCHE : LISTE DU JOUR ── */}
-          <div className="flex flex-col flex-1 overflow-hidden border-r border-border bg-white">
+          {/* ── COL LISTE : 40% ── */}
+          <div className="flex flex-col overflow-hidden border-r border-border bg-white" style={{flex:"0 0 40%"}}>
             <div className="finder-header">
               <span>{new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}</span>
               <span className="text-tx-3">{(() => { const n = myDaySorted.length + todayFloating.length; return `${n} élément${n > 1 ? "s" : ""}`; })()}</span>
@@ -2051,8 +2051,8 @@ export default function AppShell() {
             </div>
           </div>
 
-          {/* ── COL GAUCHE : SUGGESTIONS ── */}
-          <div className="flex flex-col overflow-hidden border-r border-border bg-bg-subtle" style={{width:"220px", flexShrink:0}}>
+          {/* ── COL SUGGESTIONS : 20% ── */}
+          <div className="flex flex-col overflow-hidden border-r border-border bg-bg-subtle" style={{flex:"0 0 20%"}}>
             <div className="finder-header">
               <span>Suggestions</span>
             </div>
@@ -2128,8 +2128,8 @@ export default function AppShell() {
             </div>
           </div>
 
-          {/* ── COL DROITE : DÉTAIL ── */}
-          <div className="flex flex-col overflow-hidden bg-white" style={{width:"300px", flexShrink:0}}>
+          {/* ── COL DÉTAIL : 40% ── */}
+          <div className="flex flex-col overflow-hidden bg-white" style={{flex:"0 0 40%"}}>
 
             {myDayDetailId ? (
               /* Détail tâche sélectionnée */
