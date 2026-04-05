@@ -456,11 +456,20 @@ export default function AppShell() {
   }, [myDayItems, formatDateFR, statusClass, user]);
 
   const suggestions = useMemo(() => {
+    // IDs déjà ajoutés à Ma journée aujourd'hui
+    const todaySelectionRefIds = new Set(
+      myDaySelections
+        .filter((entry) => entry.dateKey === todayKey)
+        .map((entry) => entry.refId)
+    );
     const dueToday = items.filter((item) => {
       const dueKey = getDateKeyFromValue(item.dueDate);
-      return dueKey ? dueKey <= todayKey : false;
+      return dueKey ? dueKey <= todayKey && !todaySelectionRefIds.has(item.id) : false;
     });
-    const yesterdaySelections = myDaySelections.filter((entry) => entry.dateKey === yesterdayKey);
+    const yesterdaySelections = myDaySelections.filter((entry) =>
+      entry.dateKey === yesterdayKey && !todaySelectionRefIds.has(entry.refId)
+    );
+    // Tâches volantes d'hier pas encore reprises aujourd'hui
     const floatingYesterday = floatingTasks.filter((task) => task.dateKey === yesterdayKey);
     return {
       dueToday,
