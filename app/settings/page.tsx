@@ -234,6 +234,20 @@ export default function SettingsPage() {
                 </button>
               </div>
 
+              {/* Vue admin */}
+              <div className={row}>
+                <div>
+                  <p className={label}>Voir tous les dossiers (admin)</p>
+                  <p className={sublabel}>En tant qu'admin, afficher tous les dossiers de l'étude</p>
+                </div>
+                <button
+                  onClick={() => update("adminSeeAll", !s.adminSeeAll)}
+                  style={{background: s.adminSeeAll ? "var(--accent)" : "var(--border-strong)", position:"relative", width:40, height:22, borderRadius:11, cursor:"pointer", border:"none", flexShrink:0, transition:"background 0.2s"}}
+                >
+                  <span style={{position:"absolute", top:3, left: s.adminSeeAll ? 21 : 3, width:16, height:16, background:"white", borderRadius:"50%", boxShadow:"0 1px 3px rgba(0,0,0,0.2)", transition:"left 0.2s", display:"block"}} />
+                </button>
+              </div>
+
               {/* Tri par défaut */}
               <div className={row}>
                 <div>

@@ -13,6 +13,7 @@ export interface UserSettings {
   sound: boolean;
   defaultSort: SortChoice;
   defaultSortDir: "asc" | "desc";
+  adminSeeAll: boolean;      // admin voit tous les dossiers de l'étude
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {
@@ -24,6 +25,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   sound: true,
   defaultSort: "title",
   defaultSortDir: "asc",
+  adminSeeAll: false,
 };
 
 const KEY = "henri_settings";

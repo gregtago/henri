@@ -290,7 +290,7 @@ export default function AppShell() {
     return set;
   }, [items, myUid]);
 
-  const visibleSortedCases = isAdmin
+  const visibleSortedCases = (isAdmin && settings.adminSeeAll)
     ? sortedCases
     : sortedCases.filter(c => {
         // Dossier sans ownerId = ancien dossier solo → visible par tous si seul membre
