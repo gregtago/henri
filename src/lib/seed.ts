@@ -119,5 +119,6 @@ export const seedData: SeedPayload = {
       updatedAt: now
     }
   ],
-  myDaySelections: []
+  myDaySelections: [],
+  recurringTemplates: []
 };
