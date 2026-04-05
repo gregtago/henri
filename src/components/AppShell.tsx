@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { loadSettings, applySettings, type UserSettings, DEFAULT_SETTINGS } from "@/lib/settings";
 import { getUserOfficeId, subscribeOfficeMembers } from "@/lib/office-firestore";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { Timestamp } from "firebase/firestore";
@@ -120,6 +121,7 @@ export default function AppShell() {
   const [feedbackText, setFeedbackText] = useState("");
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
+  const router = useRouter();
   const [officeId, setOfficeId] = useState<string | null>(null);
   const [members, setMembers] = useState<import("@/lib/office-types").OfficeMember[]>([]);
   const [myDayDetailId, setMyDayDetailId] = useState<string | null>(null);
@@ -166,7 +168,10 @@ export default function AppShell() {
       setUser(nextUser);
       if (nextUser) {
         const oid = await getUserOfficeId(nextUser.uid);
-        // Fallback : utiliser uid comme officeId en mode solo
+        if (!oid) {
+          // Pas d'étude — rediriger vers la création
+          router.push("/office");
+        }
         setOfficeId(oid ?? nextUser.uid);
       } else {
         setOfficeId(null);
@@ -1822,6 +1827,9 @@ export default function AppShell() {
         {/* Actions — droite */}
         <div className="flex items-center gap-2.5 text-[12px] text-tx-3 ml-auto z-10">
           <span className="hidden sm:inline">{user.email}</span>
+          {isAdmin && (
+            <Link href="/office" className={btnGhost} style={{textDecoration:"none"}}>Mon étude</Link>
+          )}
           <Link href="/settings" className={btnGhost} style={{textDecoration:"none"}}>Préférences</Link>
           <button className={btnGhost} onClick={() => signOut(auth)}>Déconnexion</button>
         </div>
