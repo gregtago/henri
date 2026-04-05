@@ -1897,7 +1897,21 @@ export default function AppShell() {
               </div>
 
               <div className="finder-list" ref={casesListRef}>
-                {(showAssigned ? assignedCases : visibleSortedCases).map((entry) => (
+                {showAssigned && (
+                <div className="px-3 pt-2 pb-1">
+                  <select
+                    className="w-full font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded px-2.5 py-1.5 outline-none cursor-pointer"
+                    value={assignedFilterMember}
+                    onChange={e => { setAssignedFilterMember(e.target.value); setSelectedCaseId(null); setDetailTarget(null); }}
+                  >
+                    <option value="">Tous les membres</option>
+                    {members.map(m => (
+                      <option key={m.uid} value={m.uid}>{m.displayName || m.email.split("@")[0]}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {(showAssigned ? assignedCases : visibleSortedCases).map((entry) => (
                   <div
                     key={entry.id}
                     className="finder-row"
