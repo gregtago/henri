@@ -125,6 +125,8 @@ export default function AppShell() {
   const [myDayDetailId, setMyDayDetailId] = useState<string | null>(null);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [showAssigned, setShowAssigned] = useState(false);
+  const [assignedFilterMember, setAssignedFilterMember] = useState<string>("");
   const [importMode, setImportMode] = useState<"model" | "history">("history");
   const [isImportOpen, setIsImportOpen] = useState(false); // "f-{id}" pour volante, selectionId pour dossier
   const toastTimeout = useRef<number | null>(null);
@@ -277,6 +279,23 @@ export default function AppShell() {
       .map(({ entry }) => entry);
   }, [cases, caseSortDirection, caseSortKey, showArchived, activeCases, archivedCases]);
 
+  // Vue assignations — toutes les tâches assignées à un membre
+  const assignedItems = useMemo(() => {
+    if (!showAssigned) return [];
+    return items.filter(item => {
+      const assigned = item.assignedTo ?? [];
+      if (assigned.length === 0) return false;
+      if (assignedFilterMember) return assigned.includes(assignedFilterMember);
+      return true;
+    });
+  }, [items, showAssigned, assignedFilterMember]);
+
+  // Dossiers impliqués dans la vue assignations
+  const assignedCases = useMemo(() => {
+    const caseIds = new Set(assignedItems.map(i => i.caseId));
+    return cases.filter(c => caseIds.has(c.id));
+  }, [assignedItems, cases]);
+
   // Filtrer les dossiers visibles
   const currentMember = members.find(m => m.uid === user?.uid);
   const isAdmin = currentMember?.role === "admin";
@@ -308,7 +327,9 @@ export default function AppShell() {
     selectedCase && caseItems.length === 0
       ? items.filter((item) => item.caseId === selectedCase.id && item.parentItemId)
       : [];
-  const allItemsColumnItems = caseItems.length > 0 ? caseItems : fallbackItems;
+  const allItemsColumnItems = showAssigned
+    ? assignedItems.filter(i => i.caseId === selectedCaseId && !i.parentItemId)
+    : (caseItems.length > 0 ? caseItems : fallbackItems);
 
   // Filtrer les tâches visibles selon le rôle :
   // - Admin ou créateur du dossier → voit tout
@@ -1842,7 +1863,7 @@ export default function AppShell() {
           {showCasesColumn && (
             <div className="finder-column">
               <div className="finder-header">
-                <span>{showArchived ? "Dossiers archivés" : "Dossiers"}</span>
+                <span>{showArchived ? "Dossiers archivés" : showAssigned ? "Tâches assignées" : "Dossiers"}</span>
                 <div className="flex items-center gap-1">
                   <select
                     className="text-[12.5px] font-[inherit] bg-transparent border-none text-tx-3 cursor-pointer outline-none"
@@ -1876,7 +1897,7 @@ export default function AppShell() {
               </div>
 
               <div className="finder-list" ref={casesListRef}>
-                {visibleSortedCases.map((entry) => (
+                {(showAssigned ? assignedCases : visibleSortedCases).map((entry) => (
                   <div
                     key={entry.id}
                     className="finder-row"
