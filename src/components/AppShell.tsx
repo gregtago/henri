@@ -1943,7 +1943,7 @@ export default function AppShell() {
           )}
 
           {/* ── COL SUGGESTIONS : 20% ── */}
-          <div className="flex flex-col overflow-hidden border-r border-border bg-bg-subtle" style={{flex:"0 0 20%"}}>
+          <div className="flex flex-col overflow-hidden bg-bg-subtle" style={{flex:"0 0 20%", boxShadow:"inset -8px 0 12px -4px rgba(0,0,0,0.08)", zIndex:0}}>
             <div className="finder-header">
               <span>Suggestions</span>
             </div>
@@ -2020,7 +2020,7 @@ export default function AppShell() {
           </div>
 
           {/* ── COL LISTE : 40% ── */}
-          <div className="flex flex-col overflow-hidden border-r border-border bg-white" style={{flex:"0 0 40%"}}>
+          <div className="flex flex-col overflow-hidden border-r border-border bg-white" style={{flex:"0 0 40%", zIndex:1, position:"relative"}}>
             <div className="finder-header">
               <span>{new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}</span>
               <span className="text-tx-3">{(() => { const n = myDaySorted.length + todayFloating.length; return `${n} élément${n > 1 ? "s" : ""}`; })()}</span>
