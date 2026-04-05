@@ -125,9 +125,9 @@ export default function AppShell() {
   const [importMode, setImportMode] = useState<"model" | "history">("history");
   const [isImportOpen, setIsImportOpen] = useState(false); // "f-{id}" pour volante, selectionId pour dossier
 
-  // ── MOBILE : colonne visible ──
-  // 0 = Dossiers, 1 = Tâches, 2 = Sous-tâches, 3 = Détail
-  const [mobileColIndex, setMobileColIndex] = useState(0);
+  // ── MOBILE : colonne visible (clé) ──
+  type MobileCol = "cases" | "items" | "subitems" | "detail";
+  const [mobileCol, setMobileCol] = useState<MobileCol>("cases");
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
   const toastTimeout = useRef<number | null>(null);
@@ -567,8 +567,7 @@ export default function AppShell() {
       setSelectedCaseIds([id]);
     }
     setLastCaseId(id);
-    // Mobile : avancer vers la colonne Tâches
-    setMobileColIndex(1);
+    setMobileCol("items");
   };
 
   const handleSelectItem = (id: string, options?: { multi?: boolean; range?: boolean }) => {
@@ -585,9 +584,9 @@ export default function AppShell() {
       setSelectedItemIds([id]);
     }
     setLastItemId(id);
-    // Mobile : avancer vers Sous-tâches (ou Détail si pas de sous-tâches)
+    // Mobile : sous-tâches si elles existent, sinon détail directement
     const hasSubs = items.some(i => i.parentItemId === id);
-    setMobileColIndex(hasSubs ? 2 : 3);
+    setMobileCol(hasSubs ? "subitems" : "detail");
   };
 
   const handleSelectSubItem = (id: string, options?: { multi?: boolean; range?: boolean }) => {
@@ -604,8 +603,7 @@ export default function AppShell() {
       setSelectedSubItemIds([id]);
     }
     setLastSubItemId(id);
-    // Mobile : avancer vers Détail
-    setMobileColIndex(3);
+    setMobileCol("detail");
   };
 
   const handleOpenReparent = useCallback(() => {
@@ -1622,19 +1620,32 @@ export default function AppShell() {
   // MOBILE HELPERS
   // ─────────────────────────────────────────────────────────────────────────
 
-  // Calcul du nombre de colonnes visibles (pour le slider)
-  const mobileColumns = [
-    true,                // 0 — Dossiers toujours présent
-    showItemsColumn,     // 1 — Tâches
-    showSubItemsColumn,  // 2 — Sous-tâches
-    showDetailColumn,    // 3 — Détail
-  ];
-  const lastVisibleCol = mobileColumns.reduce((acc, v, i) => (v ? i : acc), 0);
-  // S'assurer que mobileColIndex ne dépasse pas le dernier visible
-  const clampedColIndex = Math.min(mobileColIndex, lastVisibleCol);
+  // ─────────────────────────────────────────────────────────────────────────
 
-  // Translation CSS du slider
-  const mobileSliderStyle = { transform: `translateX(-${clampedColIndex * 100}vw)` };
+  // Colonnes réellement dans le DOM du slider, dans l'ordre
+  const allCols: MobileCol[] = ["cases", "items", "subitems", "detail"];
+  const colVisible: Record<MobileCol, boolean> = {
+    cases:    showCasesColumn,
+    items:    showItemsColumn,
+    subitems: showSubItemsColumn,
+    detail:   showDetailColumn,
+  };
+  const visibleCols = allCols.filter(k => colVisible[k]);
+
+  // Position du slider = index de mobileCol dans visibleCols
+  // Si mobileCol n'est pas visible (ex: "subitems" quand showSubItemsColumn=false),
+  // on prend la dernière colonne visible avant elle
+  const sliderPos = (() => {
+    const idx = visibleCols.indexOf(mobileCol);
+    if (idx >= 0) return idx;
+    // colonne demandée absente → trouver la dernière visible avant elle dans l'ordre
+    const targetOrder = allCols.indexOf(mobileCol);
+    let best = 0;
+    visibleCols.forEach((k, i) => { if (allCols.indexOf(k) < targetOrder) best = i; });
+    return best;
+  })();
+
+  const mobileSliderStyle = { transform: `translateX(-${sliderPos * 100}vw)` };
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
@@ -1647,33 +1658,35 @@ export default function AppShell() {
     const dy = e.changedTouches[0].clientY - touchStartY.current;
     touchStartX.current = null;
     touchStartY.current = null;
-    // Ignorer si le geste est plutôt vertical
     if (Math.abs(dy) > Math.abs(dx)) return;
     if (Math.abs(dx) < 50) return;
     if (dx < 0) {
-      // Swipe gauche → avancer si possible
-      if (clampedColIndex < lastVisibleCol) setMobileColIndex(clampedColIndex + 1);
+      // Swipe gauche → colonne suivante dans visibleCols
+      if (sliderPos < visibleCols.length - 1) setMobileCol(visibleCols[sliderPos + 1]);
     } else {
-      // Swipe droite → reculer
-      if (clampedColIndex > 0) setMobileColIndex(clampedColIndex - 1);
+      // Swipe droite → colonne précédente dans visibleCols
+      if (sliderPos > 0) setMobileCol(visibleCols[sliderPos - 1]);
     }
   };
 
   // Breadcrumb mobile
   const mobileBreadcrumb = (() => {
     const crumbs: { label: string; onClick: () => void }[] = [
-      { label: "Dossiers", onClick: () => { setMobileColIndex(0); setSelectedCaseId(null); setDetailTarget(null); } },
+      { label: "Dossiers", onClick: () => { setMobileCol("cases"); setSelectedCaseId(null); setDetailTarget(null); } },
     ];
-    if (clampedColIndex >= 1 && selectedCase) {
-      crumbs.push({ label: selectedCase.title, onClick: () => setMobileColIndex(1) });
+    if (sliderPos >= visibleCols.indexOf("items") && visibleCols.includes("items") && selectedCase) {
+      crumbs.push({ label: selectedCase.title, onClick: () => setMobileCol("items") });
     }
-    if (clampedColIndex >= 2 && selectedItem) {
-      crumbs.push({ label: selectedItem.title, onClick: () => setMobileColIndex(2) });
+    if (sliderPos >= visibleCols.indexOf("subitems") && visibleCols.includes("subitems") && selectedItem) {
+      crumbs.push({ label: selectedItem.title, onClick: () => setMobileCol("subitems") });
     }
     return crumbs;
   })();
 
-  const mobileColLabel = ["Dossiers", "Tâches", "Sous-tâches", "Détail"][clampedColIndex] ?? "Henri";
+  const mobileColLabel: Record<MobileCol, string> = {
+    cases: "Dossiers", items: "Tâches", subitems: "Sous-tâches", detail: "Détail"
+  };
+  const currentLabel = mobileColLabel[visibleCols[sliderPos] ?? "cases"];
 
   // ─────────────────────────────────────────────────────────────────────────
   // RENDER PRINCIPAL
@@ -2001,7 +2014,7 @@ export default function AppShell() {
                 </React.Fragment>
               ))}
               {mobileBreadcrumb.length > 0 && <span className="mobile-breadcrumb-sep">›</span>}
-              <span className="mobile-breadcrumb-current">{mobileColLabel}</span>
+              <span className="mobile-breadcrumb-current">{currentLabel}</span>
             </div>
             {/* Bouton Ma journée */}
             <Link href="/my-day" className="mobile-nav-btn">☀ Ma journée</Link>
