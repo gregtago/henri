@@ -52,7 +52,7 @@ export default function SettingsPage() {
   const select = "font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded px-2.5 py-1.5 outline-none cursor-pointer hover:border-border-strong transition-colors";
 
   return (
-    <div className="min-h-screen bg-bg-subtle flex flex-col">
+    <div className="h-screen bg-bg-subtle flex flex-col">
 
       {/* Header */}
       <header className="h-[44px] flex items-center justify-between px-5 border-b border-border bg-bg shrink-0 relative">
