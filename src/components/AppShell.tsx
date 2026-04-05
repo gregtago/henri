@@ -1942,6 +1942,83 @@ export default function AppShell() {
             </Link>
           )}
 
+          {/* ── COL SUGGESTIONS : 20% ── */}
+          <div className="flex flex-col overflow-hidden border-r border-border bg-bg-subtle" style={{flex:"0 0 20%"}}>
+            <div className="finder-header">
+              <span>Suggestions</span>
+            </div>
+            <div className="flex-1 overflow-y-auto py-1">
+              {suggestions.floatingYesterday.length === 0 && suggestions.yesterdaySelections.length === 0 && suggestions.dueToday.length === 0 && stagnantSuggestions.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full gap-2 px-4 text-center">
+                  <p className="text-[12px] text-tx-3">Aucune suggestion.</p>
+                </div>
+              ) : (
+                <>
+                  {suggestions.dueToday.length > 0 && (
+                    <div className="px-3 pt-3 pb-1">
+                      <p className="text-[10px] font-medium text-tx-3 uppercase tracking-wide mb-1.5">Échéances</p>
+                      {suggestions.dueToday.map(task => (
+                        <div key={task.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-hover group cursor-default">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[12px] text-tx truncate">{task.title}</p>
+                            <p className="text-[11px] text-red-400">{task.dueDate ? formatDateFR(task.dueDate) : "—"}</p>
+                          </div>
+                          <button className="opacity-0 group-hover:opacity-100 shrink-0 text-[11px] text-accent border border-[#93c5fd] rounded px-1.5 py-0.5 bg-transparent cursor-pointer transition-opacity"
+                            onClick={() => addMyDaySelection(user.uid, { dateKey: todayKey, refType: task.level === 2 ? "item" : "subitem", refId: task.id })}>+</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {suggestions.yesterdaySelections.length > 0 && (
+                    <div className="px-3 pt-3 pb-1">
+                      <p className="text-[10px] font-medium text-tx-3 uppercase tracking-wide mb-1.5">Hier — non terminés</p>
+                      {suggestions.yesterdaySelections.map(entry => {
+                        const title = entry.refType === "case"
+                          ? cases.find(c => c.id === entry.refId)?.title
+                          : items.find(i => i.id === entry.refId)?.title;
+                        if (!title) return null;
+                        return (
+                          <div key={entry.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-hover group cursor-default">
+                            <p className="flex-1 text-[12px] text-tx truncate">{title}</p>
+                            <button className="opacity-0 group-hover:opacity-100 shrink-0 text-[11px] text-accent border border-[#93c5fd] rounded px-1.5 py-0.5 bg-transparent cursor-pointer transition-opacity"
+                              onClick={() => addMyDaySelection(user.uid, { dateKey: todayKey, refType: entry.refType, refId: entry.refId })}>+</button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {suggestions.floatingYesterday.length > 0 && (
+                    <div className="px-3 pt-3 pb-1">
+                      <p className="text-[10px] font-medium text-tx-3 uppercase tracking-wide mb-1.5">Hier — mémos</p>
+                      {suggestions.floatingYesterday.map(task => (
+                        <div key={task.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-hover group cursor-default">
+                          <p className="flex-1 text-[12px] text-tx truncate">{task.title}</p>
+                          <button className="opacity-0 group-hover:opacity-100 shrink-0 text-[11px] text-accent border border-[#93c5fd] rounded px-1.5 py-0.5 bg-transparent cursor-pointer transition-opacity"
+                            onClick={() => updateFloatingTask(user.uid, task.id, { dateKey: todayKey })}>↩</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {stagnantSuggestions.length > 0 && (
+                    <div className="px-3 pt-3 pb-1">
+                      <p className="text-[10px] font-medium text-tx-3 uppercase tracking-wide mb-1.5">Stagnantes</p>
+                      {stagnantSuggestions.map(task => (
+                        <div key={task.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-hover group cursor-default">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[12px] text-tx truncate">{task.title}</p>
+                            <span className={statusClass(task.status as Status)}>{task.status}</span>
+                          </div>
+                          <button className="opacity-0 group-hover:opacity-100 shrink-0 text-[11px] text-accent border border-[#93c5fd] rounded px-1.5 py-0.5 bg-transparent cursor-pointer transition-opacity"
+                            onClick={() => addMyDaySelection(user.uid, { dateKey: todayKey, refType: task.level === 2 ? "item" : "subitem", refId: task.id })}>+</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
           {/* ── COL LISTE : 40% ── */}
           <div className="flex flex-col overflow-hidden border-r border-border bg-white" style={{flex:"0 0 40%"}}>
             <div className="finder-header">
@@ -2048,83 +2125,6 @@ export default function AppShell() {
                   }}
                 />
               </div>
-            </div>
-          </div>
-
-          {/* ── COL SUGGESTIONS : 20% ── */}
-          <div className="flex flex-col overflow-hidden border-r border-border bg-bg-subtle" style={{flex:"0 0 20%"}}>
-            <div className="finder-header">
-              <span>Suggestions</span>
-            </div>
-            <div className="flex-1 overflow-y-auto py-1">
-              {suggestions.floatingYesterday.length === 0 && suggestions.yesterdaySelections.length === 0 && suggestions.dueToday.length === 0 && stagnantSuggestions.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full gap-2 px-4 text-center">
-                  <p className="text-[12px] text-tx-3">Aucune suggestion.</p>
-                </div>
-              ) : (
-                <>
-                  {suggestions.dueToday.length > 0 && (
-                    <div className="px-3 pt-3 pb-1">
-                      <p className="text-[10px] font-medium text-tx-3 uppercase tracking-wide mb-1.5">Échéances</p>
-                      {suggestions.dueToday.map(task => (
-                        <div key={task.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-hover group cursor-default">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[12px] text-tx truncate">{task.title}</p>
-                            <p className="text-[11px] text-red-400">{task.dueDate ? formatDateFR(task.dueDate) : "—"}</p>
-                          </div>
-                          <button className="opacity-0 group-hover:opacity-100 shrink-0 text-[11px] text-accent border border-[#93c5fd] rounded px-1.5 py-0.5 bg-transparent cursor-pointer transition-opacity"
-                            onClick={() => addMyDaySelection(user.uid, { dateKey: todayKey, refType: task.level === 2 ? "item" : "subitem", refId: task.id })}>+</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {suggestions.yesterdaySelections.length > 0 && (
-                    <div className="px-3 pt-3 pb-1">
-                      <p className="text-[10px] font-medium text-tx-3 uppercase tracking-wide mb-1.5">Hier — non terminés</p>
-                      {suggestions.yesterdaySelections.map(entry => {
-                        const title = entry.refType === "case"
-                          ? cases.find(c => c.id === entry.refId)?.title
-                          : items.find(i => i.id === entry.refId)?.title;
-                        if (!title) return null;
-                        return (
-                          <div key={entry.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-hover group cursor-default">
-                            <p className="flex-1 text-[12px] text-tx truncate">{title}</p>
-                            <button className="opacity-0 group-hover:opacity-100 shrink-0 text-[11px] text-accent border border-[#93c5fd] rounded px-1.5 py-0.5 bg-transparent cursor-pointer transition-opacity"
-                              onClick={() => addMyDaySelection(user.uid, { dateKey: todayKey, refType: entry.refType, refId: entry.refId })}>+</button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  {suggestions.floatingYesterday.length > 0 && (
-                    <div className="px-3 pt-3 pb-1">
-                      <p className="text-[10px] font-medium text-tx-3 uppercase tracking-wide mb-1.5">Hier — mémos</p>
-                      {suggestions.floatingYesterday.map(task => (
-                        <div key={task.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-hover group cursor-default">
-                          <p className="flex-1 text-[12px] text-tx truncate">{task.title}</p>
-                          <button className="opacity-0 group-hover:opacity-100 shrink-0 text-[11px] text-accent border border-[#93c5fd] rounded px-1.5 py-0.5 bg-transparent cursor-pointer transition-opacity"
-                            onClick={() => updateFloatingTask(user.uid, task.id, { dateKey: todayKey })}>↩</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {stagnantSuggestions.length > 0 && (
-                    <div className="px-3 pt-3 pb-1">
-                      <p className="text-[10px] font-medium text-tx-3 uppercase tracking-wide mb-1.5">Stagnantes</p>
-                      {stagnantSuggestions.map(task => (
-                        <div key={task.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-hover group cursor-default">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[12px] text-tx truncate">{task.title}</p>
-                            <span className={statusClass(task.status as Status)}>{task.status}</span>
-                          </div>
-                          <button className="opacity-0 group-hover:opacity-100 shrink-0 text-[11px] text-accent border border-[#93c5fd] rounded px-1.5 py-0.5 bg-transparent cursor-pointer transition-opacity"
-                            onClick={() => addMyDaySelection(user.uid, { dateKey: todayKey, refType: task.level === 2 ? "item" : "subitem", refId: task.id })}>+</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
             </div>
           </div>
 
