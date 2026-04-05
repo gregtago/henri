@@ -2043,7 +2043,7 @@ export default function AppShell() {
           </div>
 
           {/* ── COL DROITE : DÉTAIL ou SUGGESTIONS ── */}
-          <div className="flex flex-col overflow-hidden bg-white" style={{width:"340px", flexShrink:0}}>
+          <div className="flex flex-col overflow-hidden bg-white" style={{width:"280px", flexShrink:0}}>
 
             {myDayDetailId ? (
               /* Détail tâche sélectionnée */
@@ -2053,60 +2053,56 @@ export default function AppShell() {
                   if (!task) return null;
                   return (
                     <>
-                      <div className="finder-header">
-                        <span>Tâche volante</span>
-                        <div className="flex gap-1">
-                          <button className={iconBtn} title={task.starred ? "Retirer l'étoile" : "Prioritaire ⭐"}
-                            onClick={() => updateFloatingTask(user.uid, task.id, { starred: !task.starred })}>{task.starred ? "⭐" : "☆"}</button>
+                      <div className="flex items-center justify-between px-4 py-2 border-b border-border shrink-0">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            className={`text-[16px] leading-none border-none bg-transparent cursor-pointer transition-opacity ${task.starred ? "opacity-100" : "opacity-30 hover:opacity-60"}`}
+                            title={task.starred ? "Retirer l'étoile" : "Prioritaire"}
+                            onClick={() => updateFloatingTask(user.uid, task.id, { starred: !task.starred })}
+                          >⭐</button>
+                          <div className="flex gap-0.5">
+                            {STATUSES.map(s => (
+                              <button key={s} onClick={() => updateFloatingTask(user.uid, task.id, { status: s })}
+                                className={`${statusClass(s)} cursor-pointer border-none transition-opacity text-[11px] px-1.5 py-0.5 ${task.status === s ? "opacity-100" : "opacity-25 hover:opacity-60"}`}>
+                                {s}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex gap-1 items-center">
                           <button className={iconBtn + " !text-green-500"} onClick={() => handleMarkFloatingDone(task.id)} title="Réalisée">✓</button>
                           <button className={iconBtn} onClick={() => setMyDayDetailId(null)} title="Fermer">✕</button>
                         </div>
                       </div>
-                      <div className="flex-1 overflow-y-auto px-5 py-5 space-y-1">
+                      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
                         <input
-                          className="w-full text-[18px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight leading-snug cursor-default focus:cursor-text mb-4"
+                          className="w-full text-[16px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight leading-snug cursor-default focus:cursor-text"
                           value={task.title} readOnly
                           onDoubleClick={e => { (e.target as HTMLInputElement).readOnly = false; (e.target as HTMLInputElement).focus(); }}
                           onBlur={e => { (e.target as HTMLInputElement).readOnly = true; }}
                           onChange={e => updateFloatingTask(user.uid, task.id, { title: e.target.value })}
                         />
-                        <div className="flex items-center py-1 rounded hover:bg-bg-subtle">
-                          <div className={propKey}><span className="opacity-60">◎</span> Statut</div>
-                          <div className="flex-1 px-2 py-1 flex flex-wrap gap-1.5">
-                            {STATUSES.map((s, i) => (
-                              <button key={s} onClick={() => updateFloatingTask(user.uid, task.id, { status: s })}
-                                className={`${statusClass(s)} cursor-pointer border-none transition-opacity text-[12.5px] ${task.status === s ? "opacity-100" : "opacity-30 hover:opacity-60"}`}>
-                                <span className="text-[9px] mr-1 opacity-60">{i + 1}</span>{s}
-                              </button>
-                            ))}
-                          </div>
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest">Échéance</p>
+                          <input key={task.id + "-due"} type="date"
+                            className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded px-2.5 py-1.5 outline-none w-full focus:border-border-strong transition-colors"
+                            defaultValue={task.dueDate?.slice(0,10) ?? ""}
+                            onBlur={e => { if (!e.target.value) { updateFloatingTask(user.uid, task.id, { dueDate: null }); return; } const [y,m,d] = e.target.value.split("-").map(Number); if (y < 1900 || y > 2100) return; updateFloatingTask(user.uid, task.id, { dueDate: new Date(y,m-1,d,12).toISOString() }); }} />
                         </div>
-                        <div className="flex items-center py-1 rounded hover:bg-bg-subtle">
-                          <div className={propKey}><span className="opacity-60">📅</span> Échéance</div>
-                          <div className="flex-1 px-2">
-                            <input key={task.id + "-due"} type="date" className="font-[inherit] text-[14px] text-tx bg-transparent border-none outline-none"
-                              defaultValue={task.dueDate?.slice(0,10) ?? ""}
-                              onBlur={e => { if (!e.target.value) { updateFloatingTask(user.uid, task.id, { dueDate: null }); return; } const [y,m,d] = e.target.value.split("-").map(Number); if (y < 1900 || y > 2100) return; updateFloatingTask(user.uid, task.id, { dueDate: new Date(y,m-1,d,12).toISOString() }); }} />
-                          </div>
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest">Rattacher à un dossier</p>
+                          <select className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded px-2.5 py-1.5 outline-none cursor-pointer w-full focus:border-border-strong transition-colors"
+                            onChange={e => handleAttachFloating(task, e.target.value)} defaultValue="">
+                            <option value="" disabled>Choisir…</option>
+                            {cases.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                          </select>
                         </div>
-                        <div className="flex items-center py-1 rounded hover:bg-bg-subtle">
-                          <div className={propKey}><span className="opacity-60">📁</span> Rattacher</div>
-                          <div className="flex-1 px-2">
-                            <select className="font-[inherit] text-[14px] text-tx-2 bg-transparent border border-border rounded px-2 py-1 outline-none cursor-pointer w-full"
-                              onChange={e => handleAttachFloating(task, e.target.value)} defaultValue="">
-                              <option value="" disabled>Choisir un dossier…</option>
-                              {cases.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
-                            </select>
-                          </div>
-                        </div>
-                        <div className="py-2 px-2 rounded hover:bg-bg-subtle">
-                          <div className={propKey + " mb-2"}><span className="opacity-60">🔁</span> Récurrence</div>
-                          <div className="pl-1">
-                            <RecurrencePicker
-                              value={task.recurrence ?? null}
-                              onChange={r => updateFloatingTask(user.uid, task.id, { recurrence: r ?? undefined })}
-                            />
-                          </div>
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest">Récurrence</p>
+                          <RecurrencePicker
+                            value={task.recurrence ?? null}
+                            onChange={r => updateFloatingTask(user.uid, task.id, { recurrence: r ?? undefined })}
+                          />
                         </div>
                       </div>
                     </>

@@ -12,13 +12,10 @@ import {
   type DensityChoice,
   type SortChoice,
 } from "@/lib/settings";
-import { useAuth } from "@/lib/useAuth";
-import { RecurringTemplatesPanel } from "@/components/RecurringTemplatesPanel";
 
 export default function SettingsPage() {
   const [s, setS] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [saved, setSaved] = useState(false);
-  const { user } = useAuth();
 
   useEffect(() => {
     const loaded = loadSettings();
@@ -240,20 +237,6 @@ export default function SettingsPage() {
 
             </div>
           </section>
-
-
-          {/* ── TÂCHES RÉCURRENTES ── */}
-          {user && (
-            <section>
-              <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-4">Tâches récurrentes</h2>
-              <div className="bg-bg border border-border rounded-xl overflow-hidden px-4 py-4">
-                <p className="text-[11.5px] text-tx-3 mb-4">
-                  Les modèles récurrents génèrent automatiquement une tâche volante chaque matin à 6h selon la planification définie.
-                </p>
-                <RecurringTemplatesPanel uid={user.uid} />
-              </div>
-            </section>
-          )}
 
           {/* Aperçu typographie */}
           <section>
