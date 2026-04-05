@@ -1921,13 +1921,23 @@ export default function AppShell() {
                 ))}
               </div>
 
-              {/* Pied de colonne : liens Archivés + Importer */}
+              {/* Pied de colonne : liens Tâches assignées + Archivés + Importer */}
               <div className="border-t border-border px-3 py-2 space-y-0.5">
+                {members.length > 1 && (
+                  <button
+                    className={`w-full text-left text-[14px] px-2 py-1.5 rounded cursor-pointer border-none transition-colors ${
+                      showAssigned ? "bg-bg-active text-tx font-medium" : "bg-transparent text-tx-3 hover:bg-bg-hover hover:text-tx-2"
+                    }`}
+                    onClick={() => { setShowAssigned(p => !p); setShowArchived(false); setSelectedCaseId(null); setDetailTarget(null); }}
+                  >
+                    {showAssigned ? "← Dossiers actifs" : "👤 Tâches assignées"}
+                  </button>
+                )}
                 <button
                   className={`w-full text-left text-[14px] px-2 py-1.5 rounded cursor-pointer border-none transition-colors ${
                     showArchived ? "bg-bg-active text-tx font-medium" : "bg-transparent text-tx-3 hover:bg-bg-hover hover:text-tx-2"
                   }`}
-                  onClick={() => { setShowArchived(p => !p); setSelectedCaseId(null); setDetailTarget(null); }}
+                  onClick={() => { setShowArchived(p => !p); setShowAssigned(false); setSelectedCaseId(null); setDetailTarget(null); }}
                 >
                   {showArchived ? "← Dossiers actifs" : `📦 Archivés (${archivedCases.length})`}
                 </button>
