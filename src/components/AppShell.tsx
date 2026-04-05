@@ -841,7 +841,7 @@ export default function AppShell() {
       });
       return;
     }
-    if (resolvedActiveColumn === "cases") {
+    if (resolvedActiveColumn === "cases" || activeColumn === "cases") {
       const id = await createCase(officeId, { title: "Nouveau dossier", legalDueDate: null, caseNote: "", ownerId: user.uid, assignedTo: [user.uid] });
       setSelectedCaseId(id);
       setSelectedCaseIds([id]);
@@ -1860,7 +1860,18 @@ export default function AppShell() {
                   >
                     {caseSortDirection === "asc" ? "↑" : "↓"}
                   </button>
-                  <button className={iconBtn} title="Nouveau dossier (N)" onClick={handleCreateInActiveColumn}>+</button>
+                  <button className={iconBtn} title="Nouveau dossier (N)" onClick={async () => {
+                    if (!user || !officeId) return;
+                    const id = await createCase(officeId, { title: "Nouveau dossier", legalDueDate: null, caseNote: "", ownerId: user.uid, assignedTo: [user.uid] });
+                    setSelectedCaseId(id);
+                    setSelectedCaseIds([id]);
+                    setSelectedItemId(null);
+                    setSelectedSubItemId(null);
+                    setSelectedItemIds([]);
+                    setSelectedSubItemIds([]);
+                    setActiveColumn("cases");
+                    setDetailTarget({ type: "case", id });
+                  }}>+</button>
                 </div>
               </div>
 
