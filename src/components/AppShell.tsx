@@ -839,6 +839,15 @@ export default function AppShell() {
     }
   };
 
+  const focusWhenReady = (ref: React.MutableRefObject<HTMLInputElement | null>, maxTries = 10) => {
+    let tries = 0;
+    const attempt = () => {
+      if (ref.current) { ref.current.focus(); ref.current.select(); return; }
+      if (++tries < maxTries) setTimeout(attempt, 30);
+    };
+    setTimeout(attempt, 50);
+  };
+
   const handleCreateInActiveColumn = useCallback(async () => {
     if (!user) return;
     if (isMyDay) {
@@ -858,7 +867,7 @@ export default function AppShell() {
       setSelectedItemIds([]);
       setSelectedSubItemIds([]);
       setDetailTarget({ type: "case", id });
-      setTimeout(() => { if (detailTitleRef.current) { detailTitleRef.current.focus(); detailTitleRef.current.select(); } }, 80);
+      focusWhenReady(detailTitleRef);
       return;
     }
     if (resolvedActiveColumn === "items") {
@@ -878,7 +887,7 @@ export default function AppShell() {
       setSelectedSubItemId(null);
       setSelectedSubItemIds([]);
       setDetailTarget({ type: "item", id });
-      setTimeout(() => { if (detailTitleRef.current) { detailTitleRef.current.focus(); detailTitleRef.current.select(); } }, 80);
+      focusWhenReady(detailTitleRef);
       return;
     }
     if (!selectedItemId) {
@@ -900,7 +909,7 @@ export default function AppShell() {
     setSelectedSubItemId(id);
     setSelectedSubItemIds([id]);
     setDetailTarget({ type: "item", id });
-    setTimeout(() => { if (detailTitleRef.current) { detailTitleRef.current.focus(); detailTitleRef.current.select(); } }, 80);
+    focusWhenReady(detailTitleRef);
   }, [isMyDay, resolvedActiveColumn, selectedCaseId, selectedItem?.caseId, selectedItemId, user, todayKey]);
 
   const handleCreateChildTask = useCallback(async () => {
@@ -930,7 +939,7 @@ export default function AppShell() {
       setSelectedSubItemId(null);
       setSelectedSubItemIds([]);
       setDetailTarget({ type: "item", id });
-      setTimeout(() => { if (detailTitleRef.current) { detailTitleRef.current.focus(); detailTitleRef.current.select(); } }, 80);
+      focusWhenReady(detailTitleRef);
       return;
     }
     if (resolvedActiveColumn === "items") {
@@ -953,6 +962,7 @@ export default function AppShell() {
       setSelectedSubItemId(id);
       setSelectedSubItemIds([id]);
       setDetailTarget({ type: "item", id });
+      focusWhenReady(detailTitleRef);
       return;
     }
     showToast("Niveau maximal atteint.");
