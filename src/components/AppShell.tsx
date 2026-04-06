@@ -1438,11 +1438,7 @@ export default function AppShell() {
                 }
                 if (e.key === "Escape") {
                   e.stopPropagation();
-                  if (detailCase.title === "Nouveau dossier" || detailCase.title === "") {
-                    handleDeleteCase(detailCase.id);
-                  } else {
-                    (e.target as HTMLInputElement).blur();
-                  }
+                  (e.target as HTMLInputElement).blur();
                 }
               }}
             />
@@ -1542,12 +1538,7 @@ export default function AppShell() {
                 }
                 if (e.key === "Escape") {
                   e.stopPropagation();
-                  const defaultTitles = ["Nouvelle tâche", "Nouvelle sous-tâche", ""];
-                  if (defaultTitles.includes(detailItem.title)) {
-                    handleDelete();
-                  } else {
-                    (e.target as HTMLInputElement).blur();
-                  }
+                  (e.target as HTMLInputElement).blur();
                 }
               }}
             />
