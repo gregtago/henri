@@ -94,6 +94,7 @@ export default function AppShell() {
   const [floatingTasks, setFloatingTasks] = useState<FloatingTask[]>([]);
   const [liveMyDaySelections, setLiveMyDaySelections] = useState<MyDaySelection[]>([]);
   const [legacyMyDaySelections, setLegacyMyDaySelections] = useState<MyDaySelection[]>([]);
+  const [pendingRemovalIds, setPendingRemovalIds] = useState<Set<string>>(new Set());
 
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -382,7 +383,7 @@ export default function AppShell() {
     }
   }, [myDayDetailId, myDaySelections, isMyDay]);
 
-  const myDayEntries = myDaySelections.filter((entry) => entry.dateKey === todayKey);
+  const myDayEntries = myDaySelections.filter((entry) => entry.dateKey === todayKey && !pendingRemovalIds.has(entry.id));
   const myDayItems = myDayEntries
     .map((entry) => {
       if (entry.refType === "case") {
@@ -442,7 +443,13 @@ export default function AppShell() {
       const removeBtn = (
         <button
           className="w-5 h-5 flex items-center justify-center text-[12.5px] text-tx-3 bg-transparent border-none cursor-pointer hover:text-red-500 rounded shrink-0"
-          onClick={e => { e.stopPropagation(); deleteMyDaySelection(user!.uid, selectionId); }}
+          onClick={e => {
+            e.stopPropagation();
+            setPendingRemovalIds(prev => new Set([...prev, selectionId]));
+            deleteMyDaySelection(user!.uid, selectionId).finally(() => {
+              setPendingRemovalIds(prev => { const s = new Set(prev); s.delete(selectionId); return s; });
+            });
+          }}
           title="Retirer de Ma journée"
         >✕</button>
       );
