@@ -1382,108 +1382,89 @@ export default function AppShell() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-7 py-6 space-y-0">
+      <div className="flex-1 overflow-y-auto px-5 py-5 space-y-0">
 
         {/* ── DÉTAIL DOSSIER ── */}
         {detailCase ? (
           <>
             <input
-              className="w-full text-[22px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight mb-5 leading-snug cursor-default focus:cursor-text rounded px-1 -mx-1"
+              className="w-full text-[20px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight mb-4 leading-snug cursor-text"
               value={detailCase.title}
-              readOnly
-              onDoubleClick={e => { const t = e.target as HTMLInputElement; t.readOnly = false; t.focus(); t.select(); t.style.background = "#eff6ff"; }}
-              onFocus={e => { if (!e.target.readOnly) { e.target.style.background = "#eff6ff"; } }}
-              onBlur={e => { e.target.readOnly = true; e.target.style.background = "transparent"; }}
-              onKeyDown={e => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  const t = e.target as HTMLInputElement;
-                  t.readOnly = true;
-                  t.style.background = "transparent";
-                  t.blur();
-                  e.stopPropagation();
-                }
-                if (e.key === "Escape") {
-                  const t = e.target as HTMLInputElement;
-                  t.value = detailCase.title;
-                  t.readOnly = true;
-                  t.style.background = "transparent";
-                  t.blur();
-                  e.stopPropagation();
-                }
-              }}
               onChange={(e) => updateCase(user.uid, detailCase.id, { title: e.target.value })}
             />
 
-            {/* Échéance */}
-            <div className="flex items-start py-1 rounded hover:bg-bg-subtle group">
-              <div className={propKey}><span className="opacity-60">📅</span> Échéance</div>
-              <div className={propVal}>
+            <div className="space-y-4">
+              {/* Échéance */}
+              <div>
+                <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-2">Échéance légale</p>
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {(() => {
+                    const today = new Date(); today.setHours(12,0,0,0);
+                    const shortcuts = [
+                      { label: "Demain", date: new Date(today.getTime() + 86400000) },
+                      { label: "Dans 1 sem.", date: new Date(today.getTime() + 7*86400000) },
+                      { label: "Dans 1 mois", date: new Date(today.getFullYear(), today.getMonth()+1, today.getDate(), 12) },
+                      { label: "Dans 3 mois", date: new Date(today.getFullYear(), today.getMonth()+3, today.getDate(), 12) },
+                      { label: "Dans 6 mois", date: new Date(today.getFullYear(), today.getMonth()+6, today.getDate(), 12) },
+                    ];
+                    return shortcuts.map(({ label, date }) => (
+                      <button key={label}
+                        onClick={() => updateCase(user.uid, detailCase.id, { legalDueDate: date.toISOString() })}
+                        className="text-[11px] font-[inherit] px-2 py-1 rounded border border-border bg-bg-subtle text-tx-2 cursor-pointer hover:border-border-strong hover:text-tx transition-colors">
+                        {label}
+                      </button>
+                    ));
+                  })()}
+                  {detailCase.legalDueDate && (
+                    <button onClick={() => updateCase(user.uid, detailCase.id, { legalDueDate: null })}
+                      className="text-[11px] font-[inherit] px-2 py-1 rounded border border-border bg-bg-subtle text-red-400 cursor-pointer hover:border-red-300 transition-colors">
+                      ✕ Retirer
+                    </button>
+                  )}
+                </div>
                 <input
                   key={detailCase.id + "-due"}
                   type="date"
-                  className="font-[inherit] text-[14px] text-tx bg-transparent border-none outline-none w-full"
+                  className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-1.5 outline-none w-full focus:border-border-strong transition-colors"
                   defaultValue={detailCase.legalDueDate?.slice(0, 10) ?? ""}
                   onBlur={(e) => {
-                    if (!e.target.value) {
-                      updateCase(user.uid, detailCase.id, { legalDueDate: null });
-                      return;
-                    }
+                    if (!e.target.value) { updateCase(user.uid, detailCase.id, { legalDueDate: null }); return; }
                     const [y, m, d] = e.target.value.split("-").map(Number);
                     if (y < 1900 || y > 2100) return;
-                    const local = new Date(y, m - 1, d, 12, 0, 0);
-                    updateCase(user.uid, detailCase.id, { legalDueDate: local.toISOString() });
+                    updateCase(user.uid, detailCase.id, { legalDueDate: new Date(y, m-1, d, 12).toISOString() });
                   }}
                 />
               </div>
-            </div>
-            {detailCase.legalDueDate && (
-              <div className="flex items-center gap-2 ml-[128px] -mt-1 mb-1">
-                <p className="text-[12.5px] text-tx-3">{formatDateFR(detailCase.legalDueDate)}</p>
-                <button
-                  className="text-[11px] text-tx-3 hover:text-red-500 bg-transparent border-none cursor-pointer transition-colors"
-                  onClick={() => updateCase(user.uid, detailCase.id, { legalDueDate: null })}
-                  title="Supprimer l'échéance"
-                >✕</button>
-              </div>
-            )}
 
-            {/* Note */}
-            <div className="flex items-start py-1 rounded hover:bg-bg-subtle mt-1">
-              <div className={propKey + " pt-1"}><span className="opacity-60">📝</span> Note</div>
-              <div className="flex-1 px-2">
+              <div className="border-t border-border" />
+
+              {/* Note */}
+              <div>
+                <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1.5">Note</p>
                 <textarea
-                  className="w-full font-[inherit] text-[14px] text-tx bg-transparent border-none outline-none resize-none leading-relaxed min-h-[60px]"
+                  className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-2 outline-none w-full resize-none focus:border-border-strong transition-colors"
+                  rows={4}
                   value={detailCase.caseNote ?? ""}
                   onChange={(e) => updateCase(user.uid, detailCase.id, { caseNote: e.target.value })}
                   placeholder="Ajouter une note…"
                 />
               </div>
-            </div>
 
-            {/* Séparateur */}
-            <div className="h-px bg-border my-4" />
+              <div className="border-t border-border" />
 
-            {/* Actions */}
-            <p className="text-[14px] font-medium text-tx-3 uppercase tracking-wide mb-3">Actions</p>
-            <div className="flex flex-wrap gap-2">
-              <button className={btnGhost} onClick={() => handleExport(detailCase)}>Exporter JSON</button>
-              <button
-                className={btnGhost}
-                onClick={() => handleArchiveCase(detailCase.id, !detailCase.archived)}
-              >
-                {detailCase.archived ? "Restaurer" : "Archiver"}
-              </button>
-              <button
-                className={btnDanger}
-                onClick={() => {
-                  if (window.confirm("Supprimer ce dossier et toutes ses tâches ?")) {
-                    handleDeleteCase(detailCase.id);
-                  }
-                }}
-              >
-                Supprimer
-              </button>
+              {/* Actions */}
+              <div>
+                <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-2">Actions</p>
+                <div className="flex flex-wrap gap-2">
+                  <button className={btnGhost} onClick={() => handleExport(detailCase)}>Exporter JSON</button>
+                  <button className={btnGhost} onClick={() => handleArchiveCase(detailCase.id, !detailCase.archived)}>
+                    {detailCase.archived ? "Restaurer" : "Archiver"}
+                  </button>
+                  <button className={btnDanger} onClick={() => { if (window.confirm("Supprimer ce dossier et toutes ses tâches ?")) { handleDeleteCase(detailCase.id); } }}>
+                    Supprimer
+                  </button>
+                </div>
+              </div>
             </div>
           </>
         ) : null}
@@ -1494,149 +1475,122 @@ export default function AppShell() {
             {/* Titre */}
             <input
               ref={detailTitleRef}
-              className="w-full text-[22px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight mb-5 leading-snug cursor-default focus:cursor-text rounded px-1 -mx-1"
+              className="w-full text-[20px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight mb-4 leading-snug cursor-text"
               value={detailItem.title}
-              readOnly
-              onDoubleClick={e => { const t = e.target as HTMLInputElement; t.readOnly = false; t.focus(); t.select(); t.style.background = "#eff6ff"; t.style.borderRadius = "4px"; }}
-              onFocus={e => { if (!e.target.readOnly) { e.target.style.background = "#eff6ff"; } }}
-              onBlur={e => { e.target.readOnly = true; e.target.style.background = "transparent"; }}
-              onKeyDown={e => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  (e.target as HTMLInputElement).readOnly = true;
-                  (e.target as HTMLInputElement).style.background = "transparent";
-                  (e.target as HTMLInputElement).blur();
-                  e.stopPropagation();
-                }
-                if (e.key === "Escape") {
-                  const t = e.target as HTMLInputElement;
-                  t.value = detailItem.title;
-                  t.readOnly = true;
-                  t.style.background = "transparent";
-                  t.blur();
-                  e.stopPropagation();
-                }
-              }}
               onChange={(e) => updateItem(user.uid, detailItem.id, { title: e.target.value })}
             />
 
-            {/* Statut */}
-            <div className="flex items-start py-1 rounded hover:bg-bg-subtle">
-              <div className={propKey}><span className="opacity-60">◎</span> Statut</div>
-              <div className="flex-1 px-2 py-1 flex flex-wrap gap-1.5">
-                {STATUSES.map((s, i) => (
-                  <button
-                    key={s}
-                    onClick={() => handleStatusChange(s)}
-                    className={`${statusClass(s)} cursor-pointer border-none transition-opacity ${
-                      detailItem.status === s ? "opacity-100" : "opacity-30 hover:opacity-60"
-                    }`}
-                  >
-                    <span className="text-[9px] mr-1 opacity-60">{i + 1}</span>{s}
+            <div className="space-y-4">
+              {/* Statuts */}
+              <div className="flex flex-wrap gap-1.5">
+                {STATUSES.map(s => (
+                  <button key={s} onClick={() => handleStatusChange(s)}
+                    className={`${statusClass(s)} cursor-pointer border-none transition-all text-[12px] px-3 py-1 rounded-full ${detailItem.status === s ? "opacity-100" : "opacity-25 hover:opacity-60"}`}>
+                    {s}
                   </button>
                 ))}
               </div>
-            </div>
 
-            {/* Échéance */}
-            <div className="flex items-start py-1 rounded hover:bg-bg-subtle">
-              <div className={propKey}><span className="opacity-60">📅</span> Échéance</div>
-              <div className={propVal}>
-                <input
-                  key={detailItem.id + "-due"}
-                  type="date"
-                  className="font-[inherit] text-[14px] text-tx bg-transparent border-none outline-none w-full"
+              <div className="border-t border-border" />
+
+              {/* Échéance */}
+              <div>
+                <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-2">Échéance</p>
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {(() => {
+                    const today = new Date(); today.setHours(12,0,0,0);
+                    const shortcuts = [
+                      { label: "Demain", date: new Date(today.getTime() + 86400000) },
+                      { label: "Dans 2 j.", date: new Date(today.getTime() + 2*86400000) },
+                      { label: (() => { const d = new Date(today); const dow = d.getDay(); const diff = (1-dow+7)%7||7; d.setDate(d.getDate()+diff); return "Lun. "+d.getDate()+"/"+(d.getMonth()+1); })(), date: (() => { const d = new Date(today); const dow = d.getDay(); const diff = (1-dow+7)%7||7; d.setDate(d.getDate()+diff); return d; })() },
+                      { label: "Dans 1 sem.", date: new Date(today.getTime() + 7*86400000) },
+                      { label: "Dans 1 mois", date: new Date(today.getFullYear(), today.getMonth()+1, today.getDate(), 12) },
+                    ];
+                    return shortcuts.map(({ label, date }) => (
+                      <button key={label}
+                        onClick={() => updateItem(user.uid, detailItem.id, { dueDate: date.toISOString() })}
+                        className="text-[11px] font-[inherit] px-2 py-1 rounded border border-border bg-bg-subtle text-tx-2 cursor-pointer hover:border-border-strong hover:text-tx transition-colors">
+                        {label}
+                      </button>
+                    ));
+                  })()}
+                  {detailItem.dueDate && (
+                    <button onClick={() => updateItem(user.uid, detailItem.id, { dueDate: null })}
+                      className="text-[11px] font-[inherit] px-2 py-1 rounded border border-border bg-bg-subtle text-red-400 cursor-pointer hover:border-red-300 transition-colors">
+                      ✕ Retirer
+                    </button>
+                  )}
+                </div>
+                <input key={detailItem.id + "-due"} type="date"
+                  className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-1.5 outline-none w-full focus:border-border-strong transition-colors"
                   defaultValue={detailItem.dueDate?.slice(0, 10) ?? ""}
                   onBlur={(e) => {
                     if (!e.target.value) { updateItem(user.uid, detailItem.id, { dueDate: null }); return; }
                     const [y, m, d] = e.target.value.split("-").map(Number);
                     if (y < 1900 || y > 2100) return;
-                    const local = new Date(y, m - 1, d, 12, 0, 0);
-                    updateItem(user.uid, detailItem.id, { dueDate: local.toISOString() });
+                    updateItem(user.uid, detailItem.id, { dueDate: new Date(y, m-1, d, 12).toISOString() });
                   }}
                 />
               </div>
-            </div>
-            {detailItem.dueDate && (
-              <div className="flex items-center gap-2 ml-[128px] -mt-1 mb-1">
-                <p className="text-[12.5px] text-tx-3">{formatDateFR(detailItem.dueDate)}</p>
-                <button
-                  className="text-[11px] text-tx-3 hover:text-red-500 bg-transparent border-none cursor-pointer transition-colors"
-                  onClick={() => updateItem(user.uid, detailItem.id, { dueDate: null })}
-                  title="Supprimer l'échéance"
-                >✕</button>
-              </div>
-            )}
 
-            {/* Dossier */}
-            <div className="flex items-center py-1 rounded hover:bg-bg-subtle">
-              <div className={propKey}><span className="opacity-60">📁</span> Dossier</div>
-              <div className={propVal + " text-tx-2"}>
-                {cases.find(c => c.id === detailItem.caseId)?.title ?? "—"}
-              </div>
-            </div>
-
-            {/* Parent (si N3) */}
-            {detailItem.parentItemId && (
-              <div className="flex items-center py-1 rounded hover:bg-bg-subtle">
-                <div className={propKey}><span className="opacity-60">📋</span> Parent</div>
-                <div className={propVal + " text-tx-2"}>
-                  {items.find(i => i.id === detailItem.parentItemId)?.title ?? "—"}
-                </div>
-              </div>
-            )}
-
-            {/* Séparateur */}
-            <div className="h-px bg-border my-4" />
-
-            {/* Commentaires */}
-            <p className="text-[14px] font-medium text-tx-3 uppercase tracking-wide mb-3">Commentaires</p>
-            <div className="space-y-2 mb-3">
-              {detailComments.map((c) => (
-                <div key={c.id} className="bg-bg-subtle rounded px-3 py-2">
-                  <p className="text-[14px] text-tx leading-relaxed">{c.body}</p>
-                  <p className="text-[12.5px] text-tx-3 mt-1">{formatDateFR(c.createdAt)}{c.author ? ` — ${c.author}` : ""}</p>
-                </div>
-              ))}
-            </div>
-            <textarea
-              className="w-full font-[inherit] text-[14px] text-tx bg-bg-subtle border border-transparent rounded px-3 py-2 outline-none resize-none leading-relaxed min-h-[64px] focus:border-border-strong focus:bg-bg placeholder:text-tx-3 transition-colors"
-              placeholder="Ajouter un commentaire… (Entrée pour valider)"
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  const t = e.target as HTMLTextAreaElement;
-                  if (t.value.trim()) {
-                    handleCommentAdd(t.value.trim());
-                    t.value = "";
-                  }
-                }
-              }}
-            />
-
-            {/* Timeline */}
-            {detailEvents.length > 0 && (
-              <>
-                <button
-                  className="text-[14px] text-tx-3 underline mt-3 mb-1 bg-transparent border-none cursor-pointer"
-                  onClick={() => setIsTimelineOpen(p => !p)}
-                >
-                  {isTimelineOpen ? "Masquer la timeline" : "Afficher la timeline"}
-                </button>
-                {isTimelineOpen && (
-                  <div className="space-y-1.5 mt-2">
-                    {detailEvents.map((ev) => (
-                      <div key={ev.id} className="bg-bg-subtle rounded px-3 py-1.5">
-                        <p className="text-[12px] text-tx">{ev.type}</p>
-                        <p className="text-[12.5px] text-tx-3">{formatDateFR(ev.createdAt)}</p>
-                      </div>
-                    ))}
-                  </div>
+              {/* Dossier */}
+              <div>
+                <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1">Dossier</p>
+                <p className="text-[13px] text-tx-2">{cases.find(c => c.id === detailItem.caseId)?.title ?? "—"}</p>
+                {detailItem.parentItemId && (
+                  <p className="text-[11px] text-tx-3 mt-0.5">↳ {items.find(i => i.id === detailItem.parentItemId)?.title ?? "—"}</p>
                 )}
-              </>
-            )}
+              </div>
 
+              <div className="border-t border-border" />
 
+              {/* Commentaires */}
+              <div>
+                <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-2">Commentaires</p>
+                <div className="space-y-2 mb-2">
+                  {detailComments.map((c) => (
+                    <div key={c.id} className="bg-bg-subtle rounded-lg px-3 py-2">
+                      <p className="text-[13px] text-tx leading-relaxed">{c.body}</p>
+                      <p className="text-[11px] text-tx-3 mt-1">{formatDateFR(c.createdAt)}{c.author ? ` — ${c.author}` : ""}</p>
+                    </div>
+                  ))}
+                </div>
+                <textarea
+                  className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-2 outline-none w-full resize-none focus:border-border-strong transition-colors placeholder:text-tx-3"
+                  rows={3}
+                  placeholder="Ajouter un commentaire… (Entrée)"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      const t = e.target as HTMLTextAreaElement;
+                      if (t.value.trim()) { handleCommentAdd(t.value.trim()); t.value = ""; }
+                    }
+                  }}
+                />
+              </div>
+
+              {/* Timeline */}
+              {detailEvents.length > 0 && (
+                <div>
+                  <button
+                    className="text-[10px] font-medium text-tx-3 uppercase tracking-widest bg-transparent border-none cursor-pointer hover:text-tx transition-colors"
+                    onClick={() => setIsTimelineOpen(p => !p)}
+                  >
+                    {isTimelineOpen ? "▾ Timeline" : "▸ Timeline"}
+                  </button>
+                  {isTimelineOpen && (
+                    <div className="space-y-1.5 mt-2">
+                      {detailEvents.map((ev) => (
+                        <div key={ev.id} className="bg-bg-subtle rounded-lg px-3 py-1.5">
+                          <p className="text-[12px] text-tx">{ev.type}</p>
+                          <p className="text-[11px] text-tx-3">{formatDateFR(ev.createdAt)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </>
         ) : null}
       </div>
@@ -2277,14 +2231,37 @@ export default function AppShell() {
                           />
                         </div>
 
-                        {/* Dossier */}
+                        {/* Dossier avec recherche */}
                         <div>
                           <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1.5">Dossier</p>
-                          <select className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-1.5 outline-none cursor-pointer w-full focus:border-border-strong transition-colors"
-                            onChange={e => handleAttachFloating(task, e.target.value)} defaultValue="">
-                            <option value="" disabled>Rattacher à un dossier…</option>
-                            {cases.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
-                          </select>
+                          {(() => {
+                            const [dossierSearch, setDossierSearch] = React.useState("");
+                            const filtered = cases.filter(c => c.title.toLowerCase().includes(dossierSearch.toLowerCase()));
+                            return (
+                              <div className="space-y-1.5">
+                                <input
+                                  type="text"
+                                  placeholder="Rechercher un dossier…"
+                                  value={dossierSearch}
+                                  onChange={e => setDossierSearch(e.target.value)}
+                                  className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-1.5 outline-none w-full focus:border-border-strong transition-colors placeholder:text-tx-3"
+                                />
+                                {dossierSearch && (
+                                  <div className="border border-border rounded-lg overflow-hidden max-h-[160px] overflow-y-auto">
+                                    {filtered.length === 0 ? (
+                                      <p className="text-[12px] text-tx-3 px-3 py-2">Aucun dossier trouvé</p>
+                                    ) : filtered.map(c => (
+                                      <button key={c.id}
+                                        className="w-full text-left font-[inherit] text-[13px] text-tx px-3 py-2 bg-transparent border-none cursor-pointer hover:bg-bg-subtle transition-colors border-b border-border last:border-0"
+                                        onClick={() => { handleAttachFloating(task, c.id); setDossierSearch(""); }}>
+                                        {c.title}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </div>
 
                         {/* Récurrence */}
