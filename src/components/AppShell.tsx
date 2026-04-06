@@ -1397,7 +1397,13 @@ export default function AppShell() {
               value={detailCase.title}
               onChange={(e) => updateCase(user.uid, detailCase.id, { title: e.target.value })}
               onKeyDown={e => {
-                if (e.key === "Enter") { (e.target as HTMLInputElement).blur(); e.stopPropagation(); }
+                if (e.key === "Enter") {
+                  e.stopPropagation();
+                  const t = e.target as HTMLInputElement;
+                  t.style.color = "#16a34a";
+                  t.style.transition = "color 0.3s";
+                  setTimeout(() => { t.style.color = ""; t.style.transition = ""; t.blur(); }, 300);
+                }
                 if (e.key === "Escape") {
                   e.stopPropagation();
                   if (detailCase.title === "Nouveau dossier" || detailCase.title === "") {
@@ -1495,7 +1501,13 @@ export default function AppShell() {
               value={detailItem.title}
               onChange={(e) => updateItem(user.uid, detailItem.id, { title: e.target.value })}
               onKeyDown={e => {
-                if (e.key === "Enter") { (e.target as HTMLInputElement).blur(); e.stopPropagation(); }
+                if (e.key === "Enter") {
+                  e.stopPropagation();
+                  const t = e.target as HTMLInputElement;
+                  t.style.color = "#16a34a";
+                  t.style.transition = "color 0.3s";
+                  setTimeout(() => { t.style.color = ""; t.style.transition = ""; t.blur(); }, 300);
+                }
                 if (e.key === "Escape") {
                   e.stopPropagation();
                   const defaultTitles = ["Nouvelle tâche", "Nouvelle sous-tâche", ""];
@@ -2194,6 +2206,15 @@ export default function AppShell() {
                           className="w-full text-[20px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight leading-snug cursor-text"
                           value={task.title}
                           onChange={e => updateFloatingTask(user.uid, task.id, { title: e.target.value })}
+                          onKeyDown={e => {
+                            if (e.key === "Enter") {
+                              e.stopPropagation();
+                              const t = e.target as HTMLInputElement;
+                              t.style.color = "#16a34a";
+                              t.style.transition = "color 0.3s";
+                              setTimeout(() => { t.style.color = ""; t.style.transition = ""; t.blur(); }, 300);
+                            }
+                          }}
                         />
                       </div>
 
