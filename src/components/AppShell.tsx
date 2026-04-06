@@ -1320,11 +1320,16 @@ export default function AppShell() {
 
   const handleDeleteCase = async (caseId: string) => {
     if (!user) return;
+    const caseSnapshot = cases.find(c => c.id === caseId);
+    const caseItemsSnapshot = items.filter(i => i.caseId === caseId).map(i => ({ ...i }));
     scheduleDelete("Supprimer le dossier et ses tâches.", async () => {
       await deleteCaseCascade(user.uid, caseId, items);
       setSelectedCaseIds([]);
       setSelectedCaseId(null);
       setDetailTarget(null);
+    }, async () => {
+      if (caseSnapshot) await restoreCase(user.uid, { ...caseSnapshot });
+      await restoreItems(user.uid, caseItemsSnapshot);
     });
   };
 
