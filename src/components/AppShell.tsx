@@ -829,6 +829,7 @@ export default function AppShell() {
       setSelectedItemIds([]);
       setSelectedSubItemIds([]);
       setDetailTarget({ type: "case", id });
+      setTimeout(() => { if (detailTitleRef.current) { detailTitleRef.current.focus(); detailTitleRef.current.select(); } }, 80);
       return;
     }
     if (resolvedActiveColumn === "items") {
@@ -848,6 +849,7 @@ export default function AppShell() {
       setSelectedSubItemId(null);
       setSelectedSubItemIds([]);
       setDetailTarget({ type: "item", id });
+      setTimeout(() => { if (detailTitleRef.current) { detailTitleRef.current.focus(); detailTitleRef.current.select(); } }, 80);
       return;
     }
     if (!selectedItemId) {
@@ -869,6 +871,7 @@ export default function AppShell() {
     setSelectedSubItemId(id);
     setSelectedSubItemIds([id]);
     setDetailTarget({ type: "item", id });
+    setTimeout(() => { if (detailTitleRef.current) { detailTitleRef.current.focus(); detailTitleRef.current.select(); } }, 80);
   }, [isMyDay, resolvedActiveColumn, selectedCaseId, selectedItem?.caseId, selectedItemId, user, todayKey]);
 
   const handleCreateChildTask = useCallback(async () => {
@@ -898,6 +901,7 @@ export default function AppShell() {
       setSelectedSubItemId(null);
       setSelectedSubItemIds([]);
       setDetailTarget({ type: "item", id });
+      setTimeout(() => { if (detailTitleRef.current) { detailTitleRef.current.focus(); detailTitleRef.current.select(); } }, 80);
       return;
     }
     if (resolvedActiveColumn === "items") {
@@ -1392,6 +1396,17 @@ export default function AppShell() {
               className="w-full text-[20px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight mb-4 leading-snug cursor-text"
               value={detailCase.title}
               onChange={(e) => updateCase(user.uid, detailCase.id, { title: e.target.value })}
+              onKeyDown={e => {
+                if (e.key === "Enter") { (e.target as HTMLInputElement).blur(); e.stopPropagation(); }
+                if (e.key === "Escape") {
+                  e.stopPropagation();
+                  if (detailCase.title === "Nouveau dossier" || detailCase.title === "") {
+                    handleDeleteCase(detailCase.id);
+                  } else {
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }
+              }}
             />
 
             <div className="space-y-4">
@@ -1479,6 +1494,18 @@ export default function AppShell() {
               className="w-full text-[20px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight mb-4 leading-snug cursor-text"
               value={detailItem.title}
               onChange={(e) => updateItem(user.uid, detailItem.id, { title: e.target.value })}
+              onKeyDown={e => {
+                if (e.key === "Enter") { (e.target as HTMLInputElement).blur(); e.stopPropagation(); }
+                if (e.key === "Escape") {
+                  e.stopPropagation();
+                  const defaultTitles = ["Nouvelle tâche", "Nouvelle sous-tâche", ""];
+                  if (defaultTitles.includes(detailItem.title)) {
+                    handleDelete();
+                  } else {
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }
+              }}
             />
 
             <div className="space-y-4">
