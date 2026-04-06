@@ -140,6 +140,7 @@ export default function AppShell() {
   const subitemsListRef = useRef<HTMLDivElement | null>(null);
   // Ref pour focus auto sur le titre après création
   const detailTitleRef = useRef<HTMLInputElement | null>(null);
+  const detailCaseRef = useRef<HTMLInputElement | null>(null);
   const myDayTitleRef = useRef<HTMLInputElement | null>(null);
   const [undoCountdown, setUndoCountdown] = useState(0);
 
@@ -1192,9 +1193,10 @@ export default function AppShell() {
       }
       if (event.key === " " && (detailTarget || myDayDetailId)) {
         event.preventDefault();
-        const ref = myDayDetailId ? myDayTitleRef.current : detailTitleRef.current;
+        const ref = myDayDetailId
+          ? myDayTitleRef.current
+          : (detailTarget?.type === "case" ? detailCaseRef.current : detailTitleRef.current);
         if (ref) {
-          ref.readOnly = false;
           ref.focus();
           ref.select();
         }
@@ -1271,7 +1273,8 @@ export default function AppShell() {
       casesListRef,
       itemsListRef,
       subitemsListRef,
-      detailTitleRef
+      detailTitleRef,
+      detailCaseRef
     ]
   );
 
@@ -1425,6 +1428,7 @@ export default function AppShell() {
         {detailCase ? (
           <>
             <input
+              ref={detailCaseRef}
               className="w-full text-[20px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight mb-4 leading-snug cursor-text"
               value={detailCase.title}
               onChange={(e) => updateCase(user.uid, detailCase.id, { title: e.target.value })}
@@ -1446,7 +1450,7 @@ export default function AppShell() {
             <div className="space-y-4">
               {/* Échéance */}
               <div>
-                <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-2">Échéance légale</p>
+                <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-2">Échéance</p>
                 <div className="flex flex-wrap gap-1.5 mb-2">
                   {(() => {
                     const today = new Date(); today.setHours(12,0,0,0);
