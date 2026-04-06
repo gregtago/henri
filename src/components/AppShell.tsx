@@ -2253,7 +2253,7 @@ export default function AppShell() {
                           <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-2">Récurrence</p>
                           <RecurrencePicker
                             value={task.recurrence ?? null}
-                            onChange={r => updateFloatingTask(user.uid, task.id, { recurrence: r ?? undefined })}
+                            onChange={r => updateFloatingTask(user.uid, task.id, { recurrence: r ?? null })}
                           />
                         </div>
                       </div>
