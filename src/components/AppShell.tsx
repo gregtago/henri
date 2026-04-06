@@ -123,6 +123,7 @@ export default function AppShell() {
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [myDayDetailId, setMyDayDetailId] = useState<string | null>(null);
+  const [dossierSearch, setDossierSearch] = useState("");
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [importMode, setImportMode] = useState<"model" | "history">("history");
@@ -2234,34 +2235,28 @@ export default function AppShell() {
                         {/* Dossier avec recherche */}
                         <div>
                           <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1.5">Dossier</p>
-                          {(() => {
-                            const [dossierSearch, setDossierSearch] = React.useState("");
-                            const filtered = cases.filter(c => c.title.toLowerCase().includes(dossierSearch.toLowerCase()));
-                            return (
-                              <div className="space-y-1.5">
-                                <input
-                                  type="text"
-                                  placeholder="Rechercher un dossier…"
-                                  value={dossierSearch}
-                                  onChange={e => setDossierSearch(e.target.value)}
-                                  className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-1.5 outline-none w-full focus:border-border-strong transition-colors placeholder:text-tx-3"
-                                />
-                                {dossierSearch && (
-                                  <div className="border border-border rounded-lg overflow-hidden max-h-[160px] overflow-y-auto">
-                                    {filtered.length === 0 ? (
-                                      <p className="text-[12px] text-tx-3 px-3 py-2">Aucun dossier trouvé</p>
-                                    ) : filtered.map(c => (
-                                      <button key={c.id}
-                                        className="w-full text-left font-[inherit] text-[13px] text-tx px-3 py-2 bg-transparent border-none cursor-pointer hover:bg-bg-subtle transition-colors border-b border-border last:border-0"
-                                        onClick={() => { handleAttachFloating(task, c.id); setDossierSearch(""); }}>
-                                        {c.title}
-                                      </button>
-                                    ))}
-                                  </div>
-                                )}
+                          <div className="space-y-1.5">
+                            <input
+                              type="text"
+                              placeholder="Rechercher un dossier…"
+                              value={dossierSearch}
+                              onChange={e => setDossierSearch(e.target.value)}
+                              className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-1.5 outline-none w-full focus:border-border-strong transition-colors placeholder:text-tx-3"
+                            />
+                            {dossierSearch && (
+                              <div className="border border-border rounded-lg overflow-hidden max-h-[160px] overflow-y-auto">
+                                {cases.filter(c => c.title.toLowerCase().includes(dossierSearch.toLowerCase())).length === 0 ? (
+                                  <p className="text-[12px] text-tx-3 px-3 py-2">Aucun dossier trouvé</p>
+                                ) : cases.filter(c => c.title.toLowerCase().includes(dossierSearch.toLowerCase())).map(c => (
+                                  <button key={c.id}
+                                    className="w-full text-left font-[inherit] text-[13px] text-tx px-3 py-2 bg-transparent border-none cursor-pointer hover:bg-bg-subtle transition-colors border-b border-border last:border-0"
+                                    onClick={() => { handleAttachFloating(task, c.id); setDossierSearch(""); }}>
+                                    {c.title}
+                                  </button>
+                                ))}
                               </div>
-                            );
-                          })()}
+                            )}
+                          </div>
                         </div>
 
                         {/* Récurrence */}
