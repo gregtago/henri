@@ -2114,6 +2114,24 @@ export default function AppShell() {
                     </div>
                   ))}
 
+                  {/* Mémos non étoilés avec échéance */}
+                  {todayFloating.filter(t => !t.starred && !!t.dueDate).sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime()).map(task => (
+                    <div key={task.id} className="finder-row group"
+                      data-active={myDayDetailId === `f-${task.id}` ? "true" : undefined}
+                      onClick={() => setMyDayDetailId(myDayDetailId === `f-${task.id}` ? null : `f-${task.id}`)}>
+                      <button className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer hover:border-accent transition-colors"
+                        onClick={e => { e.stopPropagation(); handleMarkFloatingDone(task.id); }} title="Réalisée" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[15px] text-tx truncate">{task.title}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className={statusClass(task.status)}>{task.status}</span>
+                          {task.dueDate && <span className={`text-[11px] ${new Date(task.dueDate) < new Date() ? "text-red-500" : "text-tx-3"}`}>Éch. {formatDateFR(task.dueDate)}</span>}
+                          {task.recurrence && <span className="text-[11px] text-tx-3" title={formatRecurrence(task.recurrence)}>🔁</span>}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
                   {/* Mémos non étoilés sans échéance */}
                   {todayFloating.filter(t => !t.starred && !t.dueDate).map(task => (
                     <div key={task.id} className="finder-row group"
