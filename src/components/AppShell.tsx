@@ -2190,7 +2190,8 @@ export default function AppShell() {
                           <button
                             title={task.starred ? "Retirer l'étoile" : "Prioritaire"}
                             onClick={() => updateFloatingTask(user.uid, task.id, { starred: !task.starred })}
-                            className="text-[13px] border-none bg-transparent cursor-pointer p-0 leading-none opacity-60 hover:opacity-100 transition-opacity"
+                            className="text-[22px] border-none bg-transparent cursor-pointer p-0 leading-none transition-opacity hover:scale-110"
+                            style={{color: task.starred ? "#f59e0b" : undefined, opacity: task.starred ? 1 : 0.25}}
                           >{task.starred ? "★" : "☆"}</button>
                           <span className="text-[11px] font-medium text-tx-3 uppercase tracking-widest">Mémo</span>
                         </div>
@@ -2204,8 +2205,8 @@ export default function AppShell() {
                         </div>
                       </div>
 
-                      {/* Titre — clic direct pour éditer */}
-                      <div className="px-5 pb-4">
+                      {/* Titre */}
+                      <div className="px-5 pb-3">
                         <input
                           ref={myDayTitleRef}
                           className="w-full text-[20px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight leading-snug cursor-text"
@@ -2220,25 +2221,63 @@ export default function AppShell() {
                         <div className="flex flex-wrap gap-1.5">
                           {STATUSES.map(s => (
                             <button key={s} onClick={() => updateFloatingTask(user.uid, task.id, { status: s })}
-                              className={`${statusClass(s)} cursor-pointer border-none transition-all text-[12px] px-3 py-1 rounded-full ${task.status === s ? "opacity-100 scale-100" : "opacity-25 hover:opacity-60"}`}>
+                              className={`${statusClass(s)} cursor-pointer border-none transition-all text-[12px] px-3 py-1 rounded-full ${task.status === s ? "opacity-100" : "opacity-25 hover:opacity-60"}`}>
                               {s}
                             </button>
                           ))}
                         </div>
 
-                        {/* Séparateur */}
                         <div className="border-t border-border" />
 
-                        {/* Échéance */}
+                        {/* Échéance avec raccourcis */}
                         <div>
-                          <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1.5">Échéance</p>
+                          <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-2">Échéance</p>
+                          {/* Raccourcis rapides */}
+                          <div className="flex flex-wrap gap-1.5 mb-2">
+                            {(() => {
+                              const today = new Date();
+                              today.setHours(12,0,0,0);
+                              const shortcuts = [
+                                { label: "Demain", date: new Date(today.getTime() + 86400000) },
+                                { label: "Dans 2 j.", date: new Date(today.getTime() + 2*86400000) },
+                                { label: (() => { const d = new Date(today); const dow = d.getDay(); const diff = (1 - dow + 7) % 7 || 7; d.setDate(d.getDate() + diff); return "Lun. " + d.getDate() + "/" + (d.getMonth()+1); })(), date: (() => { const d = new Date(today); const dow = d.getDay(); const diff = (1 - dow + 7) % 7 || 7; d.setDate(d.getDate() + diff); return d; })() },
+                                { label: "Dans 1 sem.", date: new Date(today.getTime() + 7*86400000) },
+                                { label: "Dans 2 sem.", date: new Date(today.getTime() + 14*86400000) },
+                              ];
+                              return shortcuts.map(({ label, date }) => (
+                                <button key={label}
+                                  onClick={() => updateFloatingTask(user.uid, task.id, { dueDate: date.toISOString() })}
+                                  className="text-[11px] font-[inherit] px-2 py-1 rounded border border-border bg-bg-subtle text-tx-2 cursor-pointer hover:border-border-strong hover:text-tx transition-colors">
+                                  {label}
+                                </button>
+                              ));
+                            })()}
+                            {task.dueDate && (
+                              <button onClick={() => updateFloatingTask(user.uid, task.id, { dueDate: null })}
+                                className="text-[11px] font-[inherit] px-2 py-1 rounded border border-border bg-bg-subtle text-red-400 cursor-pointer hover:border-red-300 transition-colors">
+                                ✕ Retirer
+                              </button>
+                            )}
+                          </div>
                           <input key={task.id + "-due"} type="date"
-                            className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-1.5 outline-none focus:border-border-strong transition-colors"
+                            className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-1.5 outline-none focus:border-border-strong transition-colors w-full"
                             defaultValue={task.dueDate?.slice(0,10) ?? ""}
                             onBlur={e => { if (!e.target.value) { updateFloatingTask(user.uid, task.id, { dueDate: null }); return; } const [y,m,d] = e.target.value.split("-").map(Number); if (y < 1900 || y > 2100) return; updateFloatingTask(user.uid, task.id, { dueDate: new Date(y,m-1,d,12).toISOString() }); }} />
                         </div>
 
-                        {/* Rattacher */}
+                        {/* Observations */}
+                        <div>
+                          <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1.5">Observations</p>
+                          <textarea
+                            className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-2 outline-none w-full resize-none focus:border-border-strong transition-colors"
+                            rows={4}
+                            placeholder="Ajouter une observation…"
+                            defaultValue={task.note ?? ""}
+                            onBlur={e => updateFloatingTask(user.uid, task.id, { note: e.target.value || null })}
+                          />
+                        </div>
+
+                        {/* Dossier */}
                         <div>
                           <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1.5">Dossier</p>
                           <select className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-1.5 outline-none cursor-pointer w-full focus:border-border-strong transition-colors"

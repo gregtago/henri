@@ -89,6 +89,7 @@ export type FloatingTask = {
   dueDate?: string | null;
   recurrence?: Recurrence | null;
   recurringTemplateId?: string | null; // référence au template d'origine
+  note?: string | null;
   createdAt: string;
   updatedAt: string;
 };
