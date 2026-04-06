@@ -135,6 +135,7 @@ export default function AppShell() {
   const subitemsListRef = useRef<HTMLDivElement | null>(null);
   // Ref pour focus auto sur le titre après création
   const detailTitleRef = useRef<HTMLInputElement | null>(null);
+  const myDayTitleRef = useRef<HTMLInputElement | null>(null);
   const [undoCountdown, setUndoCountdown] = useState(0);
 
   const [caseSortKey, setCaseSortKey] = useState<"title" | "createdAt" | "legalDueDate">(settings.defaultSort);
@@ -700,6 +701,24 @@ export default function AppShell() {
   const showToast = (message: string) => setToast(message);
 
   // Son de complétion (Web Audio API, pas de fichier externe)
+  const playAdd = () => {
+    if (!settings.sound) return;
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(520, ctx.currentTime);
+      osc.frequency.setValueAtTime(660, ctx.currentTime + 0.06);
+      gain.gain.setValueAtTime(0.10, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.25);
+    } catch {}
+  };
+
   const playDone = () => {
     if (!settings.sound) return;
     try {
@@ -1138,13 +1157,14 @@ export default function AppShell() {
         }
         return;
       }
-      if (event.key === " " && detailTarget) {
+      if (event.key === " " && (detailTarget || myDayDetailId)) {
         event.preventDefault();
-        if (detailTitleRef.current) {
-          detailTitleRef.current.readOnly = false;
-          detailTitleRef.current.style.background = "#eff6ff";
-          detailTitleRef.current.focus();
-          detailTitleRef.current.select();
+        const ref = myDayDetailId ? myDayTitleRef.current : detailTitleRef.current;
+        if (ref) {
+          ref.readOnly = false;
+          ref.style.background = "#eff6ff";
+          ref.focus();
+          ref.select();
         }
         return;
       }
@@ -1971,7 +1991,7 @@ export default function AppShell() {
                             <p className="text-[11px] text-red-400">{task.dueDate ? formatDateFR(task.dueDate) : "—"}</p>
                           </div>
                           <button className="opacity-0 group-hover:opacity-100 shrink-0 text-[11px] text-accent border border-[#93c5fd] rounded px-1.5 py-0.5 bg-transparent cursor-pointer transition-opacity"
-                            onClick={() => addMyDaySelection(user.uid, { dateKey: todayKey, refType: task.level === 2 ? "item" : "subitem", refId: task.id })}>+</button>
+                            onClick={() => { playAdd(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: task.level === 2 ? "item" : "subitem", refId: task.id }); }}>+</button>
                         </div>
                       ))}
                     </div>
@@ -1988,7 +2008,7 @@ export default function AppShell() {
                           <div key={entry.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-hover group cursor-default">
                             <p className="flex-1 text-[12px] text-tx truncate">{title}</p>
                             <button className="opacity-0 group-hover:opacity-100 shrink-0 text-[11px] text-accent border border-[#93c5fd] rounded px-1.5 py-0.5 bg-transparent cursor-pointer transition-opacity"
-                              onClick={() => addMyDaySelection(user.uid, { dateKey: todayKey, refType: entry.refType, refId: entry.refId })}>+</button>
+                              onClick={() => { playAdd(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: entry.refType, refId: entry.refId }); }}>+</button>
                           </div>
                         );
                       })}
@@ -2001,7 +2021,7 @@ export default function AppShell() {
                         <div key={task.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-hover group cursor-default">
                           <p className="flex-1 text-[12px] text-tx truncate">{task.title}</p>
                           <button className="opacity-0 group-hover:opacity-100 shrink-0 text-[11px] text-accent border border-[#93c5fd] rounded px-1.5 py-0.5 bg-transparent cursor-pointer transition-opacity"
-                            onClick={() => updateFloatingTask(user.uid, task.id, { dateKey: todayKey })}>↩</button>
+                            onClick={() => { playAdd(); updateFloatingTask(user.uid, task.id, { dateKey: todayKey }); }}>↩</button>
                         </div>
                       ))}
                     </div>
@@ -2016,7 +2036,7 @@ export default function AppShell() {
                             <span className={statusClass(task.status as Status)}>{task.status}</span>
                           </div>
                           <button className="opacity-0 group-hover:opacity-100 shrink-0 text-[11px] text-accent border border-[#93c5fd] rounded px-1.5 py-0.5 bg-transparent cursor-pointer transition-opacity"
-                            onClick={() => addMyDaySelection(user.uid, { dateKey: todayKey, refType: task.level === 2 ? "item" : "subitem", refId: task.id })}>+</button>
+                            onClick={() => { playAdd(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: task.level === 2 ? "item" : "subitem", refId: task.id }); }}>+</button>
                         </div>
                       ))}
                     </div>
@@ -2146,60 +2166,77 @@ export default function AppShell() {
                   if (!task) return null;
                   return (
                     <>
-                      <div className="finder-header">
-                        <span>Mémo</span>
-                        <div className="flex gap-1">
-                          <button className={iconBtn} title={task.starred ? "Retirer l'étoile" : "Prioritaire ⭐"}
-                            onClick={() => updateFloatingTask(user.uid, task.id, { starred: !task.starred })}>{task.starred ? "⭐" : "☆"}</button>
-                          <button className={iconBtn + " !text-green-500"} onClick={() => handleMarkFloatingDone(task.id)} title="Réalisée">✓</button>
-                          <button className={iconBtn} onClick={() => setMyDayDetailId(null)} title="Fermer">✕</button>
+                      {/* Header */}
+                      <div className="flex items-center justify-between px-5 pt-5 pb-2 shrink-0">
+                        <div className="flex items-center gap-2">
+                          <button
+                            title={task.starred ? "Retirer l'étoile" : "Prioritaire"}
+                            onClick={() => updateFloatingTask(user.uid, task.id, { starred: !task.starred })}
+                            className="text-[13px] border-none bg-transparent cursor-pointer p-0 leading-none opacity-60 hover:opacity-100 transition-opacity"
+                          >{task.starred ? "★" : "☆"}</button>
+                          <span className="text-[11px] font-medium text-tx-3 uppercase tracking-widest">Mémo</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => handleMarkFloatingDone(task.id)}
+                            className="text-[11px] font-medium font-[inherit] px-2.5 py-1 rounded-full border border-green-300 text-green-600 bg-transparent cursor-pointer hover:bg-green-50 transition-colors"
+                          >Réalisé</button>
+                          <button onClick={() => setMyDayDetailId(null)}
+                            className="text-[14px] text-tx-3 border-none bg-transparent cursor-pointer hover:text-tx transition-colors p-1">✕</button>
                         </div>
                       </div>
-                      <div className="flex-1 overflow-y-auto px-5 py-5 space-y-1">
+
+                      {/* Titre — clic direct pour éditer */}
+                      <div className="px-5 pb-4">
                         <input
-                          className="w-full text-[18px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight leading-snug cursor-default focus:cursor-text mb-4"
-                          value={task.title} readOnly
-                          onDoubleClick={e => { (e.target as HTMLInputElement).readOnly = false; (e.target as HTMLInputElement).focus(); }}
-                          onBlur={e => { (e.target as HTMLInputElement).readOnly = true; }}
+                          ref={myDayTitleRef}
+                          className="w-full text-[20px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight leading-snug cursor-text"
+                          value={task.title}
                           onChange={e => updateFloatingTask(user.uid, task.id, { title: e.target.value })}
                         />
-                        <div className="flex items-center py-1 rounded hover:bg-bg-subtle">
-                          <div className={propKey}><span className="opacity-60">◎</span> Statut</div>
-                          <div className="flex-1 px-2 py-1 flex flex-wrap gap-1.5">
-                            {STATUSES.map((s, i) => (
-                              <button key={s} onClick={() => updateFloatingTask(user.uid, task.id, { status: s })}
-                                className={`${statusClass(s)} cursor-pointer border-none transition-opacity text-[12.5px] ${task.status === s ? "opacity-100" : "opacity-30 hover:opacity-60"}`}>
-                                <span className="text-[9px] mr-1 opacity-60">{i + 1}</span>{s}
-                              </button>
-                            ))}
-                          </div>
+                      </div>
+
+                      <div className="flex-1 overflow-y-auto px-5 space-y-4 pb-5">
+
+                        {/* Statuts */}
+                        <div className="flex flex-wrap gap-1.5">
+                          {STATUSES.map(s => (
+                            <button key={s} onClick={() => updateFloatingTask(user.uid, task.id, { status: s })}
+                              className={`${statusClass(s)} cursor-pointer border-none transition-all text-[12px] px-3 py-1 rounded-full ${task.status === s ? "opacity-100 scale-100" : "opacity-25 hover:opacity-60"}`}>
+                              {s}
+                            </button>
+                          ))}
                         </div>
-                        <div className="flex items-center py-1 rounded hover:bg-bg-subtle">
-                          <div className={propKey}><span className="opacity-60">📅</span> Échéance</div>
-                          <div className="flex-1 px-2">
-                            <input key={task.id + "-due"} type="date" className="font-[inherit] text-[14px] text-tx bg-transparent border-none outline-none"
-                              defaultValue={task.dueDate?.slice(0,10) ?? ""}
-                              onBlur={e => { if (!e.target.value) { updateFloatingTask(user.uid, task.id, { dueDate: null }); return; } const [y,m,d] = e.target.value.split("-").map(Number); if (y < 1900 || y > 2100) return; updateFloatingTask(user.uid, task.id, { dueDate: new Date(y,m-1,d,12).toISOString() }); }} />
-                          </div>
+
+                        {/* Séparateur */}
+                        <div className="border-t border-border" />
+
+                        {/* Échéance */}
+                        <div>
+                          <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1.5">Échéance</p>
+                          <input key={task.id + "-due"} type="date"
+                            className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-1.5 outline-none focus:border-border-strong transition-colors"
+                            defaultValue={task.dueDate?.slice(0,10) ?? ""}
+                            onBlur={e => { if (!e.target.value) { updateFloatingTask(user.uid, task.id, { dueDate: null }); return; } const [y,m,d] = e.target.value.split("-").map(Number); if (y < 1900 || y > 2100) return; updateFloatingTask(user.uid, task.id, { dueDate: new Date(y,m-1,d,12).toISOString() }); }} />
                         </div>
-                        <div className="flex items-center py-1 rounded hover:bg-bg-subtle">
-                          <div className={propKey}><span className="opacity-60">📁</span> Rattacher</div>
-                          <div className="flex-1 px-2">
-                            <select className="font-[inherit] text-[14px] text-tx-2 bg-transparent border border-border rounded px-2 py-1 outline-none cursor-pointer w-full"
-                              onChange={e => handleAttachFloating(task, e.target.value)} defaultValue="">
-                              <option value="" disabled>Choisir un dossier…</option>
-                              {cases.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
-                            </select>
-                          </div>
+
+                        {/* Rattacher */}
+                        <div>
+                          <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1.5">Dossier</p>
+                          <select className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-1.5 outline-none cursor-pointer w-full focus:border-border-strong transition-colors"
+                            onChange={e => handleAttachFloating(task, e.target.value)} defaultValue="">
+                            <option value="" disabled>Rattacher à un dossier…</option>
+                            {cases.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                          </select>
                         </div>
-                        <div className="py-2 px-2 rounded hover:bg-bg-subtle">
-                          <div className={propKey + " mb-2"}><span className="opacity-60">🔁</span> Récurrence</div>
-                          <div className="pl-1">
-                            <RecurrencePicker
-                              value={task.recurrence ?? null}
-                              onChange={r => updateFloatingTask(user.uid, task.id, { recurrence: r ?? undefined })}
-                            />
-                          </div>
+
+                        {/* Récurrence */}
+                        <div>
+                          <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-2">Récurrence</p>
+                          <RecurrencePicker
+                            value={task.recurrence ?? null}
+                            onChange={r => updateFloatingTask(user.uid, task.id, { recurrence: r ?? undefined })}
+                          />
                         </div>
                       </div>
                     </>
