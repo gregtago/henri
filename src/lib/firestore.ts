@@ -7,6 +7,7 @@ import {
   onSnapshot,
   query,
   serverTimestamp,
+  setDoc,
   Timestamp,
   updateDoc,
   writeBatch,
@@ -334,4 +335,26 @@ export const queryMyDayByDate = async (uid: string, dateKey: string) => {
   const q = query(userCollection(uid, "myDaySelections"), where("dateKey", "==", dateKey));
   const snapshot = await getDocs(q);
   return snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })) as MyDaySelection[];
+};
+
+// ── Restore (pour annulation de suppression) ─────────────────────────────────
+
+export const restoreCase = async (uid: string, caseData: Case) => {
+  await setDoc(doc(db, `users/${uid}/cases/${caseData.id}`), caseData);
+};
+
+export const restoreItems = async (uid: string, itemList: Item[]) => {
+  const batch = writeBatch(db);
+  itemList.forEach(item => {
+    batch.set(doc(db, `users/${uid}/items/${item.id}`), item);
+  });
+  await batch.commit();
+};
+
+export const restoreFloatingTasks = async (uid: string, taskList: import("./types").FloatingTask[]) => {
+  const batch = writeBatch(db);
+  taskList.forEach(task => {
+    batch.set(doc(db, `users/${uid}/floatingTasks/${task.id}`), task);
+  });
+  await batch.commit();
 };

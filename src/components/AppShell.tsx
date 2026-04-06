@@ -15,6 +15,9 @@ import {
   deleteCaseCascade,
   deleteFloatingTasks,
   deleteItemsCascade,
+  restoreCase,
+  restoreItems,
+  restoreFloatingTasks,
   deleteMyDaySelection,
   ensureSeedData,
   exportCaseToJson,
@@ -62,7 +65,8 @@ const isEditableElement = (element: EventTarget | null) => {
 
 type PendingDelete = {
   message: string;
-  action: () => Promise<void>;
+  action: () => Promise<void>;        // suppression déjà exécutée (pour nettoyage final)
+  restore: () => Promise<void>;       // restauration si annulation
   timeoutId: number;
   expiresAt: number;
 };
@@ -739,21 +743,26 @@ export default function AppShell() {
   };
 
 
-  const scheduleDelete = (message: string, action: () => Promise<void>) => {
+  const scheduleDelete = (message: string, action: () => Promise<void>, restore: () => Promise<void>) => {
+    // Annuler le pendingDelete précédent (sans restaurer)
     if (pendingDelete?.timeoutId) {
       window.clearTimeout(pendingDelete.timeoutId);
     }
+    // Exécuter la suppression immédiatement
+    action();
     const expiresAt = Date.now() + (settings.deleteDelay * 1000);
-    const timeoutId = window.setTimeout(async () => {
-      await action();
+    const timeoutId = window.setTimeout(() => {
       setPendingDelete(null);
     }, settings.deleteDelay * 1000);
-    setPendingDelete({ message, action, timeoutId, expiresAt });
+    setPendingDelete({ message, action, restore, timeoutId, expiresAt });
   };
 
-  const handleUndoDelete = () => {
+  const handleUndoDelete = async () => {
     if (pendingDelete?.timeoutId) {
       window.clearTimeout(pendingDelete.timeoutId);
+    }
+    if (pendingDelete?.restore) {
+      await pendingDelete.restore();
     }
     setPendingDelete(null);
   };
@@ -762,38 +771,54 @@ export default function AppShell() {
     if (!user) return;
     if (isMyDay) {
       if (selectedFloatingIds.length > 0) {
+        const tasksToDelete = selectedFloatingIds.map(id => floatingTasks.find(t => t.id === id)).filter(Boolean) as typeof floatingTasks;
         scheduleDelete(`Supprimer ${selectedFloatingIds.length} mémo(s).`, async () => {
           await deleteFloatingTasks(user.uid, selectedFloatingIds);
           setSelectedFloatingIds([]);
+        }, async () => {
+          await restoreFloatingTasks(user.uid, tasksToDelete);
         });
       }
       return;
     }
     if (activeColumn === "cases" && selectedCaseIds.length > 0) {
+      const casesToDelete = selectedCaseIds.map(id => cases.find(c => c.id === id)).filter(Boolean) as typeof cases;
+      const itemsToDelete = items.filter(item => selectedCaseIds.includes(item.caseId));
       scheduleDelete(`Supprimer ${selectedCaseIds.length} dossier(s) et leurs tâches.`, async () => {
         await Promise.all(selectedCaseIds.map((id) => deleteCaseCascade(user.uid, id, items)));
         setSelectedCaseIds([]);
+      }, async () => {
+        await Promise.all(casesToDelete.map(c => restoreCase(user.uid, c)));
+        await restoreItems(user.uid, itemsToDelete);
       });
       return;
     }
     if (activeColumn === "detail" && detailTarget) {
       if (detailTarget.type === "case") {
+        const caseSnapshot = detailCase ? { ...detailCase } : null;
+        const caseItemsSnapshot = items.filter(i => i.caseId === detailTarget.id).map(i => ({ ...i }));
         scheduleDelete("Supprimer le dossier et ses tâches.", async () => {
           await deleteCaseCascade(user.uid, detailTarget.id, items);
           setSelectedCaseIds([]);
           setSelectedCaseId(null);
           setDetailTarget(null);
+        }, async () => {
+          if (caseSnapshot) await restoreCase(user.uid, caseSnapshot);
+          await restoreItems(user.uid, caseItemsSnapshot);
         });
         return;
       }
       const ids = [detailTarget.id];
       const subCount = items.filter((item) => item.parentItemId && ids.includes(item.parentItemId)).length;
       const label = subCount > 0 ? `Supprimer 1 tâche et ${subCount} sous-tâche(s).` : "Supprimer la tâche.";
+      const itemsSnapshot = items.filter(i => ids.includes(i.id) || (i.parentItemId && ids.includes(i.parentItemId))).map(i => ({ ...i }));
       scheduleDelete(label, async () => {
         await deleteItemsCascade(user.uid, ids, items);
         setSelectedItemIds([]);
         setSelectedSubItemIds([]);
         setDetailTarget(null);
+      }, async () => {
+        await restoreItems(user.uid, itemsSnapshot);
       });
       return;
     }
@@ -802,10 +827,13 @@ export default function AppShell() {
       if (ids.length === 0) return;
       const subCount = items.filter((item) => item.parentItemId && ids.includes(item.parentItemId)).length;
       const label = subCount > 0 ? `Supprimer ${ids.length} tâche(s) et ${subCount} sous-tâche(s).` : `Supprimer ${ids.length} tâche(s).`;
+      const colItemsSnapshot = items.filter(i => ids.includes(i.id) || (i.parentItemId && ids.includes(i.parentItemId))).map(i => ({ ...i }));
       scheduleDelete(label, async () => {
         await deleteItemsCascade(user.uid, ids, items);
         setSelectedItemIds([]);
         setSelectedSubItemIds([]);
+      }, async () => {
+        await restoreItems(user.uid, colItemsSnapshot);
       });
     }
   };
@@ -1167,7 +1195,6 @@ export default function AppShell() {
         const ref = myDayDetailId ? myDayTitleRef.current : detailTitleRef.current;
         if (ref) {
           ref.readOnly = false;
-          ref.style.background = "#eff6ff";
           ref.focus();
           ref.select();
         }
