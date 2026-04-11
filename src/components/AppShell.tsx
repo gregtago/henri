@@ -19,7 +19,6 @@ import {
   restoreItems,
   restoreFloatingTasks,
   deleteMyDaySelection,
-  ensureSeedData,
   exportCaseToJson,
   getItemsByCase,
   getSubItems,
@@ -181,7 +180,6 @@ export default function AppShell() {
     const unsubEvents = subscribeEvents(user.uid, setEvents);
     const unsubFloating = subscribeFloatingTasks(user.uid, setFloatingTasks);
     const unsubMyDay = subscribeMyDaySelections(user.uid, setLiveMyDaySelections, startOfWindow);
-    ensureSeedData(user.uid, seedData);
     return () => {
       unsubCases();
       unsubItems();
@@ -191,22 +189,6 @@ export default function AppShell() {
       unsubMyDay();
     };
   }, [user, startOfWindow]);
-
-  // Nettoyage des myDaySelections orphelines (refId vers item/case supprimé)
-  useEffect(() => {
-    if (!user || items.length === 0 || liveMyDaySelections.length === 0) return;
-    const itemIds = new Set(items.map(i => i.id));
-    const caseIds = new Set(cases.map(c => c.id));
-    const orphans = liveMyDaySelections.filter(sel => {
-      if (sel.refType === "item" || sel.refType === "subitem") return !itemIds.has(sel.refId);
-      if (sel.refType === "case") return !caseIds.has(sel.refId);
-      return false;
-    });
-    if (orphans.length > 0) {
-      console.log(`[Henri] Nettoyage ${orphans.length} myDaySelection(s) orpheline(s)`);
-      orphans.forEach(sel => deleteMyDaySelection(user.uid, sel.id));
-    }
-  }, [user, items, cases, liveMyDaySelections]);
 
   useEffect(() => {
     if (!user) return;
