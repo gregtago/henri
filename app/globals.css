@@ -108,18 +108,23 @@ body {
 
 .finder-row:hover { background: var(--bg-subtle); }
 
-/* Sélectionné dans la colonne courante (focus actif) */
+/* Sélectionné dans la colonne courante (focus actif) — bleu vif */
 .finder-row[data-active="true"] {
   background: #dbeafe;
-  border-left: 2px solid #2f6eff;
-  padding-left: 12px;
+  border-left: 3px solid #2f6eff;
+  padding-left: 11px;
+}
+.finder-row[data-active="true"] p,
+.finder-row[data-active="true"] .text-tx {
+  font-weight: 600;
 }
 
-/* Sélectionné dans une colonne parente (contexte inactif) */
+/* Sélectionné dans une colonne parente (contexte) — gris discret */
 .finder-row[data-selected="true"] {
-  background: #f0f4ff;
-  border-left: 2px solid #93c5fd;
-  padding-left: 12px;
+  background: var(--bg-subtle);
+  border-left: 3px solid var(--border-strong);
+  padding-left: 11px;
+  opacity: 0.75;
 }
 
 /* ── INLINE CREATE ROW ── */

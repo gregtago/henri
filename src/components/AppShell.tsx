@@ -908,6 +908,7 @@ export default function AppShell() {
     });
     setSelectedSubItemId(id);
     setSelectedSubItemIds([id]);
+    setActiveColumn("subitems");
     setDetailTarget({ type: "item", id });
     focusWhenReady(detailTitleRef);
   }, [isMyDay, resolvedActiveColumn, selectedCaseId, selectedItem?.caseId, selectedItemId, user, todayKey]);
@@ -961,6 +962,7 @@ export default function AppShell() {
       });
       setSelectedSubItemId(id);
       setSelectedSubItemIds([id]);
+      setActiveColumn("subitems");
       setDetailTarget({ type: "item", id });
       focusWhenReady(detailTitleRef);
       return;
