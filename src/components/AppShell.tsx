@@ -939,6 +939,7 @@ export default function AppShell() {
       setSelectedItemIds([id]);
       setSelectedSubItemId(null);
       setSelectedSubItemIds([]);
+      setActiveColumn("items");
       setDetailTarget({ type: "item", id });
       focusWhenReady(detailTitleRef);
       return;
