@@ -1885,13 +1885,18 @@ export default function AppShell() {
               )}
 
               <div className="finder-list" ref={itemsListRef}>
-                {itemsColumnItems.map((entry) => (
+                {itemsColumnItems.map((entry) => {
+                  const isOverdue = !!entry.dueDate && new Date(entry.dueDate) < new Date() && getProgressLevel(entry.status) !== 3;
+                  const isDueToday = !!entry.dueDate && entry.dueDate.slice(0,10) === todayKey && !isOverdue;
+                  const rowBg = entry.starred ? "rgba(251,191,36,0.12)" : isOverdue ? "rgba(239,68,68,0.08)" : isDueToday ? "rgba(34,197,94,0.08)" : undefined;
+                  return (
                   <div
                     key={entry.id}
                     className="finder-row"
                     data-id={entry.id}
                     data-selected={selectedItemIds.includes(entry.id) ? "true" : undefined}
                     data-active={selectedItemId === entry.id ? "true" : undefined}
+                    style={rowBg ? {background: rowBg} : undefined}
                     onClick={(e) =>
                       selectionModeItems
                         ? handleSelectItem(entry.id, { multi: true })
@@ -1921,7 +1926,8 @@ export default function AppShell() {
                     </div>
                     <span className={statusClass(entry.status)}>{entry.status}</span>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -2045,13 +2051,13 @@ export default function AppShell() {
                     <div className="px-3 pt-3 pb-1">
                       <p className="text-[10px] font-medium text-tx-3 uppercase tracking-wide mb-1.5">⭐ Importantes</p>
                       {suggestions.starred.map(item => (
-                        <div key={item.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-hover group cursor-default">
+                        <div key={item.id} className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition-colors"
+                          style={{background: "rgba(251,191,36,0.15)"}}
+                          onClick={() => { playAdd(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: item.level === 2 ? "item" : "subitem", refId: item.id }); }}>
                           <div className="flex-1 min-w-0">
                             <p className="text-[12px] font-medium text-tx truncate">{item.title}</p>
                             <p className="text-[10px] text-tx-3 truncate">{cases.find(c => c.id === item.caseId)?.title}</p>
                           </div>
-                          <button className="opacity-0 group-hover:opacity-100 shrink-0 text-[11px] text-accent border border-[#93c5fd] rounded px-1.5 py-0.5 bg-transparent cursor-pointer transition-opacity"
-                            onClick={() => { playAdd(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: item.level === 2 ? "item" : "subitem", refId: item.id }); }}>+</button>
                         </div>
                       ))}
                     </div>
@@ -2062,13 +2068,13 @@ export default function AppShell() {
                     <div className="px-3 pt-3 pb-1">
                       <p className="text-[10px] font-medium text-tx-3 uppercase tracking-wide mb-1.5">🔴 En retard</p>
                       {suggestions.overdue.map(item => (
-                        <div key={item.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-hover group cursor-default">
+                        <div key={item.id} className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition-colors"
+                          style={{background: "rgba(239,68,68,0.1)"}}
+                          onClick={() => { playAdd(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: item.level === 2 ? "item" : "subitem", refId: item.id }); }}>
                           <div className="flex-1 min-w-0">
                             <p className="text-[12px] text-tx truncate">{item.title}</p>
                             <p className="text-[11px] text-red-500">{item.dueDate ? formatDateFR(item.dueDate) : ""}</p>
                           </div>
-                          <button className="opacity-0 group-hover:opacity-100 shrink-0 text-[11px] text-accent border border-[#93c5fd] rounded px-1.5 py-0.5 bg-transparent cursor-pointer transition-opacity"
-                            onClick={() => { playAdd(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: item.level === 2 ? "item" : "subitem", refId: item.id }); }}>+</button>
                         </div>
                       ))}
                     </div>
@@ -2079,13 +2085,13 @@ export default function AppShell() {
                     <div className="px-3 pt-3 pb-1">
                       <p className="text-[10px] font-medium text-tx-3 uppercase tracking-wide mb-1.5">📅 Aujourd'hui</p>
                       {suggestions.dueToday.map(item => (
-                        <div key={item.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-hover group cursor-default">
+                        <div key={item.id} className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition-colors"
+                          style={{background: "rgba(34,197,94,0.1)"}}
+                          onClick={() => { playAdd(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: item.level === 2 ? "item" : "subitem", refId: item.id }); }}>
                           <div className="flex-1 min-w-0">
                             <p className="text-[12px] text-tx truncate">{item.title}</p>
                             <p className="text-[10px] text-tx-3 truncate">{cases.find(c => c.id === item.caseId)?.title}</p>
                           </div>
-                          <button className="opacity-0 group-hover:opacity-100 shrink-0 text-[11px] text-accent border border-[#93c5fd] rounded px-1.5 py-0.5 bg-transparent cursor-pointer transition-opacity"
-                            onClick={() => { playAdd(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: item.level === 2 ? "item" : "subitem", refId: item.id }); }}>+</button>
                         </div>
                       ))}
                     </div>
@@ -2096,13 +2102,13 @@ export default function AppShell() {
                     <div className="px-3 pt-3 pb-1">
                       <p className="text-[10px] font-medium text-tx-3 uppercase tracking-wide mb-1.5">🆕 Récentes</p>
                       {suggestions.recent.map(item => (
-                        <div key={item.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-hover group cursor-default">
+                        <div key={item.id} className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition-colors"
+                          style={{background: "rgba(59,130,246,0.08)"}}
+                          onClick={() => { playAdd(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: item.level === 2 ? "item" : "subitem", refId: item.id }); }}>
                           <div className="flex-1 min-w-0">
                             <p className="text-[12px] text-tx truncate">{item.title}</p>
                             <p className="text-[10px] text-tx-3 truncate">{cases.find(c => c.id === item.caseId)?.title}</p>
                           </div>
-                          <button className="opacity-0 group-hover:opacity-100 shrink-0 text-[11px] text-accent border border-[#93c5fd] rounded px-1.5 py-0.5 bg-transparent cursor-pointer transition-opacity"
-                            onClick={() => { playAdd(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: item.level === 2 ? "item" : "subitem", refId: item.id }); }}>+</button>
                         </div>
                       ))}
                     </div>
@@ -2151,6 +2157,7 @@ export default function AppShell() {
                   {myDaySorted.filter(e => e.hasDue).map(entry => (
                     <div key={entry.key} className="finder-row group"
                       data-active={myDayDetailId === entry.key ? "true" : undefined}
+                      style={entry.overdue ? {background:"rgba(239,68,68,0.08)"} : {background:"rgba(34,197,94,0.08)"}}
                       onClick={() => setMyDayDetailId(myDayDetailId === entry.key ? null : entry.key)}>
                       <button className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer hover:border-accent hover:bg-blue-50 transition-colors"
                         onClick={e => { e.stopPropagation(); const sel = myDaySelections.find(s => s.id === entry.selectionId); if (!sel) return; const item = items.find(i => i.id === sel.refId); if (item) handleMarkMyDayItemDone(item, entry.selectionId); }} title="Réalisée" />
@@ -2184,6 +2191,7 @@ export default function AppShell() {
                   {todayFloating.filter(t => !t.starred && !!t.dueDate).sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime()).map(task => (
                     <div key={task.id} className="finder-row group"
                       data-active={myDayDetailId === `f-${task.id}` ? "true" : undefined}
+                      style={new Date(task.dueDate!) < new Date() ? {background:"rgba(239,68,68,0.08)"} : {background:"rgba(34,197,94,0.08)"}}
                       onClick={() => setMyDayDetailId(myDayDetailId === `f-${task.id}` ? null : `f-${task.id}`)}>
                       <button className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer hover:border-accent transition-colors"
                         onClick={e => { e.stopPropagation(); handleMarkFloatingDone(task.id); }} title="Réalisée" />
