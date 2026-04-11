@@ -2270,7 +2270,7 @@ export default function AppShell() {
           </div>
 
           {/* ── COL DÉTAIL : 40% ── */}
-          <div className="flex flex-col overflow-hidden bg-white" style={{flex:"0 0 40%"}}>
+          <div className="flex flex-col overflow-hidden bg-bg-subtle" style={{flex:"0 0 40%"}}>
 
             {myDayDetailId ? (
               /* Détail tâche sélectionnée */
