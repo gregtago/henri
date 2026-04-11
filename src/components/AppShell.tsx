@@ -476,30 +476,33 @@ export default function AppShell() {
     );
     const notAdded = (item: Item) => !todaySelectionRefIds.has(item.id);
     const notDone = (item: Item) => getProgressLevel(item.status) !== 3;
+    // Tâche actionnable : sous-tâche (level 3) OU tâche sans sous-tâches (level 2 feuille)
+    const itemIdsWithChildren = new Set(items.filter(i => i.parentItemId).map(i => i.parentItemId!));
+    const isLeaf = (item: Item) => item.level === 3 || !itemIdsWithChildren.has(item.id);
     const recentDays = 5; // ajoutées dans les 5 derniers jours
     const recentThreshold = new Date();
     recentThreshold.setDate(recentThreshold.getDate() - recentDays);
 
     // 1. Importantes (starred)
-    const starred = items.filter(item => item.starred && notAdded(item) && notDone(item));
+    const starred = items.filter(item => item.starred && notAdded(item) && notDone(item) && isLeaf(item));
 
     // 2. En retard (dueDate < today, non fait)
     const overdue = items.filter(item => {
-      if (!notAdded(item) || !notDone(item) || item.starred) return false;
+      if (!notAdded(item) || !notDone(item) || item.starred || !isLeaf(item)) return false;
       const dueKey = getDateKeyFromValue(item.dueDate);
       return dueKey ? dueKey < todayKey : false;
     });
 
     // 3. Échéances aujourd'hui
     const dueToday = items.filter(item => {
-      if (!notAdded(item) || !notDone(item) || item.starred) return false;
+      if (!notAdded(item) || !notDone(item) || item.starred || !isLeaf(item)) return false;
       const dueKey = getDateKeyFromValue(item.dueDate);
       return dueKey === todayKey;
     });
 
     // 4. Ajoutées récemment (createdAt dans les N derniers jours, pas d'échéance spécifique)
     const recent = items.filter(item => {
-      if (!notAdded(item) || !notDone(item) || item.starred) return false;
+      if (!notAdded(item) || !notDone(item) || item.starred || !isLeaf(item)) return false;
       const dueKey = getDateKeyFromValue(item.dueDate);
       if (dueKey && dueKey <= todayKey) return false; // déjà dans overdue ou dueToday
       const createdAt = new Date(item.createdAt);
@@ -2048,32 +2051,21 @@ export default function AppShell() {
                   {suggestions.starred.length > 0 && (
                     <div className="px-3 pt-3 pb-1">
                       <p className="text-[10px] font-medium text-tx-3 uppercase tracking-wide mb-1.5">⭐ Importantes</p>
-                      {(() => {
-                        const bg = "rgba(251,191,36,0.15)";
-                        const addFn = (item: Item) => { playAdd(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: item.level === 2 ? "item" : "subitem", refId: item.id }); };
-                        const parents = suggestions.starred.filter(i => i.level === 2);
-                        const subs = suggestions.starred.filter(i => i.level === 3);
-                        return parents.map(parent => (
-                          <div key={parent.id} className="mb-1">
-                            <div className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer" style={{background: bg}} onClick={() => addFn(parent)}>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-[12px] font-medium text-tx truncate">{parent.title}</p>
-                                <p className="text-[10px] text-tx-3 truncate">{cases.find(c => c.id === parent.caseId)?.title}</p>
-                              </div>
+                      {suggestions.starred.map(item => {
+                        const parentItem = item.level === 3 ? items.find(i => i.id === item.parentItemId) : null;
+                        const caseTitle = cases.find(c => c.id === item.caseId)?.title ?? "";
+                        const subtitle = parentItem ? `${parentItem.title} · ${caseTitle}` : caseTitle;
+                        return (
+                          <div key={item.id} className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer mb-0.5"
+                            style={{background: "rgba(251,191,36,0.15)"}}
+                            onClick={() => { playAdd(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: item.level === 2 ? "item" : "subitem", refId: item.id }); }}>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[12px] font-medium text-tx truncate">{item.title}</p>
+                              {subtitle && <p className="text-[10px] text-tx-3 truncate">{subtitle}</p>}
                             </div>
-                            {subs.filter(s => s.parentItemId === parent.id).map(sub => (
-                              <div key={sub.id} className="flex items-center gap-2 pl-5 pr-2 py-1 rounded cursor-pointer mt-0.5" style={{background: bg, opacity: 0.8}} onClick={() => addFn(sub)}>
-                                <span className="text-[9px] text-tx-3 shrink-0">↳</span>
-                                <p className="text-[11px] text-tx truncate">{sub.title}</p>
-                              </div>
-                            ))}
                           </div>
-                        )).concat(subs.filter(s => !parents.some(p => p.id === s.parentItemId)).map(sub => (
-                          <div key={sub.id} className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer mb-0.5" style={{background: bg}} onClick={() => addFn(sub)}>
-                            <div className="flex-1 min-w-0"><p className="text-[12px] text-tx truncate">{sub.title}</p></div>
-                          </div>
-                        )));
-                      })()}
+                        );
+                      })}
                     </div>
                   )}
 
@@ -2081,35 +2073,22 @@ export default function AppShell() {
                   {suggestions.overdue.length > 0 && (
                     <div className="px-3 pt-3 pb-1">
                       <p className="text-[10px] font-medium text-tx-3 uppercase tracking-wide mb-1.5">🔴 En retard</p>
-                      {(() => {
-                        const bg = "rgba(239,68,68,0.1)";
-                        const addFn = (item: Item) => { playAdd(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: item.level === 2 ? "item" : "subitem", refId: item.id }); };
-                        const parents = suggestions.overdue.filter(i => i.level === 2);
-                        const subs = suggestions.overdue.filter(i => i.level === 3);
-                        return parents.map(parent => (
-                          <div key={parent.id} className="mb-1">
-                            <div className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer" style={{background: bg}} onClick={() => addFn(parent)}>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-[12px] text-tx truncate">{parent.title}</p>
-                                <p className="text-[11px] text-red-500">{parent.dueDate ? formatDateFR(parent.dueDate) : ""}</p>
-                              </div>
-                            </div>
-                            {subs.filter(s => s.parentItemId === parent.id).map(sub => (
-                              <div key={sub.id} className="flex items-center gap-2 pl-5 pr-2 py-1 rounded cursor-pointer mt-0.5" style={{background: bg, opacity: 0.8}} onClick={() => addFn(sub)}>
-                                <span className="text-[9px] text-tx-3 shrink-0">↳</span>
-                                <p className="text-[11px] text-tx truncate">{sub.title}</p>
-                              </div>
-                            ))}
-                          </div>
-                        )).concat(subs.filter(s => !parents.some(p => p.id === s.parentItemId)).map(sub => (
-                          <div key={sub.id} className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer mb-0.5" style={{background: bg}} onClick={() => addFn(sub)}>
+                      {suggestions.overdue.map(item => {
+                        const parentItem = item.level === 3 ? items.find(i => i.id === item.parentItemId) : null;
+                        const caseTitle = cases.find(c => c.id === item.caseId)?.title ?? "";
+                        const subtitle = parentItem ? `${parentItem.title} · ${caseTitle}` : caseTitle;
+                        return (
+                          <div key={item.id} className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer mb-0.5"
+                            style={{background: "rgba(239,68,68,0.1)"}}
+                            onClick={() => { playAdd(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: item.level === 2 ? "item" : "subitem", refId: item.id }); }}>
                             <div className="flex-1 min-w-0">
-                              <p className="text-[12px] text-tx truncate">{sub.title}</p>
-                              <p className="text-[11px] text-red-500">{sub.dueDate ? formatDateFR(sub.dueDate) : ""}</p>
+                              <p className="text-[12px] text-tx truncate">{item.title}</p>
+                              {subtitle && <p className="text-[10px] text-tx-3 truncate">{subtitle}</p>}
+                              {item.dueDate && <p className="text-[10px] text-red-500">{formatDateFR(item.dueDate)}</p>}
                             </div>
                           </div>
-                        )));
-                      })()}
+                        );
+                      })}
                     </div>
                   )}
 
@@ -2117,32 +2096,21 @@ export default function AppShell() {
                   {suggestions.dueToday.length > 0 && (
                     <div className="px-3 pt-3 pb-1">
                       <p className="text-[10px] font-medium text-tx-3 uppercase tracking-wide mb-1.5">📅 Aujourd'hui</p>
-                      {(() => {
-                        const bg = "rgba(34,197,94,0.1)";
-                        const addFn = (item: Item) => { playAdd(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: item.level === 2 ? "item" : "subitem", refId: item.id }); };
-                        const parents = suggestions.dueToday.filter(i => i.level === 2);
-                        const subs = suggestions.dueToday.filter(i => i.level === 3);
-                        return parents.map(parent => (
-                          <div key={parent.id} className="mb-1">
-                            <div className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer" style={{background: bg}} onClick={() => addFn(parent)}>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-[12px] text-tx truncate">{parent.title}</p>
-                                <p className="text-[10px] text-tx-3 truncate">{cases.find(c => c.id === parent.caseId)?.title}</p>
-                              </div>
+                      {suggestions.dueToday.map(item => {
+                        const parentItem = item.level === 3 ? items.find(i => i.id === item.parentItemId) : null;
+                        const caseTitle = cases.find(c => c.id === item.caseId)?.title ?? "";
+                        const subtitle = parentItem ? `${parentItem.title} · ${caseTitle}` : caseTitle;
+                        return (
+                          <div key={item.id} className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer mb-0.5"
+                            style={{background: "rgba(34,197,94,0.1)"}}
+                            onClick={() => { playAdd(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: item.level === 2 ? "item" : "subitem", refId: item.id }); }}>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[12px] text-tx truncate">{item.title}</p>
+                              {subtitle && <p className="text-[10px] text-tx-3 truncate">{subtitle}</p>}
                             </div>
-                            {subs.filter(s => s.parentItemId === parent.id).map(sub => (
-                              <div key={sub.id} className="flex items-center gap-2 pl-5 pr-2 py-1 rounded cursor-pointer mt-0.5" style={{background: bg, opacity: 0.8}} onClick={() => addFn(sub)}>
-                                <span className="text-[9px] text-tx-3 shrink-0">↳</span>
-                                <p className="text-[11px] text-tx truncate">{sub.title}</p>
-                              </div>
-                            ))}
                           </div>
-                        )).concat(subs.filter(s => !parents.some(p => p.id === s.parentItemId)).map(sub => (
-                          <div key={sub.id} className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer mb-0.5" style={{background: bg}} onClick={() => addFn(sub)}>
-                            <div className="flex-1 min-w-0"><p className="text-[12px] text-tx truncate">{sub.title}</p></div>
-                          </div>
-                        )));
-                      })()}
+                        );
+                      })}
                     </div>
                   )}
 
@@ -2150,32 +2118,21 @@ export default function AppShell() {
                   {suggestions.recent.length > 0 && (
                     <div className="px-3 pt-3 pb-1">
                       <p className="text-[10px] font-medium text-tx-3 uppercase tracking-wide mb-1.5">🆕 Récentes</p>
-                      {(() => {
-                        const bg = "rgba(59,130,246,0.08)";
-                        const addFn = (item: Item) => { playAdd(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: item.level === 2 ? "item" : "subitem", refId: item.id }); };
-                        const parents = suggestions.recent.filter(i => i.level === 2);
-                        const subs = suggestions.recent.filter(i => i.level === 3);
-                        return parents.map(parent => (
-                          <div key={parent.id} className="mb-1">
-                            <div className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer" style={{background: bg}} onClick={() => addFn(parent)}>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-[12px] text-tx truncate">{parent.title}</p>
-                                <p className="text-[10px] text-tx-3 truncate">{cases.find(c => c.id === parent.caseId)?.title}</p>
-                              </div>
+                      {suggestions.recent.map(item => {
+                        const parentItem = item.level === 3 ? items.find(i => i.id === item.parentItemId) : null;
+                        const caseTitle = cases.find(c => c.id === item.caseId)?.title ?? "";
+                        const subtitle = parentItem ? `${parentItem.title} · ${caseTitle}` : caseTitle;
+                        return (
+                          <div key={item.id} className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer mb-0.5"
+                            style={{background: "rgba(59,130,246,0.08)"}}
+                            onClick={() => { playAdd(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: item.level === 2 ? "item" : "subitem", refId: item.id }); }}>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[12px] text-tx truncate">{item.title}</p>
+                              {subtitle && <p className="text-[10px] text-tx-3 truncate">{subtitle}</p>}
                             </div>
-                            {subs.filter(s => s.parentItemId === parent.id).map(sub => (
-                              <div key={sub.id} className="flex items-center gap-2 pl-5 pr-2 py-1 rounded cursor-pointer mt-0.5" style={{background: bg, opacity: 0.8}} onClick={() => addFn(sub)}>
-                                <span className="text-[9px] text-tx-3 shrink-0">↳</span>
-                                <p className="text-[11px] text-tx truncate">{sub.title}</p>
-                              </div>
-                            ))}
                           </div>
-                        )).concat(subs.filter(s => !parents.some(p => p.id === s.parentItemId)).map(sub => (
-                          <div key={sub.id} className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer mb-0.5" style={{background: bg}} onClick={() => addFn(sub)}>
-                            <div className="flex-1 min-w-0"><p className="text-[12px] text-tx truncate">{sub.title}</p></div>
-                          </div>
-                        )));
-                      })()}
+                        );
+                      })}
                     </div>
                   )}
                 </>
