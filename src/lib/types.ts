@@ -26,6 +26,7 @@ export type Item = {
   level: 2 | 3;
   title: string;
   status: Status;
+  starred?: boolean | null;
   dueDate?: string | null;
   lastReminderAt?: string | null;
   progressLevel?: number | null;

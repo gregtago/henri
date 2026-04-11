@@ -476,21 +476,40 @@ export default function AppShell() {
         .filter((entry) => entry.dateKey === todayKey)
         .map((entry) => entry.refId)
     );
-    const dueToday = items.filter((item) => {
+    const notAdded = (item: Item) => !todaySelectionRefIds.has(item.id);
+    const notDone = (item: Item) => getProgressLevel(item.status) !== 3;
+    const recentDays = 5; // ajoutées dans les 5 derniers jours
+    const recentThreshold = new Date();
+    recentThreshold.setDate(recentThreshold.getDate() - recentDays);
+
+    // 1. Importantes (starred)
+    const starred = items.filter(item => item.starred && notAdded(item) && notDone(item));
+
+    // 2. En retard (dueDate < today, non fait)
+    const overdue = items.filter(item => {
+      if (!notAdded(item) || !notDone(item) || item.starred) return false;
       const dueKey = getDateKeyFromValue(item.dueDate);
-      return dueKey ? dueKey <= todayKey && !todaySelectionRefIds.has(item.id) : false;
+      return dueKey ? dueKey < todayKey : false;
     });
-    const yesterdaySelections = myDaySelections.filter((entry) =>
-      entry.dateKey === yesterdayKey && !todaySelectionRefIds.has(entry.refId)
-    );
-    // Mémos d'hier pas encore reprises aujourd'hui
-    const floatingYesterday = floatingTasks.filter((task) => task.dateKey === yesterdayKey);
-    return {
-      dueToday,
-      yesterdaySelections,
-      floatingYesterday
-    };
-  }, [items, myDaySelections, floatingTasks, todayKey, yesterdayKey]);
+
+    // 3. Échéances aujourd'hui
+    const dueToday = items.filter(item => {
+      if (!notAdded(item) || !notDone(item) || item.starred) return false;
+      const dueKey = getDateKeyFromValue(item.dueDate);
+      return dueKey === todayKey;
+    });
+
+    // 4. Ajoutées récemment (createdAt dans les N derniers jours, pas d'échéance spécifique)
+    const recent = items.filter(item => {
+      if (!notAdded(item) || !notDone(item) || item.starred) return false;
+      const dueKey = getDateKeyFromValue(item.dueDate);
+      if (dueKey && dueKey <= todayKey) return false; // déjà dans overdue ou dueToday
+      const createdAt = new Date(item.createdAt);
+      return createdAt >= recentThreshold;
+    });
+
+    return { starred, overdue, dueToday, recent };
+  }, [items, myDaySelections, todayKey]);
 
   const reparentOptions = useMemo(() => {
     if (!reparentTarget) return [];
@@ -1561,8 +1580,14 @@ export default function AppShell() {
             />
 
             <div className="space-y-4">
-              {/* Statuts */}
-              <div className="flex flex-wrap gap-1.5">
+              {/* Statuts + étoile */}
+              <div className="flex flex-wrap gap-1.5 items-center">
+                <button
+                  title={detailItem.starred ? "Retirer l'étoile" : "Marquer importante"}
+                  onClick={() => updateItem(user.uid, detailItem.id, { starred: !detailItem.starred })}
+                  className="text-[18px] border-none bg-transparent cursor-pointer p-0 leading-none transition-opacity hover:scale-110"
+                  style={{color: detailItem.starred ? "#f59e0b" : undefined, opacity: detailItem.starred ? 1 : 0.2}}
+                >{detailItem.starred ? "★" : "☆"}</button>
                 {STATUSES.map(s => (
                   <button key={s} onClick={() => handleStatusChange(s)}
                     className={`${statusClass(s)} cursor-pointer border-none transition-all text-[12px] px-3 py-1 rounded-full ${detailItem.status === s ? "opacity-100" : "opacity-25 hover:opacity-60"}`}>
@@ -2009,68 +2034,75 @@ export default function AppShell() {
               <span>Suggestions</span>
             </div>
             <div className="flex-1 overflow-y-auto py-1">
-              {suggestions.floatingYesterday.length === 0 && suggestions.yesterdaySelections.length === 0 && suggestions.dueToday.length === 0 && stagnantSuggestions.length === 0 ? (
+              {suggestions.starred.length === 0 && suggestions.overdue.length === 0 && suggestions.dueToday.length === 0 && suggestions.recent.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full gap-2 px-4 text-center">
                   <p className="text-[12px] text-tx-3">Aucune suggestion.</p>
                 </div>
               ) : (
                 <>
+                  {/* 1. Importantes */}
+                  {suggestions.starred.length > 0 && (
+                    <div className="px-3 pt-3 pb-1">
+                      <p className="text-[10px] font-medium text-tx-3 uppercase tracking-wide mb-1.5">⭐ Importantes</p>
+                      {suggestions.starred.map(item => (
+                        <div key={item.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-hover group cursor-default">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[12px] font-medium text-tx truncate">{item.title}</p>
+                            <p className="text-[10px] text-tx-3 truncate">{cases.find(c => c.id === item.caseId)?.title}</p>
+                          </div>
+                          <button className="opacity-0 group-hover:opacity-100 shrink-0 text-[11px] text-accent border border-[#93c5fd] rounded px-1.5 py-0.5 bg-transparent cursor-pointer transition-opacity"
+                            onClick={() => { playAdd(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: item.level === 2 ? "item" : "subitem", refId: item.id }); }}>+</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* 2. En retard */}
+                  {suggestions.overdue.length > 0 && (
+                    <div className="px-3 pt-3 pb-1">
+                      <p className="text-[10px] font-medium text-tx-3 uppercase tracking-wide mb-1.5">🔴 En retard</p>
+                      {suggestions.overdue.map(item => (
+                        <div key={item.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-hover group cursor-default">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[12px] text-tx truncate">{item.title}</p>
+                            <p className="text-[11px] text-red-500">{item.dueDate ? formatDateFR(item.dueDate) : ""}</p>
+                          </div>
+                          <button className="opacity-0 group-hover:opacity-100 shrink-0 text-[11px] text-accent border border-[#93c5fd] rounded px-1.5 py-0.5 bg-transparent cursor-pointer transition-opacity"
+                            onClick={() => { playAdd(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: item.level === 2 ? "item" : "subitem", refId: item.id }); }}>+</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* 3. Échéances aujourd'hui */}
                   {suggestions.dueToday.length > 0 && (
                     <div className="px-3 pt-3 pb-1">
-                      <p className="text-[10px] font-medium text-tx-3 uppercase tracking-wide mb-1.5">Échéances</p>
-                      {suggestions.dueToday.map(task => (
-                        <div key={task.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-hover group cursor-default">
+                      <p className="text-[10px] font-medium text-tx-3 uppercase tracking-wide mb-1.5">📅 Aujourd'hui</p>
+                      {suggestions.dueToday.map(item => (
+                        <div key={item.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-hover group cursor-default">
                           <div className="flex-1 min-w-0">
-                            <p className="text-[12px] text-tx truncate">{task.title}</p>
-                            <p className="text-[11px] text-red-400">{task.dueDate ? formatDateFR(task.dueDate) : "—"}</p>
+                            <p className="text-[12px] text-tx truncate">{item.title}</p>
+                            <p className="text-[10px] text-tx-3 truncate">{cases.find(c => c.id === item.caseId)?.title}</p>
                           </div>
                           <button className="opacity-0 group-hover:opacity-100 shrink-0 text-[11px] text-accent border border-[#93c5fd] rounded px-1.5 py-0.5 bg-transparent cursor-pointer transition-opacity"
-                            onClick={() => { playAdd(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: task.level === 2 ? "item" : "subitem", refId: task.id }); }}>+</button>
+                            onClick={() => { playAdd(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: item.level === 2 ? "item" : "subitem", refId: item.id }); }}>+</button>
                         </div>
                       ))}
                     </div>
                   )}
-                  {suggestions.yesterdaySelections.length > 0 && (
+
+                  {/* 4. Ajoutées récemment */}
+                  {suggestions.recent.length > 0 && (
                     <div className="px-3 pt-3 pb-1">
-                      <p className="text-[10px] font-medium text-tx-3 uppercase tracking-wide mb-1.5">Hier — non terminés</p>
-                      {suggestions.yesterdaySelections.map(entry => {
-                        const title = entry.refType === "case"
-                          ? cases.find(c => c.id === entry.refId)?.title
-                          : items.find(i => i.id === entry.refId)?.title;
-                        if (!title) return null;
-                        return (
-                          <div key={entry.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-hover group cursor-default">
-                            <p className="flex-1 text-[12px] text-tx truncate">{title}</p>
-                            <button className="opacity-0 group-hover:opacity-100 shrink-0 text-[11px] text-accent border border-[#93c5fd] rounded px-1.5 py-0.5 bg-transparent cursor-pointer transition-opacity"
-                              onClick={() => { playAdd(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: entry.refType, refId: entry.refId }); }}>+</button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  {suggestions.floatingYesterday.length > 0 && (
-                    <div className="px-3 pt-3 pb-1">
-                      <p className="text-[10px] font-medium text-tx-3 uppercase tracking-wide mb-1.5">Hier — mémos</p>
-                      {suggestions.floatingYesterday.map(task => (
-                        <div key={task.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-hover group cursor-default">
-                          <p className="flex-1 text-[12px] text-tx truncate">{task.title}</p>
-                          <button className="opacity-0 group-hover:opacity-100 shrink-0 text-[11px] text-accent border border-[#93c5fd] rounded px-1.5 py-0.5 bg-transparent cursor-pointer transition-opacity"
-                            onClick={() => { playAdd(); updateFloatingTask(user.uid, task.id, { dateKey: todayKey }); }}>↩</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {stagnantSuggestions.length > 0 && (
-                    <div className="px-3 pt-3 pb-1">
-                      <p className="text-[10px] font-medium text-tx-3 uppercase tracking-wide mb-1.5">Stagnantes</p>
-                      {stagnantSuggestions.map(task => (
-                        <div key={task.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-hover group cursor-default">
+                      <p className="text-[10px] font-medium text-tx-3 uppercase tracking-wide mb-1.5">🆕 Récentes</p>
+                      {suggestions.recent.map(item => (
+                        <div key={item.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-hover group cursor-default">
                           <div className="flex-1 min-w-0">
-                            <p className="text-[12px] text-tx truncate">{task.title}</p>
-                            <span className={statusClass(task.status as Status)}>{task.status}</span>
+                            <p className="text-[12px] text-tx truncate">{item.title}</p>
+                            <p className="text-[10px] text-tx-3 truncate">{cases.find(c => c.id === item.caseId)?.title}</p>
                           </div>
                           <button className="opacity-0 group-hover:opacity-100 shrink-0 text-[11px] text-accent border border-[#93c5fd] rounded px-1.5 py-0.5 bg-transparent cursor-pointer transition-opacity"
-                            onClick={() => { playAdd(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: task.level === 2 ? "item" : "subitem", refId: task.id }); }}>+</button>
+                            onClick={() => { playAdd(); addMyDaySelection(user.uid, { dateKey: todayKey, refType: item.level === 2 ? "item" : "subitem", refId: item.id }); }}>+</button>
                         </div>
                       ))}
                     </div>
