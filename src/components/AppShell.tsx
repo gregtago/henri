@@ -361,10 +361,6 @@ export default function AppShell() {
 
   // Titre d'onglet dynamique
   useEffect(() => {
-    if (isMyDay) { document.title = "Ma journée — Henri"; return; }
-    if (detailCase) { document.title = `${detailCase.title} — Henri`; return; }
-    if (detailItem) { document.title = `${detailItem.title} — Henri`; return; }
-    if (selectedCase) { document.title = `${selectedCase.title} — Henri`; return; }
     document.title = "Henri";
   }, [isMyDay, detailCase, detailItem, selectedCase]);
 
@@ -1488,6 +1484,7 @@ export default function AppShell() {
                   {(() => {
                     const today = new Date(); today.setHours(12,0,0,0);
                     const shortcuts = [
+                      { label: "Aujourd'hui", date: new Date(today) },
                       { label: "Demain", date: new Date(today.getTime() + 86400000) },
                       { label: "Dans 1 sem.", date: new Date(today.getTime() + 7*86400000) },
                       { label: "Dans 1 mois", date: new Date(today.getFullYear(), today.getMonth()+1, today.getDate(), 12) },
@@ -1606,6 +1603,7 @@ export default function AppShell() {
                   {(() => {
                     const today = new Date(); today.setHours(12,0,0,0);
                     const shortcuts = [
+                      { label: "Aujourd'hui", date: new Date(today) },
                       { label: "Demain", date: new Date(today.getTime() + 86400000) },
                       { label: "Dans 2 j.", date: new Date(today.getTime() + 2*86400000) },
                       { label: (() => { const d = new Date(today); const dow = d.getDay(); const diff = (1-dow+7)%7||7; d.setDate(d.getDate()+diff); return "Lun. "+d.getDate()+"/"+(d.getMonth()+1); })(), date: (() => { const d = new Date(today); const dow = d.getDay(); const diff = (1-dow+7)%7||7; d.setDate(d.getDate()+diff); return d; })() },
@@ -2343,7 +2341,8 @@ export default function AppShell() {
                               const today = new Date();
                               today.setHours(12,0,0,0);
                               const shortcuts = [
-                                { label: "Demain", date: new Date(today.getTime() + 86400000) },
+                                { label: "Aujourd'hui", date: new Date(today) },
+                      { label: "Demain", date: new Date(today.getTime() + 86400000) },
                                 { label: "Dans 2 j.", date: new Date(today.getTime() + 2*86400000) },
                                 { label: (() => { const d = new Date(today); const dow = d.getDay(); const diff = (1 - dow + 7) % 7 || 7; d.setDate(d.getDate() + diff); return "Lun. " + d.getDate() + "/" + (d.getMonth()+1); })(), date: (() => { const d = new Date(today); const dow = d.getDay(); const diff = (1 - dow + 7) % 7 || 7; d.setDate(d.getDate() + diff); return d; })() },
                                 { label: "Dans 1 sem.", date: new Date(today.getTime() + 7*86400000) },
