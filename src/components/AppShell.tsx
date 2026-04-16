@@ -274,14 +274,16 @@ export default function AppShell() {
   }, [cases, caseSortDirection, caseSortKey, showArchived, activeCases, archivedCases]);
 
   const selectedCase = cases.find((entry) => entry.id === selectedCaseId) || null;
-  const caseItems = selectedCase ? getItemsByCase(items, selectedCase.id) : [];
+  const sortByCreatedAt = <T extends {createdAt: string}>(arr: T[]) =>
+    [...arr].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  const caseItems = selectedCase ? sortByCreatedAt(getItemsByCase(items, selectedCase.id)) : [];
   const fallbackItems =
     selectedCase && caseItems.length === 0
-      ? items.filter((item) => item.caseId === selectedCase.id && item.parentItemId)
+      ? sortByCreatedAt(items.filter((item) => item.caseId === selectedCase.id && item.parentItemId))
       : [];
   const itemsColumnItems = caseItems.length > 0 ? caseItems : fallbackItems;
   const selectedItem = items.find((entry) => entry.id === selectedItemId) || null;
-  const subItems = selectedItem ? getSubItems(items, selectedItem.id) : [];
+  const subItems = selectedItem ? sortByCreatedAt(getSubItems(items, selectedItem.id)) : [];
   const selectedSubItem = items.find((entry) => entry.id === selectedSubItemId) || null;
 
   const detailItem = detailTarget?.type === "item" ? items.find((entry) => entry.id === detailTarget.id) ?? null : null;
