@@ -1052,6 +1052,7 @@ export default function AppShell() {
     }
     if (selectionId) {
       await deleteMyDaySelection(user.uid, selectionId);
+      setLegacyMyDaySelections(prev => prev.filter(s => s.id !== selectionId));
     }
     setMyDayDetailId(null);
   };
