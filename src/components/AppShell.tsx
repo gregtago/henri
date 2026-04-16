@@ -1792,7 +1792,19 @@ export default function AppShell() {
                   >
                     {caseSortDirection === "asc" ? "↑" : "↓"}
                   </button>
-                  <button className={iconBtn} title="Nouveau dossier (N)" onClick={handleCreateInActiveColumn}>+</button>
+                  <button className={iconBtn} title="Nouveau dossier (N)" onClick={async () => {
+                    if (!user) return;
+                    const id = await createCase(user.uid, { title: "Nouveau dossier", legalDueDate: null, caseNote: "" });
+                    setSelectedCaseId(id);
+                    setSelectedCaseIds([id]);
+                    setSelectedItemId(null);
+                    setSelectedSubItemId(null);
+                    setSelectedItemIds([]);
+                    setSelectedSubItemIds([]);
+                    setActiveColumn("cases");
+                    setDetailTarget({ type: "case", id });
+                    focusWhenReady(detailCaseRef);
+                  }}>+</button>
                 </div>
               </div>
 
@@ -1861,7 +1873,7 @@ export default function AppShell() {
                     title="Mode sélection"
                     onClick={() => { setSelectionModeItems(p => !p); setSelectedItemIds([]); }}
                   >⊡</button>
-                  <button className={iconBtn} title="Nouvelle tâche (N)" onClick={async () => { setActiveColumn("items"); if (!user || !selectedCaseId) { showToast("Sélectionnez un dossier d'abord."); return; } const id = await createItem(user.uid, { caseId: selectedCaseId, level: 2, title: "Nouvelle tâche", status: "Créée", parentItemId: null }); setSelectedItemId(id); setSelectedItemIds([id]); setDetailTarget({ type: "item", id }); }}>+</button>
+                  <button className={iconBtn} title="Nouvelle tâche (N)" onClick={async () => { setActiveColumn("items"); if (!user || !selectedCaseId) { showToast("Sélectionnez un dossier d'abord."); return; } const id = await createItem(user.uid, { caseId: selectedCaseId, level: 2, title: "Nouvelle tâche", status: "Créée", parentItemId: null }); setSelectedItemId(id); setSelectedItemIds([id]); setDetailTarget({ type: "item", id }); focusWhenReady(detailTitleRef); }}>+</button>
                 </div>
               </div>
 
@@ -1944,7 +1956,7 @@ export default function AppShell() {
                     title="Mode sélection"
                     onClick={() => { setSelectionModeSubItems(p => !p); setSelectedSubItemIds([]); }}
                   >⊡</button>
-                  <button className={iconBtn} title="Nouvelle sous-tâche (⇧N)" onClick={async () => { setActiveColumn("subitems"); if (!user || !selectedItemId) { showToast("Sélectionnez une tâche d'abord."); return; } const parentCaseId = selectedItem?.caseId ?? selectedCaseId; if (!parentCaseId) return; const id = await createItem(user.uid, { caseId: parentCaseId, parentItemId: selectedItemId, level: 3, title: "Nouvelle sous-tâche", status: "Créée" }); setSelectedSubItemId(id); setSelectedSubItemIds([id]); setDetailTarget({ type: "item", id }); }}>+</button>
+                  <button className={iconBtn} title="Nouvelle sous-tâche (⇧N)" onClick={async () => { setActiveColumn("subitems"); if (!user || !selectedItemId) { showToast("Sélectionnez une tâche d'abord."); return; } const parentCaseId = selectedItem?.caseId ?? selectedCaseId; if (!parentCaseId) return; const id = await createItem(user.uid, { caseId: parentCaseId, parentItemId: selectedItemId, level: 3, title: "Nouvelle sous-tâche", status: "Créée" }); setSelectedSubItemId(id); setSelectedSubItemIds([id]); setActiveColumn("subitems"); setDetailTarget({ type: "item", id }); focusWhenReady(detailTitleRef); }}>+</button>
                 </div>
               </div>
 
