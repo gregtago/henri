@@ -312,8 +312,8 @@ export default function AppShell() {
     const merged = new Map<string, MyDaySelection>();
     legacyMyDaySelections.forEach((entry) => merged.set(entry.id, entry));
     liveMyDaySelections.forEach((entry) => merged.set(entry.id, entry));
-    return Array.from(merged.values());
-  }, [legacyMyDaySelections, liveMyDaySelections]);
+    return Array.from(merged.values()).filter(entry => !pendingRemovalIds.has(entry.id));
+  }, [legacyMyDaySelections, liveMyDaySelections, pendingRemovalIds]);
 
   useEffect(() => {
     if (!user || items.length === 0) return;
@@ -386,7 +386,7 @@ export default function AppShell() {
     }
   }, [myDayDetailId, myDaySelections, isMyDay]);
 
-  const myDayEntries = myDaySelections.filter((entry) => entry.dateKey === todayKey && !pendingRemovalIds.has(entry.id));
+  const myDayEntries = myDaySelections.filter((entry) => entry.dateKey === todayKey);
   const myDayItems = myDayEntries
     .map((entry) => {
       if (entry.refType === "case") {
