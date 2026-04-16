@@ -286,7 +286,7 @@ export default function AppShell() {
 
   const detailItem = detailTarget?.type === "item" ? items.find((entry) => entry.id === detailTarget.id) ?? null : null;
   const detailCase = detailTarget?.type === "case" ? cases.find((entry) => entry.id === detailTarget.id) ?? null : null;
-  const detailComments = detailItem ? comments.filter((comment) => comment.itemId === detailItem.id) : [];
+  const detailComments = detailItem ? comments.filter((comment) => comment.itemId === detailItem.id).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) : [];
   const detailEvents = detailItem ? events.filter((event) => event.itemId === detailItem.id) : [];
   const reparentTarget = reparentTargetId ? items.find((entry) => entry.id === reparentTargetId) ?? null : null;
   const reparentHasChildren = useMemo(
