@@ -144,6 +144,7 @@ export default function AppShell() {
   const [undoCountdown, setUndoCountdown] = useState(0);
 
   const [caseSortKey, setCaseSortKey] = useState<"title" | "createdAt" | "legalDueDate">(settings.defaultSort);
+  const [caseSearch, setCaseSearch] = useState("");
   const [caseSortDirection, setCaseSortDirection] = useState<"asc" | "desc">(settings.defaultSortDir);
 
   const pathname = usePathname();
@@ -272,6 +273,10 @@ export default function AppShell() {
       })
       .map(({ entry }) => entry);
   }, [cases, caseSortDirection, caseSortKey, showArchived, activeCases, archivedCases]);
+
+  const filteredCases = caseSearch.trim()
+    ? sortedCases.filter(c => c.title.toLowerCase().includes(caseSearch.toLowerCase()))
+    : sortedCases;
 
   const selectedCase = cases.find((entry) => entry.id === selectedCaseId) || null;
   const sortByCreatedAt = <T extends {createdAt: string}>(arr: T[]) =>
@@ -1810,7 +1815,7 @@ export default function AppShell() {
               </div>
 
               <div className="finder-list" ref={casesListRef}>
-                {sortedCases.map((entry) => (
+                {filteredCases.map((entry) => (
                   <div
                     key={entry.id}
                     className="finder-row"
@@ -1832,6 +1837,17 @@ export default function AppShell() {
                     )}
                   </div>
                 ))}
+              </div>
+
+              {/* Recherche dossier */}
+              <div className="px-3 pt-2 pb-1">
+                <input
+                  type="text"
+                  placeholder="Rechercher…"
+                  value={caseSearch}
+                  onChange={e => setCaseSearch(e.target.value)}
+                  className="w-full font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-1.5 outline-none focus:border-border-strong transition-colors placeholder:text-tx-3"
+                />
               </div>
 
               {/* Pied de colonne : liens Archivés + Importer */}
