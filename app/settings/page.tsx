@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import InviteManager from "@/src/components/InviteManager";
 import {
   DEFAULT_SETTINGS,
   loadSettings,
@@ -16,6 +19,12 @@ import {
 export default function SettingsPage() {
   const [s, setS] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [saved, setSaved] = useState(false);
+  const [uid, setUid] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, u => setUid(u?.uid ?? null));
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     const loaded = loadSettings();
@@ -237,6 +246,14 @@ export default function SettingsPage() {
 
             </div>
           </section>
+
+          {/* Invitations beta */}
+          {uid === "ByHcIefOjWVdQBcikq5oZtJGGZA2" && (
+            <section>
+              <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-4">Beta testeurs</h2>
+              <InviteManager uid={uid} />
+            </section>
+          )}
 
           {/* Aperçu typographie */}
           <section>

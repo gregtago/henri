@@ -358,3 +358,54 @@ export const restoreFloatingTasks = async (uid: string, taskList: import("./type
   });
   await batch.commit();
 };
+
+// ── Invitations ───────────────────────────────────────────────────────────────
+
+export type Invitation = {
+  token: string;
+  email: string;
+  createdAt: string;
+  expiresAt: string;
+  status: "pending" | "used";
+  createdBy: string;
+};
+
+export const createInvitation = async (createdByUid: string, email: string): Promise<string> => {
+  const token = crypto.randomUUID();
+  const now = new Date();
+  const expires = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 jours
+  await setDoc(doc(db, `invitations/${token}`), {
+    token,
+    email: email.toLowerCase().trim(),
+    createdAt: now.toISOString(),
+    expiresAt: expires.toISOString(),
+    status: "pending",
+    createdBy: createdByUid,
+  });
+  return token;
+};
+
+export const getInvitation = async (token: string): Promise<Invitation | null> => {
+  const snap = await import("firebase/firestore").then(({ getDoc }) =>
+    getDoc(doc(db, `invitations/${token}`))
+  );
+  if (!snap.exists()) return null;
+  return snap.data() as Invitation;
+};
+
+export const markInvitationUsed = async (token: string): Promise<void> => {
+  await updateDoc(doc(db, `invitations/${token}`), { status: "used" });
+};
+
+export const subscribeInvitations = (
+  onChange: (invitations: Invitation[]) => void
+) =>
+  onSnapshot(
+    collection(db, "invitations"),
+    (snapshot) => {
+      const data = snapshot.docs
+        .map((d) => ({ ...d.data() }) as Invitation)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      onChange(data);
+    }
+  );
