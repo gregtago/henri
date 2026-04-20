@@ -273,6 +273,57 @@ export default function SettingsPage() {
             </div>
           </section>
 
+          {/* Nouveautés */}
+          <section>
+            <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-4">Nouveautés</h2>
+            <div className="space-y-4">
+              {[
+                { v: "0.9", date: "Avr. 2025", items: ["Suggestions Ma journée : importantes, en retard, aujourd'hui, récentes", "Fonds colorés sur les tâches selon priorité", "Focus automatique à la création d'un élément", "Recherche de dossier", "Système d'invitation beta testeurs", "Page d'administration"] },
+                { v: "0.8", date: "Avr. 2025", items: ["Refonte complète du panneau détail (dossier, tâche, mémo)", "Raccourcis d'échéance (Aujourd'hui, Demain, Dans 1 sem…)", "Étoile ★ pour marquer une tâche importante", "Observations sur les mémos"] },
+                { v: "0.7", date: "Avr. 2025", items: ["Ma journée : colonne suggestions", "Mémos : récurrence, rattachement dossier", "Suppression immédiate avec annulation", "Sons"] },
+              ].map(({ v, date, items }) => (
+                <div key={v} className="bg-bg border border-border rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-[11px] font-semibold text-tx bg-bg-subtle border border-border rounded px-1.5 py-0.5">v{v}</span>
+                    <span className="text-[11px] text-tx-3">{date}</span>
+                  </div>
+                  <ul className="space-y-1">
+                    {items.map(item => (
+                      <li key={item} className="flex items-start gap-1.5">
+                        <span className="text-tx-3 text-[10px] mt-0.5">•</span>
+                        <span className="text-[12px] text-tx-2">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Mentions légales */}
+          <section>
+            <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-4">Mentions légales</h2>
+            <div className="bg-bg border border-border rounded-xl p-5 space-y-4 text-[13px] text-tx-2 leading-relaxed">
+              <div>
+                <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1">Responsable</p>
+                <p>Henri est édité et géré par Grégoire TAGOT, à titre personnel. Contact : <a href="mailto:gregoire@tagot.fr" className="text-accent underline">gregoire@tagot.fr</a></p>
+              </div>
+              <div>
+                <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1">Hébergement</p>
+                <p>Application hébergée par Vercel Inc. (San Francisco, USA). Données stockées sur Google Firebase.</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1">Données personnelles</p>
+                <p>Henri collecte uniquement les données nécessaires à son fonctionnement (email, dossiers, tâches). Ces données sont strictement personnelles et ne sont jamais cédées à des tiers. Conformément au RGPD, vous disposez d'un droit d'accès, de rectification et de suppression : <a href="mailto:gregoire@tagot.fr" className="text-accent underline">gregoire@tagot.fr</a></p>
+              </div>
+              <div>
+                <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1">Accès</p>
+                <p>L'accès à Henri est réservé aux personnes ayant reçu une invitation. Toute utilisation non autorisée est interdite.</p>
+              </div>
+              <p className="text-[11px] text-tx-3">© {new Date().getFullYear()} Grégoire TAGOT — Version beta</p>
+            </div>
+          </section>
+
         </div>
       </div>
     </div>
