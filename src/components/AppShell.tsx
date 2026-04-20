@@ -2468,49 +2468,160 @@ export default function AppShell() {
         </div>
       )}
 
-      {/* ── BOUTON ? RACCOURCIS ── */}
-      {!isMyDay && (
-        <>
-          <button
-            className="fixed bottom-5 right-5 w-8 h-8 rounded-full bg-tx text-bg text-[14px] font-semibold border-none cursor-pointer flex items-center justify-center shadow-lg hover:opacity-80 transition-opacity z-40"
-            onClick={() => setIsShortcutsOpen(p => !p)}
-            title="Raccourcis clavier"
-          >?</button>
-          {isShortcutsOpen && (
-            <div className="fixed inset-0 bg-black/20 z-50 flex items-end justify-end p-16"
-              onClick={() => setIsShortcutsOpen(false)}>
-              <div className="bg-bg border border-border rounded-xl shadow-xl p-5 w-72"
-                onClick={e => e.stopPropagation()}>
-                <div className="flex items-center justify-between mb-4">
-                  <p className="text-[12px] font-semibold text-tx uppercase tracking-wide">Raccourcis clavier</p>
-                  <button className="text-tx-3 text-[14px] bg-transparent border-none cursor-pointer hover:text-tx"
-                    onClick={() => setIsShortcutsOpen(false)}>✕</button>
-                </div>
-                <div className="space-y-2">
-                  {[
-                    ["N", "Nouveau au niveau courant"],
-                    ["⇧N", "Créer une sous-tâche"],
-                    ["Espace", "Renommer"],
-                    ["A", "Ajouter à Ma journée"],
-                    ["I", "Ouvrir / fermer le détail"],
-                    ["R", "Rattacher une tâche"],
-                    ["⌫", "Supprimer"],
-                    ["1 – 4", "Changer le statut"],
-                    ["← →", "Naviguer entre colonnes"],
-                    ["↑ ↓", "Déplacer la sélection"],
-                    ["Ctrl+A", "Tout sélectionner"],
-                  ].map(([k, label]) => (
-                    <div key={k} className="flex items-center justify-between">
-                      <span className="text-[12.5px] text-tx-2">{label}</span>
-                      <kbd className="text-[12.5px]">{k}</kbd>
-                    </div>
-                  ))}
-                </div>
+      {/* ── BOUTON ? AIDE ── */}
+      <>
+        <button
+          className="fixed bottom-5 right-5 w-8 h-8 rounded-full bg-tx text-bg text-[14px] font-semibold border-none cursor-pointer flex items-center justify-center shadow-lg hover:opacity-80 transition-opacity z-40"
+          onClick={() => setIsShortcutsOpen(p => !p)}
+          title="Aide"
+        >?</button>
+        {isShortcutsOpen && (
+          <div className="fixed inset-0 bg-black/30 z-50 flex items-end justify-end p-16"
+            onClick={() => setIsShortcutsOpen(false)}>
+            <div className="bg-bg border border-border rounded-xl shadow-xl w-80 overflow-hidden"
+              onClick={e => e.stopPropagation()}>
+
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-border">
+                <img src="/logo-henri-new.png" alt="Henri" style={{height:"22px", width:"auto"}} />
+                <button className="text-tx-3 text-[14px] bg-transparent border-none cursor-pointer hover:text-tx"
+                  onClick={() => setIsShortcutsOpen(false)}>✕</button>
               </div>
+
+              {/* Tabs */}
+              {(() => {
+                const [helpTab, setHelpTab] = React.useState<"versions"|"shortcuts"|"feedback"|"legal">("versions");
+                const tabBtn = (t: typeof helpTab, label: string) => (
+                  <button key={t} onClick={() => setHelpTab(t)}
+                    className={`flex-1 text-[11px] font-medium font-[inherit] py-2 border-none cursor-pointer transition-colors ${helpTab === t ? "bg-tx text-bg" : "bg-transparent text-tx-3 hover:text-tx"}`}>
+                    {label}
+                  </button>
+                );
+                return (
+                  <>
+                    <div className="flex border-b border-border">
+                      {tabBtn("versions", "Nouveautés")}
+                      {tabBtn("shortcuts", "Raccourcis")}
+                      {tabBtn("feedback", "Feedback")}
+                      {tabBtn("legal", "Mentions")}
+                    </div>
+                    <div className="p-5 max-h-[420px] overflow-y-auto">
+
+                      {/* Versions */}
+                      {helpTab === "versions" && (
+                        <div className="space-y-4">
+                          {[
+                            { v: "0.9", date: "Avr. 2025", items: [
+                              "Suggestions Ma journée : importantes, en retard, aujourd'hui, récentes",
+                              "Fonds colorés sur les tâches selon priorité",
+                              "Focus automatique à la création d'un élément",
+                              "Recherche de dossier",
+                              "Système d'invitation beta testeurs",
+                              "Page d'administration",
+                            ]},
+                            { v: "0.8", date: "Avr. 2025", items: [
+                              "Refonte complète du panneau détail (dossier, tâche, mémo)",
+                              "Raccourcis d'échéance (Aujourd'hui, Demain, Dans 1 sem…)",
+                              "Étoile ★ pour marquer une tâche importante",
+                              "Observations sur les mémos",
+                              "Groupement sous-tâches dans les suggestions",
+                            ]},
+                            { v: "0.7", date: "Avr. 2025", items: [
+                              "Ma journée : colonne suggestions avec 4 catégories",
+                              "Mémos : récurrence, rattachement dossier, recherche",
+                              "Suppression immédiate avec annulation",
+                              "Sons (validation, ajout)",
+                            ]},
+                          ].map(({ v, date, items }) => (
+                            <div key={v}>
+                              <div className="flex items-center gap-2 mb-1.5">
+                                <span className="text-[11px] font-semibold text-tx bg-bg-subtle border border-border rounded px-1.5 py-0.5">v{v}</span>
+                                <span className="text-[10px] text-tx-3">{date}</span>
+                              </div>
+                              <ul className="space-y-1">
+                                {items.map(item => (
+                                  <li key={item} className="flex items-start gap-1.5">
+                                    <span className="text-tx-3 text-[10px] mt-0.5">•</span>
+                                    <span className="text-[12px] text-tx-2">{item}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Raccourcis */}
+                      {helpTab === "shortcuts" && (
+                        <div className="space-y-3">
+                          {[
+                            { group: "Créer", shortcuts: [["N", "Nouveau au niveau courant"], ["⇧N", "Créer une sous-tâche"]] },
+                            { group: "Éditer", shortcuts: [["Espace", "Renommer"], ["Entrée", "Valider le nom"], ["Échap", "Annuler l'édition"]] },
+                            { group: "Actions", shortcuts: [["A", "Ajouter à Ma journée"], ["I", "Ouvrir / fermer le détail"], ["R", "Rattacher une tâche"], ["⌫", "Supprimer"]] },
+                            { group: "Navigation", shortcuts: [["← →", "Naviguer entre colonnes"], ["↑ ↓", "Déplacer la sélection"], ["Ctrl+A", "Tout sélectionner"], ["1 – 4", "Changer le statut"]] },
+                          ].map(({ group, shortcuts }) => (
+                            <div key={group}>
+                              <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1.5">{group}</p>
+                              <div className="space-y-1">
+                                {shortcuts.map(([k, label]) => (
+                                  <div key={k} className="flex items-center justify-between">
+                                    <span className="text-[12px] text-tx-2">{label}</span>
+                                    <kbd className="text-[11px] bg-bg-subtle border border-border rounded px-1.5 py-0.5 font-mono">{k}</kbd>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Feedback */}
+                      {helpTab === "feedback" && (
+                        <div className="space-y-3">
+                          <p className="text-[13px] text-tx">Henri est en beta — votre avis compte !</p>
+                          <p className="text-[12px] text-tx-3">Pour signaler un bug, suggérer une amélioration ou partager votre expérience :</p>
+                          <a href="mailto:contact@tagot.fr?subject=Henri – Feedback"
+                            className="block text-center text-[12.5px] font-medium text-accent underline cursor-pointer">
+                            contact@tagot.fr
+                          </a>
+                          <div className="border-t border-border pt-3">
+                            <p className="text-[11px] text-tx-3">Vous pouvez aussi utiliser le pouce 👍 / 👎 en bas de chaque réponse de l'assistant pour nous faire un retour direct.</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Mentions légales */}
+                      {helpTab === "legal" && (
+                        <div className="space-y-3 text-[12px] text-tx-2 leading-relaxed">
+                          <div>
+                            <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1">Éditeur</p>
+                            <p>Henri est édité par l'Office Notarial Tagot, étude notariale sise à Lille (France), inscrite à la Chambre des Notaires du Nord.</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1">Hébergement</p>
+                            <p>L'application est hébergée par Vercel Inc. (San Francisco, USA) et les données sont stockées sur Google Firebase (infrastructure européenne).</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1">Données personnelles</p>
+                            <p>Henri collecte uniquement les données nécessaires à son fonctionnement (email, dossiers, tâches). Ces données sont strictement réservées à l'usage professionnel de l'utilisateur connecté. Aucune donnée n'est cédée à des tiers.</p>
+                            <p className="mt-1">Conformément au RGPD, vous disposez d'un droit d'accès, de rectification et de suppression de vos données. Contact : <a href="mailto:contact@tagot.fr" className="text-accent underline">contact@tagot.fr</a></p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1">Accès</p>
+                            <p>L'accès à Henri est réservé aux professionnels du notariat ayant reçu une invitation. Toute utilisation non autorisée est interdite.</p>
+                          </div>
+                          <p className="text-[11px] text-tx-3 pt-1">© {new Date().getFullYear()} Office Notarial Tagot — Version beta</p>
+                        </div>
+                      )}
+
+                    </div>
+                  </>
+                );
+              })()}
             </div>
-          )}
-        </>
-      )}
+          </div>
+        )}
+      </>
 
       {/* ── TOAST UNDO DELETE ── */}
       {pendingDelete && (
