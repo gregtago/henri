@@ -128,6 +128,7 @@ export default function AppShell() {
   const [myDayDetailId, setMyDayDetailId] = useState<string | null>(null);
   const [dossierSearch, setDossierSearch] = useState("");
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+  const [helpTab, setHelpTab] = useState<"versions"|"shortcuts"|"feedback"|"legal">("versions");
   const [showArchived, setShowArchived] = useState(false);
   const [importMode, setImportMode] = useState<"model" | "history">("history");
   const [isImportOpen, setIsImportOpen] = useState(false); // "f-{id}" pour volante, selectionId pour dossier
@@ -2489,21 +2490,14 @@ export default function AppShell() {
               </div>
 
               {/* Tabs */}
-              {(() => {
-                const [helpTab, setHelpTab] = React.useState<"versions"|"shortcuts"|"feedback"|"legal">("versions");
-                const tabBtn = (t: typeof helpTab, label: string) => (
-                  <button key={t} onClick={() => setHelpTab(t)}
-                    className={`flex-1 text-[11px] font-medium font-[inherit] py-2 border-none cursor-pointer transition-colors ${helpTab === t ? "bg-tx text-bg" : "bg-transparent text-tx-3 hover:text-tx"}`}>
-                    {label}
-                  </button>
-                );
-                return (
-                  <>
+              <>
                     <div className="flex border-b border-border">
-                      {tabBtn("versions", "Nouveautés")}
-                      {tabBtn("shortcuts", "Raccourcis")}
-                      {tabBtn("feedback", "Feedback")}
-                      {tabBtn("legal", "Mentions")}
+                      {([["versions","Nouveautés"],["shortcuts","Raccourcis"],["feedback","Feedback"],["legal","Mentions"]] as const).map(([t, label]) => (
+                        <button key={t} onClick={() => setHelpTab(t)}
+                          className={`flex-1 text-[11px] font-medium font-[inherit] py-2 border-none cursor-pointer transition-colors ${helpTab === t ? "bg-tx text-bg" : "bg-transparent text-tx-3 hover:text-tx"}`}>
+                          {label}
+                        </button>
+                      ))}
                     </div>
                     <div className="p-5 max-h-[420px] overflow-y-auto">
 
@@ -2616,8 +2610,6 @@ export default function AppShell() {
 
                     </div>
                   </>
-                );
-              })()}
             </div>
           </div>
         )}
