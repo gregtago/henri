@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import InviteManager from "@/src/components/InviteManager";
+import InviteManager from "@/components/InviteManager";
 import {
   DEFAULT_SETTINGS,
   loadSettings,
