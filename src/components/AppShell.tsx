@@ -2580,7 +2580,7 @@ export default function AppShell() {
                         <div className="space-y-3">
                           <p className="text-[13px] text-tx">Henri est en beta — votre avis compte !</p>
                           <p className="text-[12px] text-tx-3">Pour signaler un bug, suggérer une amélioration ou partager votre expérience :</p>
-                          <a href="mailto:contact@tagot.fr?subject=Henri – Feedback"
+                          <a href="mailto:gregoire@tagot.fr?subject=Henri – Feedback"
                             className="block text-center text-[12.5px] font-medium text-accent underline cursor-pointer">
                             contact@tagot.fr
                           </a>
@@ -2595,7 +2595,7 @@ export default function AppShell() {
                         <div className="space-y-3 text-[12px] text-tx-2 leading-relaxed">
                           <div>
                             <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1">Éditeur</p>
-                            <p>Henri est édité par l'Office Notarial Tagot, étude notariale sise à Lille (France), inscrite à la Chambre des Notaires du Nord.</p>
+                            <p>Henri est édité par Maître Grégoire TAGOT, Notaire, 2 rue Dante – 75005 Paris, inscrit à la Chambre des Notaires de Paris.</p>
                           </div>
                           <div>
                             <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1">Hébergement</p>
@@ -2604,7 +2604,7 @@ export default function AppShell() {
                           <div>
                             <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1">Données personnelles</p>
                             <p>Henri collecte uniquement les données nécessaires à son fonctionnement (email, dossiers, tâches). Ces données sont strictement réservées à l'usage professionnel de l'utilisateur connecté. Aucune donnée n'est cédée à des tiers.</p>
-                            <p className="mt-1">Conformément au RGPD, vous disposez d'un droit d'accès, de rectification et de suppression de vos données. Contact : <a href="mailto:contact@tagot.fr" className="text-accent underline">contact@tagot.fr</a></p>
+                            <p className="mt-1">Conformément au RGPD, vous disposez d'un droit d'accès, de rectification et de suppression de vos données. Contact : <a href="mailto:gregoire@tagot.fr" className="text-accent underline">gregoire@tagot.fr</a></p>
                           </div>
                           <div>
                             <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1">Accès</p>
