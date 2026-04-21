@@ -1068,12 +1068,28 @@ export default function AppShell() {
 
   const handleStatusChange = async (status: Status) => {
     if (!user || !detailItem) return;
+    if (status === "Traité" && detailItem.level === 2) {
+      const subItems = items.filter(i => i.parentItemId === detailItem.id);
+      const unfinished = subItems.filter(i => i.status !== "Traité");
+      if (unfinished.length > 0) {
+        showToast(`${unfinished.length} sous-tâche${unfinished.length > 1 ? "s" : ""} non traitée${unfinished.length > 1 ? "s" : ""} — terminez-les d'abord.`);
+        return;
+      }
+    }
     await updateItemProgress(user.uid, detailItem.id, status);
     await logStatusEvent(user.uid, detailItem.id, detailItem.status, status);
   };
 
   const handleMarkMyDayItemDone = async (item: Item, selectionId?: string) => {
     if (!user) return;
+    if (item.level === 2) {
+      const subItems = items.filter(i => i.parentItemId === item.id);
+      const unfinished = subItems.filter(i => i.status !== "Traité");
+      if (unfinished.length > 0) {
+        showToast(`${unfinished.length} sous-tâche${unfinished.length > 1 ? "s" : ""} non traitée${unfinished.length > 1 ? "s" : ""} — terminez-les d'abord.`);
+        return;
+      }
+    }
     playDone();
     await updateItemProgress(user.uid, item.id, "Traité");
     await logStatusEvent(user.uid, item.id, item.status, "Traité");
@@ -1623,20 +1639,23 @@ export default function AppShell() {
               <div>
                 <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-2">Échéance</p>
                 {(() => {
+                  // Sous-tâches avec échéance (niveau 2 uniquement)
                   const subWithDue = detailItem.level === 2
                     ? items.filter(i => i.parentItemId === detailItem.id && !!i.dueDate)
                     : [];
-                  const blocked = subWithDue.length > 0;
-                  if (blocked) return (
-                    <div className="bg-bg-subtle border border-border rounded-lg px-3 py-2.5 space-y-1">
-                      <p className="text-[12px] text-tx-2">
-                        Cette tâche ne peut pas avoir d'échéance tant que l'une de ses sous-tâches en a une.
-                      </p>
-                      <p className="text-[11px] text-tx-3">
-                        Sous-tâche{subWithDue.length > 1 ? "s" : ""} concernée{subWithDue.length > 1 ? "s" : ""} : {subWithDue.map(s => s.title).join(", ")}
-                      </p>
-                    </div>
-                  );
+                  const latestSubDue = subWithDue.length > 0
+                    ? subWithDue.reduce((max, i) => i.dueDate! > max ? i.dueDate! : max, subWithDue[0].dueDate!)
+                    : null;
+
+                  const handleSetDue = (iso: string | null) => {
+                    if (!iso) { updateItem(user.uid, detailItem.id, { dueDate: null }); return; }
+                    if (latestSubDue && iso < latestSubDue) {
+                      showToast("Échéance impossible : une sous-tâche a une échéance plus tardive.");
+                      return;
+                    }
+                    updateItem(user.uid, detailItem.id, { dueDate: iso });
+                  };
+
                   const today = new Date(); today.setHours(12,0,0,0);
                   const shortcuts = [
                     { label: "Aujourd'hui", date: new Date(today) },
@@ -1646,18 +1665,24 @@ export default function AppShell() {
                     { label: "Dans 1 sem.", date: new Date(today.getTime() + 7*86400000) },
                     { label: "Dans 1 mois", date: new Date(today.getFullYear(), today.getMonth()+1, today.getDate(), 12) },
                   ];
+
                   return (
                     <>
+                      {latestSubDue && (
+                        <p className="text-[11px] text-tx-3 mb-2">
+                          ⚠ Doit être au plus tôt le {new Date(latestSubDue).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })} (échéance de la sous-tâche la plus tardive)
+                        </p>
+                      )}
                       <div className="flex flex-wrap gap-1.5 mb-2">
                         {shortcuts.map(({ label, date }) => (
                           <button key={label}
-                            onClick={() => updateItem(user.uid, detailItem.id, { dueDate: date.toISOString() })}
+                            onClick={() => handleSetDue(date.toISOString())}
                             className="text-[11px] font-[inherit] px-2 py-1 rounded border border-border bg-bg-subtle text-tx-2 cursor-pointer hover:border-border-strong hover:text-tx transition-colors">
                             {label}
                           </button>
                         ))}
                         {detailItem.dueDate && (
-                          <button onClick={() => updateItem(user.uid, detailItem.id, { dueDate: null })}
+                          <button onClick={() => handleSetDue(null)}
                             className="text-[11px] font-[inherit] px-2 py-1 rounded border border-border bg-bg-subtle text-red-400 cursor-pointer hover:border-red-300 transition-colors">
                             ✕ Retirer
                           </button>
@@ -1667,10 +1692,10 @@ export default function AppShell() {
                         className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-1.5 outline-none w-full focus:border-border-strong transition-colors"
                         defaultValue={detailItem.dueDate?.slice(0, 10) ?? ""}
                         onBlur={(e) => {
-                          if (!e.target.value) { updateItem(user.uid, detailItem.id, { dueDate: null }); return; }
+                          if (!e.target.value) { handleSetDue(null); return; }
                           const [y, m, d] = e.target.value.split("-").map(Number);
                           if (y < 1900 || y > 2100) return;
-                          updateItem(user.uid, detailItem.id, { dueDate: new Date(y, m-1, d, 12).toISOString() });
+                          handleSetDue(new Date(y, m-1, d, 12).toISOString());
                         }}
                       />
                     </>
