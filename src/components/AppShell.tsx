@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadSettings, applySettings, type UserSettings, DEFAULT_SETTINGS } from "@/lib/settings";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { Timestamp, addDoc, collection } from "firebase/firestore";
 import {
@@ -150,6 +150,7 @@ export default function AppShell() {
   const [caseSortDirection, setCaseSortDirection] = useState<"asc" | "desc">(settings.defaultSortDir);
 
   const pathname = usePathname();
+  const router = useRouter();
   const isMyDay = pathname === "/my-day";
 
   const todayKey = getTodayKey();
@@ -167,6 +168,29 @@ export default function AppShell() {
     setSettings(s);
     applySettings(s);
   }, []);
+
+  // Restaurer une sélection après navigation depuis Ma journée
+  useEffect(() => {
+    if (isMyDay || items.length === 0) return;
+    const raw = sessionStorage.getItem("pendingSelection");
+    if (!raw) return;
+    try {
+      const { caseId, itemId, subItemId } = JSON.parse(raw);
+      sessionStorage.removeItem("pendingSelection");
+      setSelectedCaseId(caseId);
+      setSelectedCaseIds([caseId]);
+      setSelectedItemId(itemId);
+      setSelectedItemIds([itemId]);
+      setDetailTarget({ type: "item", id: subItemId ?? itemId });
+      if (subItemId) {
+        setSelectedSubItemId(subItemId);
+        setSelectedSubItemIds([subItemId]);
+        setActiveColumn("subitems");
+      } else {
+        setActiveColumn("items");
+      }
+    } catch {}
+  }, [isMyDay, items.length]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (nextUser) => {
@@ -1643,35 +1667,21 @@ export default function AppShell() {
                   const caseItem = cases.find(c => c.id === detailItem.caseId);
                   const parentItem = detailItem.parentItemId ? items.find(i => i.id === detailItem.parentItemId) : null;
                   const navigateTo = () => {
-                    // Sélectionner le dossier
-                    setSelectedCaseId(detailItem.caseId);
-                    setSelectedCaseIds([detailItem.caseId]);
-                    setActiveColumn("items");
-                    // Si sous-tâche : sélectionner la tâche parente puis la sous-tâche
-                    if (detailItem.level === 3 && parentItem) {
-                      setSelectedItemId(parentItem.id);
-                      setSelectedItemIds([parentItem.id]);
-                      setSelectedSubItemId(detailItem.id);
-                      setSelectedSubItemIds([detailItem.id]);
-                      setActiveColumn("subitems");
-                    } else {
-                      setSelectedItemId(detailItem.id);
-                      setSelectedItemIds([detailItem.id]);
-                      setSelectedSubItemId(null);
-                    }
-                    setDetailTarget({ type: "item", id: detailItem.id });
+                    // Stocker la sélection cible dans sessionStorage
+                    sessionStorage.setItem("pendingSelection", JSON.stringify({
+                      caseId: detailItem.caseId,
+                      itemId: detailItem.level === 3 && parentItem ? parentItem.id : detailItem.id,
+                      subItemId: detailItem.level === 3 ? detailItem.id : null,
+                    }));
                     // Naviguer vers la vue Dossiers
-                    if (isMyDay) window.location.href = "/";
+                    router.push("/");
                   };
                   return (
                     <button onClick={navigateTo}
-                      className="text-left bg-transparent border-none cursor-pointer p-0 group">
-                      <p className="text-[13px] text-accent underline decoration-dotted group-hover:decoration-solid transition-all">
-                        {caseItem?.title ?? "—"}
-                      </p>
-                      {parentItem && (
-                        <p className="text-[11px] text-tx-3 mt-0.5">↳ {parentItem.title}</p>
-                      )}
+                      className="font-[inherit] text-[12px] font-medium bg-bg-subtle border border-border text-tx-2 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-bg-hover hover:text-tx transition-colors flex items-center gap-1.5 w-full">
+                      <span>📁</span>
+                      <span className="flex-1 text-left truncate">{caseItem?.title ?? "—"}{parentItem ? ` › ${parentItem.title}` : ""}</span>
+                      <span className="text-tx-3 text-[10px]">→</span>
                     </button>
                   );
                 })()}
