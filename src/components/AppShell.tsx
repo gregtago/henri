@@ -1635,13 +1635,45 @@ export default function AppShell() {
                 />
               </div>
 
-              {/* Dossier */}
+              {/* Dossier — lien vers Mes Dossiers */}
               <div>
                 <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1">Dossier</p>
-                <p className="text-[13px] text-tx-2">{cases.find(c => c.id === detailItem.caseId)?.title ?? "—"}</p>
-                {detailItem.parentItemId && (
-                  <p className="text-[11px] text-tx-3 mt-0.5">↳ {items.find(i => i.id === detailItem.parentItemId)?.title ?? "—"}</p>
-                )}
+                {(() => {
+                  const caseItem = cases.find(c => c.id === detailItem.caseId);
+                  const parentItem = detailItem.parentItemId ? items.find(i => i.id === detailItem.parentItemId) : null;
+                  const navigateTo = () => {
+                    // Sélectionner le dossier
+                    setSelectedCaseId(detailItem.caseId);
+                    setSelectedCaseIds([detailItem.caseId]);
+                    setActiveColumn("items");
+                    // Si sous-tâche : sélectionner la tâche parente puis la sous-tâche
+                    if (detailItem.level === 3 && parentItem) {
+                      setSelectedItemId(parentItem.id);
+                      setSelectedItemIds([parentItem.id]);
+                      setSelectedSubItemId(detailItem.id);
+                      setSelectedSubItemIds([detailItem.id]);
+                      setActiveColumn("subitems");
+                    } else {
+                      setSelectedItemId(detailItem.id);
+                      setSelectedItemIds([detailItem.id]);
+                      setSelectedSubItemId(null);
+                    }
+                    setDetailTarget({ type: "item", id: detailItem.id });
+                    // Naviguer vers la vue Dossiers
+                    if (isMyDay) window.location.href = "/";
+                  };
+                  return (
+                    <button onClick={navigateTo}
+                      className="text-left bg-transparent border-none cursor-pointer p-0 group">
+                      <p className="text-[13px] text-accent underline decoration-dotted group-hover:decoration-solid transition-all">
+                        {caseItem?.title ?? "—"}
+                      </p>
+                      {parentItem && (
+                        <p className="text-[11px] text-tx-3 mt-0.5">↳ {parentItem.title}</p>
+                      )}
+                    </button>
+                  );
+                })()}
               </div>
 
               <div className="border-t border-border" />
