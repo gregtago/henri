@@ -55,7 +55,11 @@ export default function MobileMyDay({ user }: { user: User }) {
   // UI
   const [detailEntry, setDetailEntry] = useState<SelectionEntry | null>(null);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [memoOpen, setMemoOpen] = useState(false);
   const [memoText, setMemoText] = useState("");
+  const [memoDue, setMemoDue] = useState("");
+  const [memoCaseId, setMemoCaseId] = useState("");
+  const [memoCaseSearch, setMemoCaseSearch] = useState("");
   const [pendingRemovalIds, setPendingRemovalIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -132,8 +136,31 @@ export default function MobileMyDay({ user }: { user: User }) {
   const handleCreateMemo = async () => {
     const text = memoText.trim();
     if (!text) return;
-    setMemoText("");
-    await createFloatingTask(user.uid, { title: text, dateKey: todayKey, note: null, dueDate: null, starred: false, status: "Créée" });
+    setMemoText(""); setMemoDue(""); setMemoCaseId(""); setMemoCaseSearch(""); setMemoOpen(false);
+
+    if (memoCaseId) {
+      // Rattaché à un dossier → créer une tâche item
+      await import("@/lib/firestore").then(({ createItem }) =>
+        createItem(user.uid, {
+          caseId: memoCaseId,
+          level: 2,
+          title: text,
+          status: "Créée",
+          parentItemId: null,
+          dueDate: memoDue ? new Date(memoDue + "T12:00:00").toISOString() : null,
+        })
+      );
+    } else {
+      // Mémo libre
+      await createFloatingTask(user.uid, {
+        title: text,
+        dateKey: todayKey,
+        note: null,
+        dueDate: memoDue ? new Date(memoDue + "T12:00:00").toISOString() : null,
+        starred: false,
+        status: "Créée",
+      });
+    }
   };
 
   const handleStatusChange = async (entry: SelectionEntry, status: Status) => {
@@ -231,24 +258,110 @@ export default function MobileMyDay({ user }: { user: User }) {
 
       {/* Barre du bas */}
       <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "white", borderTop: "1px solid #e5e7eb", padding: "10px 16px", display: "flex", gap: "10px", alignItems: "center" }}>
-        <input
-          value={memoText}
-          onChange={e => setMemoText(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && handleCreateMemo()}
-          placeholder="Nouveau mémo…"
-          style={{ flex: 1, fontSize: "15px", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "10px 14px", outline: "none", background: "#f9fafb", fontFamily: "inherit" }}
-        />
-        {memoText.trim() && (
-          <button onClick={handleCreateMemo}
-            style={{ width: "44px", height: "44px", borderRadius: "10px", background: "#111827", color: "white", border: "none", fontSize: "20px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            ↑
-          </button>
-        )}
         <button onClick={() => setSuggestionsOpen(true)}
-          style={{ width: "44px", height: "44px", borderRadius: "10px", background: "#f3f4f6", border: "1px solid #e5e7eb", fontSize: "20px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          style={{ width: "48px", height: "48px", borderRadius: "12px", background: "#f3f4f6", border: "1px solid #e5e7eb", fontSize: "22px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           🔭
         </button>
+        <button onClick={() => setMemoOpen(true)}
+          style={{ flex: 1, height: "48px", borderRadius: "12px", background: "#111827", color: "white", border: "none", fontSize: "15px", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+          <span style={{ fontSize: "20px" }}>+</span> Nouveau mémo
+        </button>
       </div>
+
+      {/* ── POPUP NOUVEAU MÉMO ── */}
+      {memoOpen && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "flex-end" }}
+          onClick={() => setMemoOpen(false)}>
+          <div style={{ width: "100%", background: "white", borderRadius: "20px 20px 0 0", padding: "20px 20px 36px", display: "flex", flexDirection: "column", gap: "16px", maxHeight: "85vh", overflowY: "auto" }}
+            onClick={e => e.stopPropagation()}>
+
+            {/* Header popup */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <p style={{ fontSize: "17px", fontWeight: 700, color: "#111827" }}>Nouveau mémo</p>
+              <button onClick={() => setMemoOpen(false)}
+                style={{ width: "32px", height: "32px", border: "1px solid #e5e7eb", borderRadius: "8px", background: "#f9fafb", fontSize: "18px", cursor: "pointer", color: "#6b7280", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+            </div>
+
+            {/* Titre */}
+            <div>
+              <p style={{ fontSize: "11px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Intitulé</p>
+              <input
+                autoFocus
+                value={memoText}
+                onChange={e => setMemoText(e.target.value)}
+                placeholder="Que faut-il faire ?"
+                style={{ width: "100%", fontSize: "16px", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "13px 16px", outline: "none", fontFamily: "inherit", background: "#f9fafb", color: "#111827", boxSizing: "border-box" }}
+              />
+            </div>
+
+            {/* Échéance */}
+            <div>
+              <p style={{ fontSize: "11px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Échéance</p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "10px" }}>
+                {[
+                  { label: "Aujourd'hui", days: 0 },
+                  { label: "Demain", days: 1 },
+                  { label: "Dans 2 j.", days: 2 },
+                  { label: "Dans 1 sem.", days: 7 },
+                  { label: "Dans 1 mois", days: 30 },
+                ].map(({ label, days }) => {
+                  const d = new Date(); d.setDate(d.getDate() + days); d.setHours(12,0,0,0);
+                  const iso = d.toISOString().slice(0, 10);
+                  const isSelected = memoDue === iso;
+                  return (
+                    <button key={label} onClick={() => setMemoDue(isSelected ? "" : iso)}
+                      style={{ padding: "8px 14px", borderRadius: "20px", border: isSelected ? "2px solid #111827" : "1px solid #e5e7eb", background: isSelected ? "#111827" : "white", color: isSelected ? "white" : "#374151", fontSize: "13px", fontWeight: isSelected ? 600 : 400, cursor: "pointer", fontFamily: "inherit" }}>
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              <input type="date" value={memoDue}
+                onChange={e => setMemoDue(e.target.value)}
+                style={{ width: "100%", fontSize: "15px", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "11px 16px", outline: "none", fontFamily: "inherit", background: "#f9fafb", color: "#374151", boxSizing: "border-box" }}
+              />
+            </div>
+
+            {/* Rattachement dossier */}
+            <div>
+              <p style={{ fontSize: "11px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Rattacher à un dossier <span style={{ fontWeight: 400, textTransform: "none", fontSize: "11px" }}>(optionnel)</span></p>
+              <input
+                value={memoCaseSearch}
+                onChange={e => setMemoCaseSearch(e.target.value)}
+                placeholder="Rechercher un dossier…"
+                style={{ width: "100%", fontSize: "15px", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "11px 16px", outline: "none", fontFamily: "inherit", background: "#f9fafb", color: "#374151", boxSizing: "border-box", marginBottom: "8px" }}
+              />
+              {memoCaseSearch.trim() && (
+                <div style={{ border: "1px solid #e5e7eb", borderRadius: "12px", overflow: "hidden", maxHeight: "180px", overflowY: "auto" }}>
+                  {cases.filter(c => c.title.toLowerCase().includes(memoCaseSearch.toLowerCase())).slice(0, 8).map(c => (
+                    <button key={c.id} onClick={() => { setMemoCaseId(c.id); setMemoCaseSearch(c.title); }}
+                      style={{ width: "100%", padding: "12px 16px", textAlign: "left", background: memoCaseId === c.id ? "#f0fdf4" : "white", border: "none", borderBottom: "1px solid #f3f4f6", fontSize: "14px", color: "#111827", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span>📁</span> {c.title}
+                    </button>
+                  ))}
+                  {cases.filter(c => c.title.toLowerCase().includes(memoCaseSearch.toLowerCase())).length === 0 && (
+                    <p style={{ padding: "12px 16px", fontSize: "13px", color: "#9ca3af" }}>Aucun dossier trouvé</p>
+                  )}
+                </div>
+              )}
+              {memoCaseId && (
+                <button onClick={() => { setMemoCaseId(""); setMemoCaseSearch(""); }}
+                  style={{ marginTop: "6px", fontSize: "12px", color: "#ef4444", background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit" }}>
+                  ✕ Retirer le rattachement
+                </button>
+              )}
+            </div>
+
+            {/* Bouton créer */}
+            <button
+              disabled={!memoText.trim()}
+              onClick={handleCreateMemo}
+              style={{ width: "100%", padding: "16px", borderRadius: "14px", border: "none", background: memoText.trim() ? "#111827" : "#e5e7eb", color: memoText.trim() ? "white" : "#9ca3af", fontSize: "16px", fontWeight: 700, cursor: memoText.trim() ? "pointer" : "not-allowed", fontFamily: "inherit" }}>
+              Ajouter à Ma journée
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── PANNEAU SUGGESTIONS (gauche) ── */}
       {suggestionsOpen && (
