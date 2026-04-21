@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth } from "@/lib/firebase-admin";
+import { adminAuth, adminDb } from "@/lib/firebase-admin";
 
 const ADMIN_UID = "ByHcIefOjWVdQBcikq5oZtJGGZA2";
 
@@ -14,6 +14,24 @@ async function checkAdmin(req: NextRequest) {
   } catch {
     return null;
   }
+}
+
+// Supprime récursivement toutes les sous-collections d'un document
+async function deleteCollection(path: string) {
+  const snap = await adminDb.collection(path).limit(500).get();
+  if (snap.empty) return;
+  const batch = adminDb.batch();
+  snap.docs.forEach(doc => batch.delete(doc.ref));
+  await batch.commit();
+  // Continuer si plus de 500 documents
+  if (snap.size === 500) await deleteCollection(path);
+}
+
+async function deleteUserData(uid: string) {
+  const collections = ["cases", "items", "comments", "events", "floatingTasks", "myDaySelections", "recurringTemplates"];
+  await Promise.all(collections.map(col => deleteCollection(`users/${uid}/${col}`)));
+  // Supprimer le document utilisateur lui-même
+  await adminDb.doc(`users/${uid}`).delete().catch(() => {});
 }
 
 export async function POST(req: NextRequest) {
@@ -35,8 +53,11 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: true, message: "Compte réactivé" });
 
       case "delete":
+        // 1. Supprimer toutes les données Firestore
+        await deleteUserData(uid);
+        // 2. Supprimer le compte Auth
         await adminAuth.deleteUser(uid);
-        return NextResponse.json({ success: true, message: "Compte supprimé" });
+        return NextResponse.json({ success: true, message: "Compte et données supprimés" });
 
       case "resetPassword":
         const user = await adminAuth.getUser(uid);
