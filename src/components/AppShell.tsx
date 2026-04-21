@@ -5,7 +5,7 @@ import { loadSettings, applySettings, type UserSettings, DEFAULT_SETTINGS } from
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
-import { Timestamp } from "firebase/firestore";
+import { Timestamp, addDoc, collection } from "firebase/firestore";
 import {
   addMyDaySelection,
   createCase,
@@ -36,7 +36,7 @@ import {
   updateItem,
   updateItemProgress
 } from "@/lib/firestore";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { seedData } from "@/lib/seed";
 import {
   dateKeyToDate,
@@ -123,6 +123,8 @@ export default function AppShell() {
   const [toast, setToast] = useState<string | null>(null);
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackSent, setFeedbackSent] = useState(false);
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [myDayDetailId, setMyDayDetailId] = useState<string | null>(null);
@@ -2456,47 +2458,114 @@ export default function AppShell() {
         </div>
       )}
 
-      {/* ── FEEDBACK FLOTTANT ── */}
+      {/* ── BOUTON ? RACCOURCIS ── */}
+      {!isMyDay && (
+        <>
+          <button
+            className="fixed bottom-5 right-5 w-8 h-8 rounded-full bg-tx text-bg text-[14px] font-semibold border-none cursor-pointer flex items-center justify-center shadow-lg hover:opacity-80 transition-opacity z-40"
+            onClick={() => setIsShortcutsOpen(p => !p)}
+            title="Raccourcis clavier"
+          >?</button>
+          {isShortcutsOpen && (
+            <div className="fixed inset-0 bg-black/20 z-50 flex items-end justify-end p-16"
+              onClick={() => setIsShortcutsOpen(false)}>
+              <div className="bg-bg border border-border rounded-xl shadow-xl p-5 w-72"
+                onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-[12px] font-semibold text-tx uppercase tracking-wide">Raccourcis clavier</p>
+                  <button className="text-tx-3 text-[14px] bg-transparent border-none cursor-pointer hover:text-tx"
+                    onClick={() => setIsShortcutsOpen(false)}>✕</button>
+                </div>
+                <div className="space-y-2">
+                  {[
+                    ["N", "Nouveau au niveau courant"],
+                    ["⇧N", "Créer une sous-tâche"],
+                    ["Espace", "Renommer"],
+                    ["Entrée", "Valider le nom"],
+                    ["A", "Ajouter à Ma journée"],
+                    ["I", "Ouvrir / fermer le détail"],
+                    ["R", "Rattacher une tâche"],
+                    ["⌫", "Supprimer"],
+                    ["1 – 4", "Changer le statut"],
+                    ["← →", "Naviguer entre colonnes"],
+                    ["↑ ↓", "Déplacer la sélection"],
+                    ["Ctrl+A", "Tout sélectionner"],
+                  ].map(([k, label]) => (
+                    <div key={k} className="flex items-center justify-between">
+                      <span className="text-[12.5px] text-tx-2">{label}</span>
+                      <kbd className="text-[12.5px] bg-bg-subtle border border-border rounded px-1.5 py-0.5 font-mono text-[11px]">{k}</kbd>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── SUGGESTION FLOTTANTE ── */}
       <>
-        {/* Encoche */}
         {!isFeedbackOpen && (
           <button
-            onClick={() => setIsFeedbackOpen(true)}
-            className="fixed bottom-24 right-0 z-40 bg-tx text-bg text-[11px] font-medium font-[inherit] border-none cursor-pointer shadow-lg hover:opacity-90 transition-opacity"
-            style={{writingMode:"vertical-rl", transform:"rotate(180deg)", padding:"10px 6px", borderRadius:"0 6px 6px 0"}}
-            title="Envoyer un feedback"
-          >Feedback</button>
+            onClick={() => { setIsFeedbackOpen(true); setFeedbackSent(false); setFeedbackText(""); }}
+            className="fixed z-40 bg-tx text-bg text-[11px] font-medium font-[inherit] border-none cursor-pointer shadow-lg hover:opacity-90 transition-opacity"
+            style={{writingMode:"vertical-rl", transform:"rotate(180deg)", padding:"10px 7px", borderRadius:"0 6px 6px 0", bottom:"80px", right:0}}
+            title="Une suggestion ?"
+          >Une suggestion ?</button>
         )}
-
-        {/* Formulaire */}
         {isFeedbackOpen && (
           <div className="fixed bottom-6 right-6 z-50 bg-bg border border-border rounded-xl shadow-xl w-80 overflow-hidden">
             <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-border">
-              <p className="text-[13px] font-medium text-tx">Envoyer un feedback</p>
+              <p className="text-[13px] font-medium text-tx">Une suggestion ?</p>
               <button className="text-tx-3 text-[14px] bg-transparent border-none cursor-pointer hover:text-tx"
-                onClick={() => { setIsFeedbackOpen(false); setFeedbackText(""); }}>✕</button>
+                onClick={() => { setIsFeedbackOpen(false); setFeedbackText(""); setFeedbackSent(false); }}>✕</button>
             </div>
             <div className="p-4 space-y-3">
-              <textarea
-                className="w-full font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-2 outline-none resize-none focus:border-border-strong transition-colors placeholder:text-tx-3"
-                rows={5}
-                placeholder="Bug, suggestion, retour d'expérience…"
-                value={feedbackText}
-                onChange={e => setFeedbackText(e.target.value)}
-                autoFocus
-              />
-              <div className="flex gap-2">
-                <button
-                  onClick={() => { setIsFeedbackOpen(false); setFeedbackText(""); }}
-                  className="flex-1 font-[inherit] text-[12px] px-3 py-1.5 border border-border rounded-lg bg-bg-subtle text-tx-2 cursor-pointer hover:bg-bg-hover transition-colors"
-                >Annuler</button>
-                <a
-                  href={`mailto:gregoire@tagot.fr?subject=Henri – Feedback&body=${encodeURIComponent(feedbackText)}`}
-                  onClick={() => { setTimeout(() => { setIsFeedbackOpen(false); setFeedbackText(""); }, 500); }}
-                  className={`flex-1 font-[inherit] text-[12px] px-3 py-1.5 rounded-lg text-center transition-opacity no-underline ${feedbackText.trim() ? "bg-tx text-bg cursor-pointer hover:opacity-90" : "bg-bg-subtle text-tx-3 pointer-events-none opacity-50"}`}
-                >Envoyer</a>
-              </div>
-              <p className="text-[10px] text-tx-3 text-center">Ouvre votre application mail avec le message pré-rempli</p>
+              {feedbackSent ? (
+                <div className="text-center py-4 space-y-2">
+                  <p className="text-[22px]">✓</p>
+                  <p className="text-[13px] font-medium text-tx">Merci !</p>
+                  <p className="text-[12px] text-tx-3">Votre suggestion a bien été enregistrée.</p>
+                  <button onClick={() => { setIsFeedbackOpen(false); setFeedbackSent(false); }}
+                    className="text-[12px] font-[inherit] px-3 py-1.5 bg-bg-subtle border border-border rounded-lg text-tx-2 cursor-pointer hover:bg-bg-hover transition-colors">
+                    Fermer
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <textarea
+                    className="w-full font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-2 outline-none resize-none focus:border-border-strong transition-colors placeholder:text-tx-3"
+                    rows={5}
+                    placeholder="Bug, idée d'amélioration, retour d'usage…"
+                    value={feedbackText}
+                    onChange={e => setFeedbackText(e.target.value)}
+                    autoFocus
+                  />
+                  <div className="flex gap-2">
+                    <button onClick={() => { setIsFeedbackOpen(false); setFeedbackText(""); }}
+                      className="flex-1 font-[inherit] text-[12px] px-3 py-1.5 border border-border rounded-lg bg-bg-subtle text-tx-2 cursor-pointer hover:bg-bg-hover transition-colors">
+                      Annuler
+                    </button>
+                    <button
+                      disabled={!feedbackText.trim()}
+                      onClick={async () => {
+                        if (!feedbackText.trim() || !user) return;
+                        try {
+                          await addDoc(collection(db, "feedbacks"), {
+                            uid: user.uid,
+                            email: user.email ?? "",
+                            text: feedbackText.trim(),
+                            createdAt: new Date().toISOString(),
+                          });
+                          setFeedbackSent(true);
+                          setFeedbackText("");
+                        } catch { showToast("Erreur lors de l'envoi."); }
+                      }}
+                      className="flex-1 font-[inherit] text-[12px] px-3 py-1.5 rounded-lg bg-tx text-bg border-none cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-default"
+                    >Envoyer</button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}
