@@ -13,7 +13,7 @@ import {
   type SortChoice,
 } from "@/lib/settings";
 
-type Tab = "apparence" | "versions" | "legal";
+type Tab = "apparence" | "aide" | "versions" | "legal";
 
 export default function SettingsPage() {
   const [s, setS] = useState<UserSettings>(DEFAULT_SETTINGS);
@@ -74,8 +74,8 @@ export default function SettingsPage() {
 
       {/* Onglets */}
       <div className="flex bg-bg border-b border-border shrink-0">
-        {(["apparence", "versions", "legal"] as Tab[]).map((t) => {
-          const labels: Record<Tab, string> = { apparence: "Apparence", versions: "Notes de version", legal: "Mentions légales" };
+        {(["apparence", "aide", "versions", "legal"] as Tab[]).map((t) => {
+          const labels: Record<Tab, string> = { apparence: "Apparence", aide: "Aide", versions: "Notes de version", legal: "Mentions légales" };
           return (
             <button key={t} onClick={() => setTab(t)}
               className="flex-1 text-[13px] font-medium font-[inherit] py-2.5 border-none bg-transparent cursor-pointer transition-colors"
@@ -181,6 +181,66 @@ export default function SettingsPage() {
               </div>
             </section>
           </>}
+
+          {tab === "aide" && (
+            <div className="space-y-5">
+              {[
+                {
+                  title: "Dossiers",
+                  icon: "📁",
+                  content: "Henri s'organise autour de dossiers. Chaque dossier contient des tâches, qui peuvent elles-mêmes contenir des sous-tâches. Naviguez entre les colonnes avec les touches ← → ou en cliquant."
+                },
+                {
+                  title: "Créer un élément",
+                  icon: "✚",
+                  content: "Appuyez sur N pour créer un dossier ou une tâche dans la colonne active. Shift+N crée une sous-tâche. Le + en haut de chaque colonne fait la même chose. Tapez le nom puis Entrée pour valider — Échap pour annuler."
+                },
+                {
+                  title: "Ma journée",
+                  icon: "☀",
+                  content: "Ma journée est votre espace de travail quotidien. Sélectionnez une tâche et appuyez sur A pour l'y ajouter. La colonne de gauche vous propose des suggestions : tâches importantes (★), en retard, à échéance aujourd'hui, ou récemment créées. Cliquez sur une suggestion pour l'ajouter immédiatement."
+                },
+                {
+                  title: "Mémos",
+                  icon: "✎",
+                  content: "Les mémos sont des notes libres dans Ma journée — sans dossier parent. Tapez dans le champ en bas de la liste pour en créer un. Vous pouvez leur ajouter une échéance, une récurrence, des observations, ou les rattacher à un dossier."
+                },
+                {
+                  title: "Statuts",
+                  icon: "◎",
+                  content: "Chaque tâche a un statut : Créée → Demandé → Reçu → Traité. Changez-le depuis le panneau de détail ou avec les touches 1 à 4 au clavier. Une tâche Traitée est considérée comme terminée."
+                },
+                {
+                  title: "Tâches importantes",
+                  icon: "★",
+                  content: "Marquez une tâche ou un mémo comme important avec l'étoile ★ dans le panneau détail. Les éléments importants apparaissent en priorité dans les suggestions de Ma journée, avec un fond jaune."
+                },
+                {
+                  title: "Échéances",
+                  icon: "📅",
+                  content: "Définissez une échéance sur n'importe quelle tâche ou mémo. Des raccourcis rapides sont disponibles : Aujourd'hui, Demain, Dans 1 sem… Les tâches en retard apparaissent en rouge dans les suggestions et dans les colonnes."
+                },
+                {
+                  title: "Raccourcis clavier",
+                  icon: "⌨",
+                  content: "N : nouveau · Shift+N : sous-tâche · Espace : renommer · Entrée : valider · A : ajouter à Ma journée · I : détail · R : rattacher · ⌫ : supprimer · 1–4 : changer statut · ← → : naviguer · ↑ ↓ : déplacer"
+                },
+                {
+                  title: "Suppression",
+                  icon: "🗑",
+                  content: "La suppression est immédiate mais réversible. Un bandeau s'affiche en bas avec un bouton Annuler. Le délai d'annulation est configurable dans les Préférences (3 à 15 secondes)."
+                },
+              ].map(({ title, icon, content: text }) => (
+                <div key={title} className="bg-bg border border-border rounded-xl p-4 flex gap-3">
+                  <span className="text-[18px] shrink-0 mt-0.5">{icon}</span>
+                  <div>
+                    <p className="text-[13px] font-semibold text-tx mb-1">{title}</p>
+                    <p className="text-[12.5px] text-tx-2 leading-relaxed">{text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {tab === "versions" && (
             <div className="space-y-4">

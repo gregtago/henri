@@ -1747,18 +1747,38 @@ export default function AppShell() {
       {!isMyDay && reminderItems.length > 0 && (
         <div className="reminder-bar">
           <span><strong className="font-medium">{reminderItems.length} tâche{reminderItems.length > 1 ? "s" : ""}</strong> à échéance aujourd'hui ou en retard</span>
-          <button
-            className="text-[14px] font-[inherit] bg-transparent border border-[#fcd34d] text-[#92400e] px-2 py-[2px] rounded cursor-pointer"
-            onClick={async () => {
-              if (!user) return;
-              await Promise.all(reminderItems.map(item =>
-                updateItem(user.uid, item.id, { lastReminderAt: new Date().toISOString() })
-              ));
-              showToast("Rappel enregistré");
-            }}
-          >
-            Marquer comme rappelé
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              className="text-[13px] font-[inherit] bg-transparent border border-[#fcd34d] text-[#92400e] px-2.5 py-[2px] rounded cursor-pointer hover:bg-[#fef3c7] transition-colors"
+              onClick={async () => {
+                if (!user) return;
+                await Promise.all(reminderItems.map(item =>
+                  addMyDaySelection(user.uid, {
+                    dateKey: todayKey,
+                    refType: item.level === 2 ? "item" : "subitem",
+                    refId: item.id,
+                  })
+                ));
+                await Promise.all(reminderItems.map(item =>
+                  updateItem(user.uid, item.id, { lastReminderAt: new Date().toISOString() })
+                ));
+                showToast(`☀ ${reminderItems.length} tâche${reminderItems.length > 1 ? "s" : ""} ajoutée${reminderItems.length > 1 ? "s" : ""} à Ma journée`);
+              }}
+            >
+              ☀ Ajouter à Ma journée
+            </button>
+            <button
+              className="text-[13px] font-[inherit] bg-transparent border border-[#fcd34d] text-[#92400e] px-2.5 py-[2px] rounded cursor-pointer hover:bg-[#fef3c7] transition-colors"
+              onClick={async () => {
+                if (!user) return;
+                await Promise.all(reminderItems.map(item =>
+                  updateItem(user.uid, item.id, { lastReminderAt: new Date().toISOString() })
+                ));
+              }}
+            >
+              Ignorer
+            </button>
+          </div>
         </div>
       )}
 
@@ -2489,7 +2509,6 @@ export default function AppShell() {
                     ["1 – 4", "Changer le statut"],
                     ["← →", "Naviguer entre colonnes"],
                     ["↑ ↓", "Déplacer la sélection"],
-                    ["Ctrl+A", "Tout sélectionner"],
                   ].map(([k, label]) => (
                     <div key={k} className="flex items-center justify-between">
                       <span className="text-[12.5px] text-tx-2">{label}</span>
