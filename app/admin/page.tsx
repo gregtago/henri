@@ -45,6 +45,8 @@ export default function AdminPage() {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [inviteError, setInviteError] = useState<string | null>(null);
+  const [csvImporting, setCsvImporting] = useState(false);
+  const [csvResult, setCsvResult] = useState<{ok: number; skipped: string[]} | null>(null);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
@@ -125,6 +127,37 @@ export default function AdminPage() {
       setInviteError("Erreur lors de la création.");
     } finally {
       setInviteLoading(false);
+    }
+  };
+
+  const handleCsvImport = async (file: File) => {
+    if (!uid) return;
+    setCsvImporting(true);
+    setCsvResult(null);
+    setInviteError(null);
+    try {
+      const text = await file.text();
+      // Extraire tous les emails valides du CSV (n'importe quelle colonne)
+      const emailRegex = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
+      const found = text.match(emailRegex) ?? [];
+      const unique = [...new Set(found.map(e => e.toLowerCase().trim()))];
+      if (unique.length === 0) { setInviteError("Aucun email trouvé dans le fichier."); setCsvImporting(false); return; }
+
+      const skipped: string[] = [];
+      let ok = 0;
+      for (const email of unique) {
+        try {
+          await createInvitation(uid, email);
+          ok++;
+        } catch {
+          skipped.push(email);
+        }
+      }
+      setCsvResult({ ok, skipped });
+    } catch {
+      setInviteError("Erreur lors de la lecture du fichier.");
+    } finally {
+      setCsvImporting(false);
     }
   };
 
@@ -285,6 +318,27 @@ export default function AdminPage() {
               </div>
               {inviteError && <p className="text-[11px] text-red-500">{inviteError}</p>}
               {copied && <p className="text-[11px] text-green-600">✓ Lien copié dans le presse-papier !</p>}
+
+              {/* Import CSV */}
+              <div className="border-t border-border pt-3">
+                <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-2">Importer une liste d'emails</p>
+                <div className="flex items-center gap-3">
+                  <label className={`font-[inherit] text-[13px] px-4 py-2 border border-border rounded-lg cursor-pointer transition-colors ${csvImporting ? "opacity-50 pointer-events-none" : "bg-bg-subtle text-tx-2 hover:bg-bg-hover"}`}>
+                    {csvImporting ? "Import en cours…" : "📄 Choisir un fichier CSV"}
+                    <input type="file" accept=".csv,.txt" className="hidden"
+                      onChange={e => { const f = e.target.files?.[0]; if (f) { handleCsvImport(f); e.target.value = ""; } }} />
+                  </label>
+                  <p className="text-[11px] text-tx-3">Fichier CSV ou TXT — un email par ligne (ou séparés par virgule/point-virgule)</p>
+                </div>
+                {csvResult && (
+                  <div className="mt-2 p-3 bg-bg-subtle border border-border rounded-lg space-y-1">
+                    <p className="text-[12px] text-green-600 font-medium">✓ {csvResult.ok} invitation{csvResult.ok > 1 ? "s" : ""} créée{csvResult.ok > 1 ? "s" : ""}</p>
+                    {csvResult.skipped.length > 0 && (
+                      <p className="text-[11px] text-red-500">Échec : {csvResult.skipped.join(", ")}</p>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Liste */}
