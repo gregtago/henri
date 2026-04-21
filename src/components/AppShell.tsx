@@ -1622,42 +1622,60 @@ export default function AppShell() {
               {/* Échéance */}
               <div>
                 <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-2">Échéance</p>
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {(() => {
-                    const today = new Date(); today.setHours(12,0,0,0);
-                    const shortcuts = [
-                      { label: "Aujourd'hui", date: new Date(today) },
-                      { label: "Demain", date: new Date(today.getTime() + 86400000) },
-                      { label: "Dans 2 j.", date: new Date(today.getTime() + 2*86400000) },
-                      { label: (() => { const d = new Date(today); const dow = d.getDay(); const diff = (1-dow+7)%7||7; d.setDate(d.getDate()+diff); return "Lun. "+d.getDate()+"/"+(d.getMonth()+1); })(), date: (() => { const d = new Date(today); const dow = d.getDay(); const diff = (1-dow+7)%7||7; d.setDate(d.getDate()+diff); return d; })() },
-                      { label: "Dans 1 sem.", date: new Date(today.getTime() + 7*86400000) },
-                      { label: "Dans 1 mois", date: new Date(today.getFullYear(), today.getMonth()+1, today.getDate(), 12) },
-                    ];
-                    return shortcuts.map(({ label, date }) => (
-                      <button key={label}
-                        onClick={() => updateItem(user.uid, detailItem.id, { dueDate: date.toISOString() })}
-                        className="text-[11px] font-[inherit] px-2 py-1 rounded border border-border bg-bg-subtle text-tx-2 cursor-pointer hover:border-border-strong hover:text-tx transition-colors">
-                        {label}
-                      </button>
-                    ));
-                  })()}
-                  {detailItem.dueDate && (
-                    <button onClick={() => updateItem(user.uid, detailItem.id, { dueDate: null })}
-                      className="text-[11px] font-[inherit] px-2 py-1 rounded border border-border bg-bg-subtle text-red-400 cursor-pointer hover:border-red-300 transition-colors">
-                      ✕ Retirer
-                    </button>
-                  )}
-                </div>
-                <input key={detailItem.id + "-due"} type="date"
-                  className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-1.5 outline-none w-full focus:border-border-strong transition-colors"
-                  defaultValue={detailItem.dueDate?.slice(0, 10) ?? ""}
-                  onBlur={(e) => {
-                    if (!e.target.value) { updateItem(user.uid, detailItem.id, { dueDate: null }); return; }
-                    const [y, m, d] = e.target.value.split("-").map(Number);
-                    if (y < 1900 || y > 2100) return;
-                    updateItem(user.uid, detailItem.id, { dueDate: new Date(y, m-1, d, 12).toISOString() });
-                  }}
-                />
+                {(() => {
+                  const subWithDue = detailItem.level === 2
+                    ? items.filter(i => i.parentItemId === detailItem.id && !!i.dueDate)
+                    : [];
+                  const blocked = subWithDue.length > 0;
+                  if (blocked) return (
+                    <div className="bg-bg-subtle border border-border rounded-lg px-3 py-2.5 space-y-1">
+                      <p className="text-[12px] text-tx-2">
+                        Cette tâche ne peut pas avoir d'échéance tant que l'une de ses sous-tâches en a une.
+                      </p>
+                      <p className="text-[11px] text-tx-3">
+                        Sous-tâche{subWithDue.length > 1 ? "s" : ""} concernée{subWithDue.length > 1 ? "s" : ""} : {subWithDue.map(s => s.title).join(", ")}
+                      </p>
+                    </div>
+                  );
+                  const today = new Date(); today.setHours(12,0,0,0);
+                  const shortcuts = [
+                    { label: "Aujourd'hui", date: new Date(today) },
+                    { label: "Demain", date: new Date(today.getTime() + 86400000) },
+                    { label: "Dans 2 j.", date: new Date(today.getTime() + 2*86400000) },
+                    { label: (() => { const d = new Date(today); const dow = d.getDay(); const diff = (1-dow+7)%7||7; d.setDate(d.getDate()+diff); return "Lun. "+d.getDate()+"/"+(d.getMonth()+1); })(), date: (() => { const d = new Date(today); const dow = d.getDay(); const diff = (1-dow+7)%7||7; d.setDate(d.getDate()+diff); return d; })() },
+                    { label: "Dans 1 sem.", date: new Date(today.getTime() + 7*86400000) },
+                    { label: "Dans 1 mois", date: new Date(today.getFullYear(), today.getMonth()+1, today.getDate(), 12) },
+                  ];
+                  return (
+                    <>
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {shortcuts.map(({ label, date }) => (
+                          <button key={label}
+                            onClick={() => updateItem(user.uid, detailItem.id, { dueDate: date.toISOString() })}
+                            className="text-[11px] font-[inherit] px-2 py-1 rounded border border-border bg-bg-subtle text-tx-2 cursor-pointer hover:border-border-strong hover:text-tx transition-colors">
+                            {label}
+                          </button>
+                        ))}
+                        {detailItem.dueDate && (
+                          <button onClick={() => updateItem(user.uid, detailItem.id, { dueDate: null })}
+                            className="text-[11px] font-[inherit] px-2 py-1 rounded border border-border bg-bg-subtle text-red-400 cursor-pointer hover:border-red-300 transition-colors">
+                            ✕ Retirer
+                          </button>
+                        )}
+                      </div>
+                      <input key={detailItem.id + "-due"} type="date"
+                        className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-1.5 outline-none w-full focus:border-border-strong transition-colors"
+                        defaultValue={detailItem.dueDate?.slice(0, 10) ?? ""}
+                        onBlur={(e) => {
+                          if (!e.target.value) { updateItem(user.uid, detailItem.id, { dueDate: null }); return; }
+                          const [y, m, d] = e.target.value.split("-").map(Number);
+                          if (y < 1900 || y > 2100) return;
+                          updateItem(user.uid, detailItem.id, { dueDate: new Date(y, m-1, d, 12).toISOString() });
+                        }}
+                      />
+                    </>
+                  );
+                })()}
               </div>
 
               {/* Dossier — lien vers Mes Dossiers */}
