@@ -17,12 +17,14 @@ const BASE_URL = "https://henri.tagot.fr";
 type UserRecord = {
   uid: string;
   email: string;
-  displayName: string;
   disabled: boolean;
   createdAt: string;
   lastSignIn: string;
+  lastActivity: string | null;
   casesCount: number;
   itemsCount: number;
+  floatingCount: number;
+  doneCount: number;
 };
 
 type Tab = "users" | "invitations";
@@ -226,17 +228,38 @@ export default function AdminPage() {
               <p className="text-[13px] text-tx-3">Chargement des utilisateurs…</p>
             ) : (
               <div className="space-y-2">
-                {users
-                  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                  .map((u) => (
+                {(() => {
+                const sorted = [...users].sort((a, b) => {
+                  const aTime = a.lastActivity ? new Date(a.lastActivity).getTime() : a.lastSignIn ? new Date(a.lastSignIn).getTime() : 0;
+                  const bTime = b.lastActivity ? new Date(b.lastActivity).getTime() : b.lastSignIn ? new Date(b.lastSignIn).getTime() : 0;
+                  return bTime - aTime;
+                });
+                const active7 = users.filter(u => u.lastActivity && (Date.now() - new Date(u.lastActivity).getTime()) < 7 * 86400000).length;
+                const active30 = users.filter(u => u.lastActivity && (Date.now() - new Date(u.lastActivity).getTime()) < 30 * 86400000).length;
+                const neverUsed = users.filter(u => u.casesCount === 0 && u.floatingCount === 0).length;
+                return (
+                  <>
+                    <div className="flex gap-3 flex-wrap mb-2">
+                      {[
+                        { label: "Actifs 7j", value: active7, color: "bg-green-50 text-green-700 border-green-200" },
+                        { label: "Actifs 30j", value: active30, color: "bg-blue-50 text-blue-700 border-blue-200" },
+                        { label: "Jamais utilisé", value: neverUsed, color: neverUsed > 0 ? "bg-orange-50 text-orange-700 border-orange-200" : "bg-bg-subtle text-tx-3 border-border" },
+                        { label: "Total", value: users.length, color: "bg-bg-subtle text-tx-2 border-border" },
+                      ].map(({ label, value, color }) => (
+                        <span key={label} className={`text-[12px] font-medium px-3 py-1 rounded-lg border ${color}`}>
+                          {value} {label}
+                        </span>
+                      ))}
+                    </div>
+                    {sorted.map((u) => (
                   <div key={u.uid}
                     className={`bg-bg border rounded-xl p-4 flex items-start gap-4 transition-colors ${
                       u.disabled ? "border-red-200 opacity-60" : "border-border"
                     }`}
                   >
-                    {/* Identité */}
+                    {/* Identité + stats */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1.5">
                         <p className="text-[14px] font-medium text-tx truncate">{u.email}</p>
                         {u.uid === ADMIN_UID && (
                           <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium">ADMIN</span>
@@ -245,14 +268,32 @@ export default function AdminPage() {
                           <span className="text-[10px] px-1.5 py-0.5 bg-red-100 text-red-600 rounded font-medium">DÉSACTIVÉ</span>
                         )}
                       </div>
-                      <div className="flex flex-wrap gap-3 text-[11px] text-tx-3">
-                        <span>Créé le {formatDate(u.createdAt)}</span>
-                        {u.lastSignIn && <span>Dernière connexion {formatDate(u.lastSignIn)}</span>}
-                        <span className="text-tx-2">{u.casesCount} dossier{u.casesCount > 1 ? "s" : ""}</span>
-                        <span className="text-tx-2">{u.itemsCount} tâche{u.itemsCount > 1 ? "s" : ""}</span>
+                      {/* Dates */}
+                      <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-tx-3 mb-2">
+                        <span>Inscrit le {formatDate(u.createdAt)}</span>
+                        {u.lastSignIn && <span>Connecté le {formatDate(u.lastSignIn)}</span>}
+                        {u.lastActivity
+                          ? <span className="text-green-600 font-medium">Actif le {formatDate(u.lastActivity)}</span>
+                          : u.casesCount === 0
+                            ? <span className="text-orange-500 font-medium">Jamais utilisé</span>
+                            : null
+                        }
+                      </div>
+                      {/* Stats pills */}
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          { label: "dossier", value: u.casesCount, active: "bg-blue-50 text-blue-700 border-blue-200" },
+                          { label: "tâche", value: u.itemsCount, active: "bg-purple-50 text-purple-700 border-purple-200" },
+                          { label: "traitée", value: u.doneCount, active: "bg-green-50 text-green-700 border-green-200" },
+                          { label: "mémo", value: u.floatingCount, active: "bg-amber-50 text-amber-700 border-amber-200" },
+                        ].map(({ label, value, active }) => (
+                          <span key={label} className={`text-[11px] px-2 py-0.5 rounded-full border font-medium ${value > 0 ? active : "bg-bg-subtle text-tx-3 border-border"}`}>
+                            {value} {label}{value > 1 ? "s" : ""}
+                          </span>
+                        ))}
                       </div>
                       {actionResult?.uid === u.uid && (
-                        <p className={`text-[11px] mt-1 ${actionResult.type === "ok" ? "text-green-600" : "text-red-500"}`}>
+                        <p className={`text-[11px] mt-1.5 ${actionResult.type === "ok" ? "text-green-600" : "text-red-500"}`}>
                           {actionResult.msg}
                         </p>
                       )}
@@ -287,7 +328,10 @@ export default function AdminPage() {
                       </div>
                     )}
                   </div>
-                ))}
+                    ))}
+                  </>
+                );
+              })()}
               </div>
             )}
           </div>
