@@ -73,9 +73,9 @@ export default function BetaPage() {
     <div className="min-h-screen bg-[#f9fafb]">
 
       {/* Header */}
-      <header className="bg-white border-b border-[#e5e7eb] px-6 py-4 flex items-center justify-between">
-        <img src="/logo-henri-new.png" alt="Henri" style={{ height: "32px", width: "auto" }} />
-        <p className="text-[12px] text-[#6b7280]">Programme Alpha — Accès anticipé</p>
+      <header className="bg-white border-b border-[#e5e7eb] px-6 py-6 flex items-center justify-center">
+        <img src="/logo-henri-new.png" alt="Henri" style={{ height: "56px", width: "auto" }} />
+
       </header>
 
       <div className="px-4 py-6 sm:py-12">
@@ -165,10 +165,9 @@ export default function BetaPage() {
                 <div>
                   <label className={labelClass}>
                     CRPCEN
-                    <span className="text-[#9ca3af] normal-case font-normal tracking-normal ml-1">(optionnel)</span>
                   </label>
                   <input className={inputClass} placeholder="ex. 75055" value={crpcen} onChange={e => setCrpcen(e.target.value)} maxLength={10} />
-                  <p className="text-[11px] text-[#9ca3af] mt-1">Code de votre étude, utile pour personnaliser votre expérience</p>
+
                 </div>
 
                 {/* RGPD */}
