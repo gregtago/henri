@@ -199,7 +199,7 @@ export default function BetaPage() {
                   className="w-full font-[inherit] text-[14px] font-semibold py-3 rounded-xl border-none cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                   style={{ background: isValid ? "#111827" : "#e5e7eb", color: isValid ? "white" : "#9ca3af" }}
                 >
-                  {status === "loading" ? "Envoi en cours…" : "Envoyer ma candidature"}
+                  {status === "loading" ? "Envoi en cours…" : "Rejoindre !"}
                 </button>
 
                 <p className="text-[11px] text-[#9ca3af] text-center">
