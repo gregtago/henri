@@ -62,7 +62,7 @@ export default function BetaPage() {
   const labelClass = "block text-[12px] font-semibold text-[#374151] uppercase tracking-wider mb-1.5";
 
   return (
-    <div className="min-h-screen bg-[#f9fafb] flex flex-col">
+    <div className="min-h-screen bg-[#f9fafb]">
 
       {/* Header */}
       <header className="bg-white border-b border-[#e5e7eb] px-6 py-4 flex items-center justify-between">
@@ -70,7 +70,7 @@ export default function BetaPage() {
         <p className="text-[12px] text-[#6b7280]">Programme Alpha — Accès anticipé</p>
       </header>
 
-      <div className="flex-1 px-4 py-6 sm:py-12">
+      <div className="px-4 py-6 sm:py-12">
         <div className="w-full max-w-lg mx-auto">
 
           {status === "done" ? (
