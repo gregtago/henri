@@ -70,7 +70,7 @@ export default function BetaPage() {
         <p className="text-[12px] text-[#6b7280]">Programme Alpha — Accès anticipé</p>
       </header>
 
-      <div className="flex-1 flex flex-col items-center justify-center px-4 py-12">
+      <div className="flex-1 flex flex-col items-center justify-center px-4 py-6 sm:py-12">
         <div className="w-full max-w-lg">
 
           {status === "done" ? (
@@ -92,17 +92,17 @@ export default function BetaPage() {
             <div className="bg-white border border-[#e5e7eb] rounded-2xl shadow-sm overflow-hidden">
 
               {/* En-tête */}
-              <div className="bg-[#111827] px-8 py-8 text-white">
-                <h1 className="text-[24px] font-semibold mb-2">Rejoindre le programme Alpha</h1>
+              <div className="bg-[#111827] px-5 py-6 sm:px-8 sm:py-8 text-white">
+                <h1 className="text-[20px] sm:text-[24px] font-semibold mb-2">Rejoindre le programme Alpha</h1>
                 <p className="text-[14px] text-[#9ca3af] leading-relaxed">
                   Henri est une nouvelle application de gestion de dossiers notariaux, conçue avec et pour les professionnels du notariat. Rejoignez le programme Alpha pour être parmi les premiers à la tester et contribuer à son développement.
                 </p>
               </div>
 
-              <div className="px-8 py-8 space-y-6">
+              <div className="px-5 py-6 sm:px-8 sm:py-8 space-y-6">
 
                 {/* Identité */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className={labelClass}>Prénom <span className="text-red-400">*</span></label>
                     <input className={inputClass} placeholder="Jean" value={prenom} onChange={e => setPrenom(e.target.value)} />
