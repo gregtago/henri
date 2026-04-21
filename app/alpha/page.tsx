@@ -70,8 +70,8 @@ export default function BetaPage() {
         <p className="text-[12px] text-[#6b7280]">Programme Alpha — Accès anticipé</p>
       </header>
 
-      <div className="flex-1 flex flex-col items-center justify-center px-4 py-6 sm:py-12">
-        <div className="w-full max-w-lg">
+      <div className="flex-1 px-4 py-6 sm:py-12">
+        <div className="w-full max-w-lg mx-auto">
 
           {status === "done" ? (
             /* ── CONFIRMATION ── */
