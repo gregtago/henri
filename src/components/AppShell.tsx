@@ -122,6 +122,7 @@ export default function AppShell() {
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [reminderOpen, setReminderOpen] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
@@ -1777,40 +1778,86 @@ export default function AppShell() {
 
       {/* ── RAPPEL ÉCHÉANCES ── */}
       {!isMyDay && reminderItems.length > 0 && (
-        <div className="reminder-bar">
-          <span><strong className="font-medium">{reminderItems.length} tâche{reminderItems.length > 1 ? "s" : ""}</strong> à échéance aujourd'hui ou en retard</span>
-          <div className="flex items-center gap-2">
+        <div style={{background:"#fef3c7", borderBottom:"1px solid #fcd34d", position:"relative", zIndex:10}}>
+          {/* Barre principale */}
+          <div className="flex items-center justify-between px-4 py-2">
             <button
-              className="text-[13px] font-[inherit] bg-transparent border border-[#fcd34d] text-[#92400e] px-2.5 py-[2px] rounded cursor-pointer hover:bg-[#fef3c7] transition-colors"
-              onClick={async () => {
-                if (!user) return;
-                await Promise.all(reminderItems.map(item =>
-                  addMyDaySelection(user.uid, {
-                    dateKey: todayKey,
-                    refType: item.level === 2 ? "item" : "subitem",
-                    refId: item.id,
-                  })
-                ));
-                await Promise.all(reminderItems.map(item =>
-                  updateItem(user.uid, item.id, { lastReminderAt: new Date().toISOString() })
-                ));
-                showToast(`☀ ${reminderItems.length} tâche${reminderItems.length > 1 ? "s" : ""} ajoutée${reminderItems.length > 1 ? "s" : ""} à Ma journée`);
-              }}
+              className="flex items-center gap-2 text-[13px] font-medium text-[#92400e] bg-transparent border-none cursor-pointer hover:underline"
+              onClick={() => setReminderOpen(p => !p)}
             >
-              ☀ Ajouter à Ma journée
+              <span>⚠</span>
+              <span><strong>{reminderItems.length} tâche{reminderItems.length > 1 ? "s" : ""}</strong> à échéance aujourd'hui ou en retard</span>
+              <span className="text-[10px]">{reminderOpen ? "▲" : "▼"}</span>
             </button>
-            <button
-              className="text-[13px] font-[inherit] bg-transparent border border-[#fcd34d] text-[#92400e] px-2.5 py-[2px] rounded cursor-pointer hover:bg-[#fef3c7] transition-colors"
-              onClick={async () => {
-                if (!user) return;
-                await Promise.all(reminderItems.map(item =>
-                  updateItem(user.uid, item.id, { lastReminderAt: new Date().toISOString() })
-                ));
-              }}
-            >
-              Ignorer
-            </button>
+            <div className="flex gap-2">
+              <button
+                className="text-[12px] font-[inherit] font-medium bg-[#92400e] text-white border-none px-3 py-1 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                onClick={async () => {
+                  if (!user) return;
+                  await Promise.all(reminderItems.map(item =>
+                    addMyDaySelection(user.uid, { dateKey: todayKey, refType: item.level === 2 ? "item" : "subitem", refId: item.id })
+                  ));
+                  await Promise.all(reminderItems.map(item =>
+                    updateItem(user.uid, item.id, { lastReminderAt: new Date().toISOString() })
+                  ));
+                  setReminderOpen(false);
+                  showToast(`☀ ${reminderItems.length} tâche${reminderItems.length > 1 ? "s" : ""} ajoutée${reminderItems.length > 1 ? "s" : ""} à Ma journée`);
+                }}
+              >☀ Tout ajouter à Ma journée</button>
+              <button
+                className="text-[12px] font-[inherit] bg-transparent border border-[#d97706] text-[#92400e] px-3 py-1 rounded-lg cursor-pointer hover:bg-[#fde68a] transition-colors"
+                onClick={async () => {
+                  if (!user) return;
+                  await Promise.all(reminderItems.map(item =>
+                    updateItem(user.uid, item.id, { lastReminderAt: new Date().toISOString() })
+                  ));
+                  setReminderOpen(false);
+                }}
+              >Ignorer</button>
+            </div>
           </div>
+
+          {/* Liste déroulante des tâches */}
+          {reminderOpen && (
+            <div style={{borderTop:"1px solid #fcd34d", background:"#fffbeb"}} className="px-4 py-2 space-y-1">
+              {reminderItems.map(item => {
+                const caseTitle = cases.find(c => c.id === item.caseId)?.title ?? "";
+                const parentTitle = item.parentItemId ? items.find(i => i.id === item.parentItemId)?.title : null;
+                return (
+                  <div key={item.id} className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-[#fef3c7] transition-colors group">
+                    <button
+                      className="flex-1 text-left bg-transparent border-none cursor-pointer"
+                      onClick={() => {
+                        // Sélectionner le dossier + la tâche
+                        const caseId = item.caseId;
+                        handleSelectCase(caseId, {});
+                        setActiveColumn("items");
+                        setSelectedItemId(item.id);
+                        setSelectedItemIds([item.id]);
+                        setDetailTarget({ type: "item", id: item.id });
+                        setReminderOpen(false);
+                      }}
+                    >
+                      <p className="text-[13px] font-medium text-[#92400e]">{item.title}</p>
+                      <p className="text-[11px] text-[#b45309]">
+                        {caseTitle}{parentTitle ? ` › ${parentTitle}` : ""}
+                        {item.dueDate && <span className="ml-2">· Éch. {new Date(item.dueDate).toLocaleDateString("fr-FR", {day:"numeric", month:"short"})}</span>}
+                      </p>
+                    </button>
+                    <button
+                      className="opacity-0 group-hover:opacity-100 text-[11px] font-[inherit] font-medium bg-[#92400e] text-white border-none px-2 py-0.5 rounded cursor-pointer hover:opacity-90 ml-2 shrink-0 transition-opacity"
+                      onClick={async () => {
+                        if (!user) return;
+                        await addMyDaySelection(user.uid, { dateKey: todayKey, refType: item.level === 2 ? "item" : "subitem", refId: item.id });
+                        await updateItem(user.uid, item.id, { lastReminderAt: new Date().toISOString() });
+                        showToast("☀ Ajouté à Ma journée");
+                      }}
+                    >☀ Ajouter</button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
