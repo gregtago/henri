@@ -9,6 +9,8 @@ import {
   subscribeInvitations,
   type Invitation,
 } from "@/lib/firestore";
+import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import Link from "next/link";
 
 const ADMIN_UID = "ByHcIefOjWVdQBcikq5oZtJGGZA2";
@@ -27,13 +29,17 @@ type UserRecord = {
   doneCount: number;
 };
 
-type Tab = "users" | "invitations";
+type Tab = "users" | "invitations" | "candidatures";
 
 export default function AdminPage() {
   const router = useRouter();
   const [uid, setUid] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("users");
+
+  // Candidatures
+  const [candidatures, setCandidatures] = useState<any[]>([]);
+  const [loadingCandidatures, setLoadingCandidatures] = useState(false);
 
   // Users
   const [users, setUsers] = useState<UserRecord[]>([]);
@@ -64,6 +70,17 @@ export default function AdminPage() {
   useEffect(() => {
     if (!uid) return;
     const unsub = subscribeInvitations(setInvitations);
+    return () => unsub();
+  }, [uid]);
+
+  useEffect(() => {
+    if (!uid) return;
+    setLoadingCandidatures(true);
+    const q = query(collection(db, "betaRegistrations"), orderBy("createdAt", "desc"));
+    const unsub = onSnapshot(q, snap => {
+      setCandidatures(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setLoadingCandidatures(false);
+    });
     return () => unsub();
   }, [uid]);
 
@@ -199,12 +216,15 @@ export default function AdminPage() {
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
 
         {/* Tabs */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <button className={tabClass("users")} onClick={() => setTab("users")}>
             Utilisateurs {users.length > 0 && `(${users.length})`}
           </button>
           <button className={tabClass("invitations")} onClick={() => setTab("invitations")}>
             Invitations {invitations.length > 0 && `(${invitations.length})`}
+          </button>
+          <button className={tabClass("candidatures")} onClick={() => setTab("candidatures")}>
+            Candidatures {candidatures.length > 0 && `(${candidatures.length})`}
           </button>
         </div>
 
@@ -424,6 +444,46 @@ export default function AdminPage() {
             )}
           </div>
         )}
+        {/* ── CANDIDATURES ── */}
+        {tab === "candidatures" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest">
+                {candidatures.length} candidature{candidatures.length > 1 ? "s" : ""}
+              </p>
+              <button
+                onClick={() => window.print()}
+                className="text-[12px] font-[inherit] px-3 py-1 border border-border rounded-lg bg-bg text-tx-2 cursor-pointer hover:bg-bg-hover transition-colors"
+              >
+                🖨 Imprimer
+              </button>
+            </div>
+
+            {loadingCandidatures ? (
+              <p className="text-[13px] text-tx-3">Chargement…</p>
+            ) : candidatures.length === 0 ? (
+              <p className="text-[13px] text-tx-3">Aucune candidature pour le moment.</p>
+            ) : (
+              <div id="print-candidatures" className="space-y-3">
+                {candidatures.map((c, i) => (
+                  <div key={c.id} className="bg-bg border border-border rounded-xl p-4 grid grid-cols-2 gap-x-6 gap-y-1.5 text-[13px]">
+                    <div className="col-span-2 flex items-center justify-between mb-1">
+                      <p className="font-semibold text-[15px] text-tx">{c.prenom} {c.nom}</p>
+                      <p className="text-[11px] text-tx-3">
+                        {new Date(c.createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+                      </p>
+                    </div>
+                    <div><span className="text-tx-3 text-[11px] uppercase tracking-wide">Email</span><p className="text-tx">{c.email}</p></div>
+                    <div><span className="text-tx-3 text-[11px] uppercase tracking-wide">Fonction</span><p className="text-tx">{c.fonction}</p></div>
+                    <div><span className="text-tx-3 text-[11px] uppercase tracking-wide">Domaines</span><p className="text-tx">{(c.domaines ?? []).join(", ")}</p></div>
+                    {c.crpcen && <div><span className="text-tx-3 text-[11px] uppercase tracking-wide">CRPCEN</span><p className="text-tx">{c.crpcen}</p></div>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
     </div>
   );
