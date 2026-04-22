@@ -32,6 +32,14 @@ type UserRecord = {
 type Tab = "users" | "invitations" | "candidatures" | "feedbacks";
 
 export default function AdminPage() {
+  useEffect(() => {
+    document.documentElement.style.overflow = "auto";
+    document.body.style.overflow = "auto";
+    return () => {
+      document.documentElement.style.overflow = "";
+      document.body.style.overflow = "";
+    };
+  }, []);
   const router = useRouter();
   const [uid, setUid] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
