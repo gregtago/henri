@@ -149,6 +149,12 @@ export default function AdminPage() {
     try {
       const tok = await createInvitation(uid!, trimmed);
       setInviteEmail("");
+      // Envoyer l'email
+      await fetch("/api/send-invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: tok, email: trimmed, name: "" }),
+      });
       const link = `${BASE_URL}/invite/${tok}`;
       await navigator.clipboard.writeText(link);
       setCopied(tok);
