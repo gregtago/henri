@@ -40,10 +40,14 @@ export async function POST(req: NextRequest) {
   const { token, email, name, authToken } = await req.json();
 
   if (authToken) {
-    const admin = await checkAdmin(new NextRequest(req.url, {
-      headers: { authorization: `Bearer ${authToken}` }
-    }));
-    if (!admin) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    try {
+      const decoded = await adminAuth.verifyIdToken(authToken);
+      if (decoded.uid !== ADMIN_UID) {
+        return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+      }
+    } catch {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
   }
 
   const link = `${BASE_URL}/invite/${token}`;
