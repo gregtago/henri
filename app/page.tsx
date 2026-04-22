@@ -2,27 +2,23 @@
 
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { auth } from "@/lib/firebase";
 import AuthPanel from "@/components/AuthPanel";
 import AppShell from "@/components/AppShell";
-import { useRouter } from "next/navigation";
 
-function useIsMobile() {
+export default function Home() {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const router = useRouter();
+
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
-  return isMobile;
-}
-
-export default function Home() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const isMobile = useIsMobile();
-  const router = useRouter();
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (nextUser) => {
@@ -31,14 +27,6 @@ export default function Home() {
     });
     return () => unsub();
   }, []);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-sm text-slate-500">
-        Chargement...
-      </div>
-    );
-  }
 
   useEffect(() => {
     if (!loading && user && isMobile) router.replace("/my-day");
