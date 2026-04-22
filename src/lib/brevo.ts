@@ -5,7 +5,7 @@ async function sendBrevoEmail(to: string, subject: string, html: string, text: s
   const res = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: { "api-key": BREVO_API_KEY, "Content-Type": "application/json" },
-    body: JSON.stringify({ sender: SENDER, to: [{ email: to, name: to }], subject, htmlContent: html, textContent: text }),
+    body: JSON.stringify({ sender: SENDER, to: [{ email: to, name: to || to }], subject, htmlContent: html, textContent: text }),
   });
   if (!res.ok) throw new Error(await res.text());
 }
