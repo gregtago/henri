@@ -38,7 +38,8 @@ export default function InvitePage() {
     setSubmitting(true);
     try {
       await createUserWithEmailAndPassword(auth, invitation.email, password);
-      await markInvitationUsed(token);
+      // Marquer l'invitation comme utilisée — ne bloque pas si ça échoue
+      markInvitationUsed(token).catch(() => {});
       setDone(true);
       setTimeout(() => router.push("/"), 2000);
     } catch (err: any) {
