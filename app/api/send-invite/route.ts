@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
   <table width="100%" cellpadding="0" cellspacing="0"><tr><td style="background:#f59e0b;height:4px;font-size:0;"> </td></tr></table>
   <table width="100%" cellpadding="0" cellspacing="0">
   <tr><td style="padding:44px 52px 40px;">
-    <img src="https://i.imgur.com/MKLZSiT.jpeg" alt="Henri" width="120" style="display:block;margin-bottom:36px;height:auto;" />
+    <img src="https://i.imgur.com/MKLZSiT.jpeg" alt="Henri" width="80" style="display:block;margin-bottom:36px;height:auto;" />
     <p style="margin:0 0 6px;font-size:11px;font-weight:600;color:#f59e0b;letter-spacing:0.1em;text-transform:uppercase;">Invitation</p>
     <h1 style="margin:0 0 24px;font-size:24px;font-weight:700;color:#111827;line-height:1.3;">Bienvenue dans le programme Alpha</h1>
     <p style="margin:0 0 14px;font-size:15px;color:#4b5563;line-height:1.8;">Vous allez bientôt accéder à <strong style="color:#111827;">Henri</strong> en avant-première — une application de gestion de dossiers conçue pour les professionnels du notariat.</p>

@@ -41,7 +41,7 @@ export default function BetaPage() {
   const toggleDomaine = (d: string) =>
     setDomaines(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]);
 
-  const crpcenValid = crpcen.trim() === "" || /^\d{5}$/.test(crpcen.trim());
+  const crpcenValid = /^\d{5}$/.test(crpcen.trim());
   const isValid =
     nom.trim() && prenom.trim() &&
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) &&
