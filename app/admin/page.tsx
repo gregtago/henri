@@ -9,7 +9,7 @@ import {
   subscribeInvitations,
   type Invitation,
 } from "@/lib/firestore";
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
+import { collection, onSnapshot, orderBy, query, deleteDoc, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import Link from "next/link";
 
@@ -158,6 +158,16 @@ export default function AdminPage() {
     } finally {
       setInviteLoading(false);
     }
+  };
+
+  const handleDeleteInvitation = async (token: string) => {
+    if (!confirm("Supprimer cette invitation ?")) return;
+    await deleteDoc(doc(db, `invitations/${token}`));
+  };
+
+  const handleDeleteCandidature = async (id: string) => {
+    if (!confirm("Supprimer cette candidature ?")) return;
+    await deleteDoc(doc(db, `betaRegistrations/${id}`));
   };
 
   const handleSendInviteFromCandidature = async (c: any) => {
@@ -464,14 +474,20 @@ export default function AdminPage() {
                         )}
                       </div>
                     </div>
-                    {inv.status === "pending" && !isExpired(inv) && (
+                    <div className="flex gap-2 shrink-0">
+                      {inv.status === "pending" && !isExpired(inv) && (
+                        <button
+                          onClick={() => copyLink(inv.token)}
+                          className="text-[11px] font-[inherit] px-3 py-1.5 border border-border rounded-lg bg-bg-subtle text-tx-2 cursor-pointer hover:bg-bg-hover transition-colors"
+                        >
+                          {copied === inv.token ? "✓ Copié" : "Copier le lien"}
+                        </button>
+                      )}
                       <button
-                        onClick={() => copyLink(inv.token)}
-                        className="text-[11px] font-[inherit] px-3 py-1.5 border border-border rounded-lg bg-bg-subtle text-tx-2 cursor-pointer hover:bg-bg-hover transition-colors shrink-0"
-                      >
-                        {copied === inv.token ? "✓ Copié" : "Copier le lien"}
-                      </button>
-                    )}
+                        onClick={() => handleDeleteInvitation(inv.token)}
+                        className="text-[11px] font-[inherit] px-2 py-1.5 border border-red-200 rounded-lg bg-bg-subtle text-red-400 cursor-pointer hover:bg-red-50 transition-colors"
+                      >✕</button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -559,7 +575,11 @@ export default function AdminPage() {
                     <div><span className="text-tx-3 text-[11px] uppercase tracking-wide">Fonction</span><p className="text-tx">{c.fonction}</p></div>
                     <div><span className="text-tx-3 text-[11px] uppercase tracking-wide">Domaines</span><p className="text-tx">{(c.domaines ?? []).join(", ")}</p></div>
                     {c.crpcen && <div><span className="text-tx-3 text-[11px] uppercase tracking-wide">CRPCEN</span><p className="text-tx">{c.crpcen}</p></div>}
-                    <div className="col-span-2 flex justify-end pt-1">
+                    <div className="col-span-2 flex justify-between items-center pt-1">
+                      <button
+                        onClick={() => handleDeleteCandidature(c.id)}
+                        className="font-[inherit] text-[12px] px-3 py-1.5 border border-red-200 rounded-lg bg-bg-subtle text-red-400 cursor-pointer hover:bg-red-50 transition-colors"
+                      >✕ Supprimer</button>
                       <button
                         onClick={() => handleSendInviteFromCandidature(c)}
                         disabled={sendingInvite === c.id}

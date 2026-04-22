@@ -383,14 +383,6 @@ export const createInvitation = async (createdByUid: string, email: string, name
     status: "pending",
     createdBy: createdByUid,
   });
-  // Envoyer l'email automatiquement
-  try {
-    await fetch("/api/send-invite", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, email: email.toLowerCase().trim(), name: name ?? "" }),
-    });
-  } catch {}
   return token;
 };
 
