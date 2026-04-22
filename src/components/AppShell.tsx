@@ -2741,7 +2741,7 @@ export default function AppShell() {
             onClick={e => e.stopPropagation()}>
             {/* Header sombre */}
             <div style={{ background: "#111827", padding: "32px 36px", color: "white" }}>
-              <img src="/logo-henri-new.png" alt="Henri" style={{ height: "36px", marginBottom: "20px", filter: "invert(1)" }} />
+              <img src="/logo-henri-transparent.png" alt="Henri" style={{ height: "36px", marginBottom: "20px", filter: "invert(1)" }} />
               <h2 style={{ fontSize: "22px", fontWeight: 700, marginBottom: "12px", lineHeight: 1.3 }}>Une nouvelle manière de piloter vos dossiers.</h2>
               <p style={{ fontSize: "13px", lineHeight: 1.7, color: "#9ca3af" }}>
                 Henri part d'un constat simple : un rédacteur gère simultanément des dizaines de dossiers, chacun contenant de multiples tâches à des stades d'avancement différents. L'enjeu n'est pas de tout faire — c'est de savoir <em>quoi</em> faire aujourd'hui.
