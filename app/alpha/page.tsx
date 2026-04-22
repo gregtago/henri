@@ -93,7 +93,6 @@ export default function BetaPage() {
                 Merci {prenom} pour votre intérêt pour Henri. Nous reviendrons vers vous prochainement avec un lien d'invitation.
               </p>
               <p className="text-[13px] text-[#9ca3af]">
-                Un email de confirmation vous sera envoyé à <strong>{email}</strong>
               </p>
             </div>
           ) : (
