@@ -31,7 +31,8 @@ async function sendBrevoEmail({ to, toName, subject, html }: {
       htmlContent: html,
     }),
   });
-  if (!res.ok) throw new Error(await res.text());
+  const body = await res.text();
+  if (!res.ok) throw new Error(`Brevo ${res.status}: ${body.slice(0, 300)}`);
 }
 
 export async function POST(req: NextRequest) {
