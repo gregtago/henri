@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
+import { sendResetEmail } from "@/lib/brevo";
 
 const ADMIN_UID = "ByHcIefOjWVdQBcikq5oZtJGGZA2";
 
@@ -62,8 +63,9 @@ export async function POST(req: NextRequest) {
       case "resetPassword":
         const user = await adminAuth.getUser(uid);
         if (!user.email) return NextResponse.json({ error: "Pas d'email" }, { status: 400 });
-        const link = await adminAuth.generatePasswordResetLink(user.email);
-        return NextResponse.json({ success: true, link });
+        const resetLink = await adminAuth.generatePasswordResetLink(user.email);
+        await sendResetEmail(user.email, resetLink);
+        return NextResponse.json({ success: true, message: "Email de réinitialisation envoyé" });
 
       default:
         return NextResponse.json({ error: "Action inconnue" }, { status: 400 });
