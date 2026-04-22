@@ -196,11 +196,11 @@ export default function MobileMyDay({ user }: { user: User }) {
       {/* Liste */}
       <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px 100px" }}>
         {todayEntries.length === 0 ? (
-          <div style={{ textAlign: "center", marginTop: "60px", color: "#9ca3af" }}>
-            <p style={{ fontSize: "32px", marginBottom: "12px" }}>☀</p>
-            <p style={{ fontSize: "15px", fontWeight: 500, color: "#374151" }}>Journée vide</p>
-            <p style={{ fontSize: "13px", marginTop: "6px" }}>Ajoutez des tâches via les suggestions →</p>
-          </div>
+          <div style={{ textAlign: "center", marginTop: "80px", color: "#9ca3af" }}>
+              <p style={{ fontSize: "48px", marginBottom: "16px" }}>☀️</p>
+              <p style={{ fontSize: "18px", fontWeight: 600, color: "#374151" }}>C'est une belle journée</p>
+              <p style={{ fontSize: "14px", marginTop: "8px", color: "#9ca3af" }}>Ajoutez des tâches via les suggestions 🔭</p>
+            </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
             {todayEntries.map(entry => {
