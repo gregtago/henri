@@ -122,6 +122,7 @@ export default function AppShell() {
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
   const [reminderOpen, setReminderOpen] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackSent, setFeedbackSent] = useState(false);
@@ -168,6 +169,16 @@ export default function AppShell() {
     setSettings(s);
     applySettings(s);
   }, []);
+
+  // Écran de bienvenue première connexion
+  useEffect(() => {
+    if (!user) return;
+    const key = `henri_welcomed_${user.uid}`;
+    if (!localStorage.getItem(key)) {
+      setShowWelcome(true);
+      localStorage.setItem(key, "1");
+    }
+  }, [user]);
 
   // Restaurer une sélection après navigation depuis Ma journée
   useEffect(() => {
@@ -2721,6 +2732,41 @@ export default function AppShell() {
           </div>
         )}
       </>
+
+      {/* ── ÉCRAN BIENVENUE ── */}
+      {showWelcome && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}
+          onClick={() => setShowWelcome(false)}>
+          <div style={{ background: "white", borderRadius: "20px", maxWidth: "540px", width: "100%", overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}
+            onClick={e => e.stopPropagation()}>
+            {/* Header sombre */}
+            <div style={{ background: "#111827", padding: "32px 36px", color: "white" }}>
+              <img src="/logo-henri-new.png" alt="Henri" style={{ height: "36px", marginBottom: "20px", filter: "invert(1)" }} />
+              <h2 style={{ fontSize: "22px", fontWeight: 700, marginBottom: "12px", lineHeight: 1.3 }}>Une nouvelle manière de piloter vos dossiers.</h2>
+              <p style={{ fontSize: "13px", lineHeight: 1.7, color: "#9ca3af" }}>
+                Henri part d'un constat simple : un rédacteur gère simultanément des dizaines de dossiers, chacun contenant de multiples tâches à des stades d'avancement différents. L'enjeu n'est pas de tout faire — c'est de savoir <em>quoi</em> faire aujourd'hui.
+              </p>
+            </div>
+            {/* Corps */}
+            <div style={{ padding: "28px 36px", display: "flex", flexDirection: "column", gap: "16px" }}>
+              <p style={{ fontSize: "13px", lineHeight: 1.7, color: "#374151" }}>
+                Henri propose une organisation en deux temps : d'un côté, <strong>tous vos dossiers</strong> avec leurs tâches, organisés, classés, toujours disponibles. De l'autre, <strong>Ma journée</strong> — un espace de travail quotidien où vous extrayez uniquement les tâches sur lesquelles vous vous concentrez ce jour-là. Vous commencez la journée avec une liste claire, vous la traitez, et vous passez à autre chose.
+              </p>
+              <p style={{ fontSize: "13px", lineHeight: 1.7, color: "#374151" }}>
+                Contrairement à un simple gestionnaire de tâches où les éléments disparaissent quand ils sont cochés, Henri reflète la réalité du notariat : chaque acte passe par plusieurs étapes — le besoin exprimé, la demande formulée, la réception des pièces, le traitement. Une tâche ne disparaît pas, elle <strong>avance</strong>.
+              </p>
+              <button
+                onClick={() => setShowWelcome(false)}
+                style={{ width: "100%", padding: "14px", borderRadius: "12px", background: "#111827", color: "white", border: "none", fontSize: "15px", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginTop: "4px" }}>
+                Commencer →
+              </button>
+              <p style={{ fontSize: "11px", color: "#9ca3af", textAlign: "center" }}>
+                Retrouvez l'aide complète dans Préférences → Aide
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── TOAST UNDO DELETE ── */}
       {pendingDelete && (

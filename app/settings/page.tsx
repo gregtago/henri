@@ -189,7 +189,7 @@ export default function SettingsPage() {
               <div className="bg-tx text-bg rounded-xl p-5 space-y-3">
                 <p className="text-[15px] font-semibold leading-snug">Une nouvelle manière de piloter vos dossiers.</p>
                 <p className="text-[13px] leading-relaxed opacity-90">
-                  Henri part d'un constat simple : un notaire gère simultanément des dizaines de dossiers, chacun contenant de multiples tâches à des stades d'avancement différents. L'enjeu n'est pas de tout faire — c'est de savoir <em>quoi</em> faire aujourd'hui.
+                  Henri part d'un constat simple : un rédacteur gère simultanément des dizaines de dossiers, chacun contenant de multiples tâches à des stades d'avancement différents. L'enjeu n'est pas de tout faire — c'est de savoir <em>quoi</em> faire aujourd'hui.
                 </p>
                 <p className="text-[13px] leading-relaxed opacity-90">
                   Henri propose une organisation en deux temps : d'un côté, <strong>tous vos dossiers</strong> avec leurs tâches, organisés, classés, toujours disponibles. De l'autre, <strong>Ma journée</strong> — un espace de travail quotidien où vous extrayez uniquement les tâches sur lesquelles vous vous concentrez ce jour-là. Vous commencez la journée avec une liste claire, vous la traitez, et vous passez à autre chose.
