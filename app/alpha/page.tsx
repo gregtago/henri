@@ -203,7 +203,7 @@ export default function BetaPage() {
                 </button>
 
                 <p className="text-[11px] text-[#9ca3af] text-center">
-                  Vous recevrez un lien d'accès par email dans les meilleurs délais.
+                  Nous reviendrons vers vous prochainement avec un lien d'accès.
                 </p>
               </div>
             </div>
