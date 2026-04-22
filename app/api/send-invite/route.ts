@@ -16,7 +16,7 @@ async function checkAdmin(req: NextRequest) {
 }
 
 async function sendBrevoEmail({ to, toName, subject, html, text }: {
-  to: string; toName: string; subject: string; html: string; text?: string;
+  to: string; toName: string; subject: string; html: string; text: string;
 }) {
   const res = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
@@ -29,7 +29,7 @@ async function sendBrevoEmail({ to, toName, subject, html, text }: {
       to: [{ email: to, name: toName }],
       subject,
       htmlContent: html,
-      textContent: text ?? "",
+      textContent: text,
     }),
   });
   const body = await res.text();
@@ -39,8 +39,6 @@ async function sendBrevoEmail({ to, toName, subject, html, text }: {
 export async function POST(req: NextRequest) {
   const { token, email, name, authToken } = await req.json();
 
-  // Envoi automatique depuis createInvitation (pas besoin d'auth admin)
-  // ou envoi manuel depuis /admin (auth admin requise)
   if (authToken) {
     const admin = await checkAdmin(new NextRequest(req.url, {
       headers: { authorization: `Bearer ${authToken}` }
@@ -49,10 +47,6 @@ export async function POST(req: NextRequest) {
   }
 
   const link = `${BASE_URL}/invite/${token}`;
-
-
-
-  const logoUrl = "https://henri.tagot.fr/logo-henri-new.png";
 
   const html = `<!DOCTYPE html>
 <html lang="fr">
@@ -72,19 +66,19 @@ export async function POST(req: NextRequest) {
     <p style="margin:0 0 36px;font-size:15px;color:#4b5563;line-height:1.8;">Cliquez ci-dessous pour créer votre compte. Ce lien est personnel et valable <strong style="color:#111827;">7 jours</strong>.</p>
     <table cellpadding="0" cellspacing="0">
       <tr><td style="background:#111827;border-radius:8px;">
-        <a href="${{link}}" style="display:inline-block;padding:15px 36px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;font-family:-apple-system,Arial,sans-serif;">Créer mon compte &rarr;</a>
+        <a href="${link}" style="display:inline-block;padding:15px 36px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;font-family:-apple-system,Arial,sans-serif;">Créer mon compte &rarr;</a>
       </td></tr>
     </table>
     <p style="margin:36px 0 0;font-size:11px;color:#9ca3af;line-height:1.8;">
-      Si le bouton ne fonctionne pas, copiez ce lien :<br>
-      <a href="${{link}}" style="color:#6b7280;word-break:break-all;">${{link}}</a>
+      Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :<br>
+      <span style="color:#374151;word-break:break-all;">${link}</span>
     </p>
   </td></tr>
   </table>
   <table width="100%" cellpadding="0" cellspacing="0">
     <tr><td style="background:#fafafa;border-top:1px solid #f3f4f6;padding:24px 52px;">
       <p style="margin:0;font-size:11px;color:#9ca3af;line-height:1.7;">
-        Grégoire TAGOT · 2 rue Dante, 75005 Paris · <a href="mailto:gregoire@tagot.fr" style="color:#9ca3af;">gregoire@tagot.fr</a><br>
+        Grégoire TAGOT · 2 rue Dante, 75005 Paris · gregoire@tagot.fr<br>
         Vous recevez cet email car vous avez candidaté au programme Alpha d'Henri.
       </p>
     </td></tr>
@@ -96,7 +90,16 @@ export async function POST(req: NextRequest) {
 </body>
 </html>`;
 
-  const text = `Invitation — Bienvenue dans le programme Alpha\n\nVous allez bientôt accéder à Henri en avant-première — une application de gestion de dossiers conçue pour les professionnels du notariat.\n\nCréez votre compte ici (lien valable 7 jours) :\n${link}\n\n---\nGrégoire TAGOT · 2 rue Dante, 75005 Paris · gregoire@tagot.fr`;
+  const text = `Invitation Henri — Programme Alpha
+
+Vous allez bientôt accéder à Henri en avant-première — une application de gestion de dossiers conçue pour les professionnels du notariat.
+
+Créez votre compte en copiant ce lien dans votre navigateur (valable 7 jours) :
+
+${link}
+
+---
+Grégoire TAGOT · 2 rue Dante, 75005 Paris · gregoire@tagot.fr`;
 
   try {
     await sendBrevoEmail({ to: email, toName: name ?? email, subject: "Votre invitation à rejoindre Henri", html, text });
