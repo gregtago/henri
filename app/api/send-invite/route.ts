@@ -49,31 +49,79 @@ export async function POST(req: NextRequest) {
 
   const link = `${BASE_URL}/invite/${token}`;
 
-  const html = `
-    <div style="font-family: Georgia, serif; max-width: 520px; margin: 0 auto; padding: 40px 20px;">
-      <img src="${BASE_URL}/logo-henri-new.png" alt="Henri" style="height: 40px; margin-bottom: 32px;" />
-      <h2 style="font-size: 22px; color: #111827; margin-bottom: 16px;">
-        Votre invitation à rejoindre Henri
-      </h2>
-      <p style="font-size: 15px; color: #374151; line-height: 1.7; margin-bottom: 16px;">
-        ${name ? `Bonjour ${name},<br><br>` : ""}Vous avez été invité(e) à accéder à <strong>Henri</strong>, une nouvelle application de gestion de dossiers conçue pour les professionnels du notariat.
-      </p>
-      <p style="font-size: 15px; color: #374151; line-height: 1.7; margin-bottom: 32px;">
-        Cliquez sur le bouton ci-dessous pour créer votre compte. Ce lien est valable <strong>7 jours</strong>.
-      </p>
-      <a href="${link}" style="display: inline-block; background: #111827; color: white; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-size: 15px; font-weight: 600; font-family: Georgia, serif;">
-        Créer mon compte →
-      </a>
-      <p style="font-size: 12px; color: #9ca3af; margin-top: 32px; line-height: 1.6;">
-        Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :<br>
-        <a href="${link}" style="color: #6b7280;">${link}</a>
-      </p>
-      <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 32px 0;" />
-      <p style="font-size: 11px; color: #9ca3af;">
-        Henri — Version Alpha · Grégoire TAGOT · 2 rue Dante, 75005 Paris
-      </p>
-    </div>
-  `;
+  const html = `<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Georgia,serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;">
+
+        <!-- Header jaune -->
+        <tr><td style="background:#f59e0b;border-radius:16px 16px 0 0;padding:36px 48px;text-align:center;">
+          <img src="https://henri.tagot.fr/logo-henri-new.png" alt="Henri" style="height:52px;filter:brightness(0);margin-bottom:4px;" />
+          <p style="margin:8px 0 0;font-size:13px;color:#1c1917;letter-spacing:0.05em;font-family:Georgia,serif;">VERSION ALPHA</p>
+        </td></tr>
+
+        <!-- Corps blanc -->
+        <tr><td style="background:#ffffff;padding:44px 48px;">
+          <h1 style="margin:0 0 8px;font-size:26px;font-weight:700;color:#111827;line-height:1.2;">
+            Votre invitation à rejoindre Henri
+          </h1>
+          <p style="margin:0 0 28px;font-size:14px;color:#9ca3af;">Une nouvelle manière de piloter vos dossiers.</p>
+
+          <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.75;">
+            ${name ? `Bonjour <strong>${name}</strong>,<br><br>` : ""}Vous avez été sélectionné(e) pour participer au programme <strong>Alpha d'Henri</strong>, une application de gestion de dossiers conçue spécifiquement pour les professionnels du notariat.
+          </p>
+          <p style="margin:0 0 32px;font-size:15px;color:#374151;line-height:1.75;">
+            Créez votre compte en cliquant sur le bouton ci-dessous. Ce lien est personnel et valable <strong>7 jours</strong>.
+          </p>
+
+          <!-- Bouton -->
+          <table cellpadding="0" cellspacing="0" width="100%">
+            <tr><td align="center" style="padding:0 0 36px;">
+              <a href="${link}" style="display:inline-block;background:#f59e0b;color:#111827;text-decoration:none;padding:16px 40px;border-radius:12px;font-size:16px;font-weight:700;font-family:Georgia,serif;letter-spacing:0.02em;">
+                Créer mon compte →
+              </a>
+            </td></tr>
+          </table>
+
+          <!-- Séparateur -->
+          <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 28px;" />
+
+          <!-- Ce qu'est Henri -->
+          <p style="margin:0 0 16px;font-size:14px;font-weight:700;color:#111827;">Qu'est-ce qu'Henri ?</p>
+          <table cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+              <td width="48%" style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:16px 18px;vertical-align:top;">
+                <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#92400e;">📁 Tous vos dossiers</p>
+                <p style="margin:0;font-size:12px;color:#78716c;line-height:1.6;">Organisez vos dossiers, tâches et sous-tâches en un seul endroit.</p>
+              </td>
+              <td width="4%"></td>
+              <td width="48%" style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:16px 18px;vertical-align:top;">
+                <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#92400e;">☀ Ma journée</p>
+                <p style="margin:0;font-size:12px;color:#78716c;line-height:1.6;">Extrayez chaque matin les tâches prioritaires et concentrez-vous.</p>
+              </td>
+            </tr>
+          </table>
+
+          <p style="margin:28px 0 0;font-size:12px;color:#9ca3af;line-height:1.6;">
+            Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :<br>
+            <a href="${link}" style="color:#d97706;word-break:break-all;">${link}</a>
+          </p>
+        </td></tr>
+
+        <!-- Footer -->
+        <tr><td style="background:#111827;border-radius:0 0 16px 16px;padding:24px 48px;text-align:center;">
+          <p style="margin:0 0 4px;font-size:12px;color:#9ca3af;">Henri — Programme Alpha</p>
+          <p style="margin:0;font-size:11px;color:#6b7280;">Grégoire TAGOT · 2 rue Dante, 75005 Paris · <a href="mailto:gregoire@tagot.fr" style="color:#6b7280;">gregoire@tagot.fr</a></p>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
 
   try {
     await sendBrevoEmail({ to: email, toName: name ?? email, subject: "Votre invitation à rejoindre Henri", html });
