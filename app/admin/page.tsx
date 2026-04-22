@@ -29,7 +29,7 @@ type UserRecord = {
   doneCount: number;
 };
 
-type Tab = "users" | "invitations" | "candidatures";
+type Tab = "users" | "invitations" | "candidatures" | "feedbacks";
 
 export default function AdminPage() {
   const router = useRouter();
@@ -55,7 +55,8 @@ export default function AdminPage() {
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [csvImporting, setCsvImporting] = useState(false);
   const [csvResult, setCsvResult] = useState<{ok: number; skipped: string[]} | null>(null);
-  const [sendingInvite, setSendingInvite] = useState<string | null>(null); // id candidature en cours
+  const [sendingInvite, setSendingInvite] = useState<string | null>(null);
+  const [feedbacks, setFeedbacks] = useState<any[]>([]); // id candidature en cours
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
@@ -71,6 +72,15 @@ export default function AdminPage() {
   useEffect(() => {
     if (!uid) return;
     const unsub = subscribeInvitations(setInvitations);
+    return () => unsub();
+  }, [uid]);
+
+  useEffect(() => {
+    if (!uid) return;
+    const q = query(collection(db, "feedbacks"), orderBy("createdAt", "desc"));
+    const unsub = onSnapshot(q, snap => {
+      setFeedbacks(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
     return () => unsub();
   }, [uid]);
 
@@ -246,6 +256,9 @@ export default function AdminPage() {
           </button>
           <button className={tabClass("candidatures")} onClick={() => setTab("candidatures")}>
             Candidatures {candidatures.length > 0 && `(${candidatures.length})`}
+          </button>
+          <button className={tabClass("feedbacks")} onClick={() => setTab("feedbacks")}>
+            Suggestions {feedbacks.length > 0 && `(${feedbacks.length})`}
           </button>
         </div>
 
@@ -465,6 +478,54 @@ export default function AdminPage() {
             )}
           </div>
         )}
+        {/* ── FEEDBACKS ── */}
+        {tab === "feedbacks" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest">
+                {feedbacks.length} suggestion{feedbacks.length > 1 ? "s" : ""}
+              </p>
+              <button onClick={() => window.print()}
+                className="text-[12px] font-[inherit] px-3 py-1 border border-border rounded-lg bg-bg text-tx-2 cursor-pointer hover:bg-bg-hover transition-colors">
+                🖨 Imprimer
+              </button>
+            </div>
+            {feedbacks.length === 0 ? (
+              <p className="text-[13px] text-tx-3">Aucune suggestion pour le moment.</p>
+            ) : (
+              <div className="space-y-3">
+                {feedbacks.map(f => {
+                  const user = users.find(u => u.uid === f.uid);
+                  return (
+                    <div key={f.id} className="bg-bg border border-border rounded-xl p-4 space-y-2">
+                      <div className="flex items-start justify-between gap-4">
+                        <p className="text-[14px] text-tx leading-relaxed flex-1">{f.text}</p>
+                        <p className="text-[11px] text-tx-3 shrink-0">
+                          {new Date(f.createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3 pt-1 border-t border-border">
+                        <div className="w-6 h-6 rounded-full bg-bg-subtle border border-border flex items-center justify-center text-[10px] text-tx-3 font-medium shrink-0">
+                          {(f.email ?? "?")[0].toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-[12px] font-medium text-tx">{f.email ?? "Inconnu"}</p>
+                          {user && (
+                            <p className="text-[11px] text-tx-3">
+                              {user.casesCount} dossier{user.casesCount > 1 ? "s" : ""} · {user.itemsCount} tâche{user.itemsCount > 1 ? "s" : ""}
+                              {user.lastActivity ? ` · Actif le ${formatDate(user.lastActivity)}` : ""}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── CANDIDATURES ── */}
         {tab === "candidatures" && (
           <div className="space-y-4">
