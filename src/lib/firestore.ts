@@ -370,18 +370,27 @@ export type Invitation = {
   createdBy: string;
 };
 
-export const createInvitation = async (createdByUid: string, email: string): Promise<string> => {
+export const createInvitation = async (createdByUid: string, email: string, name?: string): Promise<string> => {
   const token = crypto.randomUUID();
   const now = new Date();
   const expires = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 jours
   await setDoc(doc(db, `invitations/${token}`), {
     token,
     email: email.toLowerCase().trim(),
+    name: name ?? null,
     createdAt: now.toISOString(),
     expiresAt: expires.toISOString(),
     status: "pending",
     createdBy: createdByUid,
   });
+  // Envoyer l'email automatiquement
+  try {
+    await fetch("/api/send-invite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, email: email.toLowerCase().trim(), name: name ?? "" }),
+    });
+  } catch {}
   return token;
 };
 

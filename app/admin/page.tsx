@@ -55,6 +55,7 @@ export default function AdminPage() {
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [csvImporting, setCsvImporting] = useState(false);
   const [csvResult, setCsvResult] = useState<{ok: number; skipped: string[]} | null>(null);
+  const [sendingInvite, setSendingInvite] = useState<string | null>(null); // id candidature en cours
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
@@ -146,6 +147,26 @@ export default function AdminPage() {
       setInviteError("Erreur lors de la création.");
     } finally {
       setInviteLoading(false);
+    }
+  };
+
+  const handleSendInviteFromCandidature = async (c: any) => {
+    if (!uid || !token) return;
+    setSendingInvite(c.id);
+    try {
+      const inviteToken = await createInvitation(uid, c.email, `${c.prenom} ${c.nom}`);
+      // Envoyer l'email avec auth token
+      await fetch("/api/send-invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: inviteToken, email: c.email, name: `${c.prenom} ${c.nom}`, authToken: token }),
+      });
+      setCopied(inviteToken);
+      setTimeout(() => setCopied(null), 3000);
+    } catch {
+      setInviteError("Erreur lors de l'envoi.");
+    } finally {
+      setSendingInvite(null);
     }
   };
 
@@ -477,6 +498,15 @@ export default function AdminPage() {
                     <div><span className="text-tx-3 text-[11px] uppercase tracking-wide">Fonction</span><p className="text-tx">{c.fonction}</p></div>
                     <div><span className="text-tx-3 text-[11px] uppercase tracking-wide">Domaines</span><p className="text-tx">{(c.domaines ?? []).join(", ")}</p></div>
                     {c.crpcen && <div><span className="text-tx-3 text-[11px] uppercase tracking-wide">CRPCEN</span><p className="text-tx">{c.crpcen}</p></div>}
+                    <div className="col-span-2 flex justify-end pt-1">
+                      <button
+                        onClick={() => handleSendInviteFromCandidature(c)}
+                        disabled={sendingInvite === c.id}
+                        className="font-[inherit] text-[12px] font-medium px-4 py-1.5 bg-tx text-bg rounded-lg border-none cursor-pointer hover:opacity-90 disabled:opacity-50 transition-opacity"
+                      >
+                        {sendingInvite === c.id ? "Envoi…" : "✉ Envoyer une invitation"}
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
