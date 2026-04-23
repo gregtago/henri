@@ -1594,12 +1594,12 @@ export default function AppShell() {
                 <button
                   title={detailItem.starred ? "Retirer l'étoile" : "Marquer importante"}
                   onClick={() => updateItem(user.uid, detailItem.id, { starred: !detailItem.starred })}
-                  className="text-[18px] border-none bg-transparent cursor-pointer p-0 leading-none transition-opacity hover:scale-110"
+                  className="text-[22px] border-none bg-transparent cursor-pointer p-0 leading-none transition-opacity hover:scale-110"
                   style={{color: detailItem.starred ? "#f59e0b" : undefined, opacity: detailItem.starred ? 1 : 0.2}}
                 >{detailItem.starred ? "★" : "☆"}</button>
                 {STATUSES.map(s => (
                   <button key={s} onClick={() => handleStatusChange(s)}
-                    className={`${statusClass(s)} cursor-pointer border-none transition-all text-[12px] px-3 py-1 rounded-full ${detailItem.status === s ? "opacity-100" : "opacity-25 hover:opacity-60"}`}>
+                    className={`${statusClass(s)} cursor-pointer border-none transition-all text-[13px] px-4 py-1.5 rounded-full ${detailItem.status === s ? "opacity-100" : "opacity-25 hover:opacity-60"}`}>
                     {s}
                   </button>
                 ))}
@@ -2472,7 +2472,7 @@ export default function AppShell() {
                             title={task.starred ? "Retirer l'étoile" : "Prioritaire"}
                             onClick={() => updateFloatingTask(user.uid, task.id, { starred: !task.starred })}
                             className="text-[22px] border-none bg-transparent cursor-pointer p-0 leading-none transition-opacity hover:scale-110"
-                            style={{color: task.starred ? "#f59e0b" : undefined, opacity: task.starred ? 1 : 0.25}}
+                            style={{color: task.starred ? "#f59e0b" : undefined, opacity: task.starred ? 1 : 0.25, fontSize: "22px"}}
                           >{task.starred ? "★" : "☆"}</button>
                           <span className="text-[11px] font-medium text-tx-3 uppercase tracking-widest">Mémo</span>
                         </div>
@@ -2511,7 +2511,7 @@ export default function AppShell() {
                         <div className="flex flex-wrap gap-1.5">
                           {STATUSES.map(s => (
                             <button key={s} onClick={() => updateFloatingTask(user.uid, task.id, { status: s })}
-                              className={`${statusClass(s)} cursor-pointer border-none transition-all text-[12px] px-3 py-1 rounded-full ${task.status === s ? "opacity-100" : "opacity-25 hover:opacity-60"}`}>
+                              className={`${statusClass(s)} cursor-pointer border-none transition-all text-[13px] px-4 py-1.5 rounded-full ${task.status === s ? "opacity-100" : "opacity-25 hover:opacity-60"}`}>
                               {s}
                             </button>
                           ))}
