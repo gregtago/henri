@@ -849,30 +849,15 @@ export default function AppShell() {
       return;
     }
     if (activeColumn === "cases" && selectedCaseIds.length > 0) {
-      const casesToDelete = selectedCaseIds.map(id => cases.find(c => c.id === id)).filter(Boolean) as typeof cases;
-      const itemsToDelete = items.filter(item => selectedCaseIds.includes(item.caseId));
-      scheduleDelete(`Supprimer ${selectedCaseIds.length} dossier(s) et leurs tâches.`, async () => {
-        await Promise.all(selectedCaseIds.map((id) => deleteCaseCascade(user.uid, id, items)));
-        setSelectedCaseIds([]);
-      }, async () => {
-        await Promise.all(casesToDelete.map(c => restoreCase(user.uid, c)));
-        await restoreItems(user.uid, itemsToDelete);
-      });
+      // Archiver au lieu de supprimer
+      await Promise.all(selectedCaseIds.map((id) => handleArchiveCase(id, true)));
+      setSelectedCaseIds([]);
       return;
     }
     if (activeColumn === "detail" && detailTarget) {
       if (detailTarget.type === "case") {
-        const caseSnapshot = detailCase ? { ...detailCase } : null;
-        const caseItemsSnapshot = items.filter(i => i.caseId === detailTarget.id).map(i => ({ ...i }));
-        scheduleDelete("Supprimer le dossier et ses tâches.", async () => {
-          await deleteCaseCascade(user.uid, detailTarget.id, items);
-          setSelectedCaseIds([]);
-          setSelectedCaseId(null);
-          setDetailTarget(null);
-        }, async () => {
-          if (caseSnapshot) await restoreCase(user.uid, caseSnapshot);
-          await restoreItems(user.uid, caseItemsSnapshot);
-        });
+        // Archiver au lieu de supprimer
+        await handleArchiveCase(detailTarget.id, true);
         return;
       }
       const ids = [detailTarget.id];
@@ -1600,9 +1585,7 @@ export default function AppShell() {
                   <button className={btnGhost} onClick={() => handleArchiveCase(detailCase.id, !detailCase.archived)}>
                     {detailCase.archived ? "Restaurer" : "Archiver"}
                   </button>
-                  <button className={btnDanger} onClick={() => { if (window.confirm("Supprimer ce dossier et toutes ses tâches ?")) { handleDeleteCase(detailCase.id); } }}>
-                    Supprimer
-                  </button>
+
                 </div>
               </div>
             </div>
@@ -1988,7 +1971,7 @@ export default function AppShell() {
                       <p className="text-[12.5px] text-tx-3 mt-0.5 truncate">
                         {entry.legalDueDate ? (
                           <>Éch. <span className={new Date(entry.legalDueDate) < new Date() ? "text-red-500" : ""}>{formatDateFR(entry.legalDueDate)}</span></>
-                        ) : "Pas d'échéance"}
+                        ) : null}
                       </p>
                     </div>
                     {entry.type && (
@@ -2109,7 +2092,7 @@ export default function AppShell() {
                         ) : (
                           getSubItems(items, entry.id).length > 0
                             ? `${getSubItems(items, entry.id).length} sous-tâche${getSubItems(items, entry.id).length > 1 ? "s" : ""}`
-                            : "Pas d'échéance"
+                            : null
                         )}
                       </p>
                     </div>
@@ -2182,7 +2165,7 @@ export default function AppShell() {
                     <div className="flex-1 min-w-0">
                       <p className="text-[15px] text-tx truncate leading-snug">{entry.title}</p>
                       <p className="text-[12.5px] text-tx-3 mt-0.5">
-                        {entry.dueDate ? formatDateFR(entry.dueDate) : `Créée le ${formatDateFR(entry.createdAt)}`}
+                        {entry.dueDate ? formatDateFR(entry.dueDate) : ""}
                       </p>
                     </div>
                     <span className={statusClass(entry.status)}>{entry.status}</span>
