@@ -89,7 +89,7 @@ export default function SettingsPage() {
 
       {/* Contenu */}
       <div className="flex-1 overflow-y-auto">
-        <div className={tab === "aide" ? "w-full px-6 py-8" : "max-w-xl mx-auto px-5 py-8 space-y-6"}>
+        <div className={"max-w-4xl mx-auto px-6 py-8 space-y-6"}>
 
           {tab === "apparence" && <>
             <section>
