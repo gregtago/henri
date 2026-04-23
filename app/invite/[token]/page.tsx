@@ -77,8 +77,7 @@ export default function InvitePage() {
         {!loading && done && (
           <div className="bg-green-50 border border-green-200 rounded px-4 py-3 text-[13px] text-green-700 space-y-1">
             <p className="font-medium">Compte créé avec succès ✓</p>
-              <p className="text-green-600">Bienvenue dans Henri !</p>
-              <button onClick={() => router.push("/")} className="w-full font-[inherit] text-[13.5px] bg-green-700 text-white border-none rounded py-2 cursor-pointer hover:opacity-90 transition-opacity mt-2">
+<button onClick={() => router.push("/")} className="w-full font-[inherit] text-[13.5px] bg-green-700 text-white border-none rounded py-2 cursor-pointer hover:opacity-90 transition-opacity mt-2">
                 Accéder à Henri →
               </button>
           </div>

@@ -37,7 +37,7 @@ import {
   updateItemProgress
 } from "@/lib/firestore";
 import { auth, db } from "@/lib/firebase";
-import { seedData } from "@/lib/seed";
+import { seedOnboardingIfNeeded } from "@/lib/onboarding";
 import {
   dateKeyToDate,
   formatDateFR,
@@ -178,6 +178,12 @@ export default function AppShell() {
       setShowWelcome(true);
       localStorage.setItem(key, "1");
     }
+  }, [user]);
+
+  // Onboarding : créer les dossiers de prise en main à la première connexion
+  useEffect(() => {
+    if (!user) return;
+    seedOnboardingIfNeeded(user.uid).catch(() => {});
   }, [user]);
 
   // Restaurer une sélection après navigation depuis Ma journée
