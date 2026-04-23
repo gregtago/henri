@@ -1476,20 +1476,9 @@ export default function AppShell() {
   // ── DETAIL PANEL ─────────────────────────────────────────────────────────
 
   const detailPanel = showDetailColumn && (detailItem || detailCase) ? (
-    <section className="finder-detail">
+    <section className="finder-detail" style={{boxShadow: "-3px 0 12px rgba(0,0,0,0.06)"}}>
       <div className="finder-header">
         <span>Détail</span>
-        <div className="flex gap-1 items-center">
-          <button className={iconBtn} title="Ajouter à Ma journée (A)" onClick={handleAddToMyDay}>☀</button>
-          {detailItem && (
-            <button className={iconBtn} title="Rattacher (R)" onClick={handleOpenReparent}>⇄</button>
-          )}
-          <button
-            className={iconBtn + " !text-red-400 hover:!text-red-600"}
-            title="Supprimer (⌫)"
-            onClick={handleDelete}
-          >✕</button>
-        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-5 space-y-0">
@@ -1499,16 +1488,13 @@ export default function AppShell() {
           <>
             <input
               ref={detailCaseRef}
-              className="w-full text-[20px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight mb-4 leading-snug cursor-text"
+              className="detail-title-input"
               value={detailCase.title}
               onChange={(e) => updateCase(user.uid, detailCase.id, { title: e.target.value })}
               onKeyDown={e => {
                 if (e.key === "Enter") {
                   e.stopPropagation();
-                  const t = e.target as HTMLInputElement;
-                  t.style.color = "#16a34a";
-                  t.style.transition = "color 0.3s";
-                  setTimeout(() => { t.style.color = ""; t.style.transition = ""; t.blur(); }, 300);
+                  (e.target as HTMLInputElement).blur();
                 }
                 if (e.key === "Escape") {
                   e.stopPropagation();
@@ -1577,17 +1563,6 @@ export default function AppShell() {
 
               <div className="border-t border-border" />
 
-              {/* Actions */}
-              <div>
-                <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-2">Actions</p>
-                <div className="flex flex-wrap gap-2">
-                  <button className={btnGhost} onClick={() => handleExport(detailCase)}>Exporter JSON</button>
-                  <button className={btnGhost} onClick={() => handleArchiveCase(detailCase.id, !detailCase.archived)}>
-                    {detailCase.archived ? "Restaurer" : "Archiver"}
-                  </button>
-
-                </div>
-              </div>
             </div>
           </>
         ) : null}
@@ -1598,16 +1573,13 @@ export default function AppShell() {
             {/* Titre */}
             <input
               ref={detailTitleRef}
-              className="w-full text-[20px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight mb-4 leading-snug cursor-text"
+              className="detail-title-input"
               value={detailItem.title}
               onChange={(e) => updateItem(user.uid, detailItem.id, { title: e.target.value })}
               onKeyDown={e => {
                 if (e.key === "Enter") {
                   e.stopPropagation();
-                  const t = e.target as HTMLInputElement;
-                  t.style.color = "#16a34a";
-                  t.style.transition = "color 0.3s";
-                  setTimeout(() => { t.style.color = ""; t.style.transition = ""; t.blur(); }, 300);
+                  (e.target as HTMLInputElement).blur();
                 }
                 if (e.key === "Escape") {
                   e.stopPropagation();
@@ -1737,8 +1709,20 @@ export default function AppShell() {
                 <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-2">Commentaires</p>
                 <div className="space-y-2 mb-2">
                   {detailComments.map((c) => (
-                    <div key={c.id} className="bg-bg-subtle rounded-lg px-3 py-2">
-                      <p className="text-[13px] text-tx leading-relaxed">{c.body}</p>
+                    <div key={c.id} className="bg-bg-subtle rounded-lg px-3 py-2 group relative">
+                      <textarea
+                        className="font-[inherit] text-[13px] text-tx leading-relaxed bg-transparent border-none outline-none w-full resize-none cursor-text focus:bg-bg focus:border focus:border-border focus:rounded focus:px-1 transition-all"
+                        defaultValue={c.body}
+                        rows={Math.max(1, Math.ceil(c.body.length / 40))}
+                        onBlur={(e) => {
+                          const newBody = e.target.value.trim();
+                          if (newBody && newBody !== c.body) {
+                            import("@/lib/firestore").then(({ updateComment }) => 
+                              updateComment(user.uid, c.id, { body: newBody })
+                            ).catch(() => {});
+                          }
+                        }}
+                      />
                       <p className="text-[11px] text-tx-3 mt-1">{formatDateFR(c.createdAt)}{c.author ? ` — ${c.author}` : ""}</p>
                     </div>
                   ))}
@@ -1782,6 +1766,36 @@ export default function AppShell() {
           </>
         ) : null}
       </div>
+
+      {/* ── BARRE D'ACTIONS BAS ── */}
+      <div className="detail-actions-bar">
+        {detailCase && (
+          <>
+            <button className="detail-action-btn" onClick={() => handleExport(detailCase)}>
+              <span>↓</span> Exporter
+            </button>
+            <button className="detail-action-btn" onClick={() => handleArchiveCase(detailCase.id, !detailCase.archived)}>
+              <span>{detailCase.archived ? "↩" : "📦"}</span> {detailCase.archived ? "Restaurer" : "Archiver"}
+            </button>
+          </>
+        )}
+        {detailItem && (
+          <>
+            <button className="detail-action-btn detail-action-primary" onClick={handleAddToMyDay}>
+              <span>☀</span> Ma journée
+            </button>
+            {detailItem && (
+              <button className="detail-action-btn" onClick={handleOpenReparent}>
+                <span>⇄</span> Rattacher
+              </button>
+            )}
+            <button className="detail-action-btn detail-action-danger" onClick={handleDelete}>
+              <span>✕</span> Supprimer
+            </button>
+          </>
+        )}
+      </div>
+
     </section>
   ) : null;
 

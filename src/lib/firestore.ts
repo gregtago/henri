@@ -112,6 +112,11 @@ export const updateItemProgress = (uid: string, id: string, status: Status) =>
     updatedAt: nowIso()
   });
 
+export const updateComment = async (uid: string, commentId: string, payload: Partial<Comment>) => {
+  const ref = doc(userCollection(uid, "comments"), commentId);
+  await updateDoc(ref, payload);
+};
+
 export const createComment = async (uid: string, payload: Omit<Comment, "id" | "createdAt">) => {
   const ref = await addDoc(userCollection(uid, "comments"), {
     ...payload,
