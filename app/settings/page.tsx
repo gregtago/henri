@@ -183,19 +183,19 @@ export default function SettingsPage() {
           </>}
 
           {tab === "aide" && (
-            <div className="space-y-6">
+            <div className="space-y-5">
 
               {/* Présentation */}
-              <div className="bg-tx text-bg rounded-xl p-5 space-y-3">
-                <p className="text-[15px] font-semibold leading-snug">Une nouvelle manière de piloter vos dossiers.</p>
-                <p className="text-[13px] leading-relaxed opacity-90">
+              <div className="bg-tx text-bg rounded-xl p-6 space-y-4">
+                <p className="text-[17px] font-semibold leading-snug">Une nouvelle manière de piloter vos dossiers.</p>
+                <p className="text-[15px] leading-relaxed opacity-90">
                   Henri part d'un constat simple : un rédacteur gère simultanément des dizaines de dossiers, chacun contenant de multiples tâches à des stades d'avancement différents. L'enjeu n'est pas de tout faire — c'est de savoir <em>quoi</em> faire aujourd'hui.
                 </p>
-                <p className="text-[13px] leading-relaxed opacity-90">
-                  Henri propose une organisation en deux temps : d'un côté, <strong>tous vos dossiers</strong> avec leurs tâches, organisés, classés, toujours disponibles. De l'autre, <strong>Ma journée</strong> — un espace de travail quotidien où vous extrayez uniquement les tâches sur lesquelles vous vous concentrez ce jour-là. Vous commencez la journée avec une liste claire, vous la traitez, et vous passez à autre chose.
+                <p className="text-[15px] leading-relaxed opacity-90">
+                  Henri propose une organisation en deux temps : d'un côté, <strong>tous vos dossiers</strong> avec leurs tâches, organisés, classés, toujours disponibles. De l'autre, <strong>Ma journée</strong> — un espace de travail quotidien où vous extrayez uniquement les tâches sur lesquelles vous vous concentrez ce jour-là.
                 </p>
-                <p className="text-[13px] leading-relaxed opacity-90">
-                  Contrairement à un simple gestionnaire de tâches où les éléments disparaissent quand ils sont cochés, Henri reflète la réalité du notariat : chaque acte passe par plusieurs étapes — le besoin exprimé, la demande formulée, la réception des pièces, le traitement, la signature. Une tâche ne disparaît pas, elle <strong>avance</strong>. Henri vous permet de suivre précisément à quel stade en est chaque action.
+                <p className="text-[15px] leading-relaxed opacity-90">
+                  Contrairement à un simple gestionnaire de tâches où les éléments disparaissent quand ils sont cochés, Henri reflète la réalité du notariat : chaque acte passe par plusieurs étapes — le besoin exprimé, la demande formulée, la réception des pièces, le traitement. Une tâche ne disparaît pas, elle <strong>avance</strong>.
                 </p>
               </div>
 
@@ -205,92 +205,83 @@ export default function SettingsPage() {
                   icon: "📁",
                   title: "La structure : dossiers, tâches, sous-tâches",
                   content: [
-                    "Henri s'organise sur trois niveaux. Le premier niveau regroupe vos dossiers — chaque dossier correspond généralement à un client ou à une affaire. Le deuxième niveau contient les tâches associées à ce dossier — par exemple « Appeler le client », « Récupérer le titre de propriété », « Rédiger l'avant-contrat ». Le troisième niveau permet d'ajouter des sous-tâches à chaque tâche pour décomposer le travail en actions précises.",
+                    "Henri s'organise sur trois niveaux. Le premier niveau regroupe vos dossiers — chaque dossier correspond généralement à un client ou à une affaire. Le deuxième niveau contient les tâches associées à ce dossier (Appeler le client, Récupérer le titre de propriété, Rédiger l'avant-contrat…). Le troisième niveau permet d'ajouter des sous-tâches pour décomposer le travail en actions précises.",
                     "La navigation se fait colonne par colonne, à la souris ou au clavier (← →). Le panneau de détail à droite affiche les informations complètes de l'élément sélectionné : statut, échéance, commentaires, historique.",
-                    "Utilisez le champ de recherche en bas de la colonne Dossiers pour retrouver instantanément n'importe quel dossier parmi tous ceux que vous gérez.",
+                    "Utilisez le champ de recherche en bas de la colonne Dossiers pour retrouver instantanément n'importe quel dossier.",
                   ]
                 },
                 {
-                  icon: "☀",
+                  icon: "☀️",
                   title: "Ma journée : le focus quotidien",
                   content: [
-                    "Ma journée est le cœur de votre usage quotidien. Plutôt que de parcourir tous vos dossiers chaque matin, vous sélectionnez en début de journée les tâches prioritaires et vous les ajoutez à Ma journée (touche A ou bouton ☀ dans le détail). Vous disposez alors d'une liste courte et claire sur laquelle vous concentrer.",
-                    "La colonne de gauche, « Suggestions », vous aide à composer cette liste. Elle propose automatiquement quatre catégories : les tâches marquées importantes (★), celles en retard, celles à échéance aujourd'hui, et celles créées récemment. Un clic suffit pour les ajouter à votre journée.",
-                    "En fin de journée, les tâches que vous n'avez pas traitées restent dans vos dossiers — elles ne disparaissent pas. Ma journée se recompose chaque matin, vous permettant de repartir d'une page blanche.",
+                    "Ma journée est le cœur de votre usage quotidien. Plutôt que de parcourir tous vos dossiers chaque matin, vous sélectionnez les tâches prioritaires et vous les ajoutez à Ma journée (touche A ou bouton ☀ dans le détail). Vous disposez alors d'une liste courte et claire sur laquelle vous concentrer.",
+                    "La colonne de gauche, Suggestions, vous aide à composer cette liste. Elle propose automatiquement quatre catégories : les tâches marquées importantes (★), celles en retard, celles à échéance aujourd'hui, et celles créées récemment. Un clic suffit pour les ajouter.",
+                    "En fin de journée, les tâches non traitées restent dans vos dossiers — elles ne disparaissent pas. Ma journée se recompose chaque matin, vous permettant de repartir d'une page blanche.",
+                  ]
+                },
+                {
+                  icon: "📱",
+                  title: "Vue mobile : Ma journée partout",
+                  content: [
+                    "Sur téléphone, Henri s'ouvre directement sur Ma journée — votre espace de travail du jour, optimisé pour une utilisation tactile. Les tâches s'affichent en grandes cartes lisibles, avec le statut et l'échéance visibles d'un coup d'œil.",
+                    "Appuyez sur une tâche pour ouvrir son détail dans un panneau latéral : vous pouvez changer le statut d'un geste, consulter le dossier rattaché, voir l'échéance. Le bouton 🔭 affiche les suggestions depuis la gauche — appuyez pour ajouter une tâche à votre journée.",
+                    "Le bouton + Nouveau mémo en bas permet de créer rapidement une tâche avec échéance et rattachement à un dossier, sans quitter Ma journée. Une façon efficace de capturer une action en déplacement ou entre deux rendez-vous.",
                   ]
                 },
                 {
                   icon: "◎",
                   title: "Les statuts : suivre l'avancement réel",
                   content: [
-                    "Chaque tâche possède un statut qui reflète son avancement : Créée (la tâche existe, rien n'a encore été fait), Demandé (la demande a été formulée — au client, au confrère, à l'administration), Reçu (les éléments attendus sont arrivés), Traité (la tâche est accomplie).",
-                    "Cette progression en quatre étapes reflète fidèlement le cycle de vie d'une action notariale. Une tâche « Demandé » signifie qu'on attend quelque chose de quelqu'un — vous pouvez relancer. Une tâche « Reçu » signifie que vous avez les éléments en main et devez passer à l'acte. Une tâche « Traité » reste visible et consultable — elle n'est pas supprimée, elle est archivée dans l'historique du dossier.",
-                    "Changez le statut depuis le panneau de détail, ou directement au clavier avec les touches 1, 2, 3 ou 4. Les tâches traitées disparaissent des suggestions et de Ma journée, mais restent accessibles dans le dossier.",
+                    "Chaque tâche possède un statut qui reflète son avancement : Créée → Demandé → Reçu → Traité. Cette progression en quatre étapes reflète fidèlement le cycle de vie d'une action notariale.",
+                    "Une tâche Demandé signifie qu'on attend quelque chose de quelqu'un. Une tâche Reçu signifie que vous avez les éléments en main. Une tâche Traité reste visible et consultable — elle n'est pas supprimée, elle est archivée dans l'historique du dossier.",
+                    "Changez le statut depuis le panneau de détail, ou directement au clavier avec les touches 1, 2, 3 ou 4. Une tâche ne peut pas être marquée Traitée si ses sous-tâches ne le sont pas.",
                   ]
                 },
                 {
                   icon: "✎",
                   title: "Les mémos : notes libres et récurrences",
                   content: [
-                    "Les mémos sont des tâches légères, sans dossier parent, créées directement dans Ma journée. Ils sont idéaux pour les actions ponctuelles qui ne se rattachent pas à un dossier précis : « Appeler la chambre des notaires », « Renouveler l'abonnement », « Préparer la réunion de lundi ».",
-                    "Un mémo peut être enrichi : ajoutez-lui une échéance, des observations (notes libres), et rattachez-le à un dossier existant si nécessaire. Il devient alors une tâche à part entière.",
-                    "La récurrence est particulièrement utile pour les actions régulières. Configurez un mémo pour se répéter chaque semaine, chaque mois, ou le deuxième lundi du mois — Henri génère automatiquement la prochaine occurrence quand vous marquez la tâche comme réalisée.",
+                    "Les mémos sont des tâches légères, sans dossier parent, créées directement dans Ma journée. Idéaux pour les actions ponctuelles : Appeler la chambre des notaires, Renouveler l'abonnement, Préparer la réunion de lundi.",
+                    "Un mémo peut être enrichi : ajoutez-lui une échéance, des observations, et rattachez-le à un dossier existant si nécessaire — il devient alors une tâche à part entière.",
+                    "La récurrence est utile pour les actions régulières. Configurez un mémo pour se répéter chaque semaine ou chaque mois — Henri génère automatiquement la prochaine occurrence quand vous marquez la tâche comme réalisée.",
                   ]
                 },
                 {
                   icon: "★",
-                  title: "L'importance et les échéances",
+                  title: "Importance et échéances",
                   content: [
-                    "Marquez une tâche ou un mémo comme important avec l'étoile ★ dans le panneau de détail. Les éléments importants sont signalés par un fond jaune dans toutes les vues et apparaissent en tête des suggestions de Ma journée.",
-                    "Les échéances permettent de planifier précisément votre travail. Des raccourcis rapides vous évitent de manipuler un calendrier : Aujourd'hui, Demain, Dans 2 jours, Lundi prochain, Dans 1 semaine, Dans 1 mois. Une échéance dépassée apparaît en rouge dans les colonnes et remonte automatiquement dans les suggestions.",
-                    "Combinez importance et échéance pour identifier immédiatement ce qui est à la fois urgent et prioritaire. Henri vous donne une vue claire de votre charge de travail sans vous imposer une méthodologie rigide.",
-                  ]
-                },
-                {
-                  icon: "🔁",
-                  title: "La récurrence",
-                  content: [
-                    "La récurrence s'applique aux mémos. Elle permet de créer des tâches qui se régénèrent automatiquement selon un rythme défini. Exemples d'usage : vérification hebdomadaire des délais légaux, envoi mensuel d'un rapport, relance trimestrielle d'un client.",
-                    "Trois modes sont disponibles : quotidien, hebdomadaire (choisissez le jour), mensuel (un jour fixe du mois, ou un jour nommé comme « le 2ème lundi »). Quand vous marquez un mémo récurrent comme réalisé, Henri crée automatiquement la prochaine occurrence avec la bonne date.",
-                    "La récurrence s'active et se désactive en un clic dans le panneau de détail du mémo. Vous pouvez modifier le rythme à tout moment sans perdre l'historique.",
-                  ]
-                },
-                {
-                  icon: "⇄",
-                  title: "Rattacher une tâche à un dossier",
-                  content: [
-                    "Il arrive qu'une tâche créée dans un dossier doive être déplacée dans un autre, ou qu'un mémo doive être rattaché à un dossier existant. Henri propose deux façons de faire.",
-                    "Pour déplacer une tâche de dossier : sélectionnez la tâche et appuyez sur R (ou cliquez sur le bouton ⇄ dans le détail). Une fenêtre s'ouvre avec la liste de vos dossiers et de vos tâches — cherchez et sélectionnez la nouvelle destination. La tâche et toutes ses sous-tâches sont déplacées en un clic.",
-                    "Pour rattacher un mémo à un dossier : ouvrez le panneau de détail du mémo, utilisez le champ « Dossier » avec recherche intégrée. Une fois rattaché, le mémo devient une tâche de ce dossier et n'apparaît plus dans la liste des mémos libres.",
+                    "Marquez une tâche comme importante avec l'étoile ★ dans le panneau de détail. Les éléments importants sont signalés par un fond jaune et apparaissent en tête des suggestions de Ma journée.",
+                    "Les échéances permettent de planifier précisément. Des raccourcis rapides vous évitent de manipuler un calendrier : Aujourd'hui, Demain, Dans 1 semaine, Dans 1 mois. Une échéance dépassée apparaît en rouge.",
+                    "Une tâche ne peut pas avoir une échéance antérieure à celle de ses sous-tâches — ce qui garantit la cohérence de votre planification.",
                   ]
                 },
                 {
                   icon: "📤",
-                  title: "Export et import de dossiers",
+                  title: "Export, import et modèles",
                   content: [
-                    "Henri permet d'exporter n'importe quel dossier au format JSON depuis le panneau de détail (bouton « Exporter JSON »). Ce fichier contient la structure complète du dossier : toutes ses tâches, sous-tâches, statuts, commentaires et échéances. Il peut servir de modèle ou d'archive.",
-                    "Pour importer un dossier, utilisez le lien « Importer un dossier » en bas de la colonne Dossiers. Sélectionnez un fichier JSON exporté précédemment — Henri recrée la structure complète du dossier dans votre espace. C'est particulièrement utile pour dupliquer un dossier type et repartir d'une structure éprouvée pour une nouvelle affaire.",
-                    "Exemple d'usage : créez un dossier modèle « Vente immobilière » avec toutes les tâches standard (appel de fonds, documents d'urbanisme, diagnostics, etc.), exportez-le, et réimportez-le à chaque nouvelle vente. Vous partez d'une checklist complète sans ressaisir chaque étape.",
+                    "Henri permet d'exporter n'importe quel dossier au format JSON depuis le panneau de détail. Ce fichier contient la structure complète du dossier : toutes ses tâches, sous-tâches, statuts, commentaires et échéances.",
+                    "Pour importer un dossier, utilisez le lien Importer un dossier en bas de la colonne Dossiers. C'est particulièrement utile pour dupliquer un dossier type et repartir d'une structure éprouvée pour une nouvelle affaire.",
+                    "Exemple : créez un dossier modèle Vente immobilière avec toutes les tâches standard, exportez-le, et réimportez-le à chaque nouvelle vente.",
                   ]
                 },
                 {
                   icon: "⌨",
                   title: "Raccourcis clavier",
                   content: [
-                    "Henri est conçu pour être utilisé rapidement au clavier. Les raccourcis les plus utiles : N pour créer un élément dans la colonne active, Shift+N pour créer une sous-tâche, A pour ajouter la tâche sélectionnée à Ma journée, Espace pour renommer, Entrée pour valider, Échap pour annuler.",
-                    "Navigation : les touches ← → permettent de passer d'une colonne à l'autre, ↑ ↓ déplacent la sélection dans la liste. La touche I ouvre et ferme le panneau de détail, R ouvre la fenêtre de rattachement, et ⌫ supprime l'élément sélectionné.",
-                    "Les touches 1 à 4 changent instantanément le statut de la tâche sélectionnée : 1 = Créée, 2 = Demandé, 3 = Reçu, 4 = Traité. Combinées à la navigation clavier, elles permettent de passer en revue rapidement toutes les tâches d'un dossier.",
+                    "N pour créer un élément dans la colonne active, Shift+N pour créer une sous-tâche, A pour ajouter la tâche sélectionnée à Ma journée, Espace pour renommer, Entrée pour valider, Échap pour annuler.",
+                    "← → pour naviguer entre colonnes, ↑ ↓ pour déplacer la sélection, I pour ouvrir/fermer le détail, R pour rattacher une tâche, ⌫ pour supprimer.",
+                    "Les touches 1 à 4 changent instantanément le statut de la tâche sélectionnée : 1 = Créée, 2 = Demandé, 3 = Reçu, 4 = Traité.",
                   ]
                 },
               ].map(({ icon, title, content }) => (
                 <div key={title} className="bg-bg border border-border rounded-xl overflow-hidden">
-                  <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-bg-subtle">
-                    <span className="text-[16px]">{icon}</span>
-                    <p className="text-[13px] font-semibold text-tx">{title}</p>
+                  <div className="flex items-center gap-3 px-5 py-4 border-b border-border bg-bg-subtle">
+                    <span className="text-[20px]">{icon}</span>
+                    <p className="text-[15px] font-semibold text-tx">{title}</p>
                   </div>
-                  <div className="px-4 py-3 space-y-2">
+                  <div className="px-5 py-4 space-y-3">
                     {content.map((para, i) => (
-                      <p key={i} className="text-[12.5px] text-tx-2 leading-relaxed">{para}</p>
+                      <p key={i} className="text-[14px] text-tx-2 leading-relaxed">{para}</p>
                     ))}
                   </div>
                 </div>

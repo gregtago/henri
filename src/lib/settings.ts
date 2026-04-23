@@ -45,6 +45,8 @@ export function saveSettings(s: UserSettings): void {
 }
 
 export function applySettings(s: UserSettings): void {
+  // Appliquer la taille sur html pour que les éléments relatifs s'adaptent
+  document.documentElement.style.fontSize = `${s.textSize}px`;
   const root = document.documentElement;
 
   // Police
