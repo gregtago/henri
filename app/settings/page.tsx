@@ -89,7 +89,7 @@ export default function SettingsPage() {
 
       {/* Contenu */}
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-xl mx-auto px-5 py-8 space-y-6">
+        <div className={tab === "aide" ? "w-full px-6 py-8" : "max-w-xl mx-auto px-5 py-8 space-y-6"}>
 
           {tab === "apparence" && <>
             <section>
@@ -184,10 +184,10 @@ export default function SettingsPage() {
           </>}
 
           {tab === "aide" && (
-            <div className="flex gap-0 min-h-[500px] bg-bg border border-border rounded-xl overflow-hidden">
+            <div className="flex gap-0 min-h-[600px] bg-bg border border-border rounded-xl overflow-hidden">
 
               {/* Menu gauche */}
-              <div className="w-44 shrink-0 border-r border-border bg-bg-subtle flex flex-col py-2">
+              <div className="w-52 shrink-0 border-r border-border bg-bg-subtle flex flex-col py-2">
                 {[["📁", "Structure"],
                 ["☀️", "Ma journée"],
                 ["📱", "Vue mobile"],
