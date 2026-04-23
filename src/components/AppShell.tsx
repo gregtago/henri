@@ -1968,7 +1968,7 @@ export default function AppShell() {
                   >
                     <div className="flex-1 min-w-0">
                       <p className="text-[15px] font-medium text-tx truncate leading-snug">{entry.title}</p>
-                      <p className="text-[12.5px] text-tx-3 mt-0.5 truncate">
+                      <p className="text-[12.5px] text-tx-3 mt-0.5 truncate min-h-[1.25rem]">
                         {entry.legalDueDate ? (
                           <>Éch. <span className={new Date(entry.legalDueDate) < new Date() ? "text-red-500" : ""}>{formatDateFR(entry.legalDueDate)}</span></>
                         ) : null}
@@ -2086,7 +2086,7 @@ export default function AppShell() {
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="text-[15px] text-tx truncate leading-snug">{entry.title}</p>
-                      <p className="text-[12.5px] text-tx-3 mt-0.5 truncate">
+                      <p className="text-[12.5px] text-tx-3 mt-0.5 truncate min-h-[1.25rem]">
                         {entry.dueDate ? (
                           <>Éch. <span className={new Date(entry.dueDate) < new Date() ? "text-red-500" : ""}>{formatDateFR(entry.dueDate)}</span></>
                         ) : (
@@ -2164,7 +2164,7 @@ export default function AppShell() {
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="text-[15px] text-tx truncate leading-snug">{entry.title}</p>
-                      <p className="text-[12.5px] text-tx-3 mt-0.5">
+                      <p className="text-[12.5px] text-tx-3 mt-0.5 min-h-[1.25rem]">
                         {entry.dueDate ? formatDateFR(entry.dueDate) : ""}
                       </p>
                     </div>
