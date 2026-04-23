@@ -42,6 +42,8 @@ export function loadSettings(): UserSettings {
 export function saveSettings(s: UserSettings): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(KEY, JSON.stringify(s));
+  // Notifier les autres composants dans le même onglet
+  window.dispatchEvent(new CustomEvent("henri-settings-changed", { detail: s }));
 }
 
 export function applySettings(s: UserSettings): void {

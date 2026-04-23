@@ -168,6 +168,25 @@ export default function AppShell() {
     const s = loadSettings();
     setSettings(s);
     applySettings(s);
+    setCaseSortKey(s.defaultSort);
+    setCaseSortDirection(s.defaultSortDir);
+  }, []);
+
+  // Écouter les changements de settings depuis d'autres onglets (settings page)
+  useEffect(() => {
+    const handleStorage = () => {
+      const s = loadSettings();
+      setSettings(s);
+      applySettings(s);
+      setCaseSortKey(s.defaultSort);
+      setCaseSortDirection(s.defaultSortDir);
+    };
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("henri-settings-changed", handleStorage as EventListener);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("henri-settings-changed", handleStorage as EventListener);
+    };
   }, []);
 
   // Écran de bienvenue première connexion
