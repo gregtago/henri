@@ -245,10 +245,26 @@ export default function MobileMyDay({ user }: { user: User }) {
                       )}
                     </div>
                   </div>
-                  <button onClick={e => { e.stopPropagation(); removeEntry(entry); }}
-                    style={{ width: "32px", height: "32px", borderRadius: "50%", border: "1px solid #e5e7eb", background: "#f9fafb", color: "#9ca3af", fontSize: "16px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    ✕
-                  </button>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px", flexShrink: 0 }}>
+                    <button onClick={e => {
+                      e.stopPropagation();
+                      if (entry.type === "item" && entry.item) {
+                        handleStatusChange(entry, "Traité");
+                        setTimeout(() => removeEntry(entry), 400);
+                      } else if (entry.type === "floating" && entry.floating) {
+                        updateFloatingTask(user.uid, entry.floating.id, { status: "Traité" });
+                        setTimeout(() => removeEntry(entry), 400);
+                      }
+                    }}
+                      style={{ width: "32px", height: "32px", borderRadius: "50%", border: "1.5px solid #16a34a", background: "white", color: "#16a34a", fontSize: "16px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                      title="Marquer comme terminé">
+                      ✓
+                    </button>
+                    <button onClick={e => { e.stopPropagation(); removeEntry(entry); }}
+                      style={{ width: "32px", height: "32px", borderRadius: "50%", border: "1px solid #e5e7eb", background: "#f9fafb", color: "#9ca3af", fontSize: "14px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      ✕
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -474,6 +490,37 @@ export default function MobileMyDay({ user }: { user: User }) {
                   <p style={{ fontSize: "14px", color: "#374151" }}>
                     📅 {formatDate(detailEntry.item?.dueDate ?? detailEntry.floating?.dueDate ?? "")}
                   </p>
+                </div>
+              )}
+
+              {/* Statut pour les mémos flottants */}
+              {detailEntry.floating && (
+                <div>
+                  <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Statut</p>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                    {STATUSES.map(s => {
+                      const isActive = (detailEntry.floating?.status ?? "Créée") === s;
+                      return (
+                        <button key={s} onClick={() => {
+                          updateFloatingTask(user.uid, detailEntry.floating!.id, { status: s });
+                          setDetailEntry(prev => prev ? { ...prev, floating: { ...prev.floating!, status: s } } : prev);
+                        }}
+                          style={{
+                            padding: "12px",
+                            borderRadius: "10px",
+                            border: isActive ? "2px solid #111827" : "1px solid #e5e7eb",
+                            background: isActive ? STATUS_COLORS[s] : "white",
+                            color: isActive ? STATUS_TEXT[s] : "#374151",
+                            fontSize: "14px",
+                            fontWeight: isActive ? 700 : 400,
+                            cursor: "pointer",
+                            fontFamily: "inherit",
+                          }}>
+                          {s}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
