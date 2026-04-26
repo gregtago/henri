@@ -9,7 +9,7 @@ import {
   subscribeInvitations,
   type Invitation,
 } from "@/lib/firestore";
-import { collection, onSnapshot, orderBy, query, deleteDoc, doc } from "firebase/firestore";
+import { collection, onSnapshot, orderBy, query, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import Link from "next/link";
 
@@ -191,11 +191,15 @@ export default function AdminPage() {
     setSendingInvite(c.id);
     try {
       const inviteToken = await createInvitation(uid, c.email, `${c.prenom} ${c.nom}`);
-      // Envoyer l'email avec auth token
       await fetch("/api/send-invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token: inviteToken, email: c.email, name: `${c.prenom} ${c.nom}`, authToken: token }),
+      });
+      // Marquer la candidature comme invitée
+      await updateDoc(doc(db, `betaRegistrations/${c.id}`), {
+        invitedAt: new Date().toISOString(),
+        inviteToken,
       });
       setCopied(inviteToken);
       setTimeout(() => setCopied(null), 3000);
@@ -582,7 +586,14 @@ export default function AdminPage() {
                 {candidatures.map((c, i) => (
                   <div key={c.id} className="bg-bg border border-border rounded-xl p-4 grid grid-cols-2 gap-x-6 gap-y-1.5 text-[13px]">
                     <div className="col-span-2 flex items-center justify-between mb-1">
-                      <p className="font-semibold text-[15px] text-tx">{c.prenom} {c.nom}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-[15px] text-tx">{c.prenom} {c.nom}</p>
+                        {c.invitedAt && (
+                          <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">
+                            ✓ Invité le {new Date(c.invitedAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-[11px] text-tx-3">
                         {new Date(c.createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
                       </p>
@@ -599,9 +610,9 @@ export default function AdminPage() {
                       <button
                         onClick={() => handleSendInviteFromCandidature(c)}
                         disabled={sendingInvite === c.id}
-                        className="font-[inherit] text-[12px] font-medium px-4 py-1.5 bg-tx text-bg rounded-lg border-none cursor-pointer hover:opacity-90 disabled:opacity-50 transition-opacity"
+                        className={`font-[inherit] text-[12px] font-medium px-4 py-1.5 rounded-lg border-none cursor-pointer hover:opacity-90 disabled:opacity-50 transition-opacity ${c.invitedAt ? "bg-green-100 text-green-800 border border-green-200" : "bg-tx text-bg"}`}
                       >
-                        {sendingInvite === c.id ? "Envoi…" : "✉ Envoyer une invitation"}
+                        {sendingInvite === c.id ? "Envoi…" : c.invitedAt ? "↩ Renvoyer l'invitation" : "✉ Envoyer une invitation"}
                       </button>
                     </div>
                   </div>
