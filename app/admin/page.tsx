@@ -29,7 +29,7 @@ type UserRecord = {
   doneCount: number;
 };
 
-type Tab = "users" | "invitations" | "candidatures" | "feedbacks";
+type Tab = "pipeline" | "users" | "invitations" | "candidatures" | "feedbacks";
 
 export default function AdminPage() {
   useEffect(() => {
@@ -43,7 +43,7 @@ export default function AdminPage() {
   const router = useRouter();
   const [uid, setUid] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("users");
+  const [tab, setTab] = useState<Tab>("pipeline");
 
   // Candidatures
   const [candidatures, setCandidatures] = useState<any[]>([]);
