@@ -139,17 +139,24 @@ export default function MobileMyDay({ user }: { user: User }) {
     setMemoText(""); setMemoDue(""); setMemoCaseId(""); setMemoCaseSearch(""); setMemoOpen(false);
 
     if (memoCaseId) {
-      // Rattaché à un dossier → créer une tâche item
-      await import("@/lib/firestore").then(({ createItem }) =>
-        createItem(user.uid, {
-          caseId: memoCaseId,
-          level: 2,
-          title: text,
-          status: "Créée",
-          parentItemId: null,
-          dueDate: memoDue ? new Date(memoDue + "T12:00:00").toISOString() : null,
-        })
-      );
+      // Rattaché à un dossier → créer une tâche item et l'ajouter à Ma journée
+      const { createItem, addMyDaySelection } = await import("@/lib/firestore");
+      const newItemId = await createItem(user.uid, {
+        caseId: memoCaseId,
+        level: 2,
+        title: text,
+        status: "Créée",
+        parentItemId: null,
+        dueDate: memoDue ? new Date(memoDue + "T12:00:00").toISOString() : null,
+      });
+      // L'ajouter immédiatement à Ma journée pour éviter le doublon en suggestion
+      if (newItemId) await addMyDaySelection(user.uid, {
+        refType: "item",
+        refId: newItemId,
+        dateKey: todayKey,
+        selectionDate: null,
+        dateTs: null,
+      }).catch(() => {});
     } else {
       // Mémo libre
       await createFloatingTask(user.uid, {
