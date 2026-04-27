@@ -574,8 +574,15 @@ export default function AppShell() {
       return createdAt >= recentThreshold;
     });
 
-    return { starred, overdue, dueToday, recent };
-  }, [items, myDaySelections, todayKey]);
+    // 5. Mémos flottants non réalisés des jours précédents → apparaissent en retard
+    const overdueFloating = floatingTasks.filter(t => {
+      if (t.status === "Traité") return false;
+      if (!t.dateKey || t.dateKey >= todayKey) return false;
+      return !todaySelectionRefIds.has(t.id);
+    });
+
+    return { starred, overdue, dueToday, recent, overdueFloating };
+  }, [items, myDaySelections, todayKey, floatingTasks]);
 
   const reparentOptions = useMemo(() => {
     if (!reparentTarget) return [];
@@ -2254,7 +2261,7 @@ export default function AppShell() {
               <span>Suggestions</span>
             </div>
             <div className="flex-1 overflow-y-auto py-1">
-              {suggestions.starred.length === 0 && suggestions.overdue.length === 0 && suggestions.dueToday.length === 0 && suggestions.recent.length === 0 ? (
+              {suggestions.starred.length === 0 && suggestions.overdue.length === 0 && suggestions.overdueFloating.length === 0 && suggestions.dueToday.length === 0 && suggestions.recent.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full gap-2 px-4 text-center">
                   <p className="text-[12px] text-tx-3">Aucune suggestion.</p>
                 </div>
@@ -2283,7 +2290,7 @@ export default function AppShell() {
                   )}
 
                   {/* 2. En retard */}
-                  {suggestions.overdue.length > 0 && (
+                  {(suggestions.overdue.length > 0 || suggestions.overdueFloating.length > 0) && (
                     <div className="px-3 pt-3 pb-1">
                       <p className="text-[10px] font-medium text-tx-3 uppercase tracking-wide mb-1.5">🔴 En retard</p>
                       {suggestions.overdue.map(item => {
@@ -2302,6 +2309,16 @@ export default function AppShell() {
                           </div>
                         );
                       })}
+                      {suggestions.overdueFloating.map(t => (
+                        <div key={t.id} className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer mb-0.5"
+                          style={{background: "rgba(239,68,68,0.1)"}}
+                          onClick={() => { playAdd(); updateFloatingTask(user.uid, t.id, { dateKey: todayKey }); }}>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[12px] text-tx truncate">{t.title}</p>
+                            <p className="text-[10px] text-tx-3">Mémo · {t.dateKey ? formatDateFR(new Date(t.dateKey + "T12:00:00").toISOString()) : "Hier"}</p>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
 
