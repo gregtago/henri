@@ -1438,13 +1438,22 @@ export default function AppShell() {
 
   const handleAttachFloating = async (task: FloatingTask, caseId: string) => {
     if (!user) return;
-    await createItem(user.uid, {
+    const newItemId = await createItem(user.uid, {
       caseId,
       level: 2,
       title: task.title,
-      status: "Créée",  // toujours "Créée" quand on rattache
-      parentItemId: null
+      status: "Créée",
+      parentItemId: null,
+      dueDate: task.dueDate ?? null,
     });
+    // Ajouter directement à Ma journée pour éviter le doublon en suggestion
+    await addMyDaySelection(user.uid, {
+      refType: "item",
+      refId: newItemId,
+      dateKey: todayKey,
+      selectionDate: null,
+      dateTs: null,
+    }).catch(() => {});
     await deleteFloatingTasks(user.uid, [task.id]);
     setMyDayDetailId(null);
     showToast(`"${task.title}" rattachée au dossier.`);
