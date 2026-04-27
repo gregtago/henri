@@ -97,7 +97,7 @@ export default function MobileMyDay({ user }: { user: User }) {
       const item = items.find(i => i.id === s.refId);
       if (item) entries.push({ selectionId: s.id, type: "item", item });
     }
-    const todayFloating = floatingTasks.filter(t => t.dateKey === todayKey);
+    const todayFloating = floatingTasks.filter(t => t.status !== "Traité" && t.dateKey != null && t.dateKey <= todayKey);
     for (const f of todayFloating) {
       entries.push({ selectionId: f.id, type: "floating", floating: f });
     }
