@@ -175,10 +175,11 @@ export default function MobileMyDay({ user }: { user: User }) {
         dateTs: null,
       }).catch(() => {});
     } else {
-      // Mémo libre
+      // Mémo libre — si échéance future, ne pas mettre dans Ma journée aujourd'hui
+      const isFuture = memoDue && memoDue > todayKey;
       await createFloatingTask(user.uid, {
         title: text,
-        dateKey: todayKey,
+        dateKey: isFuture ? memoDue : todayKey, // apparaîtra le bon jour
         note: null,
         dueDate: memoDue ? new Date(memoDue + "T12:00:00").toISOString() : null,
         starred: false,

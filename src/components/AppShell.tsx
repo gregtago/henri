@@ -1443,6 +1443,18 @@ export default function AppShell() {
     });
   };
 
+  // Met à jour l'échéance d'un mémo + ajuste son dateKey (futur = pas dans Ma journée aujourd'hui)
+  const handleFloatingDueDate = async (taskId: string, dueDate: Date | null) => {
+    if (!user) return;
+    const dueDateKey = dueDate ? dueDate.toISOString().slice(0, 10) : null;
+    const isFuture = dueDateKey && dueDateKey > todayKey;
+    await updateFloatingTask(user.uid, taskId, {
+      dueDate: dueDate ? dueDate.toISOString() : null,
+      // Si échéance future, sortir de Ma journée actuelle et programmer pour le bon jour
+      ...(isFuture ? { dateKey: dueDateKey } : { dateKey: todayKey }),
+    });
+  };
+
   const handleAttachFloating = async (task: FloatingTask, caseId: string) => {
     if (!user) return;
     const newItemId = await createItem(user.uid, {
@@ -2582,7 +2594,7 @@ export default function AppShell() {
                               ];
                               return shortcuts.map(({ label, date }) => (
                                 <button key={label}
-                                  onClick={() => updateFloatingTask(user.uid, task.id, { dueDate: date.toISOString() })}
+                                  onClick={() => handleFloatingDueDate(task.id, date)}
                                   className="text-[11px] font-[inherit] px-2 py-1 rounded border border-border bg-bg-subtle text-tx-2 cursor-pointer hover:border-border-strong hover:text-tx transition-colors">
                                   {label}
                                 </button>
@@ -2598,7 +2610,7 @@ export default function AppShell() {
                           <input key={task.id + "-due"} type="date"
                             className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-1.5 outline-none focus:border-border-strong transition-colors w-full"
                             defaultValue={task.dueDate?.slice(0,10) ?? ""}
-                            onBlur={e => { if (!e.target.value) { updateFloatingTask(user.uid, task.id, { dueDate: null }); return; } const [y,m,d] = e.target.value.split("-").map(Number); if (y < 1900 || y > 2100) return; updateFloatingTask(user.uid, task.id, { dueDate: new Date(y,m-1,d,12).toISOString() }); }} />
+                            onBlur={e => { if (!e.target.value) { updateFloatingTask(user.uid, task.id, { dueDate: null, dateKey: todayKey }); return; } const [y,m,d] = e.target.value.split("-").map(Number); if (y < 1900 || y > 2100) return; handleFloatingDueDate(task.id, new Date(y,m-1,d,12)); }} />
                         </div>
 
                         {/* Observations */}
