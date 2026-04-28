@@ -541,7 +541,7 @@ export default function AppShell() {
     const withDue = entries.filter(e => e.hasDue).sort((a, b) => a.dueTs - b.dueTs);
     const withoutDue = entries.filter(e => !e.hasDue);
     return [...withDue, ...withoutDue];
-  }, [myDayItems, formatDateFR, statusClass, user]);
+  }, [myDayItems, formatDateFR, statusClass, user, cases, items]);
 
   const suggestions = useMemo(() => {
     // IDs déjà ajoutés à Ma journée aujourd'hui
