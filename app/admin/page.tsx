@@ -103,6 +103,14 @@ export default function AdminPage() {
     return () => unsub();
   }, [uid]);
 
+  // Renouvelle le token si nécessaire avant chaque appel API
+  const getFreshToken = useCallback(async () => {
+    const { getAuth } = await import("firebase/auth");
+    const u = getAuth().currentUser;
+    if (!u) return null;
+    return getIdToken(u, true); // force refresh
+  }, []);
+
   const fetchUsers = useCallback(async () => {
     if (!token) return;
     setLoadingUsers(true);
