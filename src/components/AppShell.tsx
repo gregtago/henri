@@ -2434,9 +2434,10 @@ export default function AppShell() {
                         onClick={e => { e.stopPropagation(); const sel = myDaySelections.find(s => s.id === entry.selectionId); if (!sel) return; const item = items.find(i => i.id === sel.refId); if (item) handleMarkMyDayItemDone(item, entry.selectionId); }} title="Réalisée" />
                       <div className="flex-1 min-w-0">
                         <p className="text-[15px] text-tx truncate leading-snug">{entry.title}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                           {entry.statusEl}
                           <span className={`text-[11px] ${entry.overdue ? "text-red-500" : "text-tx-3"}`}>Éch. {entry.dueStr}</span>
+                          {entry.caseLabel && <span className="text-[11px] text-tx-3 truncate">{entry.parentLabel ? `${entry.caseLabel} › ${entry.parentLabel}` : entry.caseLabel}</span>}
                         </div>
                       </div>
                       {entry.removeBtn}
