@@ -1817,6 +1817,18 @@ export default function AppShell() {
             <button className="detail-action-btn" onClick={() => handleArchiveCase(detailCase.id, !detailCase.archived)}>
               <span>{detailCase.archived ? "↩" : "📦"}</span> {detailCase.archived ? "Restaurer" : "Archiver"}
             </button>
+            {detailCase.archived && (
+              <button className="detail-action-btn detail-action-danger" onClick={() => {
+                if (window.confirm("Supprimer définitivement ce dossier et toutes ses tâches ? Cette action est irréversible.")) {
+                  deleteCaseCascade(user.uid, detailCase.id, items).then(() => {
+                    setDetailTarget(null);
+                    setSelectedCaseId(null);
+                  });
+                }
+              }}>
+                <span>🗑</span> Supprimer
+              </button>
+            )}
           </>
         )}
         {detailItem && (
