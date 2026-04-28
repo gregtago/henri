@@ -286,6 +286,9 @@ export default function AdminPage() {
 
         {/* Tabs */}
         <div className="flex gap-2 flex-wrap">
+          <button className={tabClass("pipeline")} onClick={() => setTab("pipeline")}>
+            Vue d'ensemble
+          </button>
           <button className={tabClass("users")} onClick={() => setTab("users")}>
             Utilisateurs {users.length > 0 && `(${users.length})`}
           </button>
@@ -301,6 +304,85 @@ export default function AdminPage() {
         </div>
 
         {/* ── USERS ── */}
+        {/* ── VUE D'ENSEMBLE ── */}
+        {tab === "pipeline" && (() => {
+          const allEmails = new Set<string>();
+
+          const userRows = users.map(u => {
+            allEmails.add(u.email);
+            return { key: u.uid, email: u.email, name: (u as any).displayName ?? "", status: "user" as const, date: u.lastActivity ?? u.createdAt, meta: u, candidature: candidatures.find(c => c.email === u.email) ?? null, invitation: invitations.find(i => i.email === u.email) ?? null };
+          });
+
+          const inviteRows = invitations.filter(i => !allEmails.has(i.email)).map(i => {
+            allEmails.add(i.email);
+            const cand = candidatures.find(c => c.email === i.email);
+            return { key: i.token, email: i.email, name: cand ? `${cand.prenom} ${cand.nom}` : "", status: "invited" as const, date: i.createdAt, meta: null, candidature: cand ?? null, invitation: i };
+          });
+
+          const candRows = candidatures.filter(c => !allEmails.has(c.email)).map(c => ({
+            key: c.id, email: c.email, name: `${c.prenom} ${c.nom}`, status: "candidate" as const, date: c.createdAt, meta: null, candidature: c, invitation: null,
+          }));
+
+          const all = [...userRows, ...inviteRows, ...candRows].sort((a, b) => new Date(b.date ?? 0).getTime() - new Date(a.date ?? 0).getTime());
+
+          const cfg: Record<string, { label: string; bg: string; color: string; border: string }> = {
+            user:      { label: "Utilisateur",  bg: "#dcfce7", color: "#15803d", border: "#bbf7d0" },
+            invited:   { label: "Invité",        bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" },
+            candidate: { label: "Candidat",      bg: "#fef9c3", color: "#854d0e", border: "#fde68a" },
+          };
+
+          return (
+            <div className="space-y-2">
+              <div className="flex gap-4 text-[12px] text-tx-3 mb-3">
+                <span>🟢 {userRows.length} utilisateur{userRows.length !== 1 ? "s" : ""}</span>
+                <span>🔵 {inviteRows.length} invité{inviteRows.length !== 1 ? "s" : ""}</span>
+                <span>🟡 {candRows.length} candidat{candRows.length !== 1 ? "s" : ""}</span>
+              </div>
+              {all.length === 0 && <p className="text-[13px] text-tx-3">Aucune donnée.</p>}
+              {all.map(row => {
+                const c = cfg[row.status];
+                return (
+                  <div key={row.key} className="bg-bg border border-border rounded-xl px-4 py-3 flex items-center gap-3 flex-wrap">
+                    <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full shrink-0" style={{ background: c.bg, color: c.color, border: `1px solid ${c.border}` }}>
+                      {c.label}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      {row.name && <p className="text-[13px] font-semibold text-tx">{row.name}</p>}
+                      <p className="text-[12px] text-tx-2">{row.email}</p>
+                      {row.candidature?.fonction && <p className="text-[11px] text-tx-3">{row.candidature.fonction}{row.candidature.crpcen ? ` · ${row.candidature.crpcen}` : ""}</p>}
+                    </div>
+                    {row.meta && (
+                      <div className="flex gap-1.5 shrink-0">
+                        {(row.meta as any).casesCount > 0 && <span className="text-[11px] px-2 py-0.5 rounded-full bg-bg-subtle text-tx-3">{(row.meta as any).casesCount} dossier{(row.meta as any).casesCount > 1 ? "s" : ""}</span>}
+                        {(row.meta as any).itemsCount > 0 && <span className="text-[11px] px-2 py-0.5 rounded-full bg-bg-subtle text-tx-3">{(row.meta as any).itemsCount} tâche{(row.meta as any).itemsCount > 1 ? "s" : ""}</span>}
+                      </div>
+                    )}
+                    <p className="text-[11px] text-tx-3 shrink-0">{row.date ? new Date(row.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : ""}</p>
+                    {row.status === "candidate" && (
+                      <button onClick={() => handleSendInviteFromCandidature(row.candidature)} disabled={sendingInvite === row.candidature?.id}
+                        className="text-[12px] font-medium font-[inherit] px-3 py-1.5 bg-tx text-bg rounded-lg border-none cursor-pointer hover:opacity-80 disabled:opacity-50 shrink-0">
+                        {sendingInvite === row.candidature?.id ? "Envoi…" : row.candidature?.invitedAt ? "↩ Renvoyer" : "✉ Inviter"}
+                      </button>
+                    )}
+                    {row.status === "invited" && row.invitation && (
+                      <button onClick={() => copyLink(row.invitation!.token)}
+                        className="text-[12px] font-[inherit] px-3 py-1.5 border border-border rounded-lg bg-bg-subtle text-tx-2 cursor-pointer hover:bg-bg-hover shrink-0">
+                        {copied === row.invitation.token ? "✓ Copié" : "Copier lien"}
+                      </button>
+                    )}
+                    {row.status === "user" && (
+                      <button onClick={() => doAction((row.meta as any).uid, "resetPassword")}
+                        className="text-[12px] font-[inherit] px-3 py-1.5 border border-border rounded-lg bg-bg-subtle text-tx-2 cursor-pointer hover:bg-bg-hover shrink-0">
+                        Reset mdp
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
+
         {tab === "users" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
