@@ -490,6 +490,8 @@ export default function AppShell() {
     type Entry = {
       key: string;
       title: string;
+      caseLabel: string;
+      parentLabel: string;
       hasDue: boolean;
       dueStr: string;
       overdue: boolean;
@@ -523,7 +525,16 @@ export default function AppShell() {
           title="Retirer de Ma journée"
         >✕</button>
       );
-      return { key: selectionId, title: data.title, hasDue, dueStr, overdue, dueTs, statusEl, removeBtn, selectionId } as Entry;
+      // Contexte : dossier et tâche parente
+      let caseLabel = "";
+      let parentLabel = "";
+      if ("caseId" in data) {
+        caseLabel = cases.find(c => c.id === data.caseId)?.title ?? "";
+        if ("parentItemId" in data && data.parentItemId) {
+          parentLabel = items.find(i => i.id === data.parentItemId)?.title ?? "";
+        }
+      }
+      return { key: selectionId, title: data.title, caseLabel, parentLabel, hasDue, dueStr, overdue, dueTs, statusEl, removeBtn, selectionId } as Entry;
     }).filter(Boolean) as Entry[];
 
     // Trier : avec échéance d'abord (par date), sans échéance ensuite
@@ -2441,7 +2452,10 @@ export default function AppShell() {
                         onClick={e => { e.stopPropagation(); const sel = myDaySelections.find(s => s.id === entry.selectionId); if (!sel) return; const item = items.find(i => i.id === sel.refId); if (item) handleMarkMyDayItemDone(item, entry.selectionId); }} title="Réalisée" />
                       <div className="flex-1 min-w-0">
                         <p className="text-[15px] text-tx truncate leading-snug">{entry.title}</p>
-                        <div className="mt-0.5">{entry.statusEl}</div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {entry.statusEl}
+                          {entry.caseLabel && <span className="text-[11px] text-tx-3 truncate">{entry.parentLabel ? `${entry.caseLabel} › ${entry.parentLabel}` : entry.caseLabel}</span>}
+                        </div>
                       </div>
                       {entry.removeBtn}
                     </div>
