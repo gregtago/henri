@@ -246,7 +246,17 @@ export default function MobileMyDay({ user }: { user: User }) {
                     alignItems: "center",
                     gap: "10px",
                     cursor: "pointer",
-                    borderLeft: entry.item?.starred ? "3px solid #f59e0b" : "1px solid #e5e7eb",
+                    borderLeft: (() => {
+                      if (entry.floating) return "4px solid #a78bfa"; // mémo → violet
+                      if (entry.item?.starred) return "4px solid #f59e0b"; // important → jaune
+                      const statusColors: Record<string, string> = {
+                        "Créée": "#d1d5db",
+                        "Demandé": "#fbbf24",
+                        "Reçu": "#60a5fa",
+                        "Traité": "#34d399",
+                      };
+                      return `4px solid ${statusColors[entry.item?.status ?? "Créée"] ?? "#d1d5db"}`;
+                    })(),
                   }}>
                   <div style={{ flex: 1, minWidth: 0, opacity: completingIds.has(entry.selectionId) ? 0.4 : 1, transition: "opacity 0.3s" }}>
                     <p style={{ fontSize: "15px", fontWeight: 500, color: "#111827", marginBottom: "3px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
