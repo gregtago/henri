@@ -2501,6 +2501,32 @@ export default function AppShell() {
               )}
             </div>
 
+            {/* ── À VENIR ── mémos avec échéance future */}
+            {(() => {
+              const upcoming = floatingTasks
+                .filter(t => t.status !== "Traité" && t.dateKey && t.dateKey > todayKey)
+                .sort((a, b) => (a.dateKey ?? "").localeCompare(b.dateKey ?? ""));
+              if (upcoming.length === 0) return null;
+              return (
+                <div className="border-t border-border px-3 py-2">
+                  <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1.5">À venir</p>
+                  {upcoming.map(t => {
+                    const days = Math.round((new Date(t.dateKey + "T12:00:00").getTime() - new Date().getTime()) / 86400000);
+                    const dayLabel = days === 1 ? "demain" : days <= 7 ? `dans ${days} j.` : days <= 30 ? `dans ${Math.round(days/7)} sem.` : formatDateFR(new Date(t.dateKey + "T12:00:00").toISOString());
+                    return (
+                      <div key={t.id} className="flex items-center gap-2 py-1.5 px-1 rounded hover:bg-bg-hover cursor-pointer"
+                        onClick={() => setMyDayDetailId(myDayDetailId === `f-${t.id}` ? null : `f-${t.id}`)}>
+                        <button className="w-3.5 h-3.5 shrink-0 rounded-full border border-border-strong bg-transparent cursor-pointer hover:border-accent transition-colors"
+                          onClick={e => { e.stopPropagation(); handleMarkFloatingDone(t.id); }} />
+                        <p className="text-[13px] text-tx truncate flex-1">{t.title}</p>
+                        <span className="text-[11px] text-tx-3 shrink-0">{dayLabel}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+
             {/* Saisie mémo */}
             <div className="border-t border-border bg-bg p-3">
               <div className="flex items-center gap-2 bg-bg-subtle border border-border rounded-lg px-3 py-2">
