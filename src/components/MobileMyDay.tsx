@@ -477,7 +477,10 @@ export default function MobileMyDay({ user }: { user: User }) {
                         <button key={item.id} onClick={() => addToMyDay(item)}
                           style={{ background: bg, border: "none", borderRadius: "10px", padding: "12px 14px", textAlign: "left", cursor: "pointer", width: "100%" }}>
                           <p style={{ fontSize: "14px", fontWeight: 500, color: "#111827", marginBottom: "2px" }}>{item.title}</p>
-                          {subtitle && <p style={{ fontSize: "11px", color: "#6b7280" }}>{subtitle}</p>}
+                          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                            {subtitle && <p style={{ fontSize: "11px", color: "#6b7280" }}>{subtitle}</p>}
+                            {item.dueDate && <p style={{ fontSize: "11px", color: new Date(item.dueDate) < new Date() ? "#ef4444" : "#6b7280" }}>· {formatDate(item.dueDate)}</p>}
+                          </div>
                         </button>
                       );
                     })}
