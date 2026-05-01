@@ -313,14 +313,35 @@ export default function MobileMyDay({ user }: { user: User }) {
       </div>
 
       {/* Barre du bas */}
-      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "white", borderTop: "1px solid #e5e7eb", padding: "10px 16px", display: "flex", gap: "10px", alignItems: "center" }}>
+      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "white", borderTop: "1px solid #e5e7eb", padding: "10px 12px", display: "flex", gap: "8px", alignItems: "center" }}>
         <button onClick={() => setSuggestionsOpen(true)}
-          style={{ width: "48px", height: "48px", borderRadius: "12px", background: "#f3f4f6", border: "1px solid #e5e7eb", fontSize: "22px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          style={{ width: "44px", height: "44px", borderRadius: "12px", background: "#f3f4f6", border: "1px solid #e5e7eb", fontSize: "20px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           🔭
         </button>
+        <input
+          value={memoText}
+          onChange={e => setMemoText(e.target.value)}
+          onKeyDown={async e => {
+            if (e.key === "Enter") {
+              const text = memoText.trim();
+              if (!text) return;
+              setMemoText("");
+              await createFloatingTask(user.uid, {
+                title: text,
+                dateKey: todayKey,
+                note: null,
+                dueDate: null,
+                starred: false,
+                status: "Créée",
+              });
+            }
+          }}
+          placeholder="Nouveau mémo…"
+          style={{ flex: 1, height: "44px", borderRadius: "12px", border: "1px solid #e5e7eb", background: "#f9fafb", fontSize: "15px", padding: "0 14px", outline: "none", fontFamily: "inherit", color: "#111827" }}
+        />
         <button onClick={() => setMemoOpen(true)}
-          style={{ flex: 1, height: "48px", borderRadius: "12px", background: "#111827", color: "white", border: "none", fontSize: "15px", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
-          <span style={{ fontSize: "20px" }}>+</span> Nouveau mémo
+          style={{ width: "44px", height: "44px", borderRadius: "12px", background: "#111827", color: "white", border: "none", fontSize: "22px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          +
         </button>
       </div>
 
