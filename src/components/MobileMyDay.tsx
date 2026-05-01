@@ -485,21 +485,37 @@ export default function MobileMyDay({ user }: { user: User }) {
       {/* ── PANNEAU DÉTAIL (droite) ── */}
       {detailEntry && (
         <div style={{ position: "fixed", inset: 0, zIndex: 40 }} onClick={() => setDetailEntry(null)}>
-          <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: "90vw", maxWidth: "400px", background: "white", boxShadow: "-4px 0 24px rgba(0,0,0,0.12)", display: "flex", flexDirection: "column", overflowY: "auto" }}
+          <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: "92vw", maxWidth: "420px", background: "white", boxShadow: "-4px 0 24px rgba(0,0,0,0.12)", display: "flex", flexDirection: "column" }}
             onClick={e => e.stopPropagation()}>
 
-            {/* Header détail */}
-            <div style={{ padding: "16px 20px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px" }}>
-              <p style={{ fontSize: "16px", fontWeight: 600, color: "#111827", flex: 1, lineHeight: 1.3 }}>
-                {detailEntry.item?.title ?? detailEntry.floating?.title}
+            {/* Header */}
+            <div style={{ padding: "14px 16px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <p style={{ fontSize: "12px", fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                {detailEntry.item ? "Tâche" : "Mémo"}
               </p>
               <button onClick={() => setDetailEntry(null)}
-                style={{ width: "32px", height: "32px", border: "1px solid #e5e7eb", borderRadius: "8px", background: "#f9fafb", fontSize: "16px", cursor: "pointer", color: "#6b7280", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>✕</button>
+                style={{ width: "30px", height: "30px", border: "1px solid #e5e7eb", borderRadius: "8px", background: "#f9fafb", fontSize: "15px", cursor: "pointer", color: "#6b7280", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
             </div>
 
-            <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "20px" }}>
+            {/* Contenu scrollable */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", flexDirection: "column", gap: "18px" }}>
 
-              {/* Dossier */}
+              {/* Titre éditable */}
+              <div>
+                <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "6px" }}>Intitulé</p>
+                <input
+                  defaultValue={detailEntry.item?.title ?? detailEntry.floating?.title}
+                  onBlur={e => {
+                    const val = e.target.value.trim();
+                    if (!val) return;
+                    if (detailEntry.item) updateItem(user.uid, detailEntry.item.id, { title: val });
+                    else if (detailEntry.floating) updateFloatingTask(user.uid, detailEntry.floating.id, { title: val });
+                  }}
+                  style={{ width: "100%", fontSize: "16px", fontWeight: 600, color: "#111827", border: "1.5px solid #e5e7eb", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "#f9fafb", boxSizing: "border-box" }}
+                />
+              </div>
+
+              {/* Dossier d'origine (tâche) */}
               {detailEntry.item && (
                 <div>
                   <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "6px" }}>Dossier</p>
@@ -509,102 +525,153 @@ export default function MobileMyDay({ user }: { user: User }) {
                 </div>
               )}
 
+              {/* Étoile */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em" }}>Important</p>
+                <button onClick={() => {
+                  if (detailEntry.item) updateItem(user.uid, detailEntry.item.id, { starred: !detailEntry.item.starred });
+                  else if (detailEntry.floating) updateFloatingTask(user.uid, detailEntry.floating.id, { starred: !detailEntry.floating.starred });
+                  setDetailEntry(prev => prev ? {
+                    ...prev,
+                    item: prev.item ? { ...prev.item, starred: !prev.item.starred } : undefined,
+                    floating: prev.floating ? { ...prev.floating, starred: !prev.floating.starred } : undefined,
+                  } : prev);
+                }}
+                  style={{ fontSize: "26px", background: "none", border: "none", cursor: "pointer", color: (detailEntry.item?.starred || detailEntry.floating?.starred) ? "#f59e0b" : "#d1d5db" }}>
+                  ★
+                </button>
+              </div>
+
               {/* Statut */}
-              {detailEntry.item && (
-                <div>
-                  <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Statut</p>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                    {STATUSES.map(s => {
-                      const isActive = detailEntry.item?.status === s;
-                      const blocked = s === "Traité" && items.filter(i => i.parentItemId === detailEntry.item?.id && i.status !== "Traité").length > 0;
-                      return (
-                        <button key={s} onClick={() => !blocked && handleStatusChange(detailEntry, s)}
-                          style={{
-                            padding: "12px",
-                            borderRadius: "10px",
-                            border: isActive ? "2px solid #111827" : "1px solid #e5e7eb",
-                            background: isActive ? STATUS_COLORS[s] : "white",
-                            color: isActive ? STATUS_TEXT[s] : blocked ? "#d1d5db" : "#374151",
-                            fontSize: "14px",
-                            fontWeight: isActive ? 700 : 400,
-                            cursor: blocked ? "not-allowed" : "pointer",
-                            fontFamily: "inherit",
-                            opacity: blocked ? 0.5 : 1,
-                          }}>
-                          {s}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {items.filter(i => i.parentItemId === detailEntry.item?.id && i.status !== "Traité").length > 0 && (
-                    <p style={{ fontSize: "11px", color: "#f59e0b", marginTop: "6px" }}>
-                      ⚠ Des sous-tâches ne sont pas encore traitées
-                    </p>
-                  )}
+              <div>
+                <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Statut</p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                  {STATUSES.map(s => {
+                    const currentStatus = detailEntry.item?.status ?? detailEntry.floating?.status ?? "Créée";
+                    const isActive = currentStatus === s;
+                    const blocked = detailEntry.item && s === "Traité" && items.filter(i => i.parentItemId === detailEntry.item?.id && i.status !== "Traité").length > 0;
+                    return (
+                      <button key={s} onClick={() => {
+                        if (blocked) return;
+                        if (detailEntry.item) handleStatusChange(detailEntry, s);
+                        else if (detailEntry.floating) {
+                          updateFloatingTask(user.uid, detailEntry.floating.id, { status: s });
+                          setDetailEntry(prev => prev ? { ...prev, floating: { ...prev.floating!, status: s } } : prev);
+                        }
+                      }}
+                        style={{ padding: "11px", borderRadius: "10px", border: isActive ? "2px solid #111827" : "1px solid #e5e7eb", background: isActive ? STATUS_COLORS[s] : "white", color: isActive ? STATUS_TEXT[s] : blocked ? "#d1d5db" : "#374151", fontSize: "13px", fontWeight: isActive ? 700 : 400, cursor: blocked ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: blocked ? 0.5 : 1 }}>
+                        {s}
+                      </button>
+                    );
+                  })}
                 </div>
-              )}
+                {detailEntry.item && items.filter(i => i.parentItemId === detailEntry.item?.id && i.status !== "Traité").length > 0 && (
+                  <p style={{ fontSize: "11px", color: "#f59e0b", marginTop: "6px" }}>⚠ Des sous-tâches ne sont pas encore traitées</p>
+                )}
+              </div>
 
               {/* Échéance */}
-              {(detailEntry.item?.dueDate || detailEntry.floating?.dueDate) && (
-                <div>
-                  <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "6px" }}>Échéance</p>
-                  <p style={{ fontSize: "14px", color: "#374151" }}>
-                    📅 {formatDate(detailEntry.item?.dueDate ?? detailEntry.floating?.dueDate ?? "")}
-                  </p>
+              <div>
+                <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Échéance</p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "8px" }}>
+                  {[{ label: "Auj.", days: 0 }, { label: "Demain", days: 1 }, { label: "1 sem.", days: 7 }, { label: "1 mois", days: 30 }].map(({ label, days }) => {
+                    const d = new Date(); d.setDate(d.getDate() + days); d.setHours(12, 0, 0, 0);
+                    return (
+                      <button key={label} onClick={() => {
+                        if (detailEntry.item) updateItem(user.uid, detailEntry.item.id, { dueDate: d.toISOString() });
+                        else if (detailEntry.floating) updateFloatingTask(user.uid, detailEntry.floating.id, { dueDate: d.toISOString(), dateKey: d.toISOString().slice(0, 10) <= todayKey ? todayKey : d.toISOString().slice(0, 10) });
+                      }}
+                        style={{ padding: "6px 12px", borderRadius: "20px", border: "1px solid #e5e7eb", background: "white", color: "#374151", fontSize: "12px", cursor: "pointer", fontFamily: "inherit" }}>
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
-              )}
+                <input type="date"
+                  value={(detailEntry.item?.dueDate ?? detailEntry.floating?.dueDate ?? "").slice(0, 10)}
+                  onChange={e => {
+                    if (!e.target.value) return;
+                    const d = new Date(e.target.value + "T12:00:00");
+                    if (detailEntry.item) updateItem(user.uid, detailEntry.item.id, { dueDate: d.toISOString() });
+                    else if (detailEntry.floating) updateFloatingTask(user.uid, detailEntry.floating.id, { dueDate: d.toISOString(), dateKey: e.target.value <= todayKey ? todayKey : e.target.value });
+                  }}
+                  style={{ width: "100%", fontSize: "14px", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "#f9fafb", color: "#374151", boxSizing: "border-box" }}
+                />
+                {(detailEntry.item?.dueDate || detailEntry.floating?.dueDate) && (
+                  <button onClick={() => {
+                    if (detailEntry.item) updateItem(user.uid, detailEntry.item.id, { dueDate: null });
+                    else if (detailEntry.floating) updateFloatingTask(user.uid, detailEntry.floating.id, { dueDate: null });
+                  }}
+                    style={{ marginTop: "6px", fontSize: "12px", color: "#ef4444", background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit" }}>
+                    ✕ Supprimer l'échéance
+                  </button>
+                )}
+              </div>
 
-              {/* Statut pour les mémos flottants */}
+              {/* Observations (mémo) */}
               {detailEntry.floating && (
                 <div>
-                  <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Statut</p>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                    {STATUSES.map(s => {
-                      const isActive = (detailEntry.floating?.status ?? "Créée") === s;
-                      return (
-                        <button key={s} onClick={() => {
-                          updateFloatingTask(user.uid, detailEntry.floating!.id, { status: s });
-                          setDetailEntry(prev => prev ? { ...prev, floating: { ...prev.floating!, status: s } } : prev);
-                        }}
-                          style={{
-                            padding: "12px",
-                            borderRadius: "10px",
-                            border: isActive ? "2px solid #111827" : "1px solid #e5e7eb",
-                            background: isActive ? STATUS_COLORS[s] : "white",
-                            color: isActive ? STATUS_TEXT[s] : "#374151",
-                            fontSize: "14px",
-                            fontWeight: isActive ? 700 : 400,
-                            cursor: "pointer",
-                            fontFamily: "inherit",
-                          }}>
-                          {s}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Observations */}
-              {detailEntry.floating && (
-                <div>
-                  <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Observations</p>
+                  <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Note</p>
                   <textarea
                     defaultValue={detailEntry.floating.note ?? ""}
                     onBlur={e => updateFloatingTask(user.uid, detailEntry.floating!.id, { note: e.target.value })}
                     placeholder="Ajouter une note…"
-                    rows={4}
-                    style={{ width: "100%", fontSize: "14px", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "12px 14px", resize: "none", outline: "none", fontFamily: "inherit", background: "#f9fafb", color: "#374151", boxSizing: "border-box" }}
+                    rows={3}
+                    style={{ width: "100%", fontSize: "14px", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "10px 12px", resize: "none", outline: "none", fontFamily: "inherit", background: "#f9fafb", color: "#374151", boxSizing: "border-box" }}
                   />
                 </div>
               )}
 
-              {/* Retirer */}
-              <button onClick={() => removeEntry(detailEntry)}
-                style={{ width: "100%", padding: "14px", borderRadius: "12px", border: "1px solid #fca5a5", background: "#fff1f2", color: "#dc2626", fontSize: "14px", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-                ✕ Retirer de Ma journée
-              </button>
+              {/* Rattacher mémo à un dossier */}
+              {detailEntry.floating && (
+                <div>
+                  <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Rattacher à un dossier</p>
+                  <input
+                    value={memoCaseSearch}
+                    onChange={e => setMemoCaseSearch(e.target.value)}
+                    placeholder="Rechercher un dossier…"
+                    style={{ width: "100%", fontSize: "14px", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "#f9fafb", color: "#374151", boxSizing: "border-box", marginBottom: "6px" }}
+                  />
+                  {memoCaseSearch.trim() && (
+                    <div style={{ border: "1px solid #e5e7eb", borderRadius: "10px", overflow: "hidden", maxHeight: "160px", overflowY: "auto" }}>
+                      {cases.filter(c => c.title.toLowerCase().includes(memoCaseSearch.toLowerCase())).slice(0, 6).map(c => (
+                        <button key={c.id} onClick={async () => {
+                          if (!detailEntry.floating) return;
+                          const { createItem, addMyDaySelection } = await import("@/lib/firestore");
+                          const newItemId = await createItem(user.uid, { caseId: c.id, level: 2, title: detailEntry.floating.title, status: "Créée", parentItemId: null, dueDate: detailEntry.floating.dueDate ?? null });
+                          await addMyDaySelection(user.uid, { refType: "item", refId: newItemId, dateKey: todayKey, selectionDate: null, dateTs: null }).catch(() => {});
+                          await import("@/lib/firestore").then(({ deleteFloatingTasks }) => deleteFloatingTasks(user.uid, [detailEntry.floating!.id]));
+                          setDetailEntry(null);
+                          setMemoCaseSearch("");
+                        }}
+                          style={{ width: "100%", padding: "10px 14px", textAlign: "left", background: "white", border: "none", borderBottom: "1px solid #f3f4f6", fontSize: "13px", color: "#111827", cursor: "pointer", fontFamily: "inherit" }}>
+                          📁 {c.title}
+                        </button>
+                      ))}
+                      {cases.filter(c => c.title.toLowerCase().includes(memoCaseSearch.toLowerCase())).length === 0 && (
+                        <p style={{ padding: "10px 14px", fontSize: "13px", color: "#9ca3af" }}>Aucun dossier trouvé</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
+            </div>
+
+            {/* Barre d'actions bas */}
+            <div style={{ borderTop: "1px solid #e5e7eb", padding: "12px 16px", display: "flex", gap: "8px", background: "#f9fafb" }}>
+              {detailEntry.item && (
+                <button onClick={() => { removeEntry(detailEntry); setDetailEntry(null); }}
+                  style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "white", color: "#374151", fontSize: "13px", fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
+                  Retirer de Ma journée
+                </button>
+              )}
+              {detailEntry.floating && (
+                <button onClick={() => { removeEntry(detailEntry); setDetailEntry(null); }}
+                  style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid #fca5a5", background: "#fff1f2", color: "#dc2626", fontSize: "13px", fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
+                  🗑 Supprimer le mémo
+                </button>
+              )}
             </div>
           </div>
         </div>
