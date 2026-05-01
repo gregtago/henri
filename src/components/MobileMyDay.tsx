@@ -542,33 +542,44 @@ export default function MobileMyDay({ user }: { user: User }) {
                 </button>
               </div>
 
-              {/* Statut */}
-              <div>
-                <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Statut</p>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                  {STATUSES.map(s => {
-                    const currentStatus = detailEntry.item?.status ?? detailEntry.floating?.status ?? "Créée";
-                    const isActive = currentStatus === s;
-                    const blocked = detailEntry.item && s === "Traité" && items.filter(i => i.parentItemId === detailEntry.item?.id && i.status !== "Traité").length > 0;
-                    return (
-                      <button key={s} onClick={() => {
-                        if (blocked) return;
-                        if (detailEntry.item) handleStatusChange(detailEntry, s);
-                        else if (detailEntry.floating) {
-                          updateFloatingTask(user.uid, detailEntry.floating.id, { status: s });
-                          setDetailEntry(prev => prev ? { ...prev, floating: { ...prev.floating!, status: s } } : prev);
-                        }
-                      }}
-                        style={{ padding: "11px", borderRadius: "10px", border: isActive ? "2px solid #111827" : "1px solid #e5e7eb", background: isActive ? STATUS_COLORS[s] : "white", color: isActive ? STATUS_TEXT[s] : blocked ? "#d1d5db" : "#374151", fontSize: "13px", fontWeight: isActive ? 700 : 400, cursor: blocked ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: blocked ? 0.5 : 1 }}>
-                        {s}
-                      </button>
-                    );
-                  })}
+              {/* Statut — grille pour tâche, toggle pour mémo */}
+              {detailEntry.item && (
+                <div>
+                  <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Statut</p>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                    {STATUSES.map(s => {
+                      const isActive = detailEntry.item?.status === s;
+                      const blocked = s === "Traité" && items.filter(i => i.parentItemId === detailEntry.item?.id && i.status !== "Traité").length > 0;
+                      return (
+                        <button key={s} onClick={() => { if (!blocked) handleStatusChange(detailEntry, s); }}
+                          style={{ padding: "11px", borderRadius: "10px", border: isActive ? "2px solid #111827" : "1px solid #e5e7eb", background: isActive ? STATUS_COLORS[s] : "white", color: isActive ? STATUS_TEXT[s] : blocked ? "#d1d5db" : "#374151", fontSize: "13px", fontWeight: isActive ? 700 : 400, cursor: blocked ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: blocked ? 0.5 : 1 }}>
+                          {s}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {items.filter(i => i.parentItemId === detailEntry.item?.id && i.status !== "Traité").length > 0 && (
+                    <p style={{ fontSize: "11px", color: "#f59e0b", marginTop: "6px" }}>⚠ Des sous-tâches ne sont pas encore traitées</p>
+                  )}
                 </div>
-                {detailEntry.item && items.filter(i => i.parentItemId === detailEntry.item?.id && i.status !== "Traité").length > 0 && (
-                  <p style={{ fontSize: "11px", color: "#f59e0b", marginTop: "6px" }}>⚠ Des sous-tâches ne sont pas encore traitées</p>
-                )}
-              </div>
+              )}
+              {detailEntry.floating && (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em" }}>Réalisé</p>
+                  <button onClick={() => {
+                    const done = detailEntry.floating?.status !== "Traité";
+                    updateFloatingTask(user.uid, detailEntry.floating!.id, { status: done ? "Traité" : "Créée" });
+                    setDetailEntry(prev => prev ? { ...prev, floating: { ...prev.floating!, status: done ? "Traité" : "Créée" } } : prev);
+                  }}
+                    style={{ width: "32px", height: "32px", borderRadius: "50%", border: detailEntry.floating?.status === "Traité" ? "none" : "2px solid #d1d5db", background: detailEntry.floating?.status === "Traité" ? "#16a34a" : "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}>
+                    {detailEntry.floating?.status === "Traité" && (
+                      <svg width="16" height="16" viewBox="0 0 14 14" fill="none">
+                        <path d="M2.5 7L5.5 10L11.5 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              )}
 
               {/* Échéance */}
               <div>
