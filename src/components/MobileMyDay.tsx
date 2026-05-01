@@ -336,12 +336,12 @@ export default function MobileMyDay({ user }: { user: User }) {
             <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
               {upcoming.map(t => (
                 <div key={t.id}
-                  onClick={() => setDetailEntry({ selectionId: `f-${t.id}`, item: undefined, floating: t })}
+                  onClick={() => setDetailEntry({ selectionId: `f-${t.id}`, type: "floating", floating: t })}
                   style={{ display: "flex", alignItems: "center", gap: "12px", padding: "10px 14px", background: "white", border: "1px solid #e5e7eb", borderRadius: "10px", cursor: "pointer" }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: "14px", color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.title}</p>
                   </div>
-                  <span style={{ fontSize: "11px", color: "#9ca3af", shrink: 0, whiteSpace: "nowrap" }}>{dayLabel(days(t.dateKey!))}</span>
+                  <span style={{ fontSize: "11px", color: "#9ca3af", flexShrink: 0, whiteSpace: "nowrap" }}>{dayLabel(days(t.dateKey!))}</span>
                 </div>
               ))}
             </div>
