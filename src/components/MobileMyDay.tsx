@@ -479,7 +479,12 @@ export default function MobileMyDay({ user }: { user: User }) {
                           <p style={{ fontSize: "14px", fontWeight: 500, color: "#111827", marginBottom: "2px" }}>{item.title}</p>
                           <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                             {subtitle && <p style={{ fontSize: "11px", color: "#6b7280" }}>{subtitle}</p>}
-                            {item.dueDate && <p style={{ fontSize: "11px", color: new Date(item.dueDate) < new Date() ? "#ef4444" : "#6b7280" }}>· {formatDate(item.dueDate)}</p>}
+                            {item.dueDate && (() => {
+                              const diff = Math.round((new Date(item.dueDate).getTime() - new Date().getTime()) / 86400000);
+                              const label = diff < 0 ? `${Math.abs(diff)}j` : diff === 0 ? "auj." : `+${diff}j`;
+                              const color = diff < 0 ? "#ef4444" : diff <= 3 ? "#f59e0b" : "#6b7280";
+                              return <span style={{ fontSize: "11px", fontWeight: 600, color }}>· {label}</span>;
+                            })()}
                           </div>
                         </button>
                       );
