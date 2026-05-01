@@ -637,12 +637,13 @@ export default function MobileMyDay({ user }: { user: User }) {
                       {cases.filter(c => c.title.toLowerCase().includes(memoCaseSearch.toLowerCase())).slice(0, 6).map(c => (
                         <button key={c.id} onClick={async () => {
                           if (!detailEntry.floating) return;
-                          const { createItem, addMyDaySelection } = await import("@/lib/firestore");
-                          const newItemId = await createItem(user.uid, { caseId: c.id, level: 2, title: detailEntry.floating.title, status: "Créée", parentItemId: null, dueDate: detailEntry.floating.dueDate ?? null });
-                          await addMyDaySelection(user.uid, { refType: "item", refId: newItemId, dateKey: todayKey, selectionDate: null, dateTs: null }).catch(() => {});
-                          await import("@/lib/firestore").then(({ deleteFloatingTasks }) => deleteFloatingTasks(user.uid, [detailEntry.floating!.id]));
+                          const floating = detailEntry.floating;
                           setDetailEntry(null);
                           setMemoCaseSearch("");
+                          const { createItem, addMyDaySelection, deleteFloatingTasks } = await import("@/lib/firestore");
+                          const newItemId = await createItem(user.uid, { caseId: c.id, level: 2, title: floating.title, status: "Créée", parentItemId: null, dueDate: floating.dueDate ?? null });
+                          await addMyDaySelection(user.uid, { refType: "item", refId: newItemId, dateKey: todayKey, selectionDate: null, dateTs: null }).catch(() => {});
+                          await deleteFloatingTasks(user.uid, [floating.id]);
                         }}
                           style={{ width: "100%", padding: "10px 14px", textAlign: "left", background: "white", border: "none", borderBottom: "1px solid #f3f4f6", fontSize: "13px", color: "#111827", cursor: "pointer", fontFamily: "inherit" }}>
                           📁 {c.title}
