@@ -322,33 +322,6 @@ export default function MobileMyDay({ user }: { user: User }) {
         )}
       </div>
 
-      {/* ── À VENIR ── mémos avec échéance future */}
-      {(() => {
-        const upcoming = floatingTasks
-          .filter(t => t.status !== "Traité" && t.dateKey && t.dateKey > todayKey)
-          .sort((a, b) => (a.dateKey ?? "").localeCompare(b.dateKey ?? ""));
-        if (upcoming.length === 0) return null;
-        const days = (dateKey: string) => Math.round((new Date(dateKey + "T12:00:00").getTime() - new Date().getTime()) / 86400000);
-        const dayLabel = (d: number) => d === 1 ? "demain" : d <= 7 ? `dans ${d} j.` : d <= 30 ? `dans ${Math.round(d / 7)} sem.` : `dans ${Math.round(d / 30)} mois`;
-        return (
-          <div style={{ margin: "0 16px 12px", borderTop: "1px solid #e5e7eb", paddingTop: "12px" }}>
-            <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "10px" }}>À venir</p>
-            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-              {upcoming.map(t => (
-                <div key={t.id}
-                  onClick={() => setDetailEntry({ selectionId: `f-${t.id}`, type: "floating", floating: t })}
-                  style={{ display: "flex", alignItems: "center", gap: "12px", padding: "10px 14px", background: "white", border: "1px solid #e5e7eb", borderRadius: "10px", cursor: "pointer" }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: "14px", color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.title}</p>
-                  </div>
-                  <span style={{ fontSize: "11px", color: "#9ca3af", flexShrink: 0, whiteSpace: "nowrap" }}>{dayLabel(days(t.dateKey!))}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      })()}
-
       {/* Barre du bas */}
       <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "white", borderTop: "1px solid #e5e7eb", padding: "10px 12px", display: "flex", gap: "8px", alignItems: "center" }}>
         <button onClick={() => setSuggestionsOpen(true)}
@@ -514,6 +487,35 @@ export default function MobileMyDay({ user }: { user: User }) {
               {suggestions.starred.length + suggestions.overdue.length + suggestions.dueToday.length + suggestions.recent.length === 0 && (
                 <p style={{ textAlign: "center", color: "#9ca3af", fontSize: "14px", marginTop: "40px" }}>Aucune suggestion pour aujourd'hui</p>
               )}
+
+              {/* Mémos à venir */}
+              {(() => {
+                const upcoming = floatingTasks
+                  .filter(t => t.status !== "Traité" && t.dateKey && t.dateKey > todayKey)
+                  .sort((a, b) => (a.dateKey ?? "").localeCompare(b.dateKey ?? ""));
+                if (upcoming.length === 0) return null;
+                const dayLabel = (dateKey: string) => {
+                  const d = Math.round((new Date(dateKey + "T12:00:00").getTime() - new Date().getTime()) / 86400000);
+                  return d === 1 ? "demain" : d <= 7 ? `dans ${d} j.` : d <= 30 ? `dans ${Math.round(d / 7)} sem.` : `dans ${Math.round(d / 30)} mois`;
+                };
+                return (
+                  <div style={{ marginTop: "20px" }}>
+                    <p style={{ fontSize: "10px", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>📅 Mémos à venir</p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                      {upcoming.map(t => (
+                        <div key={t.id}
+                          onClick={() => { setSuggestionsOpen(false); setDetailEntry({ selectionId: `f-${t.id}`, type: "floating", floating: t }); }}
+                          style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px 14px", background: "white", border: "1px solid #e5e7eb", borderRadius: "10px", cursor: "pointer" }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ fontSize: "14px", fontWeight: 500, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.title}</p>
+                          </div>
+                          <span style={{ fontSize: "12px", color: "#9ca3af", flexShrink: 0 }}>{dayLabel(t.dateKey!)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>
