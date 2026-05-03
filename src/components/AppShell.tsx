@@ -492,6 +492,7 @@ export default function AppShell() {
       title: string;
       caseLabel: string;
       parentLabel: string;
+      status: string;
       hasDue: boolean;
       dueStr: string;
       overdue: boolean;
@@ -534,7 +535,8 @@ export default function AppShell() {
           parentLabel = items.find(i => i.id === data.parentItemId)?.title ?? "";
         }
       }
-      return { key: selectionId, title: data.title, caseLabel, parentLabel, hasDue, dueStr, overdue, dueTs, statusEl, removeBtn, selectionId } as Entry;
+      const status = "status" in data ? (data as any).status ?? "Créée" : "Créée";
+      return { key: selectionId, title: data.title, caseLabel, parentLabel, status, hasDue, dueStr, overdue, dueTs, statusEl, removeBtn, selectionId } as Entry;
     }).filter(Boolean) as Entry[];
 
     // Trier : avec échéance d'abord (par date), sans échéance ensuite
@@ -2332,7 +2334,11 @@ export default function AppShell() {
                             <div className="flex-1 min-w-0">
                               <p className="text-[12px] text-tx truncate">{item.title}</p>
                               {subtitle && <p className="text-[10px] text-tx-3 truncate">{subtitle}</p>}
-                              {item.dueDate && <p className="text-[10px] text-red-500">{formatDateFR(item.dueDate)}</p>}
+                              {item.dueDate && (() => {
+                              const diff = Math.round((new Date(item.dueDate).getTime() - new Date().getTime()) / 86400000);
+                              const label = diff < 0 ? `${Math.abs(diff)}j` : diff === 0 ? "auj." : `+${diff}j`;
+                              return <span className={`text-[10px] font-semibold ${diff <= 0 ? "text-red-500" : diff <= 3 ? "text-amber-500" : "text-tx-3"}`}>{label}</span>;
+                            })()}
                             </div>
                           </div>
                         );
@@ -2428,7 +2434,7 @@ export default function AppShell() {
                   {myDaySorted.filter(e => e.hasDue).map(entry => (
                     <div key={entry.key} className="finder-row group"
                       data-active={myDayDetailId === entry.key ? "true" : undefined}
-                      style={entry.overdue ? {background:"rgba(239,68,68,0.08)"} : {background:"rgba(34,197,94,0.08)"}}
+                      style={{ borderLeft: `3px solid ${{"Créée":"#d1d5db","Demandé":"#fbbf24","Reçu":"#60a5fa","Traité":"#34d399"}[entry.status as string] ?? "#d1d5db"}` }}
                       onClick={() => setMyDayDetailId(myDayDetailId === entry.key ? null : entry.key)}>
                       <button className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer hover:border-accent hover:bg-blue-50 transition-colors"
                         onClick={e => { e.stopPropagation(); const sel = myDaySelections.find(s => s.id === entry.selectionId); if (!sel) return; const item = items.find(i => i.id === sel.refId); if (item) handleMarkMyDayItemDone(item, entry.selectionId); }} title="Réalisée" />
@@ -2448,6 +2454,7 @@ export default function AppShell() {
                   {myDaySorted.filter(e => !e.hasDue).map(entry => (
                     <div key={entry.key} className="finder-row group"
                       data-active={myDayDetailId === entry.key ? "true" : undefined}
+                      style={{ borderLeft: `3px solid ${{"Créée":"#d1d5db","Demandé":"#fbbf24","Reçu":"#60a5fa","Traité":"#34d399"}[entry.status as string] ?? "#d1d5db"}` }}
                       onClick={() => setMyDayDetailId(myDayDetailId === entry.key ? null : entry.key)}>
                       <button className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer hover:border-accent hover:bg-blue-50 transition-colors"
                         onClick={e => { e.stopPropagation(); const sel = myDaySelections.find(s => s.id === entry.selectionId); if (!sel) return; const item = items.find(i => i.id === sel.refId); if (item) handleMarkMyDayItemDone(item, entry.selectionId); }} title="Réalisée" />
