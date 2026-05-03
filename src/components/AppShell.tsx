@@ -2473,14 +2473,12 @@ export default function AppShell() {
                   {todayFloating.filter(t => !t.starred && !!t.dueDate).sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime()).map(task => (
                     <div key={task.id} className="finder-row group"
                       data-active={myDayDetailId === `f-${task.id}` ? "true" : undefined}
-                      style={new Date(task.dueDate!) < new Date() ? {background:"rgba(239,68,68,0.08)"} : {background:"rgba(34,197,94,0.08)"}}
                       onClick={() => setMyDayDetailId(myDayDetailId === `f-${task.id}` ? null : `f-${task.id}`)}>
                       <button className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer hover:border-accent transition-colors"
                         onClick={e => { e.stopPropagation(); handleMarkFloatingDone(task.id); }} title="Réalisée" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-[15px] text-tx truncate">{task.title}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className={statusClass(task.status)}>{task.status}</span>
+                        <p className="text-[15px] text-tx truncate leading-snug">{task.title}</p>
+                        <div className="flex items-center gap-2 mt-0.5 min-h-[1.25rem]">
                           {task.dueDate && <span className={`text-[11px] ${new Date(task.dueDate) < new Date() ? "text-red-500" : "text-tx-3"}`}>Éch. {formatDateFR(task.dueDate)}</span>}
                           {task.recurrence && <span className="text-[11px] text-tx-3" title={formatRecurrence(task.recurrence)}>🔁</span>}
                         </div>
@@ -2496,11 +2494,10 @@ export default function AppShell() {
                       <button className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer hover:border-accent transition-colors"
                         onClick={e => { e.stopPropagation(); handleMarkFloatingDone(task.id); }} title="Réalisée" />
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <p className="text-[15px] text-tx truncate">{task.title}</p>
-                          {task.recurrence && <span className="text-[11px] text-tx-3 shrink-0" title={formatRecurrence(task.recurrence)}>🔁</span>}
+                        <p className="text-[15px] text-tx truncate leading-snug">{task.title}</p>
+                        <div className="flex items-center gap-2 mt-0.5 min-h-[1.25rem]">
+                          {task.recurrence && <span className="text-[11px] text-tx-3" title={formatRecurrence(task.recurrence)}>🔁</span>}
                         </div>
-                        <span className={statusClass(task.status)}>{task.status}</span>
                       </div>
                     </div>
                   ))}
