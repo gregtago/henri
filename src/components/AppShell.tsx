@@ -2567,55 +2567,45 @@ export default function AppShell() {
                   return (
                     <>
                       {/* Header */}
-                      <div className="flex items-center justify-between px-5 pt-5 pb-2 shrink-0">
+                      <div className="flex items-center justify-between px-5 pt-5 pb-3 shrink-0">
                         <div className="flex items-center gap-2">
                           <button
                             title={task.starred ? "Retirer l'étoile" : "Prioritaire"}
                             onClick={() => updateFloatingTask(user.uid, task.id, { starred: !task.starred })}
                             className="text-[22px] border-none bg-transparent cursor-pointer p-0 leading-none transition-opacity hover:scale-110"
-                            style={{color: task.starred ? "#f59e0b" : undefined, opacity: task.starred ? 1 : 0.25, fontSize: "22px"}}
+                            style={{color: task.starred ? "#f59e0b" : undefined, opacity: task.starred ? 1 : 0.25}}
                           >{task.starred ? "★" : "☆"}</button>
                           <span className="text-[11px] font-medium text-tx-3 uppercase tracking-widest">Mémo</span>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            onClick={() => handleMarkFloatingDone(task.id)}
-                            className="text-[11px] font-medium font-[inherit] px-2.5 py-1 rounded-full border border-green-300 text-green-600 bg-transparent cursor-pointer hover:bg-green-50 transition-colors"
-                          >Réalisé</button>
-                          <button onClick={() => setMyDayDetailId(null)}
-                            className="text-[14px] text-tx-3 border-none bg-transparent cursor-pointer hover:text-tx transition-colors p-1">✕</button>
-                        </div>
+                        <button onClick={() => setMyDayDetailId(null)}
+                          className="text-[14px] text-tx-3 border-none bg-transparent cursor-pointer hover:text-tx transition-colors p-1">✕</button>
                       </div>
 
-                      {/* Titre */}
-                      <div className="px-5 pb-3">
+                        {/* Titre */}
                         <input
                           ref={myDayTitleRef}
-                          className="w-full text-[20px] font-semibold text-tx bg-transparent border-none outline-none tracking-tight leading-snug cursor-text"
+                          className="detail-title-input"
                           value={task.title}
                           onChange={e => updateFloatingTask(user.uid, task.id, { title: e.target.value })}
                           onKeyDown={e => {
-                            if (e.key === "Enter") {
-                              e.stopPropagation();
-                              const t = e.target as HTMLInputElement;
-                              t.style.color = "#16a34a";
-                              t.style.transition = "color 0.3s";
-                              setTimeout(() => { t.style.color = ""; t.style.transition = ""; t.blur(); }, 300);
-                            }
+                            if (e.key === "Enter") { e.stopPropagation(); (e.target as HTMLInputElement).blur(); }
                           }}
                         />
-                      </div>
 
                       <div className="flex-1 overflow-y-auto px-5 space-y-4 pb-5">
 
-                        {/* Statuts */}
-                        <div className="flex flex-wrap gap-1.5">
-                          {STATUSES.map(s => (
-                            <button key={s} onClick={() => updateFloatingTask(user.uid, task.id, { status: s })}
-                              className={`${statusClass(s)} cursor-pointer border-none transition-all text-[13px] px-4 py-1.5 rounded-full ${task.status === s ? "opacity-100" : "opacity-25 hover:opacity-60"}`}>
-                              {s}
-                            </button>
-                          ))}
+                        {/* Toggle réalisé */}
+                        <div className="flex items-center justify-between">
+                          <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest">Réalisé</p>
+                          <button
+                            onClick={() => handleMarkFloatingDone(task.id)}
+                            className={`w-7 h-7 rounded-full border-2 cursor-pointer flex items-center justify-center transition-all ${task.status === "Traité" ? "bg-green-500 border-green-500" : "bg-transparent border-border-strong hover:border-green-400"}`}>
+                            {task.status === "Traité" && (
+                              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                <path d="M2.5 7L5.5 10L11.5 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                            )}
+                          </button>
                         </div>
 
                         <div className="border-t border-border" />
