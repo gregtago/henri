@@ -2563,8 +2563,9 @@ export default function AppShell() {
                   if (!task) return null;
                   return (
                     <>
-                      {/* Header */}
-                      <div className="flex items-center justify-between px-5 pt-5 pb-3 shrink-0">
+                      {/* Header — identique détail tâche */}
+                      <div className="finder-header">
+                        <span className="text-[11px] font-medium text-tx-3 uppercase tracking-widest">Mémo</span>
                         <div className="flex items-center gap-2">
                           <button
                             title={task.starred ? "Retirer l'étoile" : "Prioritaire"}
@@ -2572,13 +2573,13 @@ export default function AppShell() {
                             className="text-[22px] border-none bg-transparent cursor-pointer p-0 leading-none transition-opacity hover:scale-110"
                             style={{color: task.starred ? "#f59e0b" : undefined, opacity: task.starred ? 1 : 0.25}}
                           >{task.starred ? "★" : "☆"}</button>
-                          <span className="text-[11px] font-medium text-tx-3 uppercase tracking-widest">Mémo</span>
+                          <button onClick={() => setMyDayDetailId(null)}
+                            className="text-[18px] text-tx-3 border-none bg-transparent cursor-pointer hover:text-tx transition-colors leading-none">✕</button>
                         </div>
-                        <button onClick={() => setMyDayDetailId(null)}
-                          className="text-[14px] text-tx-3 border-none bg-transparent cursor-pointer hover:text-tx transition-colors p-1">✕</button>
                       </div>
 
-                        {/* Titre */}
+                      {/* Titre — même classe que détail tâche */}
+                      <div className="px-5 py-3 shrink-0">
                         <input
                           ref={myDayTitleRef}
                           className="detail-title-input"
@@ -2588,44 +2589,25 @@ export default function AppShell() {
                             if (e.key === "Enter") { e.stopPropagation(); (e.target as HTMLInputElement).blur(); }
                           }}
                         />
+                      </div>
 
                       <div className="flex-1 overflow-y-auto px-5 space-y-4 pb-5">
-
-                        {/* Toggle réalisé */}
-                        <div className="flex items-center justify-between">
-                          <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest">Réalisé</p>
-                          <button
-                            onClick={() => handleMarkFloatingDone(task.id)}
-                            className={`w-7 h-7 rounded-full border-2 cursor-pointer flex items-center justify-center transition-all ${task.status === "Traité" ? "bg-green-500 border-green-500" : "bg-transparent border-border-strong hover:border-green-400"}`}>
-                            {task.status === "Traité" && (
-                              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                                <path d="M2.5 7L5.5 10L11.5 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                              </svg>
-                            )}
-                          </button>
-                        </div>
-
                         <div className="border-t border-border" />
 
-                        {/* Échéance avec raccourcis */}
+                        {/* Échéance */}
                         <div>
                           <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-2">Échéance</p>
-                          {/* Raccourcis rapides */}
                           <div className="flex flex-wrap gap-1.5 mb-2">
                             {(() => {
-                              const today = new Date();
-                              today.setHours(12,0,0,0);
-                              const shortcuts = [
+                              const today = new Date(); today.setHours(12,0,0,0);
+                              return [
                                 { label: "Aujourd'hui", date: new Date(today) },
-                      { label: "Demain", date: new Date(today.getTime() + 86400000) },
+                                { label: "Demain", date: new Date(today.getTime() + 86400000) },
                                 { label: "Dans 2 j.", date: new Date(today.getTime() + 2*86400000) },
-                                { label: (() => { const d = new Date(today); const dow = d.getDay(); const diff = (1 - dow + 7) % 7 || 7; d.setDate(d.getDate() + diff); return "Lun. " + d.getDate() + "/" + (d.getMonth()+1); })(), date: (() => { const d = new Date(today); const dow = d.getDay(); const diff = (1 - dow + 7) % 7 || 7; d.setDate(d.getDate() + diff); return d; })() },
                                 { label: "Dans 1 sem.", date: new Date(today.getTime() + 7*86400000) },
                                 { label: "Dans 2 sem.", date: new Date(today.getTime() + 14*86400000) },
-                              ];
-                              return shortcuts.map(({ label, date }) => (
-                                <button key={label}
-                                  onClick={() => handleFloatingDueDate(task.id, date)}
+                              ].map(({ label, date }) => (
+                                <button key={label} onClick={() => handleFloatingDueDate(task.id, date)}
                                   className="text-[11px] font-[inherit] px-2 py-1 rounded border border-border bg-bg-subtle text-tx-2 cursor-pointer hover:border-border-strong hover:text-tx transition-colors">
                                   {label}
                                 </button>
@@ -2649,35 +2631,31 @@ export default function AppShell() {
                           <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1.5">Observations</p>
                           <textarea
                             className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-2 outline-none w-full resize-none focus:border-border-strong transition-colors"
-                            rows={4}
-                            placeholder="Ajouter une observation…"
+                            rows={4} placeholder="Ajouter une observation…"
                             defaultValue={task.note ?? ""}
                             onBlur={e => updateFloatingTask(user.uid, task.id, { note: e.target.value || null })}
                           />
                         </div>
 
-                        {/* Dossier avec recherche */}
+                        {/* Rattacher à un dossier */}
                         <div>
-                          <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1.5">Dossier</p>
+                          <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1.5">Rattacher à un dossier</p>
                           <div className="space-y-1.5">
-                            <input
-                              type="text"
-                              placeholder="Rechercher un dossier…"
-                              value={dossierSearch}
-                              onChange={e => setDossierSearch(e.target.value)}
+                            <input type="text" placeholder="Rechercher un dossier…"
+                              value={dossierSearch} onChange={e => setDossierSearch(e.target.value)}
                               className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-1.5 outline-none w-full focus:border-border-strong transition-colors placeholder:text-tx-3"
                             />
                             {dossierSearch && (
                               <div className="border border-border rounded-lg overflow-hidden max-h-[160px] overflow-y-auto">
-                                {cases.filter(c => c.title.toLowerCase().includes(dossierSearch.toLowerCase())).length === 0 ? (
-                                  <p className="text-[12px] text-tx-3 px-3 py-2">Aucun dossier trouvé</p>
-                                ) : cases.filter(c => c.title.toLowerCase().includes(dossierSearch.toLowerCase())).map(c => (
-                                  <button key={c.id}
-                                    className="w-full text-left font-[inherit] text-[13px] text-tx px-3 py-2 bg-transparent border-none cursor-pointer hover:bg-bg-subtle transition-colors border-b border-border last:border-0"
-                                    onClick={() => { handleAttachFloating(task, c.id); setDossierSearch(""); }}>
-                                    {c.title}
-                                  </button>
-                                ))}
+                                {cases.filter(c => c.title.toLowerCase().includes(dossierSearch.toLowerCase())).length === 0
+                                  ? <p className="text-[12px] text-tx-3 px-3 py-2">Aucun dossier trouvé</p>
+                                  : cases.filter(c => c.title.toLowerCase().includes(dossierSearch.toLowerCase())).map(c => (
+                                    <button key={c.id}
+                                      className="w-full text-left font-[inherit] text-[13px] text-tx px-3 py-2 bg-transparent border-none cursor-pointer hover:bg-bg-subtle transition-colors border-b border-border last:border-0"
+                                      onClick={() => { handleAttachFloating(task, c.id); setDossierSearch(""); }}>
+                                      {c.title}
+                                    </button>
+                                  ))}
                               </div>
                             )}
                           </div>
@@ -2686,16 +2664,20 @@ export default function AppShell() {
                         {/* Récurrence */}
                         <div>
                           <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-2">Récurrence</p>
-                          <RecurrencePicker
-                            value={task.recurrence ?? null}
-                            onChange={r => updateFloatingTask(user.uid, task.id, { recurrence: r ?? null })}
-                          />
+                          <RecurrencePicker value={task.recurrence ?? null} onChange={r => updateFloatingTask(user.uid, task.id, { recurrence: r ?? null })} />
                         </div>
+                      </div>
+
+                      {/* Barre actions bas */}
+                      <div className="detail-actions-bar">
+                        <button className="detail-action-btn detail-action-danger" onClick={() => { deleteFloatingTasks(user.uid, [task.id]); setMyDayDetailId(null); }}>
+                          <span>🗑</span> Supprimer
+                        </button>
                       </div>
                     </>
                   );
                 }
-                /* Détail tâche de dossier */
+                                /* Détail tâche de dossier */
                 return detailPanel ? (
                   <>
                     {detailPanel}
