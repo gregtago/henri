@@ -650,15 +650,27 @@ export default function MobileMyDay({ user }: { user: User }) {
                   onChange={e => {
                     if (!e.target.value) return;
                     const d = new Date(e.target.value + "T12:00:00");
-                    if (detailEntry.item) updateItem(user.uid, detailEntry.item.id, { dueDate: d.toISOString() });
-                    else if (detailEntry.floating) updateFloatingTask(user.uid, detailEntry.floating.id, { dueDate: d.toISOString(), dateKey: e.target.value <= todayKey ? todayKey : e.target.value });
+                    const iso = d.toISOString();
+                    if (detailEntry.item) {
+                      updateItem(user.uid, detailEntry.item.id, { dueDate: iso });
+                      setDetailEntry(prev => prev ? { ...prev, item: { ...prev.item!, dueDate: iso } } : prev);
+                    } else if (detailEntry.floating) {
+                      const dk = e.target.value <= todayKey ? todayKey : e.target.value;
+                      updateFloatingTask(user.uid, detailEntry.floating.id, { dueDate: iso, dateKey: dk });
+                      setDetailEntry(prev => prev ? { ...prev, floating: { ...prev.floating!, dueDate: iso } } : prev);
+                    }
                   }}
                   style={{ width: "100%", fontSize: "14px", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "#f9fafb", color: "#374151", boxSizing: "border-box" }}
                 />
                 {(detailEntry.item?.dueDate || detailEntry.floating?.dueDate) && (
                   <button onClick={() => {
-                    if (detailEntry.item) updateItem(user.uid, detailEntry.item.id, { dueDate: null });
-                    else if (detailEntry.floating) updateFloatingTask(user.uid, detailEntry.floating.id, { dueDate: null });
+                    if (detailEntry.item) {
+                      updateItem(user.uid, detailEntry.item.id, { dueDate: null });
+                      setDetailEntry(prev => prev ? { ...prev, item: { ...prev.item!, dueDate: null } } : prev);
+                    } else if (detailEntry.floating) {
+                      updateFloatingTask(user.uid, detailEntry.floating.id, { dueDate: null });
+                      setDetailEntry(prev => prev ? { ...prev, floating: { ...prev.floating!, dueDate: null } } : prev);
+                    }
                   }}
                     style={{ marginTop: "6px", fontSize: "12px", color: "#ef4444", background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit" }}>
                     ✕ Supprimer l'échéance
