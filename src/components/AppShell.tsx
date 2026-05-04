@@ -2065,8 +2065,10 @@ export default function AppShell() {
                 <input
                   type="text"
                   placeholder="Rechercher…"
+                  ref={caseSearchRef}
                   value={caseSearch}
                   onChange={e => setCaseSearch(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Escape") { setCaseSearch(""); caseSearchRef.current?.blur(); } }}
                   className="w-full font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-1.5 outline-none focus:border-border-strong transition-colors placeholder:text-tx-3"
                 />
               </div>
@@ -2723,6 +2725,7 @@ export default function AppShell() {
                     ["R", "Rattacher une tâche"],
                     ["⌫", "Supprimer"],
                     ["1 – 4", "Changer le statut"],
+                    ["S", "Rechercher un dossier"],
                     ["← →", "Naviguer entre colonnes"],
                     ["↑ ↓", "Déplacer la sélection"],
                   ].map(([k, label]) => (
