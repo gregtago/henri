@@ -494,6 +494,7 @@ export default function AppShell() {
       caseLabel: string;
       parentLabel: string;
       status: string;
+      starred: boolean;
       hasDue: boolean;
       dueStr: string;
       overdue: boolean;
@@ -537,20 +538,16 @@ export default function AppShell() {
         }
       }
       const status = "status" in data ? (data as any).status ?? "Créé" : "Créé";
-      return { key: selectionId, title: data.title, caseLabel, parentLabel, status, hasDue, dueStr, overdue, dueTs, statusEl, removeBtn, selectionId } as Entry;
+      const starred = "starred" in data ? Boolean((data as any).starred) : false;
+      return { key: selectionId, title: data.title, caseLabel, parentLabel, status, starred, hasDue, dueStr, overdue, dueTs, statusEl, removeBtn, selectionId } as Entry;
     }).filter(Boolean) as Entry[];
 
     // Trier : importantes d'abord, puis avec échéance (par date), puis sans échéance
-    const isStarred = (e: Entry) => {
-      const item = myDayItems.find(i => i?.selectionId === e.selectionId);
-      if (!item) return false;
-      return "starred" in item.data ? (item.data as any).starred : false;
-    };
-    const starred = entries.filter(e => isStarred(e));
-    const notStarred = entries.filter(e => !isStarred(e));
+    const starredEntries = entries.filter(e => e.starred);
+    const notStarred = entries.filter(e => !e.starred);
     const withDue = notStarred.filter(e => e.hasDue).sort((a, b) => a.dueTs - b.dueTs);
     const withoutDue = notStarred.filter(e => !e.hasDue);
-    return [...starred, ...withDue, ...withoutDue];
+    return [...starredEntries, ...withDue, ...withoutDue];
   }, [myDayItems, formatDateFR, statusClass, user, cases, items]);
 
   const suggestions = useMemo(() => {
@@ -2457,7 +2454,7 @@ export default function AppShell() {
                   {myDaySorted.filter(e => e.hasDue).map(entry => (
                     <div key={entry.key} className="finder-row group"
                       data-active={myDayDetailId === entry.key ? "true" : undefined}
-                      style={{ borderLeft: `3px solid ${{"Créé":"#d1d5db","Demandé":"#fbbf24","Reçu":"#60a5fa","Traité":"#34d399"}[entry.status as string] ?? "#d1d5db"}` }}
+                      style={{ borderLeft: `3px solid ${{"Créé":"#d1d5db","Demandé":"#fbbf24","Reçu":"#60a5fa","Traité":"#34d399"}[entry.status as string] ?? "#d1d5db"}`, background: entry.starred ? "rgba(251,191,36,0.09)" : undefined }}
                       onClick={() => setMyDayDetailId(myDayDetailId === entry.key ? null : entry.key)}>
                       <button className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer hover:border-accent hover:bg-blue-50 transition-colors"
                         onClick={e => { e.stopPropagation(); const sel = myDaySelections.find(s => s.id === entry.selectionId); if (!sel) return; const item = items.find(i => i.id === sel.refId); if (item) handleMarkMyDayItemDone(item, entry.selectionId); }} title="Réalisée" />
@@ -2477,7 +2474,7 @@ export default function AppShell() {
                   {myDaySorted.filter(e => !e.hasDue).map(entry => (
                     <div key={entry.key} className="finder-row group"
                       data-active={myDayDetailId === entry.key ? "true" : undefined}
-                      style={{ borderLeft: `3px solid ${{"Créé":"#d1d5db","Demandé":"#fbbf24","Reçu":"#60a5fa","Traité":"#34d399"}[entry.status as string] ?? "#d1d5db"}` }}
+                      style={{ borderLeft: `3px solid ${{"Créé":"#d1d5db","Demandé":"#fbbf24","Reçu":"#60a5fa","Traité":"#34d399"}[entry.status as string] ?? "#d1d5db"}`, background: entry.starred ? "rgba(251,191,36,0.09)" : undefined }}
                       onClick={() => setMyDayDetailId(myDayDetailId === entry.key ? null : entry.key)}>
                       <button className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer hover:border-accent hover:bg-blue-50 transition-colors"
                         onClick={e => { e.stopPropagation(); const sel = myDaySelections.find(s => s.id === entry.selectionId); if (!sel) return; const item = items.find(i => i.id === sel.refId); if (item) handleMarkMyDayItemDone(item, entry.selectionId); }} title="Réalisée" />
