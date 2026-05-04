@@ -540,10 +540,17 @@ export default function AppShell() {
       return { key: selectionId, title: data.title, caseLabel, parentLabel, status, hasDue, dueStr, overdue, dueTs, statusEl, removeBtn, selectionId } as Entry;
     }).filter(Boolean) as Entry[];
 
-    // Trier : avec échéance d'abord (par date), sans échéance ensuite
-    const withDue = entries.filter(e => e.hasDue).sort((a, b) => a.dueTs - b.dueTs);
-    const withoutDue = entries.filter(e => !e.hasDue);
-    return [...withDue, ...withoutDue];
+    // Trier : importantes d'abord, puis avec échéance (par date), puis sans échéance
+    const isStarred = (e: Entry) => {
+      const item = myDayItems.find(i => i?.selectionId === e.selectionId);
+      if (!item) return false;
+      return "starred" in item.data ? (item.data as any).starred : false;
+    };
+    const starred = entries.filter(e => isStarred(e));
+    const notStarred = entries.filter(e => !isStarred(e));
+    const withDue = notStarred.filter(e => e.hasDue).sort((a, b) => a.dueTs - b.dueTs);
+    const withoutDue = notStarred.filter(e => !e.hasDue);
+    return [...starred, ...withDue, ...withoutDue];
   }, [myDayItems, formatDateFR, statusClass, user, cases, items]);
 
   const suggestions = useMemo(() => {
@@ -1286,7 +1293,20 @@ export default function AppShell() {
         }
         return;
       }
+      // S → focus recherche dossier
+      if ((event.key === "s" || event.key === "S") && !event.metaKey && !event.ctrlKey) {
+        const active = document.activeElement;
+        if (active?.tagName === "INPUT" || active?.tagName === "TEXTAREA") return;
+        event.preventDefault();
+        caseSearchRef.current?.focus();
+        return;
+      }
       if (event.key === "Escape") {
+        if (caseSearchRef.current === document.activeElement) {
+          setCaseSearch("");
+          caseSearchRef.current?.blur();
+          return;
+        }
         if (detailTarget?.type === "case") {
           setActiveColumn("cases");
         } else if (selectedSubItemId && subItems.length > 0) {
