@@ -143,6 +143,7 @@ export default function AppShell() {
   // Ref pour focus auto sur le titre après création
   const detailTitleRef = useRef<HTMLInputElement | null>(null);
   const detailCaseRef = useRef<HTMLInputElement | null>(null);
+  const caseSearchRef = useRef<HTMLInputElement | null>(null);
   const myDayTitleRef = useRef<HTMLInputElement | null>(null);
   const [undoCountdown, setUndoCountdown] = useState(0);
 
