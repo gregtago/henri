@@ -1,13 +1,13 @@
 import type { Status } from "./types";
 
 const PROGRESS_LEVELS: Record<Status, number> = {
-  "Créée": 0,
+  "Créé": 0,
   Demandé: 1,
   Reçu: 2,
   Traité: 3
 };
 
-export const PROGRESS_STAGE_LABELS = ["Créée", "Demandée", "Reçue", "Traitée"] as const;
+export const PROGRESS_STAGE_LABELS = ["Créé", "Demandée", "Reçue", "Traitée"] as const;
 
 export const getProgressLevel = (status: Status) => PROGRESS_LEVELS[status] ?? 0;
 

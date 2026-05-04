@@ -22,15 +22,15 @@ import { getProgressLevel } from "@/lib/progress";
 import { addDoc, collection } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
-const STATUSES: Status[] = ["Créée", "Demandé", "Reçu", "Traité"];
+const STATUSES: Status[] = ["Créé", "Demandé", "Reçu", "Traité"];
 const STATUS_COLORS: Record<string, string> = {
-  "Créée":   "#e5e7eb",
+  "Créé":   "#e5e7eb",
   "Demandé": "#fde68a",
   "Reçu":    "#a5f3fc",
   "Traité":  "#bbf7d0",
 };
 const STATUS_TEXT: Record<string, string> = {
-  "Créée":   "#374151",
+  "Créé":   "#374151",
   "Demandé": "#92400e",
   "Reçu":    "#155e75",
   "Traité":  "#14532d",
@@ -162,7 +162,7 @@ export default function MobileMyDay({ user }: { user: User }) {
         caseId: memoCaseId,
         level: 2,
         title: text,
-        status: "Créée",
+        status: "Créé",
         parentItemId: null,
         dueDate: memoDue ? new Date(memoDue + "T12:00:00").toISOString() : null,
       });
@@ -183,7 +183,7 @@ export default function MobileMyDay({ user }: { user: User }) {
         note: null,
         dueDate: memoDue ? new Date(memoDue + "T12:00:00").toISOString() : null,
         starred: false,
-        status: "Créée",
+        status: "Créé",
       });
     }
   };
@@ -250,12 +250,12 @@ export default function MobileMyDay({ user }: { user: User }) {
                       if (entry.floating) return "1px solid #e5e7eb"; // mémo → pas de liseré
                       if (entry.item?.starred) return "4px solid #f59e0b"; // important → jaune
                       const statusColors: Record<string, string> = {
-                        "Créée": "#d1d5db",
+                        "Créé": "#d1d5db",
                         "Demandé": "#fbbf24",
                         "Reçu": "#60a5fa",
                         "Traité": "#34d399",
                       };
-                      return `4px solid ${statusColors[entry.item?.status ?? "Créée"] ?? "#d1d5db"}`;
+                      return `4px solid ${statusColors[entry.item?.status ?? "Créé"] ?? "#d1d5db"}`;
                     })(),
                   }}>
                   <div style={{ flex: 1, minWidth: 0, opacity: completingIds.has(entry.selectionId) ? 0.4 : 1, transition: "opacity 0.3s" }}>
@@ -342,7 +342,7 @@ export default function MobileMyDay({ user }: { user: User }) {
                 note: null,
                 dueDate: null,
                 starred: false,
-                status: "Créée",
+                status: "Créé",
               });
             }
           }}
@@ -615,8 +615,8 @@ export default function MobileMyDay({ user }: { user: User }) {
                   <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em" }}>Réalisé</p>
                   <button onClick={() => {
                     const done = detailEntry.floating?.status !== "Traité";
-                    updateFloatingTask(user.uid, detailEntry.floating!.id, { status: done ? "Traité" : "Créée" });
-                    setDetailEntry(prev => prev ? { ...prev, floating: { ...prev.floating!, status: done ? "Traité" : "Créée" } } : prev);
+                    updateFloatingTask(user.uid, detailEntry.floating!.id, { status: done ? "Traité" : "Créé" });
+                    setDetailEntry(prev => prev ? { ...prev, floating: { ...prev.floating!, status: done ? "Traité" : "Créé" } } : prev);
                   }}
                     style={{ width: "32px", height: "32px", borderRadius: "50%", border: detailEntry.floating?.status === "Traité" ? "none" : "2px solid #d1d5db", background: detailEntry.floating?.status === "Traité" ? "#16a34a" : "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}>
                     {detailEntry.floating?.status === "Traité" && (
@@ -699,7 +699,7 @@ export default function MobileMyDay({ user }: { user: User }) {
                           setDetailEntry(null);
                           setMemoCaseSearch("");
                           const { createItem, addMyDaySelection, deleteFloatingTasks } = await import("@/lib/firestore");
-                          const newItemId = await createItem(user.uid, { caseId: c.id, level: 2, title: floating.title, status: "Créée", parentItemId: null, dueDate: floating.dueDate ?? null });
+                          const newItemId = await createItem(user.uid, { caseId: c.id, level: 2, title: floating.title, status: "Créé", parentItemId: null, dueDate: floating.dueDate ?? null });
                           await addMyDaySelection(user.uid, { refType: "item", refId: newItemId, dateKey: todayKey, selectionDate: null, dateTs: null }).catch(() => {});
                           await deleteFloatingTasks(user.uid, [floating.id]);
                         }}

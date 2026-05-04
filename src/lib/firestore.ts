@@ -315,7 +315,7 @@ export const importCaseFromJson = async (
       ...item,
       id: ref.id,
       caseId: caseRef.id,
-      status: mode === "model" ? ("Créée" as Status) : item.status,
+      status: mode === "model" ? ("Créé" as Status) : item.status,
       createdAt: nowIso(),
       updatedAt: nowIso()
     });

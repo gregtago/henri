@@ -1,7 +1,7 @@
-export type Status = "Créée" | "Demandé" | "Reçu" | "Traité";
+export type Status = "Créé" | "Demandé" | "Reçu" | "Traité";
 
 export const STATUSES: Status[] = [
-  "Créée",
+  "Créé",
   "Demandé",
   "Reçu",
   "Traité"

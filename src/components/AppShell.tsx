@@ -474,7 +474,7 @@ export default function AppShell() {
     // Compatibilité avec anciens statuts
     const compat: Record<string, string> = {
       "À faire": "status-badge status-badge-0",
-      "Créée":   "status-badge status-badge-0",
+      "Créé":   "status-badge status-badge-0",
       "Demandé": "status-badge status-badge-1",
       "Reçu":    "status-badge status-badge-2",
       "Traité":  "status-badge status-badge-3",
@@ -535,7 +535,7 @@ export default function AppShell() {
           parentLabel = items.find(i => i.id === data.parentItemId)?.title ?? "";
         }
       }
-      const status = "status" in data ? (data as any).status ?? "Créée" : "Créée";
+      const status = "status" in data ? (data as any).status ?? "Créé" : "Créé";
       return { key: selectionId, title: data.title, caseLabel, parentLabel, status, hasDue, dueStr, overdue, dueTs, statusEl, removeBtn, selectionId } as Entry;
     }).filter(Boolean) as Entry[];
 
@@ -937,7 +937,7 @@ export default function AppShell() {
       await createFloatingTask(user.uid, {
         dateKey: todayKey,
         title: "Nouveau mémo",
-        status: "Créée"
+        status: "Créé"
       });
       return;
     }
@@ -962,7 +962,7 @@ export default function AppShell() {
         caseId: selectedCaseId,
         level: 2,
         title: "Nouvelle tâche",
-        status: "Créée",
+        status: "Créé",
         parentItemId: null
       });
       setSelectedItemId(id);
@@ -987,7 +987,7 @@ export default function AppShell() {
       parentItemId: selectedItemId,
       level: 3,
       title: "Nouvelle sous-tâche",
-      status: "Créée"
+      status: "Créé"
     });
     setSelectedSubItemId(id);
     setSelectedSubItemIds([id]);
@@ -1002,7 +1002,7 @@ export default function AppShell() {
       await createFloatingTask(user.uid, {
         dateKey: todayKey,
         title: "Nouveau mémo",
-        status: "Créée"
+        status: "Créé"
       });
       return;
     }
@@ -1015,7 +1015,7 @@ export default function AppShell() {
         caseId: selectedCaseId,
         level: 2,
         title: "Nouvelle tâche",
-        status: "Créée",
+        status: "Créé",
         parentItemId: null
       });
       setSelectedItemId(id);
@@ -1042,7 +1042,7 @@ export default function AppShell() {
         parentItemId: selectedItemId,
         level: 3,
         title: "Nouvelle sous-tâche",
-        status: "Créée"
+        status: "Créé"
       });
       setSelectedSubItemId(id);
       setSelectedSubItemIds([id]);
@@ -1467,7 +1467,7 @@ export default function AppShell() {
       caseId,
       level: 2,
       title: task.title,
-      status: "Créée",
+      status: "Créé",
       parentItemId: null,
       dueDate: task.dueDate ?? null,
     });
@@ -2111,7 +2111,7 @@ export default function AppShell() {
                     title="Mode sélection"
                     onClick={() => { setSelectionModeItems(p => !p); setSelectedItemIds([]); }}
                   >⊡</button>
-                  <button className={iconBtn} title="Nouvelle tâche (N)" onClick={async () => { setActiveColumn("items"); if (!user || !selectedCaseId) { showToast("Sélectionnez un dossier d'abord."); return; } const id = await createItem(user.uid, { caseId: selectedCaseId, level: 2, title: "Nouvelle tâche", status: "Créée", parentItemId: null }); setSelectedItemId(id); setSelectedItemIds([id]); setDetailTarget({ type: "item", id }); focusWhenReady(detailTitleRef); }}>+</button>
+                  <button className={iconBtn} title="Nouvelle tâche (N)" onClick={async () => { setActiveColumn("items"); if (!user || !selectedCaseId) { showToast("Sélectionnez un dossier d'abord."); return; } const id = await createItem(user.uid, { caseId: selectedCaseId, level: 2, title: "Nouvelle tâche", status: "Créé", parentItemId: null }); setSelectedItemId(id); setSelectedItemIds([id]); setDetailTarget({ type: "item", id }); focusWhenReady(detailTitleRef); }}>+</button>
                 </div>
               </div>
 
@@ -2194,7 +2194,7 @@ export default function AppShell() {
                     title="Mode sélection"
                     onClick={() => { setSelectionModeSubItems(p => !p); setSelectedSubItemIds([]); }}
                   >⊡</button>
-                  <button className={iconBtn} title="Nouvelle sous-tâche (⇧N)" onClick={async () => { setActiveColumn("subitems"); if (!user || !selectedItemId) { showToast("Sélectionnez une tâche d'abord."); return; } const parentCaseId = selectedItem?.caseId ?? selectedCaseId; if (!parentCaseId) return; const id = await createItem(user.uid, { caseId: parentCaseId, parentItemId: selectedItemId, level: 3, title: "Nouvelle sous-tâche", status: "Créée" }); setSelectedSubItemId(id); setSelectedSubItemIds([id]); setActiveColumn("subitems"); setDetailTarget({ type: "item", id }); focusWhenReady(detailTitleRef); }}>+</button>
+                  <button className={iconBtn} title="Nouvelle sous-tâche (⇧N)" onClick={async () => { setActiveColumn("subitems"); if (!user || !selectedItemId) { showToast("Sélectionnez une tâche d'abord."); return; } const parentCaseId = selectedItem?.caseId ?? selectedCaseId; if (!parentCaseId) return; const id = await createItem(user.uid, { caseId: parentCaseId, parentItemId: selectedItemId, level: 3, title: "Nouvelle sous-tâche", status: "Créé" }); setSelectedSubItemId(id); setSelectedSubItemIds([id]); setActiveColumn("subitems"); setDetailTarget({ type: "item", id }); focusWhenReady(detailTitleRef); }}>+</button>
                 </div>
               </div>
 
@@ -2434,7 +2434,7 @@ export default function AppShell() {
                   {myDaySorted.filter(e => e.hasDue).map(entry => (
                     <div key={entry.key} className="finder-row group"
                       data-active={myDayDetailId === entry.key ? "true" : undefined}
-                      style={{ borderLeft: `3px solid ${{"Créée":"#d1d5db","Demandé":"#fbbf24","Reçu":"#60a5fa","Traité":"#34d399"}[entry.status as string] ?? "#d1d5db"}` }}
+                      style={{ borderLeft: `3px solid ${{"Créé":"#d1d5db","Demandé":"#fbbf24","Reçu":"#60a5fa","Traité":"#34d399"}[entry.status as string] ?? "#d1d5db"}` }}
                       onClick={() => setMyDayDetailId(myDayDetailId === entry.key ? null : entry.key)}>
                       <button className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer hover:border-accent hover:bg-blue-50 transition-colors"
                         onClick={e => { e.stopPropagation(); const sel = myDaySelections.find(s => s.id === entry.selectionId); if (!sel) return; const item = items.find(i => i.id === sel.refId); if (item) handleMarkMyDayItemDone(item, entry.selectionId); }} title="Réalisée" />
@@ -2454,7 +2454,7 @@ export default function AppShell() {
                   {myDaySorted.filter(e => !e.hasDue).map(entry => (
                     <div key={entry.key} className="finder-row group"
                       data-active={myDayDetailId === entry.key ? "true" : undefined}
-                      style={{ borderLeft: `3px solid ${{"Créée":"#d1d5db","Demandé":"#fbbf24","Reçu":"#60a5fa","Traité":"#34d399"}[entry.status as string] ?? "#d1d5db"}` }}
+                      style={{ borderLeft: `3px solid ${{"Créé":"#d1d5db","Demandé":"#fbbf24","Reçu":"#60a5fa","Traité":"#34d399"}[entry.status as string] ?? "#d1d5db"}` }}
                       onClick={() => setMyDayDetailId(myDayDetailId === entry.key ? null : entry.key)}>
                       <button className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer hover:border-accent hover:bg-blue-50 transition-colors"
                         onClick={e => { e.stopPropagation(); const sel = myDaySelections.find(s => s.id === entry.selectionId); if (!sel) return; const item = items.find(i => i.id === sel.refId); if (item) handleMarkMyDayItemDone(item, entry.selectionId); }} title="Réalisée" />
@@ -2543,7 +2543,7 @@ export default function AppShell() {
                       const t = e.target as HTMLInputElement;
                       const val = t.value.trim();
                       if (!val || !user) return;
-                      await createFloatingTask(user.uid, { dateKey: todayKey, title: val, status: "Créée" });
+                      await createFloatingTask(user.uid, { dateKey: todayKey, title: val, status: "Créé" });
                       t.value = "";
                     }
                   }}

@@ -39,7 +39,7 @@ export const seedData: SeedPayload = {
       caseId: "Succession Martin",
       level: 2,
       title: "Rassembler pièces d'identité",
-      status: "Créée",
+      status: "Créé",
       dueDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 2).toISOString(),
       createdAt: now,
       updatedAt: now
@@ -68,7 +68,7 @@ export const seedData: SeedPayload = {
       caseId: "Vente Dupont",
       level: 2,
       title: "Réunir pièces vente",
-      status: "Créée",
+      status: "Créé",
       createdAt: now,
       updatedAt: now
     },
@@ -105,7 +105,7 @@ export const seedData: SeedPayload = {
       id: "",
       itemId: "Contacter héritiers",
       type: "progress_changed",
-      payload: { from: "Créée", to: "Demandé" },
+      payload: { from: "Créé", to: "Demandé" },
       createdAt: now
     }
   ],
@@ -114,7 +114,7 @@ export const seedData: SeedPayload = {
       id: "",
       dateKey: getTodayKey(),
       title: "Appeler Mme Durand",
-      status: "Créée",
+      status: "Créé",
       createdAt: now,
       updatedAt: now
     }
