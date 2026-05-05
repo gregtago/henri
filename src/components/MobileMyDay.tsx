@@ -323,7 +323,7 @@ export default function MobileMyDay({ user }: { user: User }) {
       </div>
 
       {/* Barre du bas */}
-      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "white", borderTop: "1px solid #e5e7eb", padding: "10px 12px", display: "flex", gap: "8px", alignItems: "center" }}>
+      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "white", borderTop: "1px solid #e5e7eb", padding: "10px 12px 24px", display: "flex", gap: "8px", alignItems: "center" }}>
         <button onClick={() => setSuggestionsOpen(true)}
           style={{ width: "44px", height: "44px", borderRadius: "12px", background: "#f3f4f6", border: "1px solid #e5e7eb", fontSize: "20px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           🔭
