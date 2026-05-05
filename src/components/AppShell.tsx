@@ -2456,8 +2456,6 @@ export default function AppShell() {
                       data-active={myDayDetailId === entry.key ? "true" : undefined}
                       style={{ borderLeft: `3px solid ${{"Créé":"#d1d5db","Demandé":"#fbbf24","Reçu":"#60a5fa","Traité":"#34d399"}[entry.status as string] ?? "#d1d5db"}`, background: entry.starred ? "rgba(251,191,36,0.09)" : undefined }}
                       onClick={() => setMyDayDetailId(myDayDetailId === entry.key ? null : entry.key)}>
-                      <button className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer hover:border-accent hover:bg-blue-50 transition-colors"
-                        onClick={e => { e.stopPropagation(); const sel = myDaySelections.find(s => s.id === entry.selectionId); if (!sel) return; const item = items.find(i => i.id === sel.refId); if (item) handleMarkMyDayItemDone(item, entry.selectionId); }} title="Réalisée" />
                       <div className="flex-1 min-w-0">
                         <p className="text-[15px] text-tx truncate leading-snug">{entry.title}</p>
                         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -2476,8 +2474,6 @@ export default function AppShell() {
                       data-active={myDayDetailId === entry.key ? "true" : undefined}
                       style={{ borderLeft: `3px solid ${{"Créé":"#d1d5db","Demandé":"#fbbf24","Reçu":"#60a5fa","Traité":"#34d399"}[entry.status as string] ?? "#d1d5db"}`, background: entry.starred ? "rgba(251,191,36,0.09)" : undefined }}
                       onClick={() => setMyDayDetailId(myDayDetailId === entry.key ? null : entry.key)}>
-                      <button className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer hover:border-accent hover:bg-blue-50 transition-colors"
-                        onClick={e => { e.stopPropagation(); const sel = myDaySelections.find(s => s.id === entry.selectionId); if (!sel) return; const item = items.find(i => i.id === sel.refId); if (item) handleMarkMyDayItemDone(item, entry.selectionId); }} title="Réalisée" />
                       <div className="flex-1 min-w-0">
                         <p className="text-[15px] text-tx truncate leading-snug">{entry.title}</p>
                         <div className="flex items-center gap-2 mt-0.5">

@@ -284,37 +284,37 @@ export default function MobileMyDay({ user }: { user: User }) {
                     style={{ width: "28px", height: "28px", borderRadius: "50%", border: "1px solid #e5e7eb", background: "#f9fafb", color: "#9ca3af", fontSize: "13px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                     ✕
                   </button>
-                  {/* Rond à cocher à gauche + croix à droite */}
-                  <button
-                    onClick={e => {
-                      e.stopPropagation();
-                      const id = entry.selectionId;
-                      if (completingIds.has(id)) return;
-                      setCompletingIds(prev => new Set(prev).add(id));
-                      playDone();
-                      setTimeout(async () => {
-                        if (entry.type === "item" && entry.item) {
-                          await handleStatusChange(entry, "Traité");
-                        } else if (entry.type === "floating" && entry.floating) {
-                          await updateFloatingTask(user.uid, entry.floating.id, { status: "Traité" });
-                        }
-                        removeEntry(entry);
-                        setCompletingIds(prev => { const s = new Set(prev); s.delete(id); return s; });
-                      }, 350);
-                    }}
-                    style={{
-                      width: "28px", height: "28px", borderRadius: "50%", flexShrink: 0,
-                      border: completingIds.has(entry.selectionId) ? "none" : "2px solid #d1d5db",
-                      background: completingIds.has(entry.selectionId) ? "#16a34a" : "white",
-                      cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-                      transition: "all 0.2s ease", order: -1,
-                    }}>
-                    {completingIds.has(entry.selectionId) && (
-                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                        <path d="M2.5 7L5.5 10L11.5 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    )}
-                  </button>
+                  {/* Rond "réalisée" uniquement pour les mémos flottants — les tâches de dossier passent par le détail (statut) */}
+                  {entry.type === "floating" && (
+                    <button
+                      onClick={e => {
+                        e.stopPropagation();
+                        const id = entry.selectionId;
+                        if (completingIds.has(id)) return;
+                        setCompletingIds(prev => new Set(prev).add(id));
+                        playDone();
+                        setTimeout(async () => {
+                          if (entry.floating) {
+                            await updateFloatingTask(user.uid, entry.floating.id, { status: "Traité" });
+                          }
+                          removeEntry(entry);
+                          setCompletingIds(prev => { const s = new Set(prev); s.delete(id); return s; });
+                        }, 350);
+                      }}
+                      style={{
+                        width: "28px", height: "28px", borderRadius: "50%", flexShrink: 0,
+                        border: completingIds.has(entry.selectionId) ? "none" : "2px solid #d1d5db",
+                        background: completingIds.has(entry.selectionId) ? "#16a34a" : "white",
+                        cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                        transition: "all 0.2s ease", order: -1,
+                      }}>
+                      {completingIds.has(entry.selectionId) && (
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                          <path d="M2.5 7L5.5 10L11.5 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      )}
+                    </button>
+                  )}
                 </div>
               );
             })}
