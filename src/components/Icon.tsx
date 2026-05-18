@@ -20,7 +20,9 @@ type IconName =
   | "calendar"
   | "recurrence"
   | "warning"
-  | "check";
+  | "check"
+  | "archive"
+  | "import";
 
 const PATHS: Record<IconName, React.ReactNode> = {
   "myday": (
@@ -46,6 +48,8 @@ const PATHS: Record<IconName, React.ReactNode> = {
   "recurrence": <path d="M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3" />,
   "warning": <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01" />,
   "check": <path d="M20 6L9 17l-5-5" />,
+  "archive": <path d="M21 8H3V4h18zM4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8M10 12h4" />,
+  "import": <path d="M12 3v12M8 11l4 4 4-4M4 14v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6" />,
 };
 
 type IconProps = {

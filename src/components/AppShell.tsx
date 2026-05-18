@@ -2328,14 +2328,14 @@ export default function AppShell() {
                   title={showArchived ? "Revenir aux dossiers actifs" : "Voir les dossiers archivés"}
                 >
                   {showArchived ? (
-                    <><Icon name="arrow-left" size={12} /> Dossiers actifs</>
+                    <><Icon name="arrow-left" size={13} /> Dossiers actifs</>
                   ) : (
-                    <><Icon name="folder" size={12} /> Archivés ({archivedCases.length})</>
+                    <><Icon name="archive" size={14} /> Archivés ({archivedCases.length})</>
                   )}
                 </button>
                 <label className="flex-1 inline-flex items-center justify-center gap-1.5 text-[12.5px] font-[inherit] px-2.5 py-1.5 rounded border bg-transparent text-tx-2 border-border hover:border-border-strong hover:text-tx cursor-pointer transition-colors"
                   title="Importer un dossier depuis un fichier JSON">
-                  <Icon name="chevron-down" size={14} strokeWidth={2} />
+                  <Icon name="import" size={14} />
                   <span>Importer</span>
                   <input type="file" accept="application/json" className="hidden" onChange={async (e) => {
                     const file = e.target.files?.[0];
