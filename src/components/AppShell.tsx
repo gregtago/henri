@@ -100,6 +100,7 @@ export default function AppShell() {
   const [legacyMyDaySelections, setLegacyMyDaySelections] = useState<MyDaySelection[]>([]);
   const [pendingRemovalIds, setPendingRemovalIds] = useState<Set<string>>(new Set());
   const [completingFloatingIds, setCompletingFloatingIds] = useState<Set<string>>(new Set());
+  const [upcomingExpanded, setUpcomingExpanded] = useState(false);
 
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -2649,6 +2650,40 @@ export default function AppShell() {
                 </>
               )}
             </div>
+
+            {/* ── À VENIR ── mémos futurs, repliés par défaut, tout en bas de la colonne */}
+            {(() => {
+              const upcoming = floatingTasks
+                .filter(t => t.status !== "Traité" && t.dateKey && t.dateKey > todayKey)
+                .sort((a, b) => (a.dateKey ?? "").localeCompare(b.dateKey ?? ""));
+              if (upcoming.length === 0) return null;
+              return (
+                <div className="border-t border-border shrink-0">
+                  <button
+                    onClick={() => setUpcomingExpanded(p => !p)}
+                    className="w-full flex items-center justify-between px-3 py-2 bg-transparent border-none cursor-pointer hover:bg-bg-hover transition-colors text-left font-[inherit]"
+                  >
+                    <span className="text-[10px] font-medium text-tx-3 uppercase tracking-wide">À venir · {upcoming.length}</span>
+                    <Icon name={upcomingExpanded ? "chevron-up" : "chevron-down"} size={14} className="text-tx-3" />
+                  </button>
+                  {upcomingExpanded && (
+                    <div className="px-3 pb-2 max-h-[280px] overflow-y-auto">
+                      {upcoming.map(t => {
+                        const days = Math.round((new Date(t.dateKey + "T12:00:00").getTime() - new Date().getTime()) / 86400000);
+                        const dayLabel = days === 1 ? "demain" : days <= 7 ? `dans ${days} j.` : days <= 30 ? `dans ${Math.round(days/7)} sem.` : formatDateFR(new Date(t.dateKey + "T12:00:00").toISOString());
+                        return (
+                          <div key={t.id} className="flex items-center gap-2 py-1.5 px-1 rounded hover:bg-bg-hover cursor-pointer"
+                            onClick={() => setMyDayDetailId(myDayDetailId === `f-${t.id}` ? null : `f-${t.id}`)}>
+                            <p className="text-[12px] text-tx truncate flex-1">{t.title}</p>
+                            <span className="text-[10px] text-tx-3 shrink-0">{dayLabel}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
           {/* ── COL LISTE : 40% ── */}
@@ -2674,13 +2709,15 @@ export default function AppShell() {
                         data-active={myDayDetailId === entry.key ? "true" : undefined}
                         style={{
                           borderLeft: entry.kind === "floating" ? "none" : `3px solid ${statusColor}`,
-                          background: entry.starred ? "rgba(251,191,36,0.09)" : undefined,
+                          background: entry.starred ? "rgba(251,191,36,0.10)" : undefined,
                           opacity: isCompletingRow ? 0.5 : 1,
                           transition: "opacity 0.3s ease",
+                          alignItems: "flex-start",
+                          paddingTop: "8px",
                         }}
                         onClick={() => setMyDayDetailId(myDayDetailId === entry.key ? null : entry.key)}>
 
-                        {/* Élément de gauche : rond pour mémo, croix pour tâche */}
+                        {/* Élément de gauche : rond pour mémo, croix pour tâche — alignés sur le titre */}
                         {entry.kind === "floating" ? (
                           (() => {
                             const isCompleting = completingFloatingIds.has(entry.floatingId!);
@@ -2690,21 +2727,23 @@ export default function AppShell() {
                                 onClick={e => { e.stopPropagation(); handleMarkFloatingDone(entry.floatingId!); }}
                                 title="Réalisée"
                                 style={{
-                                  width: "20px",
-                                  height: "20px",
+                                  width: "22px",
+                                  height: "22px",
                                   borderRadius: "6px",
                                   border: isCompleting ? "none" : "2px solid #9ca3af",
                                   background: isCompleting ? "#16a34a" : "white",
                                   transform: isCompleting ? "scale(1.1)" : "scale(1)",
+                                  marginTop: "1px",
                                 }}
                               >
-                                {isCompleting && <Icon name="check" size={12} className="text-white" strokeWidth={2.5} />}
+                                {isCompleting && <Icon name="check" size={14} className="text-white" strokeWidth={2.5} />}
                               </button>
                             );
                           })()
                         ) : (
                           <button
-                            className="w-5 h-5 shrink-0 flex items-center justify-center text-tx-3 bg-transparent border-none cursor-pointer rounded hover:text-red-500 hover:bg-red-50 transition-colors"
+                            className="shrink-0 flex items-center justify-center text-tx-3 bg-transparent border-2 border-transparent cursor-pointer rounded-md hover:text-red-500 hover:bg-red-50 hover:border-red-200 transition-colors"
+                            style={{ width: "22px", height: "22px", marginTop: "1px" }}
                             onClick={e => {
                               e.stopPropagation();
                               if (entry.selectionId) {
@@ -2714,7 +2753,7 @@ export default function AppShell() {
                               }
                             }}
                             title="Retirer de Ma journée"
-                          ><Icon name="close" size={14} /></button>
+                          ><Icon name="close" size={16} strokeWidth={1.75} /></button>
                         )}
 
                         <div className="flex-1 min-w-0">
@@ -2738,80 +2777,12 @@ export default function AppShell() {
                             )}
                           </div>
                         </div>
-
-                        {/* Étoile à droite — cliquable */}
-                        <button
-                          className="shrink-0 border-none bg-transparent cursor-pointer p-1 leading-none transition-all hover:scale-110"
-                          style={{ color: entry.starred ? "#f59e0b" : "#d1d5db" }}
-                          onClick={e => {
-                            e.stopPropagation();
-                            if (entry.kind === "floating" && entry.floatingId) {
-                              updateFloatingTask(user.uid, entry.floatingId, { starred: !entry.starred });
-                            } else if (entry.kind === "item") {
-                              // Trouver l'item référencé par la sélection
-                              const sel = myDaySelections.find(s => s.id === entry.selectionId);
-                              if (sel && (sel.refType === "item" || sel.refType === "subitem")) {
-                                updateItem(user.uid, sel.refId, { starred: !entry.starred });
-                              }
-                            }
-                          }}
-                          title={entry.starred ? "Retirer l'étoile" : "Marquer important"}
-                        >
-                          <Icon name="star" size={16} filled={entry.starred} strokeWidth={1.5} />
-                        </button>
                       </div>
                     );
                   })}
                 </div>
               )}
             </div>
-
-            {/* ── À VENIR ── mémos avec échéance future */}
-            {(() => {
-              const upcoming = floatingTasks
-                .filter(t => t.status !== "Traité" && t.dateKey && t.dateKey > todayKey)
-                .sort((a, b) => (a.dateKey ?? "").localeCompare(b.dateKey ?? ""));
-              if (upcoming.length === 0) return null;
-              return (
-                <div className="border-t border-border px-3 py-2">
-                  <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1.5">À venir</p>
-                  {upcoming.map(t => {
-                    const days = Math.round((new Date(t.dateKey + "T12:00:00").getTime() - new Date().getTime()) / 86400000);
-                    const dayLabel = days === 1 ? "demain" : days <= 7 ? `dans ${days} j.` : days <= 30 ? `dans ${Math.round(days/7)} sem.` : formatDateFR(new Date(t.dateKey + "T12:00:00").toISOString());
-                    return (
-                      <div key={t.id} className="flex items-center gap-2 py-1.5 px-1 rounded hover:bg-bg-hover cursor-pointer"
-                        onClick={() => setMyDayDetailId(myDayDetailId === `f-${t.id}` ? null : `f-${t.id}`)}>
-                        {(() => {
-                          const isCompleting = completingFloatingIds.has(t.id);
-                          return (
-                            <button
-                              className="shrink-0 cursor-pointer transition-all duration-200 flex items-center justify-center"
-                              onClick={e => { e.stopPropagation(); handleMarkFloatingDone(t.id); }}
-                              style={{
-                                width: "16px",
-                                height: "16px",
-                                borderRadius: "4px",
-                                border: isCompleting ? "none" : "2px solid #9ca3af",
-                                background: isCompleting ? "#16a34a" : "white",
-                                transform: isCompleting ? "scale(1.15)" : "scale(1)",
-                              }}
-                            >
-                              {isCompleting && (
-                                <svg width="10" height="10" viewBox="0 0 14 14" fill="none">
-                                  <path d="M2.5 7L5.5 10L11.5 4" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                                </svg>
-                              )}
-                            </button>
-                          );
-                        })()}
-                        <p className="text-[13px] text-tx truncate flex-1">{t.title}</p>
-                        <span className="text-[11px] text-tx-3 shrink-0">{dayLabel}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
 
             {/* Saisie mémo */}
             <div className="border-t border-border bg-bg p-3">
