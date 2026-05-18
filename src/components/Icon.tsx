@@ -22,7 +22,8 @@ type IconName =
   | "warning"
   | "check"
   | "archive"
-  | "import";
+  | "import"
+  | "time";
 
 const PATHS: Record<IconName, React.ReactNode> = {
   "myday": (
@@ -50,6 +51,12 @@ const PATHS: Record<IconName, React.ReactNode> = {
   "check": <path d="M20 6L9 17l-5-5" />,
   "archive": <path d="M21 8H3V4h18zM4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8M10 12h4" />,
   "import": <path d="M12 3v12M8 11l4 4 4-4M4 14v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6" />,
+  "time": (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </>
+  ),
 };
 
 type IconProps = {
