@@ -2771,7 +2771,7 @@ export default function AppShell() {
                     <>
                       {/* Header — fond post-it jaune */}
                       <div className="finder-header" style={{ background: "#fef9c3", borderBottom: "1px solid #fde68a" }}>
-                        <span className="text-[11px] font-medium uppercase tracking-widest" style={{ color: "#92400e" }}>📌 Mémo</span>
+                        <span className="text-[11px] font-medium uppercase tracking-widest" style={{ color: "#92400e" }}>Mémo</span>
                       </div>
 
                       <div className="flex-1 overflow-y-auto" style={{ scrollbarColor: "#fde68a transparent" }}>
