@@ -2619,7 +2619,7 @@ export default function AppShell() {
                       <div key={entry.key} className="finder-row group"
                         data-active={myDayDetailId === entry.key ? "true" : undefined}
                         style={{
-                          borderLeft: `3px solid ${statusColor}`,
+                          borderLeft: entry.kind === "floating" ? "none" : `3px solid ${statusColor}`,
                           background: entry.starred ? "rgba(251,191,36,0.09)" : undefined,
                         }}
                         onClick={() => setMyDayDetailId(myDayDetailId === entry.key ? null : entry.key)}>

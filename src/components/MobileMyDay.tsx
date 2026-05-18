@@ -281,7 +281,7 @@ export default function MobileMyDay({ user }: { user: User }) {
                     gap: "10px",
                     cursor: "pointer",
                     borderLeft: (() => {
-                      if (entry.floating) return "1px solid #e5e7eb"; // mémo → pas de liseré
+                      if (entry.floating) return "none"; // mémo → pas de filet
                       if (entry.item?.starred) return "4px solid #f59e0b"; // important → jaune
                       const statusColors: Record<string, string> = {
                         "Créé": "#d1d5db",
