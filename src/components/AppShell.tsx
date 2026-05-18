@@ -2686,81 +2686,7 @@ export default function AppShell() {
               )}
             </div>
 
-            {/* ── À VENIR ── mémos ET tâches avec échéance future, repliés par défaut */}
-            {(() => {
-              type UpcomingEntry =
-                | { kind: "floating"; id: string; title: string; dateKey: string }
-                | { kind: "item"; id: string; title: string; dateKey: string; caseLabel: string };
-
-              const upcomingFloating: UpcomingEntry[] = floatingTasks
-                .filter(t => t.status !== "Traité" && t.dateKey && t.dateKey > todayKey)
-                .map(t => ({ kind: "floating", id: t.id, title: t.title, dateKey: t.dateKey! }));
-
-              const todaySelectionRefIds = new Set(
-                myDaySelections.filter(s => s.dateKey === todayKey).map(s => s.refId)
-              );
-              const itemIdsWithChildren = new Set(items.filter(i => i.parentItemId).map(i => i.parentItemId!));
-              const upcomingItems: UpcomingEntry[] = items
-                .filter(item => {
-                  if (item.status === "Traité") return false;
-                  if (todaySelectionRefIds.has(item.id)) return false; // déjà dans Ma journée
-                  // tâches actionnables (feuilles)
-                  if (item.level === 2 && itemIdsWithChildren.has(item.id)) return false;
-                  const dk = getDateKeyFromValue(item.dueDate);
-                  return dk !== null && dk > todayKey;
-                })
-                .map(item => ({
-                  kind: "item",
-                  id: item.id,
-                  title: item.title,
-                  dateKey: getDateKeyFromValue(item.dueDate)!,
-                  caseLabel: cases.find(c => c.id === item.caseId)?.title ?? "",
-                }));
-
-              const upcoming = [...upcomingFloating, ...upcomingItems]
-                .sort((a, b) => a.dateKey.localeCompare(b.dateKey));
-              if (upcoming.length === 0) return null;
-
-              return (
-                <div className="border-t border-border shrink-0">
-                  <button
-                    onClick={() => setUpcomingExpanded(p => !p)}
-                    className="w-full flex items-center justify-between px-3 py-2 bg-transparent border-none cursor-pointer hover:bg-bg-hover transition-colors text-left font-[inherit]"
-                  >
-                    <span className="text-[10px] font-medium text-tx-3 uppercase tracking-wide">À venir · {upcoming.length}</span>
-                    <Icon name={upcomingExpanded ? "chevron-up" : "chevron-down"} size={14} className="text-tx-3" />
-                  </button>
-                  {upcomingExpanded && (
-                    <div className="px-3 pb-2 max-h-[280px] overflow-y-auto">
-                      {upcoming.map(entry => {
-                        const days = Math.round((new Date(entry.dateKey + "T12:00:00").getTime() - new Date().getTime()) / 86400000);
-                        const dayLabel = days === 1 ? "demain" : days <= 7 ? `dans ${days} j.` : days <= 30 ? `dans ${Math.round(days/7)} sem.` : formatDateFR(new Date(entry.dateKey + "T12:00:00").toISOString());
-                        return (
-                          <div key={`${entry.kind}-${entry.id}`} className="flex items-center gap-2 py-1.5 px-1 rounded hover:bg-bg-hover cursor-pointer"
-                            onClick={() => {
-                              if (entry.kind === "floating") {
-                                setMyDayDetailId(myDayDetailId === `f-${entry.id}` ? null : `f-${entry.id}`);
-                              } else {
-                                // Tâche : ouvrir son détail dans le même panneau via myDayDetailId
-                                // On crée une sélection virtuelle en passant l'id de l'item
-                                setMyDayDetailId(myDayDetailId === entry.id ? null : entry.id);
-                              }
-                            }}>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-[12px] text-tx truncate">{entry.title}</p>
-                              {entry.kind === "item" && entry.caseLabel && (
-                                <p className="text-[10px] text-tx-3 truncate">{entry.caseLabel}</p>
-                              )}
-                            </div>
-                            <span className="text-[10px] text-tx-3 shrink-0">{dayLabel}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
+            {/* À venir est déplacé en bas de la colonne du jour (Liste centrale) */}
           </div>
 
           {/* ── COL LISTE : 40% ── */}
@@ -2860,6 +2786,79 @@ export default function AppShell() {
                 </div>
               )}
             </div>
+
+            {/* ── À VENIR ── mémos ET tâches avec échéance future, repliés par défaut */}
+            {(() => {
+              type UpcomingEntry =
+                | { kind: "floating"; id: string; title: string; dateKey: string }
+                | { kind: "item"; id: string; title: string; dateKey: string; caseLabel: string };
+
+              const upcomingFloating: UpcomingEntry[] = floatingTasks
+                .filter(t => t.status !== "Traité" && t.dateKey && t.dateKey > todayKey)
+                .map(t => ({ kind: "floating", id: t.id, title: t.title, dateKey: t.dateKey! }));
+
+              const todaySelectionRefIds = new Set(
+                myDaySelections.filter(s => s.dateKey === todayKey).map(s => s.refId)
+              );
+              const itemIdsWithChildren = new Set(items.filter(i => i.parentItemId).map(i => i.parentItemId!));
+              const upcomingItems: UpcomingEntry[] = items
+                .filter(item => {
+                  if (item.status === "Traité") return false;
+                  if (todaySelectionRefIds.has(item.id)) return false;
+                  if (item.level === 2 && itemIdsWithChildren.has(item.id)) return false;
+                  const dk = getDateKeyFromValue(item.dueDate);
+                  return dk !== null && dk > todayKey;
+                })
+                .map(item => ({
+                  kind: "item",
+                  id: item.id,
+                  title: item.title,
+                  dateKey: getDateKeyFromValue(item.dueDate)!,
+                  caseLabel: cases.find(c => c.id === item.caseId)?.title ?? "",
+                }));
+
+              const upcoming = [...upcomingFloating, ...upcomingItems]
+                .sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+              if (upcoming.length === 0) return null;
+
+              return (
+                <div className="border-t border-border shrink-0 bg-white">
+                  <button
+                    onClick={() => setUpcomingExpanded(p => !p)}
+                    className="w-full flex items-center justify-between px-3 py-2 bg-transparent border-none cursor-pointer hover:bg-bg-subtle transition-colors text-left font-[inherit]"
+                  >
+                    <span className="text-[10px] font-medium text-tx-3 uppercase tracking-wide">À venir · {upcoming.length}</span>
+                    <Icon name={upcomingExpanded ? "chevron-up" : "chevron-down"} size={14} className="text-tx-3" />
+                  </button>
+                  {upcomingExpanded && (
+                    <div className="px-3 pb-2 max-h-[280px] overflow-y-auto">
+                      {upcoming.map(entry => {
+                        const days = Math.round((new Date(entry.dateKey + "T12:00:00").getTime() - new Date().getTime()) / 86400000);
+                        const dayLabel = days === 1 ? "demain" : days <= 7 ? `dans ${days} j.` : days <= 30 ? `dans ${Math.round(days/7)} sem.` : formatDateFR(new Date(entry.dateKey + "T12:00:00").toISOString());
+                        return (
+                          <div key={`${entry.kind}-${entry.id}`} className="flex items-center gap-2 py-1.5 px-1 rounded hover:bg-bg-subtle cursor-pointer"
+                            onClick={() => {
+                              if (entry.kind === "floating") {
+                                setMyDayDetailId(myDayDetailId === `f-${entry.id}` ? null : `f-${entry.id}`);
+                              } else {
+                                setMyDayDetailId(myDayDetailId === entry.id ? null : entry.id);
+                              }
+                            }}>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[13px] text-tx truncate">{entry.title}</p>
+                              {entry.kind === "item" && entry.caseLabel && (
+                                <p className="text-[11px] text-tx-3 truncate">{entry.caseLabel}</p>
+                              )}
+                            </div>
+                            <span className="text-[11px] text-tx-3 shrink-0">{dayLabel}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Saisie mémo */}
             <div className="border-t border-border bg-bg p-3">
