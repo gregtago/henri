@@ -89,7 +89,7 @@ export default function MobileMyDay({ user }: { user: User }) {
     return () => unsubs.forEach(u => u());
   }, [user.uid]);
 
-  // Entrées du jour
+  // Entrées du jour — tri unifié : importants → en retard → aujourd'hui → futur → sans date
   const todayEntries = useMemo<SelectionEntry[]>(() => {
     const sels = myDaySelections.filter(s => s.dateKey === todayKey && !pendingRemovalIds.has(s.id));
     const entries: SelectionEntry[] = [];
@@ -101,7 +101,41 @@ export default function MobileMyDay({ user }: { user: User }) {
     for (const f of todayFloating) {
       entries.push({ selectionId: f.id, type: "floating", floating: f });
     }
-    return entries;
+
+    const startOfToday = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); })();
+    const endOfToday = startOfToday + 86400000;
+
+    const meta = (e: SelectionEntry) => {
+      const src: any = e.item ?? e.floating;
+      const dueRaw = src?.dueDate ?? src?.legalDueDate ?? null;
+      const dueTs = dueRaw ? new Date(dueRaw).getTime() : Infinity;
+      const hasDue = Number.isFinite(dueTs);
+      return {
+        starred: Boolean(src?.starred),
+        hasDue,
+        overdue: hasDue && dueTs < startOfToday,
+        dueIsToday: hasDue && dueTs >= startOfToday && dueTs < endOfToday,
+        dueTs,
+        title: String(src?.title ?? ""),
+      };
+    };
+    const bucket = (m: ReturnType<typeof meta>) => {
+      if (m.starred) return 0;
+      if (m.overdue) return 1;
+      if (m.dueIsToday) return 2;
+      if (m.hasDue) return 3;
+      return 4;
+    };
+
+    return entries.sort((a, b) => {
+      const ma = meta(a), mb = meta(b);
+      const ba = bucket(ma), bb = bucket(mb);
+      if (ba !== bb) return ba - bb;
+      if (ma.dueTs !== mb.dueTs) return ma.dueTs - mb.dueTs;
+      // À date égale : tâches de dossier avant mémos
+      if (a.type !== b.type) return a.type === "item" ? -1 : 1;
+      return ma.title.localeCompare(mb.title);
+    });
   }, [myDaySelections, items, floatingTasks, todayKey, pendingRemovalIds]);
 
   // Suggestions
