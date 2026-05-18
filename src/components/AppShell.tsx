@@ -98,6 +98,7 @@ export default function AppShell() {
   const [liveMyDaySelections, setLiveMyDaySelections] = useState<MyDaySelection[]>([]);
   const [legacyMyDaySelections, setLegacyMyDaySelections] = useState<MyDaySelection[]>([]);
   const [pendingRemovalIds, setPendingRemovalIds] = useState<Set<string>>(new Set());
+  const [completingFloatingIds, setCompletingFloatingIds] = useState<Set<string>>(new Set());
 
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -1290,9 +1291,18 @@ export default function AppShell() {
 
   const handleMarkFloatingDone = async (taskId: string) => {
     if (!user) return;
+    if (completingFloatingIds.has(taskId)) return;
+    setCompletingFloatingIds(prev => new Set(prev).add(taskId));
     playDone();
-    await deleteFloatingTasks(user.uid, [taskId]);
-    setMyDayDetailId(null);
+    // Laisser le temps à l'animation de jouer avant de retirer
+    setTimeout(async () => {
+      try {
+        await deleteFloatingTasks(user.uid, [taskId]);
+        setMyDayDetailId(null);
+      } finally {
+        setCompletingFloatingIds(prev => { const s = new Set(prev); s.delete(taskId); return s; });
+      }
+    }, 350);
   };
 
   const handleCommentAdd = async (body: string) => {
@@ -2615,20 +2625,42 @@ export default function AppShell() {
                 <div>
                   {myDayCombined.map(entry => {
                     const statusColor = {"Créé":"#d1d5db","Demandé":"#fbbf24","Reçu":"#60a5fa","Traité":"#34d399"}[entry.status as string] ?? "#d1d5db";
+                    const isCompletingRow = entry.kind === "floating" && !!entry.floatingId && completingFloatingIds.has(entry.floatingId);
                     return (
                       <div key={entry.key} className="finder-row group"
                         data-active={myDayDetailId === entry.key ? "true" : undefined}
                         style={{
                           borderLeft: entry.kind === "floating" ? "none" : `3px solid ${statusColor}`,
                           background: entry.starred ? "rgba(251,191,36,0.09)" : undefined,
+                          opacity: isCompletingRow ? 0.5 : 1,
+                          transition: "opacity 0.3s ease",
                         }}
                         onClick={() => setMyDayDetailId(myDayDetailId === entry.key ? null : entry.key)}>
                         {entry.kind === "floating" && (
-                          <button
-                            className="w-5 h-5 shrink-0 rounded-md border-2 border-border-strong bg-white cursor-pointer hover:border-accent hover:bg-blue-50 transition-colors"
-                            onClick={e => { e.stopPropagation(); handleMarkFloatingDone(entry.floatingId!); }}
-                            title="Réalisée"
-                          />
+                          (() => {
+                            const isCompleting = completingFloatingIds.has(entry.floatingId!);
+                            return (
+                              <button
+                                className="shrink-0 cursor-pointer transition-all duration-200 flex items-center justify-center"
+                                onClick={e => { e.stopPropagation(); handleMarkFloatingDone(entry.floatingId!); }}
+                                title="Réalisée"
+                                style={{
+                                  width: "20px",
+                                  height: "20px",
+                                  borderRadius: "6px",
+                                  border: isCompleting ? "none" : "2px solid #9ca3af",
+                                  background: isCompleting ? "#16a34a" : "white",
+                                  transform: isCompleting ? "scale(1.1)" : "scale(1)",
+                                }}
+                              >
+                                {isCompleting && (
+                                  <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                                    <path d="M2.5 7L5.5 10L11.5 4" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                  </svg>
+                                )}
+                              </button>
+                            );
+                          })()
                         )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
@@ -2670,8 +2702,29 @@ export default function AppShell() {
                     return (
                       <div key={t.id} className="flex items-center gap-2 py-1.5 px-1 rounded hover:bg-bg-hover cursor-pointer"
                         onClick={() => setMyDayDetailId(myDayDetailId === `f-${t.id}` ? null : `f-${t.id}`)}>
-                        <button className="w-4 h-4 shrink-0 rounded border-2 border-border-strong bg-white cursor-pointer hover:border-accent hover:bg-blue-50 transition-colors"
-                          onClick={e => { e.stopPropagation(); handleMarkFloatingDone(t.id); }} />
+                        {(() => {
+                          const isCompleting = completingFloatingIds.has(t.id);
+                          return (
+                            <button
+                              className="shrink-0 cursor-pointer transition-all duration-200 flex items-center justify-center"
+                              onClick={e => { e.stopPropagation(); handleMarkFloatingDone(t.id); }}
+                              style={{
+                                width: "16px",
+                                height: "16px",
+                                borderRadius: "4px",
+                                border: isCompleting ? "none" : "2px solid #9ca3af",
+                                background: isCompleting ? "#16a34a" : "white",
+                                transform: isCompleting ? "scale(1.15)" : "scale(1)",
+                              }}
+                            >
+                              {isCompleting && (
+                                <svg width="10" height="10" viewBox="0 0 14 14" fill="none">
+                                  <path d="M2.5 7L5.5 10L11.5 4" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                              )}
+                            </button>
+                          );
+                        })()}
                         <p className="text-[13px] text-tx truncate flex-1">{t.title}</p>
                         <span className="text-[11px] text-tx-3 shrink-0">{dayLabel}</span>
                       </div>
