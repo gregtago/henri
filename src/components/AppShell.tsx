@@ -963,6 +963,7 @@ export default function AppShell() {
   const handleDelete = async () => {
     if (!user) return;
     if (isMyDay) {
+      // Mode sélection multi mémos
       if (selectedFloatingIds.length > 0) {
         const tasksToDelete = selectedFloatingIds.map(id => floatingTasks.find(t => t.id === id)).filter(Boolean) as typeof floatingTasks;
         scheduleDelete(`Supprimer ${selectedFloatingIds.length} mémo(s).`, async () => {
@@ -971,6 +972,36 @@ export default function AppShell() {
         }, async () => {
           await restoreFloatingTasks(user.uid, tasksToDelete);
         });
+        return;
+      }
+      // Suppression d'un mémo flottant ouvert dans le détail
+      if (myDayDetailId && myDayDetailId.startsWith("f-")) {
+        const floatingId = myDayDetailId.slice(2);
+        const task = floatingTasks.find(t => t.id === floatingId);
+        if (!task) return;
+        const taskSnapshot = [{ ...task }] as typeof floatingTasks;
+        scheduleDelete("Supprimer le mémo.", async () => {
+          await deleteFloatingTasks(user.uid, [floatingId]);
+          setMyDayDetailId(null);
+        }, async () => {
+          await restoreFloatingTasks(user.uid, taskSnapshot);
+        });
+        return;
+      }
+      // Suppression d'une tâche de dossier ouverte dans le détail depuis Ma journée
+      if (detailTarget?.type === "item") {
+        const ids = [detailTarget.id];
+        const subCount = items.filter((item) => item.parentItemId && ids.includes(item.parentItemId)).length;
+        const label = subCount > 0 ? `Supprimer 1 tâche et ${subCount} sous-tâche(s).` : "Supprimer la tâche.";
+        const itemsSnapshot = items.filter(i => ids.includes(i.id) || (i.parentItemId && ids.includes(i.parentItemId))).map(i => ({ ...i }));
+        scheduleDelete(label, async () => {
+          await deleteItemsCascade(user.uid, ids, items);
+          setDetailTarget(null);
+          setMyDayDetailId(null);
+        }, async () => {
+          await restoreItems(user.uid, itemsSnapshot);
+        });
+        return;
       }
       return;
     }
@@ -1150,7 +1181,15 @@ export default function AppShell() {
 
   const handleAddToMyDay = async () => {
     if (!user) return;
+    // Garde-fou : ne pas créer de doublon si une sélection existe déjà pour la même cible aujourd'hui
+    const alreadyInMyDay = (refType: "case" | "item" | "subitem", refId: string) =>
+      myDaySelections.some(s => s.dateKey === todayKey && s.refType === refType && s.refId === refId);
+
     if (detailTarget?.type === "case") {
+      if (alreadyInMyDay("case", detailTarget.id)) {
+        showToast("Déjà dans Ma journée.");
+        return;
+      }
       await addMyDaySelection(user.uid, {
         dateKey: todayKey,
         refType: "case",
@@ -1160,15 +1199,24 @@ export default function AppShell() {
       return;
     }
     if (detailTarget?.type === "item" && detailItem) {
+      const refType = detailItem.level === 2 ? "item" : "subitem";
+      if (alreadyInMyDay(refType, detailItem.id)) {
+        showToast("Déjà dans Ma journée.");
+        return;
+      }
       await addMyDaySelection(user.uid, {
         dateKey: todayKey,
-        refType: detailItem.level === 2 ? "item" : "subitem",
+        refType,
         refId: detailItem.id
       });
       showToast("☀ Ajouté à Ma journée.");
       return;
     }
     if (selectedCaseId && activeColumn === "cases") {
+      if (alreadyInMyDay("case", selectedCaseId)) {
+        showToast("Déjà dans Ma journée.");
+        return;
+      }
       await addMyDaySelection(user.uid, {
         dateKey: todayKey,
         refType: "case",
@@ -1177,6 +1225,10 @@ export default function AppShell() {
       showToast("☀ Ajouté à Ma journée.");
     }
     if (activeColumn === "items" && selectedItemId) {
+      if (alreadyInMyDay("item", selectedItemId)) {
+        showToast("Déjà dans Ma journée.");
+        return;
+      }
       await addMyDaySelection(user.uid, {
         dateKey: todayKey,
         refType: "item",
@@ -1185,6 +1237,10 @@ export default function AppShell() {
       showToast("☀ Ajouté à Ma journée.");
     }
     if (activeColumn === "subitems" && selectedSubItemId) {
+      if (alreadyInMyDay("subitem", selectedSubItemId)) {
+        showToast("Déjà dans Ma journée.");
+        return;
+      }
       await addMyDaySelection(user.uid, {
         dateKey: todayKey,
         refType: "subitem",

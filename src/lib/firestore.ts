@@ -149,6 +149,24 @@ export const updateFloatingTask = (uid: string, id: string, payload: Partial<Flo
   updateDoc(doc(db, `users/${uid}/floatingTasks/${id}`), { ...payload, updatedAt: nowIso() });
 
 export const addMyDaySelection = async (uid: string, payload: Omit<MyDaySelection, "id">) => {
+  // Garde-fou anti-doublon : si une sélection existe déjà pour ce (dateKey, refType, refId),
+  // on la réutilise au lieu d'en créer une nouvelle. Évite l'accumulation de doublons quand
+  // l'utilisateur clique plusieurs fois sur "Ma journée".
+  try {
+    const existingSnap = await getDocs(query(
+      userCollection(uid, "myDaySelections"),
+      where("dateKey", "==", payload.dateKey),
+      where("refType", "==", payload.refType),
+      where("refId", "==", payload.refId),
+    ));
+    if (!existingSnap.empty) {
+      return existingSnap.docs[0].id;
+    }
+  } catch (err) {
+    // En cas d'échec de la requête (offline, règle Firestore), on laisse passer l'écriture
+    // — le doublon sera masqué côté client par la déduplication React.
+    console.warn("[addMyDaySelection] dedupe check failed", err);
+  }
   const dateBase = dateKeyToDate(payload.dateKey) ?? new Date();
   // ⚠ Important : on applique les valeurs par défaut APRÈS le spread,
   // sinon un payload contenant `selectionDate: null` ou `dateTs: null` écrase
