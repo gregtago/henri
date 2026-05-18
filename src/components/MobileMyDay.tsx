@@ -420,8 +420,6 @@ export default function MobileMyDay({ user }: { user: User }) {
                   { label: "Dans 2 j.", days: 2 },
                   { label: "Dans 1 sem.", days: 7 },
                   { label: "Dans 1 mois", days: 30 },
-                  { label: "Dans 3 mois", days: 90 },
-                  { label: "Dans 6 mois", days: 180 },
                 ].map(({ label, days }) => {
                   const d = new Date(); d.setDate(d.getDate() + days); d.setHours(12,0,0,0);
                   const iso = d.toISOString().slice(0, 10);
@@ -669,8 +667,6 @@ export default function MobileMyDay({ user }: { user: User }) {
                     { label: "2 j.", days: 2 },
                     { label: "1 sem.", days: 7 },
                     { label: "1 mois", days: 30 },
-                    { label: "3 mois", days: 90 },
-                    { label: "6 mois", days: 180 },
                   ].map(({ label, days }) => {
                     const d = new Date(); d.setDate(d.getDate() + days); d.setHours(12, 0, 0, 0);
                     return (

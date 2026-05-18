@@ -2813,8 +2813,6 @@ export default function AppShell() {
                                 { label: nextMonLabel, date: nextMon },
                                 { label: "Dans 1 sem.", date: new Date(today.getTime() + 7*86400000) },
                                 { label: "Dans 1 mois", date: new Date(today.getFullYear(), today.getMonth()+1, today.getDate(), 12) },
-                                { label: "Dans 3 mois", date: new Date(today.getFullYear(), today.getMonth()+3, today.getDate(), 12) },
-                                { label: "Dans 6 mois", date: new Date(today.getFullYear(), today.getMonth()+6, today.getDate(), 12) },
                               ].map(({ label, date }) => (
                                 <button key={label} onClick={() => handleFloatingDueDate(task.id, date)}
                                   className="text-[11px] font-[inherit] px-2 py-1 rounded border border-border bg-bg-subtle text-tx-2 cursor-pointer hover:border-border-strong hover:text-tx transition-colors">
