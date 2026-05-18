@@ -675,11 +675,13 @@ export default function AppShell() {
       return dueKey === todayKey;
     });
 
-    // 4. Ajoutées récemment (createdAt dans les N derniers jours, pas d'échéance spécifique)
+    // 4. Ajoutées récemment (createdAt dans les N derniers jours, sans échéance OU échéance déjà passée pas déjà classée)
     const recent = items.filter(item => {
       if (!notAdded(item) || !notDone(item) || item.starred || !isLeaf(item)) return false;
       const dueKey = getDateKeyFromValue(item.dueDate);
-      if (dueKey && dueKey <= todayKey) return false; // déjà dans overdue ou dueToday
+      // Avec date : on exclut totalement — les tâches en retard / aujourd'hui sont déjà classées,
+      // et celles dans le futur ne doivent pas être suggérées aujourd'hui (elles ont déjà une date).
+      if (dueKey) return false;
       const createdAt = new Date(item.createdAt);
       return createdAt >= recentThreshold;
     });
