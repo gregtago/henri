@@ -2235,9 +2235,10 @@ export default function AppShell() {
                 <span>{showArchived ? "Dossiers archivés" : "Dossiers"}</span>
                 <div className="flex items-center gap-1">
                   <select
-                    className="text-[12.5px] font-[inherit] bg-transparent border-none text-tx-3 cursor-pointer outline-none"
+                    className="text-[12.5px] font-[inherit] bg-transparent border-none text-tx-2 cursor-pointer outline-none pr-1 hover:text-tx transition-colors"
                     value={caseSortKey}
                     onChange={(e) => setCaseSortKey(e.target.value as "title" | "createdAt" | "legalDueDate")}
+                    title="Trier par"
                   >
                     <option value="title">Nom</option>
                     <option value="createdAt">Ancienneté</option>
@@ -2246,9 +2247,9 @@ export default function AppShell() {
                   <button
                     className={iconBtn}
                     onClick={() => setCaseSortDirection(p => p === "asc" ? "desc" : "asc")}
-                    title={caseSortDirection === "asc" ? "Croissant" : "Décroissant"}
+                    title={caseSortDirection === "asc" ? "Ordre croissant — cliquer pour inverser" : "Ordre décroissant — cliquer pour inverser"}
                   >
-                    {caseSortDirection === "asc" ? "↑" : "↓"}
+                    <Icon name={caseSortDirection === "asc" ? "chevron-up" : "chevron-down"} size={14} strokeWidth={2} />
                   </button>
                   <button className={iconBtn} title="Nouveau dossier (N)" onClick={async () => {
                     if (!user) return;
@@ -2262,7 +2263,10 @@ export default function AppShell() {
                     setActiveColumn("cases");
                     setDetailTarget({ type: "case", id });
                     focusWhenReady(detailCaseRef);
-                  }}>+</button>
+                  }}>
+                    <Icon name="myday" size={14} className="hidden" />
+                    <span className="text-[18px] leading-none">+</span>
+                  </button>
                 </div>
               </div>
 
@@ -2312,18 +2316,27 @@ export default function AppShell() {
                 />
               </div>
 
-              {/* Pied de colonne : liens Archivés + Importer */}
-              <div className="border-t border-border px-3 py-2 space-y-0.5">
+              {/* Pied de colonne : Archivés + Importer (côte à côte) */}
+              <div className="border-t border-border px-3 py-2 flex items-center gap-1.5">
                 <button
-                  className={`w-full text-left text-[14px] px-2 py-1.5 rounded cursor-pointer border-none transition-colors ${
-                    showArchived ? "bg-bg-active text-tx font-medium" : "bg-transparent text-tx-3 hover:bg-bg-hover hover:text-tx-2"
+                  className={`flex-1 inline-flex items-center justify-center gap-1.5 text-[12.5px] font-[inherit] px-2.5 py-1.5 rounded border cursor-pointer transition-colors ${
+                    showArchived
+                      ? "bg-tx text-bg border-tx"
+                      : "bg-transparent text-tx-2 border-border hover:border-border-strong hover:text-tx"
                   }`}
                   onClick={() => { setShowArchived(p => !p); setSelectedCaseId(null); setDetailTarget(null); }}
+                  title={showArchived ? "Revenir aux dossiers actifs" : "Voir les dossiers archivés"}
                 >
-                  {showArchived ? "← Dossiers actifs" : `📦 Archivés (${archivedCases.length})`}
+                  {showArchived ? (
+                    <><Icon name="arrow-left" size={12} /> Dossiers actifs</>
+                  ) : (
+                    <><Icon name="folder" size={12} /> Archivés ({archivedCases.length})</>
+                  )}
                 </button>
-                <label className="w-full text-left text-[14px] px-2 py-1.5 rounded cursor-pointer bg-transparent text-tx-3 hover:bg-bg-hover hover:text-tx-2 flex items-center gap-1.5 transition-colors">
-                  <span>⬆ Importer un dossier</span>
+                <label className="flex-1 inline-flex items-center justify-center gap-1.5 text-[12.5px] font-[inherit] px-2.5 py-1.5 rounded border bg-transparent text-tx-2 border-border hover:border-border-strong hover:text-tx cursor-pointer transition-colors"
+                  title="Importer un dossier depuis un fichier JSON">
+                  <Icon name="chevron-down" size={14} strokeWidth={2} />
+                  <span>Importer</span>
                   <input type="file" accept="application/json" className="hidden" onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (!file || !user) return;
@@ -2348,11 +2361,17 @@ export default function AppShell() {
                 <span>Tâches</span>
                 <div className="flex items-center gap-1">
                   <button
-                    className={iconBtn}
-                    title="Mode sélection"
+                    className={`text-[11px] font-[inherit] font-medium px-2 py-1 rounded border cursor-pointer transition-colors ${
+                      selectionModeItems
+                        ? "bg-tx text-bg border-tx"
+                        : "bg-transparent text-tx-2 border-border hover:border-border-strong hover:text-tx"
+                    }`}
+                    title="Mode sélection multiple"
                     onClick={() => { setSelectionModeItems(p => !p); setSelectedItemIds([]); }}
-                  >⊡</button>
-                  <button className={iconBtn} title="Nouvelle tâche (N)" onClick={async () => { setActiveColumn("items"); if (!user || !selectedCaseId) { showToast("Sélectionnez un dossier d'abord."); return; } const id = await createItem(user.uid, { caseId: selectedCaseId, level: 2, title: "Nouvelle tâche", status: "Créé", parentItemId: null }); setSelectedItemId(id); setSelectedItemIds([id]); setDetailTarget({ type: "item", id }); focusWhenReady(detailTitleRef); }}>+</button>
+                  >Sélection</button>
+                  <button className={iconBtn} title="Nouvelle tâche (N)" onClick={async () => { setActiveColumn("items"); if (!user || !selectedCaseId) { showToast("Sélectionnez un dossier d'abord."); return; } const id = await createItem(user.uid, { caseId: selectedCaseId, level: 2, title: "Nouvelle tâche", status: "Créé", parentItemId: null }); setSelectedItemId(id); setSelectedItemIds([id]); setDetailTarget({ type: "item", id }); focusWhenReady(detailTitleRef); }}>
+                    <span className="text-[18px] leading-none">+</span>
+                  </button>
                 </div>
               </div>
 
@@ -2439,11 +2458,17 @@ export default function AppShell() {
                 <span>Sous-tâches</span>
                 <div className="flex items-center gap-1">
                   <button
-                    className={iconBtn}
-                    title="Mode sélection"
+                    className={`text-[11px] font-[inherit] font-medium px-2 py-1 rounded border cursor-pointer transition-colors ${
+                      selectionModeSubItems
+                        ? "bg-tx text-bg border-tx"
+                        : "bg-transparent text-tx-2 border-border hover:border-border-strong hover:text-tx"
+                    }`}
+                    title="Mode sélection multiple"
                     onClick={() => { setSelectionModeSubItems(p => !p); setSelectedSubItemIds([]); }}
-                  >⊡</button>
-                  <button className={iconBtn} title="Nouvelle sous-tâche (⇧N)" onClick={async () => { setActiveColumn("subitems"); if (!user || !selectedItemId) { showToast("Sélectionnez une tâche d'abord."); return; } const parentCaseId = selectedItem?.caseId ?? selectedCaseId; if (!parentCaseId) return; const id = await createItem(user.uid, { caseId: parentCaseId, parentItemId: selectedItemId, level: 3, title: "Nouvelle sous-tâche", status: "Créé" }); setSelectedSubItemId(id); setSelectedSubItemIds([id]); setActiveColumn("subitems"); setDetailTarget({ type: "item", id }); focusWhenReady(detailTitleRef); }}>+</button>
+                  >Sélection</button>
+                  <button className={iconBtn} title="Nouvelle sous-tâche (⇧N)" onClick={async () => { setActiveColumn("subitems"); if (!user || !selectedItemId) { showToast("Sélectionnez une tâche d'abord."); return; } const parentCaseId = selectedItem?.caseId ?? selectedCaseId; if (!parentCaseId) return; const id = await createItem(user.uid, { caseId: parentCaseId, parentItemId: selectedItemId, level: 3, title: "Nouvelle sous-tâche", status: "Créé" }); setSelectedSubItemId(id); setSelectedSubItemIds([id]); setActiveColumn("subitems"); setDetailTarget({ type: "item", id }); focusWhenReady(detailTitleRef); }}>
+                    <span className="text-[18px] leading-none">+</span>
+                  </button>
                 </div>
               </div>
 
