@@ -510,10 +510,11 @@ export default function AppShell() {
   // ── TÂCHES DU JOUR — tri priorité ─────────────────────────────────────────
   const todayFloating = floatingTasks.filter(t => t.status !== "Traité" && t.dateKey != null && t.dateKey <= todayKey);
 
-  // Construire la liste unifiée triée pour Ma journée
-  const myDaySorted = useMemo(() => {
+  // Construire la liste unifiée triée pour Ma journée (tâches de dossier + mémos flottants)
+  const myDayCombined = useMemo(() => {
     type Entry = {
       key: string;
+      kind: "item" | "floating";
       title: string;
       caseLabel: string;
       parentLabel: string;
@@ -522,20 +523,29 @@ export default function AppShell() {
       hasDue: boolean;
       dueStr: string;
       overdue: boolean;
+      dueIsToday: boolean;
       dueTs: number;
+      recurrence?: any;
       statusEl: React.ReactNode;
-      removeBtn: React.ReactNode;
-      selectionId: string;
+      removeBtn: React.ReactNode | null;
+      floatingId?: string;
+      selectionId?: string;
     };
-    const entries: Entry[] = myDayItems.map(entry => {
+
+    const startOfToday = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); })();
+    const endOfToday = startOfToday + 86400000;
+
+    // 1. Tâches issues de myDayItems (dossiers / items / sous-items)
+    const itemEntries: Entry[] = myDayItems.map(entry => {
       if (!entry) return null;
       const { data, selectionId } = entry;
       const dueRaw = "dueDate" in data ? data.dueDate : ("legalDueDate" in data ? data.legalDueDate : null);
       const dueDate = dueRaw ? new Date(dueRaw) : null;
       const hasDue = Boolean(dueDate);
-      const overdue = hasDue && dueDate! < new Date();
-      const dueStr = dueDate ? formatDateFR(dueRaw) : "";
       const dueTs = dueDate ? dueDate.getTime() : Infinity;
+      const overdue = hasDue && dueTs < startOfToday;
+      const dueIsToday = hasDue && dueTs >= startOfToday && dueTs < endOfToday;
+      const dueStr = dueDate ? formatDateFR(dueRaw) : "";
       const statusEl = "status" in data
         ? <span className={statusClass(data.status)}>{data.status}</span>
         : <span className="text-[12.5px] text-tx-3">Dossier</span>;
@@ -544,7 +554,6 @@ export default function AppShell() {
           className="w-5 h-5 flex items-center justify-center text-[12.5px] text-tx-3 bg-transparent border-none cursor-pointer hover:text-red-500 rounded shrink-0"
           onClick={e => {
             e.stopPropagation();
-            // Masque immédiatement dans les deux sources
             setPendingRemovalIds(prev => new Set([...prev, selectionId]));
             setLegacyMyDaySelections(prev => prev.filter(s => s.id !== selectionId));
             deleteMyDaySelection(user!.uid, selectionId);
@@ -552,7 +561,6 @@ export default function AppShell() {
           title="Retirer de Ma journée"
         >✕</button>
       );
-      // Contexte : dossier et tâche parente
       let caseLabel = "";
       let parentLabel = "";
       if ("caseId" in data) {
@@ -563,16 +571,73 @@ export default function AppShell() {
       }
       const status = "status" in data ? (data as any).status ?? "Créé" : "Créé";
       const starred = "starred" in data ? Boolean((data as any).starred) : false;
-      return { key: selectionId, title: data.title, caseLabel, parentLabel, status, starred, hasDue, dueStr, overdue, dueTs, statusEl, removeBtn, selectionId } as Entry;
+      return {
+        key: selectionId,
+        kind: "item" as const,
+        title: data.title,
+        caseLabel,
+        parentLabel,
+        status,
+        starred,
+        hasDue,
+        dueStr,
+        overdue,
+        dueIsToday,
+        dueTs,
+        statusEl,
+        removeBtn,
+        selectionId,
+      } as Entry;
     }).filter(Boolean) as Entry[];
 
-    // Trier : importantes d'abord, puis avec échéance (par date), puis sans échéance
-    const starredEntries = entries.filter(e => e.starred);
-    const notStarred = entries.filter(e => !e.starred);
-    const withDue = notStarred.filter(e => e.hasDue).sort((a, b) => a.dueTs - b.dueTs);
-    const withoutDue = notStarred.filter(e => !e.hasDue);
-    return [...starredEntries, ...withDue, ...withoutDue];
-  }, [myDayItems, formatDateFR, statusClass, user, cases, items]);
+    // 2. Mémos flottants du jour (pas encore traités)
+    const floatingEntries: Entry[] = todayFloating.map(task => {
+      const dueDate = task.dueDate ? new Date(task.dueDate) : null;
+      const hasDue = Boolean(dueDate);
+      const dueTs = dueDate ? dueDate.getTime() : Infinity;
+      const overdue = hasDue && dueTs < startOfToday;
+      const dueIsToday = hasDue && dueTs >= startOfToday && dueTs < endOfToday;
+      return {
+        key: `f-${task.id}`,
+        kind: "floating" as const,
+        title: task.title,
+        caseLabel: "",
+        parentLabel: "",
+        status: task.status,
+        starred: Boolean(task.starred),
+        hasDue,
+        dueStr: dueDate ? formatDateFR(task.dueDate!) : "",
+        overdue,
+        dueIsToday,
+        dueTs,
+        recurrence: task.recurrence,
+        statusEl: <span className={statusClass(task.status)}>{task.status}</span>,
+        removeBtn: null, // mémo : pas de bouton retirer dans la rangée (action depuis le détail)
+        floatingId: task.id,
+      } as Entry;
+    });
+
+    // Bucket : 0=important, 1=en retard, 2=aujourd'hui, 3=futur avec date, 4=sans date
+    const bucket = (e: Entry): number => {
+      if (e.starred) return 0;
+      if (e.overdue) return 1;
+      if (e.dueIsToday) return 2;
+      if (e.hasDue) return 3;
+      return 4;
+    };
+
+    const all = [...itemEntries, ...floatingEntries];
+    all.sort((a, b) => {
+      const ba = bucket(a), bb = bucket(b);
+      if (ba !== bb) return ba - bb;
+      // À bucket égal : tri par date d'échéance croissante (Infinity en dernier)
+      if (a.dueTs !== b.dueTs) return a.dueTs - b.dueTs;
+      // À date égale : tâches de dossier avant mémos
+      if (a.kind !== b.kind) return a.kind === "item" ? -1 : 1;
+      return a.title.localeCompare(b.title);
+    });
+    return all;
+  }, [myDayItems, todayFloating, formatDateFR, statusClass, user, cases, items]);
 
   const suggestions = useMemo(() => {
     // IDs déjà ajoutés à Ma journée aujourd'hui
@@ -2481,104 +2546,53 @@ export default function AppShell() {
           <div className="flex flex-col overflow-hidden border-r border-border bg-white" style={{flex:"0 0 40%", zIndex:1, position:"relative"}}>
             <div className="finder-header">
               <span>{new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}</span>
-              <span className="text-tx-3">{(() => { const n = myDaySorted.length + todayFloating.length; return `${n} élément${n > 1 ? "s" : ""}`; })()}</span>
+              <span className="text-tx-3">{(() => { const n = myDayCombined.length; return `${n} élément${n > 1 ? "s" : ""}`; })()}</span>
             </div>
 
             <div className="flex-1 overflow-y-auto py-1">
-              {myDaySorted.length === 0 && todayFloating.length === 0 ? (
+              {myDayCombined.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full gap-2 text-center px-6">
                   <p className="text-[14px] text-tx-3">Journée vide</p>
                   <p className="text-[12px] text-tx-3">Utilisez <kbd>A</kbd> depuis les dossiers<br/>ou consultez les suggestions à droite.</p>
                 </div>
               ) : (
                 <div>
-                  {/* ⭐ Mémos étoilés */}
-                  {todayFloating.filter(t => t.starred).map(task => (
-                    <div key={task.id} className="finder-row group"
-                      data-active={myDayDetailId === `f-${task.id}` ? "true" : undefined}
-                      onClick={() => setMyDayDetailId(myDayDetailId === `f-${task.id}` ? null : `f-${task.id}`)}>
-                      <button className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer hover:border-accent transition-colors"
-                        onClick={e => { e.stopPropagation(); handleMarkFloatingDone(task.id); }} title="Réalisée" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[12.5px]">⭐</span>
-                          <p className="text-[15px] font-medium text-tx truncate">{task.title}</p>
+                  {myDayCombined.map(entry => {
+                    const statusColor = {"Créé":"#d1d5db","Demandé":"#fbbf24","Reçu":"#60a5fa","Traité":"#34d399"}[entry.status as string] ?? "#d1d5db";
+                    return (
+                      <div key={entry.key} className="finder-row group"
+                        data-active={myDayDetailId === entry.key ? "true" : undefined}
+                        style={{
+                          borderLeft: `3px solid ${statusColor}`,
+                          background: entry.starred ? "rgba(251,191,36,0.09)" : undefined,
+                        }}
+                        onClick={() => setMyDayDetailId(myDayDetailId === entry.key ? null : entry.key)}>
+                        {entry.kind === "floating" && (
+                          <button className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer hover:border-accent transition-colors"
+                            onClick={e => { e.stopPropagation(); handleMarkFloatingDone(entry.floatingId!); }} title="Réalisée" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            {entry.starred && <span className="text-[12.5px]">⭐</span>}
+                            <p className={`text-[15px] text-tx truncate leading-snug ${entry.starred ? "font-medium" : ""}`}>{entry.title}</p>
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap min-h-[1.25rem]">
+                            {entry.statusEl}
+                            {entry.hasDue && (
+                              <span className={`text-[11px] ${entry.overdue ? "text-red-500" : "text-tx-3"}`}>Éch. {entry.dueStr}</span>
+                            )}
+                            {entry.caseLabel && (
+                              <span className="text-[11px] text-tx-3 truncate">
+                                {entry.parentLabel ? `${entry.caseLabel} › ${entry.parentLabel}` : entry.caseLabel}
+                              </span>
+                            )}
+                            {entry.recurrence && <span className="text-[11px] text-tx-3" title={formatRecurrence(entry.recurrence)}>🔁</span>}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className={statusClass(task.status)}>{task.status}</span>
-                          {task.dueDate && <span className={`text-[11px] ${new Date(task.dueDate) < new Date() ? "text-red-500" : "text-tx-3"}`}>Éch. {formatDateFR(task.dueDate)}</span>}
-                        </div>
+                        {entry.removeBtn}
                       </div>
-                    </div>
-                  ))}
-
-                  {/* Tâches avec échéance */}
-                  {myDaySorted.filter(e => e.hasDue).map(entry => (
-                    <div key={entry.key} className="finder-row group"
-                      data-active={myDayDetailId === entry.key ? "true" : undefined}
-                      style={{ borderLeft: `3px solid ${{"Créé":"#d1d5db","Demandé":"#fbbf24","Reçu":"#60a5fa","Traité":"#34d399"}[entry.status as string] ?? "#d1d5db"}`, background: entry.starred ? "rgba(251,191,36,0.09)" : undefined }}
-                      onClick={() => setMyDayDetailId(myDayDetailId === entry.key ? null : entry.key)}>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[15px] text-tx truncate leading-snug">{entry.title}</p>
-                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                          {entry.statusEl}
-                          <span className={`text-[11px] ${entry.overdue ? "text-red-500" : "text-tx-3"}`}>Éch. {entry.dueStr}</span>
-                          {entry.caseLabel && <span className="text-[11px] text-tx-3 truncate">{entry.parentLabel ? `${entry.caseLabel} › ${entry.parentLabel}` : entry.caseLabel}</span>}
-                        </div>
-                      </div>
-                      {entry.removeBtn}
-                    </div>
-                  ))}
-
-                  {/* Tâches sans échéance */}
-                  {myDaySorted.filter(e => !e.hasDue).map(entry => (
-                    <div key={entry.key} className="finder-row group"
-                      data-active={myDayDetailId === entry.key ? "true" : undefined}
-                      style={{ borderLeft: `3px solid ${{"Créé":"#d1d5db","Demandé":"#fbbf24","Reçu":"#60a5fa","Traité":"#34d399"}[entry.status as string] ?? "#d1d5db"}`, background: entry.starred ? "rgba(251,191,36,0.09)" : undefined }}
-                      onClick={() => setMyDayDetailId(myDayDetailId === entry.key ? null : entry.key)}>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[15px] text-tx truncate leading-snug">{entry.title}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          {entry.statusEl}
-                          {entry.caseLabel && <span className="text-[11px] text-tx-3 truncate">{entry.parentLabel ? `${entry.caseLabel} › ${entry.parentLabel}` : entry.caseLabel}</span>}
-                        </div>
-                      </div>
-                      {entry.removeBtn}
-                    </div>
-                  ))}
-
-                  {/* Mémos non étoilés avec échéance */}
-                  {todayFloating.filter(t => !t.starred && !!t.dueDate).sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime()).map(task => (
-                    <div key={task.id} className="finder-row group"
-                      data-active={myDayDetailId === `f-${task.id}` ? "true" : undefined}
-                      onClick={() => setMyDayDetailId(myDayDetailId === `f-${task.id}` ? null : `f-${task.id}`)}>
-                      <button className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer hover:border-accent transition-colors"
-                        onClick={e => { e.stopPropagation(); handleMarkFloatingDone(task.id); }} title="Réalisée" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[15px] text-tx truncate leading-snug">{task.title}</p>
-                        <div className="flex items-center gap-2 mt-0.5 min-h-[1.25rem]">
-                          {task.dueDate && <span className={`text-[11px] ${new Date(task.dueDate) < new Date() ? "text-red-500" : "text-tx-3"}`}>Éch. {formatDateFR(task.dueDate)}</span>}
-                          {task.recurrence && <span className="text-[11px] text-tx-3" title={formatRecurrence(task.recurrence)}>🔁</span>}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* Mémos non étoilés sans échéance */}
-                  {todayFloating.filter(t => !t.starred && !t.dueDate).map(task => (
-                    <div key={task.id} className="finder-row group"
-                      data-active={myDayDetailId === `f-${task.id}` ? "true" : undefined}
-                      onClick={() => setMyDayDetailId(myDayDetailId === `f-${task.id}` ? null : `f-${task.id}`)}>
-                      <button className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer hover:border-accent transition-colors"
-                        onClick={e => { e.stopPropagation(); handleMarkFloatingDone(task.id); }} title="Réalisée" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[15px] text-tx truncate leading-snug">{task.title}</p>
-                        <div className="flex items-center gap-2 mt-0.5 min-h-[1.25rem]">
-                          {task.recurrence && <span className="text-[11px] text-tx-3" title={formatRecurrence(task.recurrence)}>🔁</span>}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
