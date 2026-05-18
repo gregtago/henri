@@ -454,6 +454,30 @@ export default function AppShell() {
     }
   }, [myDayDetailId, myDaySelections, isMyDay]);
 
+  // ── REPÈRES "Dans Ma journée" (toutes échéances confondues) ─────────────
+  // On garde toutes les sélections actives, peu importe la date,
+  // pour afficher un point jaune sur les tâches/sous-tâches et leurs dossiers.
+  const myDayMarkerItemIds = useMemo(() => {
+    const set = new Set<string>();
+    myDaySelections.forEach(sel => {
+      if (sel.refType === "item" || sel.refType === "subitem") set.add(sel.refId);
+    });
+    return set;
+  }, [myDaySelections]);
+
+  const myDayMarkerCaseIds = useMemo(() => {
+    const set = new Set<string>();
+    myDaySelections.forEach(sel => {
+      if (sel.refType === "case") {
+        set.add(sel.refId);
+      } else if (sel.refType === "item" || sel.refType === "subitem") {
+        const it = items.find(i => i.id === sel.refId);
+        if (it?.caseId) set.add(it.caseId);
+      }
+    });
+    return set;
+  }, [myDaySelections, items]);
+
   const myDayEntries = myDaySelections.filter((entry) => entry.dateKey === todayKey);
   const myDayItems = myDayEntries
     .map((entry) => {
@@ -2064,7 +2088,15 @@ export default function AppShell() {
                     onClick={(e) => handleSelectCase(entry.id, { multi: e.metaKey || e.ctrlKey, range: e.shiftKey })}
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="text-[15px] font-medium text-tx truncate leading-snug">{entry.title}</p>
+                      <div className="flex items-center gap-1.5">
+                        {myDayMarkerCaseIds.has(entry.id) && (
+                          <span
+                            className="inline-block w-2 h-2 rounded-full bg-amber-400 shrink-0"
+                            title="Contient une tâche dans Ma journée"
+                          />
+                        )}
+                        <p className="text-[15px] font-medium text-tx truncate leading-snug">{entry.title}</p>
+                      </div>
                       <p className="text-[12.5px] text-tx-3 mt-0.5 truncate min-h-[1.25rem]">
                         {entry.legalDueDate ? (
                           <>Éch. <span className={new Date(entry.legalDueDate) < new Date() ? "text-red-500" : ""}>{formatDateFR(entry.legalDueDate)}</span></>
@@ -2184,7 +2216,15 @@ export default function AppShell() {
                       />
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="text-[15px] text-tx truncate leading-snug">{entry.title}</p>
+                      <div className="flex items-center gap-1.5">
+                        {myDayMarkerItemIds.has(entry.id) && (
+                          <span
+                            className="inline-block w-2 h-2 rounded-full bg-amber-400 shrink-0"
+                            title="Dans Ma journée"
+                          />
+                        )}
+                        <p className="text-[15px] text-tx truncate leading-snug">{entry.title}</p>
+                      </div>
                       <p className="text-[12.5px] text-tx-3 mt-0.5 truncate min-h-[1.25rem]">
                         {entry.dueDate ? (
                           <>Éch. <span className={new Date(entry.dueDate) < new Date() ? "text-red-500" : ""}>{formatDateFR(entry.dueDate)}</span></>
@@ -2262,7 +2302,15 @@ export default function AppShell() {
                       />
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="text-[15px] text-tx truncate leading-snug">{entry.title}</p>
+                      <div className="flex items-center gap-1.5">
+                        {myDayMarkerItemIds.has(entry.id) && (
+                          <span
+                            className="inline-block w-2 h-2 rounded-full bg-amber-400 shrink-0"
+                            title="Dans Ma journée"
+                          />
+                        )}
+                        <p className="text-[15px] text-tx truncate leading-snug">{entry.title}</p>
+                      </div>
                       <p className="text-[12.5px] text-tx-3 mt-0.5 min-h-[1.25rem]">
                         {entry.dueDate ? formatDateFR(entry.dueDate) : ""}
                       </p>
