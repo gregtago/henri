@@ -2633,7 +2633,6 @@ export default function AppShell() {
                             <p className={`text-[15px] text-tx truncate leading-snug ${entry.starred ? "font-medium" : ""}`}>{entry.title}</p>
                           </div>
                           <div className="flex items-center gap-2 mt-0.5 flex-wrap min-h-[1.25rem]">
-                            {entry.statusEl}
                             {entry.hasDue && (
                               <span className={`text-[11px] ${entry.overdue ? "text-red-500" : "text-tx-3"}`}>Éch. {entry.dueStr}</span>
                             )}

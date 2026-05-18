@@ -297,11 +297,6 @@ export default function MobileMyDay({ user }: { user: User }) {
                       {title}
                     </p>
                     <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-                      {status && (
-                        <span style={{ fontSize: "11px", fontWeight: 600, padding: "2px 8px", borderRadius: "99px", background: STATUS_COLORS[status] ?? "#e5e7eb", color: STATUS_TEXT[status] ?? "#374151" }}>
-                          {status}
-                        </span>
-                      )}
                       {entry.item && (
                         <span style={{ fontSize: "11px", color: "#9ca3af", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {caseOf(entry.item)}{parentOf(entry.item) ? ` › ${parentOf(entry.item)}` : ""}
