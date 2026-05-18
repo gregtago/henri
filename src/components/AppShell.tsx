@@ -2786,8 +2786,8 @@ export default function AppShell() {
 
             {/* Saisie mémo */}
             <div className="border-t border-border bg-bg p-3">
-              <div className="flex items-center gap-2 bg-bg-subtle border border-border rounded-lg px-3 py-2">
-                <span className="text-[14px] text-tx-3">✏</span>
+              <div className="flex items-center gap-2 bg-white border border-border-strong rounded-lg px-3 py-2 transition-colors focus-within:border-tx-2">
+                <span className="shrink-0 text-tx-3"><Icon name="edit" size={14} /></span>
                 <input
                   className="flex-1 font-[inherit] text-[15px] text-tx bg-transparent border-none outline-none placeholder:text-tx-3"
                   placeholder="Nouveau mémo… (Entrée)"
@@ -2837,8 +2837,24 @@ export default function AppShell() {
                             </button>
                             <input
                               ref={myDayTitleRef}
-                              className="block flex-1 min-w-0 font-[inherit] text-[20px] font-semibold text-[#451a03] bg-transparent border-none outline-none placeholder:text-[#a16207]"
-                              style={{ lineHeight: 1.3 }}
+                              className="block flex-1 min-w-0 font-[inherit] text-[20px] font-semibold text-[#451a03] placeholder:text-[#a16207] outline-none transition-all"
+                              style={{
+                                lineHeight: 1.3,
+                                background: "rgba(255,255,255,0.45)",
+                                border: "1px solid #fde68a",
+                                borderRadius: "6px",
+                                padding: "6px 10px",
+                              }}
+                              onFocus={e => {
+                                e.currentTarget.style.background = "white";
+                                e.currentTarget.style.borderColor = "#f59e0b";
+                                e.currentTarget.style.boxShadow = "0 1px 4px rgba(245,158,11,0.15)";
+                              }}
+                              onBlurCapture={e => {
+                                e.currentTarget.style.background = "rgba(255,255,255,0.45)";
+                                e.currentTarget.style.borderColor = "#fde68a";
+                                e.currentTarget.style.boxShadow = "none";
+                              }}
                               placeholder="Sans titre"
                               value={task.title}
                               onChange={e => updateFloatingTask(user.uid, task.id, { title: e.target.value })}
@@ -2898,8 +2914,8 @@ export default function AppShell() {
 
                         {/* Zone blanche : récurrence, rattacher, commentaires */}
                         <div className="px-5 py-5 space-y-4">
-                          {/* Récurrence */}
-                          <div>
+                          {/* Récurrence — hauteur min pour éviter que la section suivante bouge à l'activation */}
+                          <div style={{ minHeight: "120px" }}>
                             <RecurrencePicker value={task.recurrence ?? null} onChange={r => updateFloatingTask(user.uid, task.id, { recurrence: r ?? null })} />
                           </div>
 
@@ -2940,10 +2956,10 @@ export default function AppShell() {
                         </div>
                       </div>
 
-                      {/* Barre actions bas */}
-                      <div className="detail-actions-bar">
+                      {/* Barre actions bas — fond blanc pour cohérence avec la zone blanche du détail mémo */}
+                      <div className="detail-actions-bar" style={{ background: "white" }}>
                         <button className="detail-action-btn detail-action-danger" onClick={() => { deleteFloatingTasks(user.uid, [task.id]); setMyDayDetailId(null); }}>
-                          <span>🗑</span> Supprimer
+                          <Icon name="delete" size={14} /> Supprimer
                         </button>
                       </div>
                     </>
