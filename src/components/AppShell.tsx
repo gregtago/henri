@@ -1718,7 +1718,9 @@ export default function AppShell() {
   const detailPanel = showDetailColumn && (detailItem || detailCase) ? (
     <section className="finder-detail" style={{boxShadow: "-3px 0 12px rgba(0,0,0,0.06)"}}>
       <div className="finder-header">
-        <span>Détail</span>
+        <span className="text-[11px] font-medium text-tx-3 uppercase tracking-widest">
+          {detailCase ? "Dossier" : detailItem && detailItem.level === 3 ? "Sous-tâche" : "Tâche"}
+        </span>
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-5 space-y-0">
@@ -2767,23 +2769,13 @@ export default function AppShell() {
                   if (!task) return null;
                   return (
                     <>
-                      {/* Header — identique détail tâche */}
+                      {/* Header */}
                       <div className="finder-header">
                         <span className="text-[11px] font-medium text-tx-3 uppercase tracking-widest">Mémo</span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            title={task.starred ? "Retirer l'étoile" : "Prioritaire"}
-                            onClick={() => updateFloatingTask(user.uid, task.id, { starred: !task.starred })}
-                            className="text-[22px] border-none bg-transparent cursor-pointer p-0 leading-none transition-opacity hover:scale-110"
-                            style={{color: task.starred ? "#f59e0b" : undefined, opacity: task.starred ? 1 : 0.25}}
-                          >{task.starred ? "★" : "☆"}</button>
-                          <button onClick={() => setMyDayDetailId(null)}
-                            className="text-[18px] text-tx-3 border-none bg-transparent cursor-pointer hover:text-tx transition-colors leading-none">✕</button>
-                        </div>
                       </div>
 
-                      {/* Titre — même classe que détail tâche */}
-                      <div className="px-5 py-3 shrink-0">
+                      <div className="flex-1 overflow-y-auto px-5 py-5 space-y-0">
+                        {/* Titre */}
                         <input
                           ref={myDayTitleRef}
                           className="detail-title-input"
@@ -2793,10 +2785,19 @@ export default function AppShell() {
                             if (e.key === "Enter") { e.stopPropagation(); (e.target as HTMLInputElement).blur(); }
                           }}
                         />
-                      </div>
 
-                      <div className="flex-1 overflow-y-auto px-5 space-y-4 pb-5">
-                        <div className="border-t border-border" />
+                        <div className="space-y-4">
+                          {/* Étoile (importance) */}
+                          <div className="flex flex-wrap gap-1.5 items-center">
+                            <button
+                              title={task.starred ? "Retirer l'étoile" : "Marquer important"}
+                              onClick={() => updateFloatingTask(user.uid, task.id, { starred: !task.starred })}
+                              className="text-[22px] border-none bg-transparent cursor-pointer p-0 leading-none transition-opacity hover:scale-110"
+                              style={{color: task.starred ? "#f59e0b" : undefined, opacity: task.starred ? 1 : 0.2}}
+                            >{task.starred ? "★" : "☆"}</button>
+                          </div>
+
+                          <div className="border-t border-border" />
 
                         {/* Échéance */}
                         <div>
@@ -2833,15 +2834,9 @@ export default function AppShell() {
                             onBlur={e => { if (!e.target.value) { updateFloatingTask(user.uid, task.id, { dueDate: null, dateKey: todayKey }); return; } const [y,m,d] = e.target.value.split("-").map(Number); if (y < 1900 || y > 2100) return; handleFloatingDueDate(task.id, new Date(y,m-1,d,12)); }} />
                         </div>
 
-                        {/* Observations */}
+                        {/* Récurrence — le picker porte déjà son propre libellé */}
                         <div>
-                          <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1.5">Observations</p>
-                          <textarea
-                            className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-2 outline-none w-full resize-none focus:border-border-strong transition-colors"
-                            rows={4} placeholder="Ajouter une observation…"
-                            defaultValue={task.note ?? ""}
-                            onBlur={e => updateFloatingTask(user.uid, task.id, { note: e.target.value || null })}
-                          />
+                          <RecurrencePicker value={task.recurrence ?? null} onChange={r => updateFloatingTask(user.uid, task.id, { recurrence: r ?? null })} />
                         </div>
 
                         {/* Rattacher à un dossier */}
@@ -2868,10 +2863,16 @@ export default function AppShell() {
                           </div>
                         </div>
 
-                        {/* Récurrence */}
+                        {/* Commentaires */}
                         <div>
-                          <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-2">Récurrence</p>
-                          <RecurrencePicker value={task.recurrence ?? null} onChange={r => updateFloatingTask(user.uid, task.id, { recurrence: r ?? null })} />
+                          <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1.5">Commentaires</p>
+                          <textarea
+                            className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-2 outline-none w-full resize-none focus:border-border-strong transition-colors"
+                            rows={4} placeholder="Ajouter un commentaire…"
+                            defaultValue={task.note ?? ""}
+                            onBlur={e => updateFloatingTask(user.uid, task.id, { note: e.target.value || null })}
+                          />
+                        </div>
                         </div>
                       </div>
 
