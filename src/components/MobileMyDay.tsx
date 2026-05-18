@@ -420,6 +420,8 @@ export default function MobileMyDay({ user }: { user: User }) {
                   { label: "Dans 2 j.", days: 2 },
                   { label: "Dans 1 sem.", days: 7 },
                   { label: "Dans 1 mois", days: 30 },
+                  { label: "Dans 3 mois", days: 90 },
+                  { label: "Dans 6 mois", days: 180 },
                 ].map(({ label, days }) => {
                   const d = new Date(); d.setDate(d.getDate() + days); d.setHours(12,0,0,0);
                   const iso = d.toISOString().slice(0, 10);
@@ -661,7 +663,15 @@ export default function MobileMyDay({ user }: { user: User }) {
               <div>
                 <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Échéance</p>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "8px" }}>
-                  {[{ label: "Auj.", days: 0 }, { label: "Demain", days: 1 }, { label: "1 sem.", days: 7 }, { label: "1 mois", days: 30 }].map(({ label, days }) => {
+                  {[
+                    { label: "Auj.", days: 0 },
+                    { label: "Demain", days: 1 },
+                    { label: "2 j.", days: 2 },
+                    { label: "1 sem.", days: 7 },
+                    { label: "1 mois", days: 30 },
+                    { label: "3 mois", days: 90 },
+                    { label: "6 mois", days: 180 },
+                  ].map(({ label, days }) => {
                     const d = new Date(); d.setDate(d.getDate() + days); d.setHours(12, 0, 0, 0);
                     return (
                       <button key={label} onClick={() => {

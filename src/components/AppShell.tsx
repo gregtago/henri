@@ -2804,12 +2804,17 @@ export default function AppShell() {
                           <div className="flex flex-wrap gap-1.5 mb-2">
                             {(() => {
                               const today = new Date(); today.setHours(12,0,0,0);
+                              const nextMon = (() => { const d = new Date(today); const dow = d.getDay(); const diff = (1-dow+7)%7||7; d.setDate(d.getDate()+diff); return d; })();
+                              const nextMonLabel = "Lun. " + nextMon.getDate() + "/" + (nextMon.getMonth()+1);
                               return [
                                 { label: "Aujourd'hui", date: new Date(today) },
                                 { label: "Demain", date: new Date(today.getTime() + 86400000) },
                                 { label: "Dans 2 j.", date: new Date(today.getTime() + 2*86400000) },
+                                { label: nextMonLabel, date: nextMon },
                                 { label: "Dans 1 sem.", date: new Date(today.getTime() + 7*86400000) },
-                                { label: "Dans 2 sem.", date: new Date(today.getTime() + 14*86400000) },
+                                { label: "Dans 1 mois", date: new Date(today.getFullYear(), today.getMonth()+1, today.getDate(), 12) },
+                                { label: "Dans 3 mois", date: new Date(today.getFullYear(), today.getMonth()+3, today.getDate(), 12) },
+                                { label: "Dans 6 mois", date: new Date(today.getFullYear(), today.getMonth()+6, today.getDate(), 12) },
                               ].map(({ label, date }) => (
                                 <button key={label} onClick={() => handleFloatingDueDate(task.id, date)}
                                   className="text-[11px] font-[inherit] px-2 py-1 rounded border border-border bg-bg-subtle text-tx-2 cursor-pointer hover:border-border-strong hover:text-tx transition-colors">
