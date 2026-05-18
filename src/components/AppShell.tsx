@@ -2855,21 +2855,23 @@ export default function AppShell() {
                         )}
 
                         <div className="flex-1 min-w-0">
-                          <p className={`text-[15px] text-tx truncate leading-snug ${entry.starred ? "font-medium" : ""}`}>{entry.title}</p>
-                          <div className="flex items-center gap-2 mt-0.5 flex-wrap min-h-[1.25rem]">
+                          <div className="flex items-baseline gap-2">
+                            <p className={`text-[15px] text-tx truncate leading-snug flex-1 min-w-0 ${entry.starred ? "font-medium" : ""}`}>{entry.title}</p>
                             {entry.hasDue && (
-                              <span className={`inline-flex items-center gap-1 text-[11px] ${entry.overdue ? "text-red-500" : "text-tx-3"}`}>
+                              <span className={`inline-flex items-center gap-1 text-[11px] shrink-0 ${entry.overdue ? "text-red-500" : "text-tx-3"}`}>
                                 {entry.overdue && <Icon name="warning" size={11} />}
-                                Éch. {entry.dueStr}
+                                {entry.dueStr}
                               </span>
                             )}
-                            {entry.caseLabel && (
-                              <span className="text-[11px] text-tx-3 truncate">
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5 min-h-[1.25rem]">
+                            {entry.caseLabel ? (
+                              <span className="text-[11px] text-tx-3 truncate flex-1 min-w-0">
                                 {entry.parentLabel ? `${entry.caseLabel} › ${entry.parentLabel}` : entry.caseLabel}
                               </span>
-                            )}
+                            ) : <span className="flex-1" />}
                             {entry.recurrence && (
-                              <span className="inline-flex items-center text-tx-3" title={formatRecurrence(entry.recurrence)}>
+                              <span className="inline-flex items-center text-tx-3 shrink-0" title={formatRecurrence(entry.recurrence)}>
                                 <Icon name="recurrence" size={11} />
                               </span>
                             )}
