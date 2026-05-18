@@ -150,10 +150,15 @@ export const updateFloatingTask = (uid: string, id: string, payload: Partial<Flo
 
 export const addMyDaySelection = async (uid: string, payload: Omit<MyDaySelection, "id">) => {
   const dateBase = dateKeyToDate(payload.dateKey) ?? new Date();
+  // ⚠ Important : on applique les valeurs par défaut APRÈS le spread,
+  // sinon un payload contenant `selectionDate: null` ou `dateTs: null` écrase
+  // les défauts et la sélection devient invisible (subscribeMyDaySelections
+  // filtre par `dateTs >= startDate`).
+  const { selectionDate, dateTs, ...rest } = payload;
   const ref = await addDoc(userCollection(uid, "myDaySelections"), {
-    selectionDate: payload.selectionDate ?? Timestamp.fromDate(new Date()),
-    dateTs: payload.dateTs ?? Timestamp.fromDate(dateBase),
-    ...payload
+    ...rest,
+    selectionDate: selectionDate ?? Timestamp.fromDate(new Date()),
+    dateTs: dateTs ?? Timestamp.fromDate(dateBase),
   });
   return ref.id;
 };
