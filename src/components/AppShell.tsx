@@ -2762,7 +2762,8 @@ export default function AppShell() {
               /* Détail tâche sélectionnée */
               (() => {
                 if (myDayDetailId.startsWith("f-")) {
-                  const task = todayFloating.find(t => `f-${t.id}` === myDayDetailId);
+                  const targetId = myDayDetailId.slice(2);
+                  const task = floatingTasks.find(t => t.id === targetId);
                   if (!task) return null;
                   return (
                     <>
