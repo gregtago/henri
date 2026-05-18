@@ -52,6 +52,7 @@ import { getProgressLevel, getProgressStageLabel } from "@/lib/progress";
 import type { Case, Comment, Event, FloatingTask, Item, MyDaySelection, Status } from "@/lib/types";
 import { STATUSES } from "@/lib/types";
 import { RecurrencePicker } from "./RecurrencePicker";
+import { Icon } from "./Icon";
 import { formatRecurrence } from "@/lib/recurrence";
 
 const isEditableElement = (element: EventTarget | null) => {
@@ -1775,18 +1776,26 @@ export default function AppShell() {
                     </button>
                   )}
                 </div>
-                <input
-                  key={detailCase.id + "-due"}
-                  type="date"
-                  className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-1.5 outline-none w-full focus:border-border-strong transition-colors"
-                  defaultValue={detailCase.legalDueDate?.slice(0, 10) ?? ""}
-                  onBlur={(e) => {
-                    if (!e.target.value) { updateCase(user.uid, detailCase.id, { legalDueDate: null }); return; }
-                    const [y, m, d] = e.target.value.split("-").map(Number);
-                    if (y < 1900 || y > 2100) return;
-                    updateCase(user.uid, detailCase.id, { legalDueDate: new Date(y, m-1, d, 12).toISOString() });
-                  }}
-                />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={e => { const inp = (e.currentTarget.parentElement?.querySelector("input[type=date]") as any); if (inp?.showPicker) inp.showPicker(); else inp?.focus(); }}
+                    className="shrink-0 border-none bg-transparent cursor-pointer p-0 leading-none text-tx-2 transition-opacity hover:opacity-70"
+                    title="Ouvrir le calendrier"
+                  ><Icon name="calendar" size={20} /></button>
+                  <input
+                    key={detailCase.id + "-due"}
+                    type="date"
+                    className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-1.5 outline-none flex-1 focus:border-border-strong transition-colors"
+                    defaultValue={detailCase.legalDueDate?.slice(0, 10) ?? ""}
+                    onBlur={(e) => {
+                      if (!e.target.value) { updateCase(user.uid, detailCase.id, { legalDueDate: null }); return; }
+                      const [y, m, d] = e.target.value.split("-").map(Number);
+                      if (y < 1900 || y > 2100) return;
+                      updateCase(user.uid, detailCase.id, { legalDueDate: new Date(y, m-1, d, 12).toISOString() });
+                    }}
+                  />
+                </div>
               </div>
 
               <div className="border-t border-border" />
@@ -1812,39 +1821,63 @@ export default function AppShell() {
         {/* ── DÉTAIL TÂCHE ── */}
         {detailItem ? (
           <>
-            {/* Titre */}
-            <input
-              ref={detailTitleRef}
-              className="detail-title-input"
-              value={detailItem.title}
-              onChange={(e) => updateItem(user.uid, detailItem.id, { title: e.target.value })}
-              onKeyDown={e => {
-                if (e.key === "Enter") {
-                  e.stopPropagation();
-                  (e.target as HTMLInputElement).blur();
-                }
-                if (e.key === "Escape") {
-                  e.stopPropagation();
-                  (e.target as HTMLInputElement).blur();
-                }
-              }}
-            />
+            {/* Titre avec étoile à gauche */}
+            <div className="flex items-center gap-3 mb-5">
+              <button
+                title={detailItem.starred ? "Retirer l'étoile" : "Marquer importante"}
+                onClick={() => updateItem(user.uid, detailItem.id, { starred: !detailItem.starred })}
+                className="shrink-0 border-none bg-transparent cursor-pointer p-0 leading-none transition-all hover:scale-110"
+                style={{ color: detailItem.starred ? "#f59e0b" : "#d1d5db" }}
+              >
+                <Icon name="star" size={26} filled={!!detailItem.starred} strokeWidth={1.75} />
+              </button>
+              <input
+                ref={detailTitleRef}
+                className="detail-title-input"
+                style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
+                value={detailItem.title}
+                onChange={(e) => updateItem(user.uid, detailItem.id, { title: e.target.value })}
+                onKeyDown={e => {
+                  if (e.key === "Enter") {
+                    e.stopPropagation();
+                    (e.target as HTMLInputElement).blur();
+                  }
+                  if (e.key === "Escape") {
+                    e.stopPropagation();
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
+              />
+            </div>
 
             <div className="space-y-4">
-              {/* Statuts + étoile */}
+              {/* Statuts + retirer de Ma journée */}
               <div className="flex flex-wrap gap-1.5 items-center">
-                <button
-                  title={detailItem.starred ? "Retirer l'étoile" : "Marquer importante"}
-                  onClick={() => updateItem(user.uid, detailItem.id, { starred: !detailItem.starred })}
-                  className="text-[22px] border-none bg-transparent cursor-pointer p-0 leading-none transition-opacity hover:scale-110"
-                  style={{color: detailItem.starred ? "#f59e0b" : undefined, opacity: detailItem.starred ? 1 : 0.2}}
-                >{detailItem.starred ? "★" : "☆"}</button>
                 {STATUSES.map(s => (
                   <button key={s} onClick={() => handleStatusChange(s)}
                     className={`${statusClass(s)} cursor-pointer border-none transition-all text-[13px] px-4 py-1.5 rounded-full ${detailItem.status === s ? "opacity-100" : "opacity-25 hover:opacity-60"}`}>
                     {s}
                   </button>
                 ))}
+                {myDayMarkerItemIds.has(detailItem.id) && (
+                  <button
+                    onClick={() => {
+                      const sels = myDaySelections.filter(s => (s.refType === "item" || s.refType === "subitem") && s.refId === detailItem.id);
+                      sels.forEach(sel => {
+                        setPendingRemovalIds(prev => new Set([...prev, sel.id]));
+                        setLegacyMyDaySelections(prev => prev.filter(x => x.id !== sel.id));
+                        deleteMyDaySelection(user.uid, sel.id);
+                      });
+                      showToast("Retirée de Ma journée.");
+                    }}
+                    className="ml-auto inline-flex items-center gap-1.5 font-[inherit] text-[12px] px-3 py-1.5 rounded-full border bg-transparent text-tx-2 cursor-pointer hover:border-border-strong hover:text-tx transition-colors"
+                    style={{ borderColor: "var(--border)" }}
+                    title="Retirer de Ma journée"
+                  >
+                    <Icon name="myday" size={13} />
+                    Retirer
+                  </button>
+                )}
               </div>
 
               <div className="border-t border-border" />
@@ -1902,16 +1935,24 @@ export default function AppShell() {
                           </button>
                         )}
                       </div>
-                      <input key={detailItem.id + "-due"} type="date"
-                        className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-1.5 outline-none w-full focus:border-border-strong transition-colors"
-                        defaultValue={detailItem.dueDate?.slice(0, 10) ?? ""}
-                        onBlur={(e) => {
-                          if (!e.target.value) { handleSetDue(null); return; }
-                          const [y, m, d] = e.target.value.split("-").map(Number);
-                          if (y < 1900 || y > 2100) return;
-                          handleSetDue(new Date(y, m-1, d, 12).toISOString());
-                        }}
-                      />
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={e => { const inp = (e.currentTarget.parentElement?.querySelector("input[type=date]") as any); if (inp?.showPicker) inp.showPicker(); else inp?.focus(); }}
+                          className="shrink-0 border-none bg-transparent cursor-pointer p-0 leading-none text-tx-2 transition-opacity hover:opacity-70"
+                          title="Ouvrir le calendrier"
+                        ><Icon name="calendar" size={20} /></button>
+                        <input key={detailItem.id + "-due"} type="date"
+                          className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-1.5 outline-none flex-1 focus:border-border-strong transition-colors"
+                          defaultValue={detailItem.dueDate?.slice(0, 10) ?? ""}
+                          onBlur={(e) => {
+                            if (!e.target.value) { handleSetDue(null); return; }
+                            const [y, m, d] = e.target.value.split("-").map(Number);
+                            if (y < 1900 || y > 2100) return;
+                            handleSetDue(new Date(y, m-1, d, 12).toISOString());
+                          }}
+                        />
+                      </div>
                     </>
                   );
                 })()}
@@ -2638,7 +2679,9 @@ export default function AppShell() {
                           transition: "opacity 0.3s ease",
                         }}
                         onClick={() => setMyDayDetailId(myDayDetailId === entry.key ? null : entry.key)}>
-                        {entry.kind === "floating" && (
+
+                        {/* Élément de gauche : rond pour mémo, croix pour tâche */}
+                        {entry.kind === "floating" ? (
                           (() => {
                             const isCompleting = completingFloatingIds.has(entry.floatingId!);
                             return (
@@ -2655,33 +2698,67 @@ export default function AppShell() {
                                   transform: isCompleting ? "scale(1.1)" : "scale(1)",
                                 }}
                               >
-                                {isCompleting && (
-                                  <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
-                                    <path d="M2.5 7L5.5 10L11.5 4" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                                  </svg>
-                                )}
+                                {isCompleting && <Icon name="check" size={12} className="text-white" strokeWidth={2.5} />}
                               </button>
                             );
                           })()
+                        ) : (
+                          <button
+                            className="w-5 h-5 shrink-0 flex items-center justify-center text-tx-3 bg-transparent border-none cursor-pointer rounded hover:text-red-500 hover:bg-red-50 transition-colors"
+                            onClick={e => {
+                              e.stopPropagation();
+                              if (entry.selectionId) {
+                                setPendingRemovalIds(prev => new Set([...prev, entry.selectionId!]));
+                                setLegacyMyDaySelections(prev => prev.filter(s => s.id !== entry.selectionId));
+                                deleteMyDaySelection(user.uid, entry.selectionId);
+                              }
+                            }}
+                            title="Retirer de Ma journée"
+                          ><Icon name="close" size={14} /></button>
                         )}
+
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            {entry.starred && <span className="text-[12.5px]">⭐</span>}
-                            <p className={`text-[15px] text-tx truncate leading-snug ${entry.starred ? "font-medium" : ""}`}>{entry.title}</p>
-                          </div>
+                          <p className={`text-[15px] text-tx truncate leading-snug ${entry.starred ? "font-medium" : ""}`}>{entry.title}</p>
                           <div className="flex items-center gap-2 mt-0.5 flex-wrap min-h-[1.25rem]">
                             {entry.hasDue && (
-                              <span className={`text-[11px] ${entry.overdue ? "text-red-500" : "text-tx-3"}`}>Éch. {entry.dueStr}</span>
+                              <span className={`inline-flex items-center gap-1 text-[11px] ${entry.overdue ? "text-red-500" : "text-tx-3"}`}>
+                                {entry.overdue && <Icon name="warning" size={11} />}
+                                Éch. {entry.dueStr}
+                              </span>
                             )}
                             {entry.caseLabel && (
                               <span className="text-[11px] text-tx-3 truncate">
                                 {entry.parentLabel ? `${entry.caseLabel} › ${entry.parentLabel}` : entry.caseLabel}
                               </span>
                             )}
-                            {entry.recurrence && <span className="text-[11px] text-tx-3" title={formatRecurrence(entry.recurrence)}>🔁</span>}
+                            {entry.recurrence && (
+                              <span className="inline-flex items-center text-tx-3" title={formatRecurrence(entry.recurrence)}>
+                                <Icon name="recurrence" size={11} />
+                              </span>
+                            )}
                           </div>
                         </div>
-                        {entry.removeBtn}
+
+                        {/* Étoile à droite — cliquable */}
+                        <button
+                          className="shrink-0 border-none bg-transparent cursor-pointer p-1 leading-none transition-all hover:scale-110"
+                          style={{ color: entry.starred ? "#f59e0b" : "#d1d5db" }}
+                          onClick={e => {
+                            e.stopPropagation();
+                            if (entry.kind === "floating" && entry.floatingId) {
+                              updateFloatingTask(user.uid, entry.floatingId, { starred: !entry.starred });
+                            } else if (entry.kind === "item") {
+                              // Trouver l'item référencé par la sélection
+                              const sel = myDaySelections.find(s => s.id === entry.selectionId);
+                              if (sel && (sel.refType === "item" || sel.refType === "subitem")) {
+                                updateItem(user.uid, sel.refId, { starred: !entry.starred });
+                              }
+                            }
+                          }}
+                          title={entry.starred ? "Retirer l'étoile" : "Marquer important"}
+                        >
+                          <Icon name="star" size={16} filled={entry.starred} strokeWidth={1.5} />
+                        </button>
                       </div>
                     );
                   })}
@@ -2775,36 +2852,29 @@ export default function AppShell() {
                       </div>
 
                       <div className="flex-1 overflow-y-auto" style={{ scrollbarColor: "#fde68a transparent" }}>
-                        {/* Zone post-it : titre + importance + échéance */}
+                        {/* Zone post-it : titre + échéance */}
                         <div style={{ background: "#fef9c3", borderBottom: "1px solid #fde68a" }} className="px-5 pt-5 pb-4 space-y-4">
-                          {/* Titre — style post-it */}
-                          <input
-                            ref={myDayTitleRef}
-                            className="block w-full font-[inherit] text-[20px] font-semibold text-[#451a03] bg-transparent border-none outline-none placeholder:text-[#a16207]"
-                            style={{ lineHeight: 1.3 }}
-                            placeholder="Sans titre"
-                            value={task.title}
-                            onChange={e => updateFloatingTask(user.uid, task.id, { title: e.target.value })}
-                            onKeyDown={e => {
-                              if (e.key === "Enter") { e.stopPropagation(); (e.target as HTMLInputElement).blur(); }
-                            }}
-                          />
-
-                          {/* Importance */}
-                          <div className="flex flex-wrap gap-1.5 items-center">
+                          {/* Titre avec étoile à gauche */}
+                          <div className="flex items-center gap-3">
                             <button
                               onClick={() => updateFloatingTask(user.uid, task.id, { starred: !task.starred })}
-                              className="inline-flex items-center gap-1.5 font-[inherit] text-[13px] px-3 py-1.5 rounded-full border cursor-pointer transition-all"
-                              style={{
-                                background: task.starred ? "#f59e0b" : "rgba(255,255,255,0.7)",
-                                borderColor: task.starred ? "#d97706" : "#fde68a",
-                                color: task.starred ? "white" : "#92400e",
-                                fontWeight: task.starred ? 600 : 500,
-                              }}
+                              className="shrink-0 border-none bg-transparent cursor-pointer p-0 leading-none transition-all hover:scale-110"
+                              style={{ color: task.starred ? "#f59e0b" : "#d6a96b" }}
+                              title={task.starred ? "Retirer l'étoile" : "Marquer important"}
                             >
-                              <span>{task.starred ? "★" : "☆"}</span>
-                              Important
+                              <Icon name="star" size={26} filled={task.starred} strokeWidth={1.75} />
                             </button>
+                            <input
+                              ref={myDayTitleRef}
+                              className="block flex-1 min-w-0 font-[inherit] text-[20px] font-semibold text-[#451a03] bg-transparent border-none outline-none placeholder:text-[#a16207]"
+                              style={{ lineHeight: 1.3 }}
+                              placeholder="Sans titre"
+                              value={task.title}
+                              onChange={e => updateFloatingTask(user.uid, task.id, { title: e.target.value })}
+                              onKeyDown={e => {
+                                if (e.key === "Enter") { e.stopPropagation(); (e.target as HTMLInputElement).blur(); }
+                              }}
+                            />
                           </div>
 
                           {/* Échéance */}
@@ -2838,15 +2908,16 @@ export default function AppShell() {
                                 </button>
                               )}
                             </div>
-                            <div className="relative">
+                            <div className="flex items-center gap-2">
                               <button
                                 type="button"
                                 onClick={e => { const inp = (e.currentTarget.parentElement?.querySelector("input[type=date]") as any); if (inp?.showPicker) inp.showPicker(); else inp?.focus(); }}
-                                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[15px] border-none bg-transparent cursor-pointer p-0 leading-none z-10"
+                                className="shrink-0 border-none bg-transparent cursor-pointer p-0 leading-none transition-opacity hover:opacity-70"
+                                style={{ color: "#92400e" }}
                                 title="Ouvrir le calendrier"
-                              >📅</button>
+                              ><Icon name="calendar" size={20} /></button>
                               <input key={task.id + "-due"} type="date"
-                                className="font-[inherit] text-[13px] rounded-lg pl-9 pr-3 py-1.5 outline-none w-full border"
+                                className="font-[inherit] text-[13px] rounded-lg px-3 py-1.5 outline-none flex-1 border"
                                 style={{ background: "rgba(255,255,255,0.85)", borderColor: "#fde68a", color: "#451a03" }}
                                 defaultValue={task.dueDate?.slice(0,10) ?? ""}
                                 onBlur={e => { if (!e.target.value) { updateFloatingTask(user.uid, task.id, { dueDate: null, dateKey: todayKey }); return; } const [y,m,d] = e.target.value.split("-").map(Number); if (y < 1900 || y > 2100) return; handleFloatingDueDate(task.id, new Date(y,m-1,d,12)); }} />
