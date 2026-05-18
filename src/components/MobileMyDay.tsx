@@ -715,7 +715,12 @@ export default function MobileMyDay({ user }: { user: User }) {
                           // Reprendre le dateKey du mémo : si futur, le garder ; sinon → aujourd'hui
                           const memoDateKey = floating.dateKey && floating.dateKey > todayKey ? floating.dateKey : todayKey;
                           try {
-                            await addMyDaySelection(user.uid, { refType: "item", refId: newItemId, dateKey: memoDateKey, selectionDate: null, dateTs: null });
+                            const newSelectionId = await addMyDaySelection(user.uid, { refType: "item", refId: newItemId, dateKey: memoDateKey, selectionDate: null, dateTs: null });
+                            // Injection optimiste (la souscription Firestore met ~1s à propager)
+                            setMyDaySelections(prev => [
+                              ...prev,
+                              { id: newSelectionId, refType: "item", refId: newItemId, dateKey: memoDateKey },
+                            ]);
                           } catch (err) {
                             console.error("[Mobile attach] addMyDaySelection a échoué", err);
                           }

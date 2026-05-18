@@ -1517,13 +1517,20 @@ export default function AppShell() {
     // sinon (présent / pas de date / passé) → aujourd'hui pour rester dans Ma journée du jour.
     const memoDateKey = task.dateKey && task.dateKey > todayKey ? task.dateKey : todayKey;
     try {
-      await addMyDaySelection(user.uid, {
+      const newSelectionId = await addMyDaySelection(user.uid, {
         refType: "item",
         refId: newItemId,
         dateKey: memoDateKey,
         selectionDate: null,
         dateTs: null,
       });
+      // Injection optimiste : la souscription Firestore peut mettre ~1s à propager
+      // le snapshot, pendant lequel la nouvelle tâche apparaîtrait à tort en
+      // suggestion. On l'ajoute donc immédiatement à l'état local.
+      setLegacyMyDaySelections(prev => [
+        ...prev,
+        { id: newSelectionId, refType: "item", refId: newItemId, dateKey: memoDateKey },
+      ]);
     } catch (err) {
       console.error("[handleAttachFloating] addMyDaySelection a échoué", err);
       showToast("⚠ Tâche créée mais non ajoutée à Ma journée.");
