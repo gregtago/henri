@@ -2769,110 +2769,132 @@ export default function AppShell() {
                   if (!task) return null;
                   return (
                     <>
-                      {/* Header */}
-                      <div className="finder-header">
-                        <span className="text-[11px] font-medium text-tx-3 uppercase tracking-widest">Mémo</span>
+                      {/* Header — fond post-it jaune */}
+                      <div className="finder-header" style={{ background: "#fef9c3", borderBottom: "1px solid #fde68a" }}>
+                        <span className="text-[11px] font-medium uppercase tracking-widest" style={{ color: "#92400e" }}>📌 Mémo</span>
                       </div>
 
-                      <div className="flex-1 overflow-y-auto px-5 py-5 space-y-0">
-                        {/* Titre */}
-                        <input
-                          ref={myDayTitleRef}
-                          className="detail-title-input"
-                          value={task.title}
-                          onChange={e => updateFloatingTask(user.uid, task.id, { title: e.target.value })}
-                          onKeyDown={e => {
-                            if (e.key === "Enter") { e.stopPropagation(); (e.target as HTMLInputElement).blur(); }
-                          }}
-                        />
+                      <div className="flex-1 overflow-y-auto" style={{ scrollbarColor: "#fde68a transparent" }}>
+                        {/* Zone post-it : titre + importance + échéance */}
+                        <div style={{ background: "#fef9c3", borderBottom: "1px solid #fde68a" }} className="px-5 pt-5 pb-4 space-y-4">
+                          {/* Titre — style post-it */}
+                          <input
+                            ref={myDayTitleRef}
+                            className="block w-full font-[inherit] text-[20px] font-semibold text-[#451a03] bg-transparent border-none outline-none placeholder:text-[#a16207]"
+                            style={{ lineHeight: 1.3 }}
+                            placeholder="Sans titre"
+                            value={task.title}
+                            onChange={e => updateFloatingTask(user.uid, task.id, { title: e.target.value })}
+                            onKeyDown={e => {
+                              if (e.key === "Enter") { e.stopPropagation(); (e.target as HTMLInputElement).blur(); }
+                            }}
+                          />
 
-                        <div className="space-y-4">
-                          {/* Étoile (importance) */}
+                          {/* Importance */}
                           <div className="flex flex-wrap gap-1.5 items-center">
                             <button
-                              title={task.starred ? "Retirer l'étoile" : "Marquer important"}
                               onClick={() => updateFloatingTask(user.uid, task.id, { starred: !task.starred })}
-                              className="text-[22px] border-none bg-transparent cursor-pointer p-0 leading-none transition-opacity hover:scale-110"
-                              style={{color: task.starred ? "#f59e0b" : undefined, opacity: task.starred ? 1 : 0.2}}
-                            >{task.starred ? "★" : "☆"}</button>
+                              className="inline-flex items-center gap-1.5 font-[inherit] text-[13px] px-3 py-1.5 rounded-full border cursor-pointer transition-all"
+                              style={{
+                                background: task.starred ? "#f59e0b" : "rgba(255,255,255,0.7)",
+                                borderColor: task.starred ? "#d97706" : "#fde68a",
+                                color: task.starred ? "white" : "#92400e",
+                                fontWeight: task.starred ? 600 : 500,
+                              }}
+                            >
+                              <span>{task.starred ? "★" : "☆"}</span>
+                              Important
+                            </button>
                           </div>
 
-                          <div className="border-t border-border" />
-
-                        {/* Échéance */}
-                        <div>
-                          <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-2">Échéance</p>
-                          <div className="flex flex-wrap gap-1.5 mb-2">
-                            {(() => {
-                              const today = new Date(); today.setHours(12,0,0,0);
-                              const nextMon = (() => { const d = new Date(today); const dow = d.getDay(); const diff = (1-dow+7)%7||7; d.setDate(d.getDate()+diff); return d; })();
-                              const nextMonLabel = "Lun. " + nextMon.getDate() + "/" + (nextMon.getMonth()+1);
-                              return [
-                                { label: "Aujourd'hui", date: new Date(today) },
-                                { label: "Demain", date: new Date(today.getTime() + 86400000) },
-                                { label: "Dans 2 j.", date: new Date(today.getTime() + 2*86400000) },
-                                { label: nextMonLabel, date: nextMon },
-                                { label: "Dans 1 sem.", date: new Date(today.getTime() + 7*86400000) },
-                                { label: "Dans 1 mois", date: new Date(today.getFullYear(), today.getMonth()+1, today.getDate(), 12) },
-                              ].map(({ label, date }) => (
-                                <button key={label} onClick={() => handleFloatingDueDate(task.id, date)}
-                                  className="text-[11px] font-[inherit] px-2 py-1 rounded border border-border bg-bg-subtle text-tx-2 cursor-pointer hover:border-border-strong hover:text-tx transition-colors">
-                                  {label}
+                          {/* Échéance */}
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: "#92400e" }}>Échéance</p>
+                            <div className="flex flex-wrap gap-1.5 mb-2">
+                              {(() => {
+                                const today = new Date(); today.setHours(12,0,0,0);
+                                const nextMon = (() => { const d = new Date(today); const dow = d.getDay(); const diff = (1-dow+7)%7||7; d.setDate(d.getDate()+diff); return d; })();
+                                const nextMonLabel = "Lun. " + nextMon.getDate() + "/" + (nextMon.getMonth()+1);
+                                return [
+                                  { label: "Aujourd'hui", date: new Date(today) },
+                                  { label: "Demain", date: new Date(today.getTime() + 86400000) },
+                                  { label: "Dans 2 j.", date: new Date(today.getTime() + 2*86400000) },
+                                  { label: nextMonLabel, date: nextMon },
+                                  { label: "Dans 1 sem.", date: new Date(today.getTime() + 7*86400000) },
+                                  { label: "Dans 1 mois", date: new Date(today.getFullYear(), today.getMonth()+1, today.getDate(), 12) },
+                                ].map(({ label, date }) => (
+                                  <button key={label} onClick={() => handleFloatingDueDate(task.id, date)}
+                                    className="text-[11px] font-[inherit] px-2 py-1 rounded border cursor-pointer transition-colors"
+                                    style={{ background: "rgba(255,255,255,0.7)", borderColor: "#fde68a", color: "#92400e" }}>
+                                    {label}
+                                  </button>
+                                ));
+                              })()}
+                              {task.dueDate && (
+                                <button onClick={() => updateFloatingTask(user.uid, task.id, { dueDate: null })}
+                                  className="text-[11px] font-[inherit] px-2 py-1 rounded border cursor-pointer transition-colors"
+                                  style={{ background: "rgba(255,255,255,0.7)", borderColor: "#fca5a5", color: "#dc2626" }}>
+                                  ✕ Retirer
                                 </button>
-                              ));
-                            })()}
-                            {task.dueDate && (
-                              <button onClick={() => updateFloatingTask(user.uid, task.id, { dueDate: null })}
-                                className="text-[11px] font-[inherit] px-2 py-1 rounded border border-border bg-bg-subtle text-red-400 cursor-pointer hover:border-red-300 transition-colors">
-                                ✕ Retirer
-                              </button>
-                            )}
+                              )}
+                            </div>
+                            <div className="relative">
+                              <button
+                                type="button"
+                                onClick={e => { const inp = (e.currentTarget.parentElement?.querySelector("input[type=date]") as any); if (inp?.showPicker) inp.showPicker(); else inp?.focus(); }}
+                                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[15px] border-none bg-transparent cursor-pointer p-0 leading-none z-10"
+                                title="Ouvrir le calendrier"
+                              >📅</button>
+                              <input key={task.id + "-due"} type="date"
+                                className="font-[inherit] text-[13px] rounded-lg pl-9 pr-3 py-1.5 outline-none w-full border"
+                                style={{ background: "rgba(255,255,255,0.85)", borderColor: "#fde68a", color: "#451a03" }}
+                                defaultValue={task.dueDate?.slice(0,10) ?? ""}
+                                onBlur={e => { if (!e.target.value) { updateFloatingTask(user.uid, task.id, { dueDate: null, dateKey: todayKey }); return; } const [y,m,d] = e.target.value.split("-").map(Number); if (y < 1900 || y > 2100) return; handleFloatingDueDate(task.id, new Date(y,m-1,d,12)); }} />
+                            </div>
                           </div>
-                          <input key={task.id + "-due"} type="date"
-                            className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-1.5 outline-none focus:border-border-strong transition-colors w-full"
-                            defaultValue={task.dueDate?.slice(0,10) ?? ""}
-                            onBlur={e => { if (!e.target.value) { updateFloatingTask(user.uid, task.id, { dueDate: null, dateKey: todayKey }); return; } const [y,m,d] = e.target.value.split("-").map(Number); if (y < 1900 || y > 2100) return; handleFloatingDueDate(task.id, new Date(y,m-1,d,12)); }} />
                         </div>
 
-                        {/* Récurrence — le picker porte déjà son propre libellé */}
-                        <div>
-                          <RecurrencePicker value={task.recurrence ?? null} onChange={r => updateFloatingTask(user.uid, task.id, { recurrence: r ?? null })} />
-                        </div>
+                        {/* Zone blanche : récurrence, rattacher, commentaires */}
+                        <div className="px-5 py-5 space-y-4">
+                          {/* Récurrence */}
+                          <div>
+                            <RecurrencePicker value={task.recurrence ?? null} onChange={r => updateFloatingTask(user.uid, task.id, { recurrence: r ?? null })} />
+                          </div>
 
-                        {/* Rattacher à un dossier */}
-                        <div>
-                          <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1.5">Rattacher à un dossier</p>
-                          <div className="space-y-1.5">
-                            <input type="text" placeholder="Rechercher un dossier…"
-                              value={dossierSearch} onChange={e => setDossierSearch(e.target.value)}
-                              className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-1.5 outline-none w-full focus:border-border-strong transition-colors placeholder:text-tx-3"
+                          {/* Rattacher à un dossier */}
+                          <div>
+                            <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1.5">Rattacher à un dossier</p>
+                            <div className="space-y-1.5">
+                              <input type="text" placeholder="Rechercher un dossier…"
+                                value={dossierSearch} onChange={e => setDossierSearch(e.target.value)}
+                                className="font-[inherit] text-[13px] text-tx bg-white border border-border-strong rounded-lg px-3 py-1.5 outline-none w-full focus:border-tx-2 transition-colors placeholder:text-tx-3"
+                              />
+                              {dossierSearch && (
+                                <div className="border border-border rounded-lg overflow-hidden max-h-[160px] overflow-y-auto">
+                                  {cases.filter(c => c.title.toLowerCase().includes(dossierSearch.toLowerCase())).length === 0
+                                    ? <p className="text-[12px] text-tx-3 px-3 py-2">Aucun dossier trouvé</p>
+                                    : cases.filter(c => c.title.toLowerCase().includes(dossierSearch.toLowerCase())).map(c => (
+                                      <button key={c.id}
+                                        className="w-full text-left font-[inherit] text-[13px] text-tx px-3 py-2 bg-transparent border-none cursor-pointer hover:bg-bg-subtle transition-colors border-b border-border last:border-0"
+                                        onClick={() => { handleAttachFloating(task, c.id); setDossierSearch(""); }}>
+                                        {c.title}
+                                      </button>
+                                    ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Commentaires */}
+                          <div>
+                            <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1.5">Commentaires</p>
+                            <textarea
+                              className="font-[inherit] text-[13px] text-tx bg-white border border-border-strong rounded-lg px-3 py-2 outline-none w-full resize-none focus:border-tx-2 transition-colors"
+                              rows={4} placeholder="Ajouter un commentaire…"
+                              defaultValue={task.note ?? ""}
+                              onBlur={e => updateFloatingTask(user.uid, task.id, { note: e.target.value || null })}
                             />
-                            {dossierSearch && (
-                              <div className="border border-border rounded-lg overflow-hidden max-h-[160px] overflow-y-auto">
-                                {cases.filter(c => c.title.toLowerCase().includes(dossierSearch.toLowerCase())).length === 0
-                                  ? <p className="text-[12px] text-tx-3 px-3 py-2">Aucun dossier trouvé</p>
-                                  : cases.filter(c => c.title.toLowerCase().includes(dossierSearch.toLowerCase())).map(c => (
-                                    <button key={c.id}
-                                      className="w-full text-left font-[inherit] text-[13px] text-tx px-3 py-2 bg-transparent border-none cursor-pointer hover:bg-bg-subtle transition-colors border-b border-border last:border-0"
-                                      onClick={() => { handleAttachFloating(task, c.id); setDossierSearch(""); }}>
-                                      {c.title}
-                                    </button>
-                                  ))}
-                              </div>
-                            )}
                           </div>
-                        </div>
-
-                        {/* Commentaires */}
-                        <div>
-                          <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1.5">Commentaires</p>
-                          <textarea
-                            className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-2 outline-none w-full resize-none focus:border-border-strong transition-colors"
-                            rows={4} placeholder="Ajouter un commentaire…"
-                            defaultValue={task.note ?? ""}
-                            onBlur={e => updateFloatingTask(user.uid, task.id, { note: e.target.value || null })}
-                          />
-                        </div>
                         </div>
                       </div>
 
