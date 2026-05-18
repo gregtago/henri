@@ -331,7 +331,7 @@ export default function MobileMyDay({ user }: { user: User }) {
                         }, 350);
                       }}
                       style={{
-                        width: "28px", height: "28px", borderRadius: "50%", flexShrink: 0,
+                        width: "30px", height: "30px", borderRadius: "8px", flexShrink: 0,
                         border: completingIds.has(entry.selectionId) ? "none" : "2px solid #d1d5db",
                         background: completingIds.has(entry.selectionId) ? "#16a34a" : "white",
                         cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
@@ -647,7 +647,7 @@ export default function MobileMyDay({ user }: { user: User }) {
                     updateFloatingTask(user.uid, detailEntry.floating!.id, { status: done ? "Traité" : "Créé" });
                     setDetailEntry(prev => prev ? { ...prev, floating: { ...prev.floating!, status: done ? "Traité" : "Créé" } } : prev);
                   }}
-                    style={{ width: "32px", height: "32px", borderRadius: "50%", border: detailEntry.floating?.status === "Traité" ? "none" : "2px solid #d1d5db", background: detailEntry.floating?.status === "Traité" ? "#16a34a" : "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}>
+                    style={{ width: "32px", height: "32px", borderRadius: "8px", border: detailEntry.floating?.status === "Traité" ? "none" : "2px solid #d1d5db", background: detailEntry.floating?.status === "Traité" ? "#16a34a" : "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}>
                     {detailEntry.floating?.status === "Traité" && (
                       <svg width="16" height="16" viewBox="0 0 14 14" fill="none">
                         <path d="M2.5 7L5.5 10L11.5 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>

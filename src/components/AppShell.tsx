@@ -2624,8 +2624,11 @@ export default function AppShell() {
                         }}
                         onClick={() => setMyDayDetailId(myDayDetailId === entry.key ? null : entry.key)}>
                         {entry.kind === "floating" && (
-                          <button className="w-4 h-4 shrink-0 rounded-full border-2 border-border-strong bg-transparent cursor-pointer hover:border-accent transition-colors"
-                            onClick={e => { e.stopPropagation(); handleMarkFloatingDone(entry.floatingId!); }} title="Réalisée" />
+                          <button
+                            className="w-5 h-5 shrink-0 rounded-md border-2 border-border-strong bg-white cursor-pointer hover:border-accent hover:bg-blue-50 transition-colors"
+                            onClick={e => { e.stopPropagation(); handleMarkFloatingDone(entry.floatingId!); }}
+                            title="Réalisée"
+                          />
                         )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
@@ -2667,7 +2670,7 @@ export default function AppShell() {
                     return (
                       <div key={t.id} className="flex items-center gap-2 py-1.5 px-1 rounded hover:bg-bg-hover cursor-pointer"
                         onClick={() => setMyDayDetailId(myDayDetailId === `f-${t.id}` ? null : `f-${t.id}`)}>
-                        <button className="w-3.5 h-3.5 shrink-0 rounded-full border border-border-strong bg-transparent cursor-pointer hover:border-accent transition-colors"
+                        <button className="w-4 h-4 shrink-0 rounded border-2 border-border-strong bg-white cursor-pointer hover:border-accent hover:bg-blue-50 transition-colors"
                           onClick={e => { e.stopPropagation(); handleMarkFloatingDone(t.id); }} />
                         <p className="text-[13px] text-tx truncate flex-1">{t.title}</p>
                         <span className="text-[11px] text-tx-3 shrink-0">{dayLabel}</span>
