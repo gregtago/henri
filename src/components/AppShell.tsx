@@ -1513,14 +1513,21 @@ export default function AppShell() {
       parentItemId: null,
       dueDate: task.dueDate ?? null,
     });
-    // Ajouter directement à Ma journée pour éviter le doublon en suggestion
-    await addMyDaySelection(user.uid, {
-      refType: "item",
-      refId: newItemId,
-      dateKey: todayKey,
-      selectionDate: null,
-      dateTs: null,
-    }).catch(() => {});
+    // Reprendre le dateKey du mémo : si futur → garder pour qu'il apparaisse "À venir" le jour J ;
+    // sinon (présent / pas de date / passé) → aujourd'hui pour rester dans Ma journée du jour.
+    const memoDateKey = task.dateKey && task.dateKey > todayKey ? task.dateKey : todayKey;
+    try {
+      await addMyDaySelection(user.uid, {
+        refType: "item",
+        refId: newItemId,
+        dateKey: memoDateKey,
+        selectionDate: null,
+        dateTs: null,
+      });
+    } catch (err) {
+      console.error("[handleAttachFloating] addMyDaySelection a échoué", err);
+      showToast("⚠ Tâche créée mais non ajoutée à Ma journée.");
+    }
     await deleteFloatingTasks(user.uid, [task.id]);
     setMyDayDetailId(null);
     showToast(`"${task.title}" rattachée au dossier.`);

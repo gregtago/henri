@@ -712,7 +712,13 @@ export default function MobileMyDay({ user }: { user: User }) {
                           setMemoCaseSearch("");
                           const { createItem, addMyDaySelection, deleteFloatingTasks } = await import("@/lib/firestore");
                           const newItemId = await createItem(user.uid, { caseId: c.id, level: 2, title: floating.title, status: "Créé", parentItemId: null, dueDate: floating.dueDate ?? null });
-                          await addMyDaySelection(user.uid, { refType: "item", refId: newItemId, dateKey: todayKey, selectionDate: null, dateTs: null }).catch(() => {});
+                          // Reprendre le dateKey du mémo : si futur, le garder ; sinon → aujourd'hui
+                          const memoDateKey = floating.dateKey && floating.dateKey > todayKey ? floating.dateKey : todayKey;
+                          try {
+                            await addMyDaySelection(user.uid, { refType: "item", refId: newItemId, dateKey: memoDateKey, selectionDate: null, dateTs: null });
+                          } catch (err) {
+                            console.error("[Mobile attach] addMyDaySelection a échoué", err);
+                          }
                           await deleteFloatingTasks(user.uid, [floating.id]);
                         }}
                           style={{ width: "100%", padding: "10px 14px", textAlign: "left", background: "white", border: "none", borderBottom: "1px solid #f3f4f6", fontSize: "13px", color: "#111827", cursor: "pointer", fontFamily: "inherit" }}>
