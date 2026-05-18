@@ -650,6 +650,40 @@ export default function AppShell() {
     return all;
   }, [myDayItems, todayFloating, formatDateFR, statusClass, user, cases, items]);
 
+  // Liste "À venir" : mémos et tâches dont l'échéance est dans le futur, ré-utilisée
+  // dans le bouton du header et dans le popover.
+  type UpcomingEntry =
+    | { kind: "floating"; id: string; title: string; dateKey: string }
+    | { kind: "item"; id: string; title: string; dateKey: string; caseLabel: string };
+
+  const upcoming = useMemo<UpcomingEntry[]>(() => {
+    const upcomingFloating: UpcomingEntry[] = floatingTasks
+      .filter(t => t.status !== "Traité" && t.dateKey && t.dateKey > todayKey)
+      .map(t => ({ kind: "floating", id: t.id, title: t.title, dateKey: t.dateKey! }));
+
+    const todaySelectionRefIds = new Set(
+      myDaySelections.filter(s => s.dateKey === todayKey).map(s => s.refId)
+    );
+    const itemIdsWithChildren = new Set(items.filter(i => i.parentItemId).map(i => i.parentItemId!));
+    const upcomingItems: UpcomingEntry[] = items
+      .filter(item => {
+        if (item.status === "Traité") return false;
+        if (todaySelectionRefIds.has(item.id)) return false;
+        if (item.level === 2 && itemIdsWithChildren.has(item.id)) return false;
+        const dk = getDateKeyFromValue(item.dueDate);
+        return dk !== null && dk > todayKey;
+      })
+      .map(item => ({
+        kind: "item",
+        id: item.id,
+        title: item.title,
+        dateKey: getDateKeyFromValue(item.dueDate)!,
+        caseLabel: cases.find(c => c.id === item.caseId)?.title ?? "",
+      }));
+
+    return [...upcomingFloating, ...upcomingItems].sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+  }, [floatingTasks, items, myDaySelections, todayKey, cases]);
+
   const suggestions = useMemo(() => {
     // IDs déjà ajoutés à Ma journée aujourd'hui
     const todaySelectionRefIds = new Set(
@@ -2691,9 +2725,70 @@ export default function AppShell() {
 
           {/* ── COL LISTE : 40% ── */}
           <div className="flex flex-col overflow-hidden border-r border-border bg-white" style={{flex:"0 0 40%", zIndex:1, position:"relative"}}>
-            <div className="finder-header">
+            <div className="finder-header relative">
               <span>{new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}</span>
-              <span className="text-tx-3">{(() => { const n = myDayCombined.length; return `${n} élément${n > 1 ? "s" : ""}`; })()}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-tx-3">{(() => { const n = myDayCombined.length; return `${n} élément${n > 1 ? "s" : ""}`; })()}</span>
+                {upcoming.length > 0 && (
+                  <button
+                    onClick={() => setUpcomingExpanded(p => !p)}
+                    className={`inline-flex items-center gap-1 text-[11px] font-[inherit] font-medium px-1.5 py-0.5 rounded border cursor-pointer transition-colors ${
+                      upcomingExpanded
+                        ? "bg-tx text-bg border-tx"
+                        : "bg-transparent text-tx-2 border-border hover:border-border-strong hover:text-tx"
+                    }`}
+                    title={`${upcoming.length} à venir`}
+                  >
+                    <Icon name="time" size={12} />
+                    {upcoming.length}
+                  </button>
+                )}
+              </div>
+              {/* Popover À venir, ancré sous le bouton, dans la même colonne */}
+              {upcomingExpanded && upcoming.length > 0 && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setUpcomingExpanded(false)} />
+                  <div
+                    className="absolute right-2 top-full mt-1 w-[300px] max-h-[320px] overflow-y-auto bg-white border border-border-strong rounded-lg z-20"
+                    style={{ boxShadow: "0 8px 24px rgba(0,0,0,0.12)" }}
+                  >
+                    <div className="px-3 py-2 border-b border-border flex items-center justify-between">
+                      <span className="text-[10px] font-medium text-tx-3 uppercase tracking-wide">À venir · {upcoming.length}</span>
+                      <button
+                        onClick={() => setUpcomingExpanded(false)}
+                        className="border-none bg-transparent cursor-pointer text-tx-3 hover:text-tx p-0 leading-none"
+                        title="Fermer"
+                      ><Icon name="close" size={14} /></button>
+                    </div>
+                    <div className="px-2 py-1">
+                      {upcoming.map(entry => {
+                        const days = Math.round((new Date(entry.dateKey + "T12:00:00").getTime() - new Date().getTime()) / 86400000);
+                        const dayLabel = days === 1 ? "demain" : days <= 7 ? `dans ${days} j.` : days <= 30 ? `dans ${Math.round(days/7)} sem.` : formatDateFR(new Date(entry.dateKey + "T12:00:00").toISOString());
+                        return (
+                          <div key={`${entry.kind}-${entry.id}`}
+                            className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-bg-subtle cursor-pointer"
+                            onClick={() => {
+                              if (entry.kind === "floating") {
+                                setMyDayDetailId(myDayDetailId === `f-${entry.id}` ? null : `f-${entry.id}`);
+                              } else {
+                                setMyDayDetailId(myDayDetailId === entry.id ? null : entry.id);
+                              }
+                              setUpcomingExpanded(false);
+                            }}>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[13px] text-tx truncate">{entry.title}</p>
+                              {entry.kind === "item" && entry.caseLabel && (
+                                <p className="text-[11px] text-tx-3 truncate">{entry.caseLabel}</p>
+                              )}
+                            </div>
+                            <span className="text-[11px] text-tx-3 shrink-0">{dayLabel}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="flex-1 overflow-y-auto py-1">
@@ -2787,125 +2882,25 @@ export default function AppShell() {
               )}
             </div>
 
-            {/* ── Barre du bas : Saisie mémo + bouton À venir avec popover ── */}
-            {(() => {
-              type UpcomingEntry =
-                | { kind: "floating"; id: string; title: string; dateKey: string }
-                | { kind: "item"; id: string; title: string; dateKey: string; caseLabel: string };
-
-              const upcomingFloating: UpcomingEntry[] = floatingTasks
-                .filter(t => t.status !== "Traité" && t.dateKey && t.dateKey > todayKey)
-                .map(t => ({ kind: "floating", id: t.id, title: t.title, dateKey: t.dateKey! }));
-
-              const todaySelectionRefIds = new Set(
-                myDaySelections.filter(s => s.dateKey === todayKey).map(s => s.refId)
-              );
-              const itemIdsWithChildren = new Set(items.filter(i => i.parentItemId).map(i => i.parentItemId!));
-              const upcomingItems: UpcomingEntry[] = items
-                .filter(item => {
-                  if (item.status === "Traité") return false;
-                  if (todaySelectionRefIds.has(item.id)) return false;
-                  if (item.level === 2 && itemIdsWithChildren.has(item.id)) return false;
-                  const dk = getDateKeyFromValue(item.dueDate);
-                  return dk !== null && dk > todayKey;
-                })
-                .map(item => ({
-                  kind: "item",
-                  id: item.id,
-                  title: item.title,
-                  dateKey: getDateKeyFromValue(item.dueDate)!,
-                  caseLabel: cases.find(c => c.id === item.caseId)?.title ?? "",
-                }));
-
-              const upcoming = [...upcomingFloating, ...upcomingItems]
-                .sort((a, b) => a.dateKey.localeCompare(b.dateKey));
-
-              return (
-                <div className="border-t border-border bg-bg p-3 relative">
-                  {/* Popover À venir, ancré au-dessus du bouton à droite */}
-                  {upcomingExpanded && upcoming.length > 0 && (
-                    <>
-                      {/* overlay invisible pour fermer en cliquant ailleurs */}
-                      <div className="fixed inset-0 z-10" onClick={() => setUpcomingExpanded(false)} />
-                      <div
-                        className="absolute right-3 bottom-full mb-1.5 w-[300px] max-h-[320px] overflow-y-auto bg-white border border-border-strong rounded-lg z-20"
-                        style={{ boxShadow: "0 8px 24px rgba(0,0,0,0.12)" }}
-                      >
-                        <div className="px-3 py-2 border-b border-border flex items-center justify-between">
-                          <span className="text-[10px] font-medium text-tx-3 uppercase tracking-wide">À venir · {upcoming.length}</span>
-                          <button
-                            onClick={() => setUpcomingExpanded(false)}
-                            className="border-none bg-transparent cursor-pointer text-tx-3 hover:text-tx p-0 leading-none"
-                            title="Fermer"
-                          ><Icon name="close" size={14} /></button>
-                        </div>
-                        <div className="px-2 py-1">
-                          {upcoming.map(entry => {
-                            const days = Math.round((new Date(entry.dateKey + "T12:00:00").getTime() - new Date().getTime()) / 86400000);
-                            const dayLabel = days === 1 ? "demain" : days <= 7 ? `dans ${days} j.` : days <= 30 ? `dans ${Math.round(days/7)} sem.` : formatDateFR(new Date(entry.dateKey + "T12:00:00").toISOString());
-                            return (
-                              <div key={`${entry.kind}-${entry.id}`}
-                                className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-bg-subtle cursor-pointer"
-                                onClick={() => {
-                                  if (entry.kind === "floating") {
-                                    setMyDayDetailId(myDayDetailId === `f-${entry.id}` ? null : `f-${entry.id}`);
-                                  } else {
-                                    setMyDayDetailId(myDayDetailId === entry.id ? null : entry.id);
-                                  }
-                                  setUpcomingExpanded(false);
-                                }}>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-[13px] text-tx truncate">{entry.title}</p>
-                                  {entry.kind === "item" && entry.caseLabel && (
-                                    <p className="text-[11px] text-tx-3 truncate">{entry.caseLabel}</p>
-                                  )}
-                                </div>
-                                <span className="text-[11px] text-tx-3 shrink-0">{dayLabel}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                  {/* Champ saisie mémo + bouton À venir à droite */}
-                  <div className="flex items-center gap-2 bg-white border border-border-strong rounded-lg px-3 py-2 transition-colors focus-within:border-tx-2">
-                    <span className="shrink-0 text-tx-3"><Icon name="edit" size={14} /></span>
-                    <input
-                      className="flex-1 font-[inherit] text-[15px] text-tx bg-transparent border-none outline-none placeholder:text-tx-3"
-                      placeholder="Nouveau mémo… (Entrée)"
-                      onKeyDown={async e => {
-                        if (e.key === "Enter") {
-                          const t = e.target as HTMLInputElement;
-                          const val = t.value.trim();
-                          if (!val || !user) return;
-                          await createFloatingTask(user.uid, { dateKey: todayKey, title: val, status: "Créé" });
-                          t.value = "";
-                        }
-                      }}
-                    />
-                    {upcoming.length > 0 && (
-                      <button
-                        onClick={() => setUpcomingExpanded(p => !p)}
-                        className={`shrink-0 relative inline-flex items-center justify-center w-7 h-7 rounded border cursor-pointer transition-colors ${
-                          upcomingExpanded
-                            ? "bg-tx text-bg border-tx"
-                            : "bg-transparent text-tx-2 border-border hover:border-border-strong hover:text-tx"
-                        }`}
-                        title={`${upcoming.length} à venir`}
-                      >
-                        <Icon name="time" size={15} />
-                        <span
-                          className="absolute -top-1 -right-1 min-w-[14px] h-[14px] rounded-full text-[9px] font-semibold inline-flex items-center justify-center px-1 leading-none"
-                          style={{ background: "#f59e0b", color: "white" }}
-                        >{upcoming.length}</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
+            {/* ── Saisie mémo en bas ── */}
+            <div className="border-t border-border bg-bg p-3">
+              <div className="flex items-center gap-2 bg-white border border-border-strong rounded-lg px-3 py-2 transition-colors focus-within:border-tx-2">
+                <span className="shrink-0 text-tx-3"><Icon name="edit" size={14} /></span>
+                <input
+                  className="flex-1 font-[inherit] text-[15px] text-tx bg-transparent border-none outline-none placeholder:text-tx-3"
+                  placeholder="Nouveau mémo… (Entrée)"
+                  onKeyDown={async e => {
+                    if (e.key === "Enter") {
+                      const t = e.target as HTMLInputElement;
+                      const val = t.value.trim();
+                      if (!val || !user) return;
+                      await createFloatingTask(user.uid, { dateKey: todayKey, title: val, status: "Créé" });
+                      t.value = "";
+                    }
+                  }}
+                />
+              </div>
+            </div>
           </div>
 
           {/* ── COL DÉTAIL : 40% ── */}
