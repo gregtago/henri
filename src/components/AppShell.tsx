@@ -2816,7 +2816,7 @@ export default function AppShell() {
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setUpcomingExpanded(false)} />
                   <div
-                    className="absolute right-2 top-full mt-1 w-[300px] max-h-[320px] overflow-y-auto bg-white border border-border-strong rounded-lg z-20"
+                    className="absolute right-2 top-full mt-1 w-[420px] max-h-[480px] overflow-y-auto bg-white border border-border-strong rounded-lg z-20"
                     style={{ boxShadow: "0 8px 24px rgba(0,0,0,0.12)" }}
                   >
                     <div className="px-3 py-2 border-b border-border flex items-center justify-between">
@@ -2833,7 +2833,7 @@ export default function AppShell() {
                         const dayLabel = days === 1 ? "demain" : days <= 7 ? `dans ${days} j.` : days <= 30 ? `dans ${Math.round(days/7)} sem.` : formatDateFR(new Date(entry.dateKey + "T12:00:00").toISOString());
                         return (
                           <div key={`${entry.kind}-${entry.id}`}
-                            className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-bg-subtle cursor-pointer"
+                            className="flex items-center gap-3 py-2 px-2.5 rounded hover:bg-bg-subtle cursor-pointer"
                             onClick={() => {
                               if (entry.kind === "floating") {
                                 setMyDayDetailId(myDayDetailId === `f-${entry.id}` ? null : `f-${entry.id}`);
@@ -2843,12 +2843,12 @@ export default function AppShell() {
                               setUpcomingExpanded(false);
                             }}>
                             <div className="flex-1 min-w-0">
-                              <p className="text-[13px] text-tx truncate">{entry.title}</p>
+                              <p className="text-[14px] text-tx truncate leading-snug">{entry.title}</p>
                               {entry.kind === "item" && entry.caseLabel && (
-                                <p className="text-[11px] text-tx-3 truncate">{entry.caseLabel}</p>
+                                <p className="text-[12px] text-tx-3 truncate mt-0.5">{entry.caseLabel}</p>
                               )}
                             </div>
-                            <span className="text-[11px] text-tx-3 shrink-0">{dayLabel}</span>
+                            <span className="text-[12px] text-tx-3 shrink-0">{dayLabel}</span>
                           </div>
                         );
                       })}
