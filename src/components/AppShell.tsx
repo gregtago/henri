@@ -2806,7 +2806,8 @@ export default function AppShell() {
                       <div key={entry.key} className="finder-row group"
                         data-active={myDayDetailId === entry.key ? "true" : undefined}
                         style={{
-                          borderLeft: entry.kind === "floating" ? "none" : `3px solid ${statusColor}`,
+                          borderLeft: "none",
+                          boxShadow: entry.kind === "floating" ? "none" : `inset 3px 0 0 ${statusColor}`,
                           background: entry.starred ? "rgba(251,191,36,0.10)" : undefined,
                           opacity: isCompletingRow ? 0.5 : 1,
                           transition: "opacity 0.3s ease",
@@ -2857,12 +2858,18 @@ export default function AppShell() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-baseline gap-2">
                             <p className={`text-[15px] text-tx truncate leading-snug flex-1 min-w-0 ${entry.starred ? "font-medium" : ""}`}>{entry.title}</p>
-                            {entry.hasDue && (
-                              <span className={`inline-flex items-center gap-1 text-[11px] shrink-0 ${entry.overdue ? "text-red-500" : "text-tx-3"}`}>
-                                {entry.overdue && <Icon name="warning" size={11} />}
-                                {entry.dueStr}
-                              </span>
-                            )}
+                            {entry.hasDue && (() => {
+                              const startOfToday = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); })();
+                              const dayDiff = Math.round((entry.dueTs - startOfToday) / 86400000);
+                              if (dayDiff === 0) return null; // aujourd'hui = rien
+                              const label = dayDiff > 0 ? `+${dayDiff}j` : `${dayDiff}j`;
+                              return (
+                                <span className={`inline-flex items-center gap-1 text-[11px] shrink-0 ${entry.overdue ? "text-red-500 font-medium" : "text-tx-3"}`}>
+                                  {entry.overdue && <Icon name="warning" size={11} />}
+                                  {label}
+                                </span>
+                              );
+                            })()}
                           </div>
                           <div className="flex items-center gap-2 mt-0.5 min-h-[1.25rem]">
                             {entry.caseLabel ? (
