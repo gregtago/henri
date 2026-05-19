@@ -2860,7 +2860,8 @@ export default function AppShell() {
                             <p className={`text-[15px] text-tx truncate leading-snug flex-1 min-w-0 ${entry.starred ? "font-medium" : ""}`}>{entry.title}</p>
                             {entry.hasDue && (() => {
                               const startOfToday = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); })();
-                              const dayDiff = Math.round((entry.dueTs - startOfToday) / 86400000);
+                              const dueDay = (() => { const d = new Date(entry.dueTs); d.setHours(0,0,0,0); return d.getTime(); })();
+                              const dayDiff = Math.round((dueDay - startOfToday) / 86400000);
                               if (dayDiff === 0) return null; // aujourd'hui = rien
                               const label = dayDiff > 0 ? `+${dayDiff}` : `${dayDiff}`;
                               return (
