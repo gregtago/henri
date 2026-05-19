@@ -745,13 +745,30 @@ export default function MobileMyDay({ user }: { user: User }) {
                           const floating = detailEntry.floating;
                           setDetailEntry(null);
                           setMemoCaseSearch("");
-                          const { createItem, addMyDaySelection, deleteFloatingTasks } = await import("@/lib/firestore");
-                          const newItemId = await createItem(user.uid, { caseId: c.id, level: 2, title: floating.title, status: "Créé", parentItemId: null, dueDate: floating.dueDate ?? null });
-                          // Reprendre le dateKey du mémo : si futur, le garder ; sinon → aujourd'hui
+                          const { createItem, addMyDaySelection, deleteFloatingTasks, createComment } = await import("@/lib/firestore");
+                          // Préserver tous les attributs du mémo
+                          const newItemId = await createItem(user.uid, {
+                            caseId: c.id,
+                            level: 2,
+                            title: floating.title,
+                            status: floating.status ?? "Créé",
+                            starred: floating.starred ?? false,
+                            parentItemId: null,
+                            dueDate: floating.dueDate ?? null,
+                          });
+                          // Copier la note du mémo en commentaire de la tâche
+                          if (floating.note && floating.note.trim().length > 0) {
+                            try {
+                              await createComment(user.uid, { itemId: newItemId, body: floating.note, author: user.email ?? null });
+                            } catch (err) {
+                              console.warn("[Mobile attach] copie commentaire échouée", err);
+                            }
+                          }
+                          // dateKey : futur → conserver ; sinon → aujourd'hui
                           const memoDateKey = floating.dateKey && floating.dateKey > todayKey ? floating.dateKey : todayKey;
                           try {
                             const newSelectionId = await addMyDaySelection(user.uid, { refType: "item", refId: newItemId, dateKey: memoDateKey, selectionDate: null, dateTs: null });
-                            // Injection optimiste (la souscription Firestore met ~1s à propager)
+                            // Injection optimiste
                             setMyDaySelections(prev => [
                               ...prev,
                               { id: newSelectionId, refType: "item", refId: newItemId, dateKey: memoDateKey },

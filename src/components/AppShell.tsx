@@ -1682,39 +1682,76 @@ export default function AppShell() {
 
   const handleAttachFloating = async (task: FloatingTask, caseId: string) => {
     if (!user) return;
+
+    // 1. Créer la tâche en préservant tous les attributs transférables
     const newItemId = await createItem(user.uid, {
       caseId,
       level: 2,
       title: task.title,
-      status: "Créé",
+      status: task.status ?? "Créé",          // <- garde le statut du mémo
+      starred: task.starred ?? false,         // <- garde l'étoile
       parentItemId: null,
       dueDate: task.dueDate ?? null,
     });
-    // Reprendre le dateKey du mémo : si futur → garder pour qu'il apparaisse "À venir" le jour J ;
-    // sinon (présent / pas de date / passé) → aujourd'hui pour rester dans Ma journée du jour.
+
+    // 2. Copier le commentaire du mémo (note) en commentaire de la nouvelle tâche
+    if (task.note && task.note.trim().length > 0) {
+      try {
+        await createComment(user.uid, {
+          itemId: newItemId,
+          body: task.note,
+          author: user.email ?? null,
+        });
+      } catch (err) {
+        console.warn("[handleAttachFloating] copie du commentaire échouée", err);
+      }
+    }
+
+    // 3. Calculer la date Ma journée pour la nouvelle tâche :
+    //    - mémo avec date future → conserver cette date (apparaîtra en "À venir")
+    //    - sinon → aujourd'hui (apparaîtra dans Ma journée d'aujourd'hui)
     const memoDateKey = task.dateKey && task.dateKey > todayKey ? task.dateKey : todayKey;
+
+    // 4. Créer la sélection Ma journée (avec injection optimiste pour éviter le flash)
+    let newSelectionId: string | null = null;
     try {
-      const newSelectionId = await addMyDaySelection(user.uid, {
+      newSelectionId = await addMyDaySelection(user.uid, {
         refType: "item",
         refId: newItemId,
         dateKey: memoDateKey,
         selectionDate: null,
         dateTs: null,
       });
-      // Injection optimiste : la souscription Firestore peut mettre ~1s à propager
-      // le snapshot, pendant lequel la nouvelle tâche apparaîtrait à tort en
-      // suggestion. On l'ajoute donc immédiatement à l'état local.
       setLegacyMyDaySelections(prev => [
         ...prev,
-        { id: newSelectionId, refType: "item", refId: newItemId, dateKey: memoDateKey },
+        { id: newSelectionId!, refType: "item", refId: newItemId, dateKey: memoDateKey },
       ]);
     } catch (err) {
       console.error("[handleAttachFloating] addMyDaySelection a échoué", err);
       showToast("⚠ Tâche créée mais non ajoutée à Ma journée.");
     }
+
+    // 5. Supprimer le mémo d'origine
     await deleteFloatingTasks(user.uid, [task.id]);
-    setMyDayDetailId(null);
-    showToast(`"${task.title}" rattachée au dossier.`);
+
+    // 6. Basculer le panneau détail sur la nouvelle tâche (au lieu du mémo supprimé)
+    //    Si la tâche est dans Ma journée aujourd'hui → afficher via selectionId.
+    //    Si elle est en À venir → on bascule sur l'ID de l'item lui-même
+    //    (la sync useEffect gère les deux cas).
+    if (newSelectionId && memoDateKey === todayKey) {
+      setMyDayDetailId(newSelectionId);
+    } else {
+      setMyDayDetailId(newItemId);
+    }
+
+    // 7. Toast récapitulatif, mentionnant la perte de récurrence si applicable
+    const lostRecurrence = !!task.recurrence;
+    const caseName = cases.find(c => c.id === caseId)?.title ?? "le dossier";
+    if (lostRecurrence) {
+      showToast(`Rattachée à ${caseName} — récurrence non conservée.`);
+    } else {
+      showToast(`Rattachée à ${caseName}.`);
+    }
   };
 
 
