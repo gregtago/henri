@@ -2862,7 +2862,7 @@ export default function AppShell() {
                               const startOfToday = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); })();
                               const dayDiff = Math.round((entry.dueTs - startOfToday) / 86400000);
                               if (dayDiff === 0) return null; // aujourd'hui = rien
-                              const label = dayDiff > 0 ? `+${dayDiff}j` : `${dayDiff}j`;
+                              const label = dayDiff > 0 ? `+${dayDiff}` : `${dayDiff}`;
                               return (
                                 <span className={`inline-flex items-center gap-1 text-[11px] shrink-0 ${entry.overdue ? "text-red-500 font-medium" : "text-tx-3"}`}>
                                   {entry.overdue && <Icon name="warning" size={11} />}
