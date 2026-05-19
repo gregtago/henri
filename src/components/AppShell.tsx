@@ -465,20 +465,39 @@ export default function AppShell() {
     if (c) setDetailTarget({ type: "case", id: c.id });
   }, [myDayDetailId, myDaySelections, items, cases, isMyDay]);
 
-  // ── REPÈRES "Dans Ma journée" (toutes échéances confondues) ─────────────
-  // On garde toutes les sélections actives, peu importe la date,
-  // pour afficher un point jaune sur les tâches/sous-tâches et leurs dossiers.
+  // ── REPÈRES "Dans Ma journée" ─────────────────────────────────────────
+  // Affichage d'un point jaune sur tâches/sous-tâches/dossiers qui ont une
+  // sélection Ma journée *active*. Une sélection est active si :
+  //  - sa date est aujourd'hui ou dans le futur (les sélections passées sont obsolètes)
+  //  - la cible existe encore (pas supprimée)
+  //  - la cible n'est pas Traité (terminée)
+  const activeMyDaySelections = useMemo(() => {
+    return myDaySelections.filter(sel => {
+      if (sel.dateKey < todayKey) return false; // sélection passée
+      if (sel.refType === "case") {
+        // Vérifie que le dossier existe et n'est pas archivé
+        const c = cases.find(cc => cc.id === sel.refId);
+        return Boolean(c && !c.archived);
+      }
+      // item / subitem
+      const it = items.find(i => i.id === sel.refId);
+      if (!it) return false;          // orpheline
+      if (it.status === "Traité") return false; // terminée
+      return true;
+    });
+  }, [myDaySelections, items, cases, todayKey]);
+
   const myDayMarkerItemIds = useMemo(() => {
     const set = new Set<string>();
-    myDaySelections.forEach(sel => {
+    activeMyDaySelections.forEach(sel => {
       if (sel.refType === "item" || sel.refType === "subitem") set.add(sel.refId);
     });
     return set;
-  }, [myDaySelections]);
+  }, [activeMyDaySelections]);
 
   const myDayMarkerCaseIds = useMemo(() => {
     const set = new Set<string>();
-    myDaySelections.forEach(sel => {
+    activeMyDaySelections.forEach(sel => {
       if (sel.refType === "case") {
         set.add(sel.refId);
       } else if (sel.refType === "item" || sel.refType === "subitem") {
@@ -487,7 +506,7 @@ export default function AppShell() {
       }
     });
     return set;
-  }, [myDaySelections, items]);
+  }, [activeMyDaySelections, items]);
 
   const myDayEntries = myDaySelections.filter((entry) => entry.dateKey === todayKey);
   const myDayItems = myDayEntries
@@ -1309,6 +1328,17 @@ export default function AppShell() {
     }
     await updateItemProgress(user.uid, detailItem.id, status);
     await logStatusEvent(user.uid, detailItem.id, detailItem.status, status);
+    // Si la tâche est marquée Traité, supprimer toutes ses sélections Ma journée
+    // pour éviter qu'elle continue à apparaître avec un point jaune
+    if (status === "Traité") {
+      const orphanSels = myDaySelections.filter(s =>
+        (s.refType === "item" || s.refType === "subitem") && s.refId === detailItem.id
+      );
+      for (const sel of orphanSels) {
+        setLegacyMyDaySelections(prev => prev.filter(x => x.id !== sel.id));
+        deleteMyDaySelection(user.uid, sel.id).catch(() => {});
+      }
+    }
   };
 
   const handleMarkMyDayItemDone = async (item: Item, selectionId?: string) => {
