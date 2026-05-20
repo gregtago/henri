@@ -63,6 +63,7 @@ export default function MobileMyDay({ user }: { user: User }) {
   const [memoCaseSearch, setMemoCaseSearch] = useState("");
   const [pendingRemovalIds, setPendingRemovalIds] = useState<Set<string>>(new Set());
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
 
   const playDone = () => {
     try {
@@ -244,13 +245,48 @@ export default function MobileMyDay({ user }: { user: User }) {
     <div style={{ height: "100dvh", display: "flex", flexDirection: "column", background: "#f9fafb", overflow: "hidden", position: "relative" }}>
 
       {/* Header */}
-      <header style={{ background: "white", borderBottom: "1px solid #e5e7eb", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+      <header style={{ background: "white", borderBottom: "1px solid #e5e7eb", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, position: "relative" }}>
         <img src="/logo-henri-new.png" alt="Henri" style={{ height: "28px" }} />
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <span style={{ fontSize: "12px", color: "#6b7280" }}>
             {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
           </span>
+          <button
+            onClick={() => setAccountMenuOpen(p => !p)}
+            style={{ width: "32px", height: "32px", borderRadius: "50%", border: "1px solid #e5e7eb", background: accountMenuOpen ? "#111827" : "#f9fafb", color: accountMenuOpen ? "white" : "#6b7280", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+            title="Compte"
+          >
+            <Icon name="user" size={16} />
+          </button>
         </div>
+
+        {/* Menu compte */}
+        {accountMenuOpen && (
+          <>
+            <div style={{ position: "fixed", inset: 0, zIndex: 30 }} onClick={() => setAccountMenuOpen(false)} />
+            <div style={{ position: "absolute", top: "calc(100% + 4px)", right: 12, background: "white", border: "1px solid #e5e7eb", borderRadius: "10px", boxShadow: "0 8px 24px rgba(0,0,0,0.12)", minWidth: "220px", zIndex: 40, overflow: "hidden" }}>
+              <div style={{ padding: "12px 14px", borderBottom: "1px solid #f3f4f6" }}>
+                <p style={{ fontSize: "10px", fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em" }}>Connecté</p>
+                <p style={{ fontSize: "13px", color: "#111827", marginTop: "4px", wordBreak: "break-all" }}>{user.email}</p>
+              </div>
+              <a href="/settings"
+                style={{ display: "block", padding: "12px 14px", fontSize: "14px", color: "#374151", textDecoration: "none", borderBottom: "1px solid #f3f4f6" }}
+                onClick={() => setAccountMenuOpen(false)}>
+                Préférences
+              </a>
+              <button
+                onClick={async () => {
+                  setAccountMenuOpen(false);
+                  const { signOut } = await import("firebase/auth");
+                  const { auth } = await import("@/lib/firebase");
+                  await signOut(auth);
+                }}
+                style={{ display: "block", width: "100%", textAlign: "left", padding: "12px 14px", fontSize: "14px", color: "#dc2626", background: "white", border: "none", cursor: "pointer", fontFamily: "inherit" }}>
+                Déconnexion
+              </button>
+            </div>
+          </>
+        )}
       </header>
 
       {/* Liste */}
