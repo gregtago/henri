@@ -752,142 +752,146 @@ export default function MobileMyDay({ user }: { user: User }) {
                 </div>
               </>
             ) : (
-              /* ─── DÉTAIL TÂCHE (étape 3 à venir, on garde l'existant pour l'instant) ─── */
+              /* ─── DÉTAIL TÂCHE ─── */
               <>
                 {/* Header */}
                 <div style={{ padding: "14px 16px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <p style={{ fontSize: "12px", fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em" }}>Tâche</p>
                   <button onClick={() => setDetailEntry(null)}
-                    style={{ width: "30px", height: "30px", border: "1px solid #e5e7eb", borderRadius: "8px", background: "#f9fafb", fontSize: "15px", cursor: "pointer", color: "#6b7280", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+                    style={{ width: "30px", height: "30px", border: "1px solid #e5e7eb", borderRadius: "8px", background: "#f9fafb", cursor: "pointer", color: "#6b7280", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Icon name="close" size={16} />
+                  </button>
                 </div>
 
                 {/* Contenu scrollable */}
                 <div style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", flexDirection: "column", gap: "18px" }}>
 
-              {/* Titre éditable */}
-              <div>
-                <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "6px" }}>Intitulé</p>
-                <input
-                  defaultValue={detailEntry.item?.title ?? ""}
-                  onBlur={e => {
-                    const val = e.target.value.trim();
-                    if (!val) return;
-                    if (detailEntry.item) updateItem(user.uid, detailEntry.item.id, { title: val });
-                  }}
-                  style={{ width: "100%", fontSize: "16px", fontWeight: 600, color: "#111827", border: "1.5px solid #e5e7eb", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "#f9fafb", boxSizing: "border-box" }}
-                />
-              </div>
-
-              {/* Dossier d'origine (tâche) */}
-              {detailEntry.item && (
-                <div>
-                  <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "6px" }}>Dossier</p>
-                  <p style={{ fontSize: "14px", color: "#374151" }}>
-                    📁 {caseOf(detailEntry.item)}{parentOf(detailEntry.item) ? ` › ${parentOf(detailEntry.item)}` : ""}
-                  </p>
-                </div>
-              )}
-
-              {/* Étoile */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em" }}>Important</p>
-                <button onClick={() => {
-                  if (detailEntry.item) updateItem(user.uid, detailEntry.item.id, { starred: !detailEntry.item.starred });
-                  setDetailEntry(prev => prev?.item ? {
-                    ...prev,
-                    item: { ...prev.item, starred: !prev.item.starred },
-                  } : prev);
-                }}
-                  style={{ fontSize: "26px", background: "none", border: "none", cursor: "pointer", color: detailEntry.item?.starred ? "#f59e0b" : "#d1d5db" }}>
-                  ★
-                </button>
-              </div>
-
-              {/* Statut — grille pour tâche, toggle pour mémo */}
-              {detailEntry.item && (
-                <div>
-                  <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Statut</p>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                    {STATUSES.map(s => {
-                      const isActive = detailEntry.item?.status === s;
-                      const blocked = s === "Traité" && items.filter(i => i.parentItemId === detailEntry.item?.id && i.status !== "Traité").length > 0;
-                      return (
-                        <button key={s} onClick={() => { if (!blocked) handleStatusChange(detailEntry, s); }}
-                          style={{ padding: "11px", borderRadius: "10px", border: isActive ? "2px solid #111827" : "1px solid #e5e7eb", background: isActive ? STATUS_COLORS[s] : "white", color: isActive ? STATUS_TEXT[s] : blocked ? "#d1d5db" : "#374151", fontSize: "13px", fontWeight: isActive ? 700 : 400, cursor: blocked ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: blocked ? 0.5 : 1 }}>
-                          {s}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {items.filter(i => i.parentItemId === detailEntry.item?.id && i.status !== "Traité").length > 0 && (
-                    <p style={{ fontSize: "11px", color: "#f59e0b", marginTop: "6px" }}>⚠ Des sous-tâches ne sont pas encore traitées</p>
-                  )}
-                </div>
-              )}
-
-              {/* Échéance */}
-              <div>
-                <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Échéance</p>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "8px" }}>
-                  {[
-                    { label: "Auj.", days: 0 },
-                    { label: "Demain", days: 1 },
-                    { label: "2 j.", days: 2 },
-                    { label: "1 sem.", days: 7 },
-                    { label: "1 mois", days: 30 },
-                  ].map(({ label, days }) => {
-                    const d = new Date(); d.setDate(d.getDate() + days); d.setHours(12, 0, 0, 0);
-                    return (
-                      <button key={label} onClick={() => {
-                        if (detailEntry.item) updateItem(user.uid, detailEntry.item.id, { dueDate: d.toISOString() });
-                        else if (detailEntry.floating) updateFloatingTask(user.uid, detailEntry.floating.id, { dueDate: d.toISOString(), dateKey: d.toISOString().slice(0, 10) <= todayKey ? todayKey : d.toISOString().slice(0, 10) });
+                  {/* Titre avec étoile à gauche */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <button onClick={() => {
+                      if (!detailEntry.item) return;
+                      const newVal = !detailEntry.item.starred;
+                      updateItem(user.uid, detailEntry.item.id, { starred: newVal });
+                      setDetailEntry(prev => prev?.item ? { ...prev, item: { ...prev.item, starred: newVal } } : prev);
+                    }}
+                      style={{ flexShrink: 0, border: "none", background: "transparent", cursor: "pointer", padding: 0, lineHeight: 0, color: detailEntry.item?.starred ? "#f59e0b" : "#d1d5db" }}
+                      title={detailEntry.item?.starred ? "Retirer l'étoile" : "Marquer importante"}>
+                      <Icon name="star" size={24} filled={!!detailEntry.item?.starred} strokeWidth={1.75} />
+                    </button>
+                    <input
+                      defaultValue={detailEntry.item?.title ?? ""}
+                      onBlur={e => {
+                        const val = e.target.value.trim();
+                        if (!val) return;
+                        if (detailEntry.item) updateItem(user.uid, detailEntry.item.id, { title: val });
                       }}
-                        style={{ padding: "6px 12px", borderRadius: "20px", border: "1px solid #e5e7eb", background: "white", color: "#374151", fontSize: "12px", cursor: "pointer", fontFamily: "inherit" }}>
-                        {label}
-                      </button>
+                      style={{ flex: 1, minWidth: 0, fontSize: "18px", fontWeight: 600, color: "#111827", border: "1.5px solid #e5e7eb", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "#f9fafb", boxSizing: "border-box", lineHeight: 1.3 }}
+                    />
+                  </div>
+
+                  {/* Statuts */}
+                  {detailEntry.item && (() => {
+                    const unfinishedSubs = items.filter(i => i.parentItemId === detailEntry.item!.id && i.status !== "Traité").length;
+                    return (
+                      <div>
+                        <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Statut</p>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                          {STATUSES.map(s => {
+                            const isActive = detailEntry.item?.status === s;
+                            const blocked = s === "Traité" && unfinishedSubs > 0;
+                            return (
+                              <button key={s} onClick={() => { if (!blocked) handleStatusChange(detailEntry, s); }}
+                                style={{ padding: "11px", borderRadius: "10px", border: isActive ? "2px solid #111827" : "1px solid #e5e7eb", background: isActive ? STATUS_COLORS[s] : "white", color: isActive ? STATUS_TEXT[s] : blocked ? "#d1d5db" : "#374151", fontSize: "13px", fontWeight: isActive ? 700 : 400, cursor: blocked ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: blocked ? 0.5 : 1 }}>
+                                {s}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {unfinishedSubs > 0 && (
+                          <p style={{ fontSize: "11px", color: "#f59e0b", marginTop: "8px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                            <Icon name="warning" size={11} /> {unfinishedSubs} sous-tâche{unfinishedSubs > 1 ? "s" : ""} non traitée{unfinishedSubs > 1 ? "s" : ""}
+                          </p>
+                        )}
+                      </div>
                     );
-                  })}
+                  })()}
+
+                  {/* Dossier */}
+                  {detailEntry.item && (
+                    <div>
+                      <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "6px" }}>Dossier</p>
+                      <p style={{ fontSize: "14px", color: "#374151", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                        <Icon name="folder" size={14} />
+                        {caseOf(detailEntry.item)}{parentOf(detailEntry.item) ? ` › ${parentOf(detailEntry.item)}` : ""}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Échéance avec calendrier à gauche */}
+                  <div>
+                    <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Échéance</p>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "10px" }}>
+                      {[
+                        { label: "Auj.", days: 0 },
+                        { label: "Demain", days: 1 },
+                        { label: "2 j.", days: 2 },
+                        { label: "1 sem.", days: 7 },
+                        { label: "1 mois", days: 30 },
+                      ].map(({ label, days }) => {
+                        const d = new Date(); d.setDate(d.getDate() + days); d.setHours(12, 0, 0, 0);
+                        return (
+                          <button key={label} onClick={() => {
+                            if (detailEntry.item) {
+                              const iso = d.toISOString();
+                              updateItem(user.uid, detailEntry.item.id, { dueDate: iso });
+                              setDetailEntry(prev => prev?.item ? { ...prev, item: { ...prev.item, dueDate: iso } } : prev);
+                            }
+                          }}
+                            style={{ padding: "6px 12px", borderRadius: "20px", border: "1px solid #e5e7eb", background: "white", color: "#374151", fontSize: "12px", cursor: "pointer", fontFamily: "inherit" }}>
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <button
+                        type="button"
+                        onClick={e => { const inp = (e.currentTarget.parentElement?.querySelector("input[type=date]") as any); if (inp?.showPicker) inp.showPicker(); else inp?.focus(); }}
+                        style={{ flexShrink: 0, border: "none", background: "transparent", cursor: "pointer", padding: 0, lineHeight: 0, color: "#6b7280" }}
+                        title="Ouvrir le calendrier">
+                        <Icon name="calendar" size={20} />
+                      </button>
+                      <input type="date"
+                        value={(detailEntry.item?.dueDate ?? "").slice(0, 10)}
+                        onChange={e => {
+                          if (!e.target.value) {
+                            if (detailEntry.item) {
+                              updateItem(user.uid, detailEntry.item.id, { dueDate: null });
+                              setDetailEntry(prev => prev?.item ? { ...prev, item: { ...prev.item, dueDate: null } } : prev);
+                            }
+                            return;
+                          }
+                          const iso = new Date(e.target.value + "T12:00:00").toISOString();
+                          if (detailEntry.item) {
+                            updateItem(user.uid, detailEntry.item.id, { dueDate: iso });
+                            setDetailEntry(prev => prev?.item ? { ...prev, item: { ...prev.item, dueDate: iso } } : prev);
+                          }
+                        }}
+                        style={{ flex: 1, fontSize: "14px", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "#f9fafb", color: "#374151", boxSizing: "border-box" }}
+                      />
+                    </div>
+                  </div>
+
                 </div>
-                <input type="date"
-                  value={(detailEntry.item?.dueDate ?? "").slice(0, 10)}
-                  onChange={e => {
-                    if (!e.target.value) return;
-                    const d = new Date(e.target.value + "T12:00:00");
-                    const iso = d.toISOString();
-                    if (detailEntry.item) {
-                      updateItem(user.uid, detailEntry.item.id, { dueDate: iso });
-                      setDetailEntry(prev => prev?.item ? { ...prev, item: { ...prev.item, dueDate: iso } } : prev);
-                    }
-                  }}
-                  style={{ width: "100%", fontSize: "14px", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "#f9fafb", color: "#374151", boxSizing: "border-box" }}
-                />
-                {detailEntry.item?.dueDate && (
-                  <button onClick={() => {
-                    if (detailEntry.item) {
-                      updateItem(user.uid, detailEntry.item.id, { dueDate: null });
-                      setDetailEntry(prev => prev?.item ? { ...prev, item: { ...prev.item, dueDate: null } } : prev);
-                    }
-                  }}
-                    style={{ marginTop: "6px", fontSize: "12px", color: "#ef4444", background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit" }}>
-                    ✕ Supprimer l'échéance
+
+                {/* Barre d'actions bas */}
+                <div style={{ borderTop: "1px solid #e5e7eb", padding: "12px 16px", background: "white" }}>
+                  <button onClick={() => { removeEntry(detailEntry); setDetailEntry(null); }}
+                    style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "white", color: "#374151", fontSize: "13px", fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+                    <Icon name="myday" size={14} />
+                    Retirer de Ma journée
                   </button>
-                )}
-              </div>
-
-              {/* (Note et Rattacher uniquement pour mémo — déplacés dans la branche post-it) */}
-
-              {/* Rattacher mémo à un dossier */}
-              {/* (Rattacher est mémo-only — déplacé dans la branche post-it) */}
-
-            </div>
-
-            {/* Barre d'actions bas */}
-            <div style={{ borderTop: "1px solid #e5e7eb", padding: "12px 16px", display: "flex", gap: "8px", background: "#f9fafb" }}>
-              <button onClick={() => { removeEntry(detailEntry); setDetailEntry(null); }}
-                style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "white", color: "#374151", fontSize: "13px", fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
-                Retirer de Ma journée
-              </button>
-            </div>
+                </div>
               </>
             )}
           </div>
