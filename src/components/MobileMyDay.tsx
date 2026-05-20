@@ -269,11 +269,6 @@ export default function MobileMyDay({ user }: { user: User }) {
                 <p style={{ fontSize: "10px", fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em" }}>Connecté</p>
                 <p style={{ fontSize: "13px", color: "#111827", marginTop: "4px", wordBreak: "break-all" }}>{user.email}</p>
               </div>
-              <a href="/settings"
-                style={{ display: "block", padding: "12px 14px", fontSize: "14px", color: "#374151", textDecoration: "none", borderBottom: "1px solid #f3f4f6" }}
-                onClick={() => setAccountMenuOpen(false)}>
-                Préférences
-              </a>
               <button
                 onClick={async () => {
                   setAccountMenuOpen(false);
