@@ -21,6 +21,7 @@ import { getTodayKey } from "@/lib/dates";
 import { getProgressLevel } from "@/lib/progress";
 import { addDoc, collection } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { Icon } from "./Icon";
 
 const STATUSES: Status[] = ["Créé", "Demandé", "Reçu", "Traité"];
 const STATUS_COLORS: Record<string, string> = {
@@ -265,56 +266,45 @@ export default function MobileMyDay({ user }: { user: User }) {
             {todayEntries.map(entry => {
               const title = entry.item?.title ?? entry.floating?.title ?? "";
               const status = entry.item?.status ?? null;
+              const starred = Boolean(entry.item?.starred || entry.floating?.starred);
               const dueDate = entry.item?.dueDate ?? entry.floating?.dueDate ?? null;
               const isOverdue = dueDate && dueDate.slice(0, 10) < todayKey;
-              const isDueToday = dueDate && dueDate.slice(0, 10) === todayKey;
+              const recurrence = entry.floating?.recurrence ?? null;
+
+              // Date relative compacte (style desktop)
+              const relativeLabel = (() => {
+                if (!dueDate) return null;
+                const startOfToday = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); })();
+                const dueDay = (() => { const d = new Date(dueDate); d.setHours(0,0,0,0); return d.getTime(); })();
+                const diff = Math.round((dueDay - startOfToday) / 86400000);
+                if (diff === 0) return null; // aujourd'hui = rien
+                return diff > 0 ? `+${diff}` : `${diff}`;
+              })();
+
+              // Filet (box-shadow inset, pas border, pour ne pas décaler le contenu)
+              const statusColors: Record<string, string> = {
+                "Créé": "#d1d5db", "Demandé": "#fbbf24", "Reçu": "#60a5fa", "Traité": "#34d399",
+              };
+              const filet = entry.floating
+                ? "none"
+                : `inset 3px 0 0 ${statusColors[status ?? "Créé"] ?? "#d1d5db"}`;
+
               return (
                 <div key={entry.selectionId}
                   onClick={() => setDetailEntry(entry)}
                   style={{
-                    background: "white",
+                    background: starred ? "rgba(251,191,36,0.10)" : "white",
                     border: "1px solid #e5e7eb",
                     borderRadius: "12px",
-                    padding: "14px 16px",
+                    padding: "12px 14px",
                     display: "flex",
-                    alignItems: "center",
+                    alignItems: "flex-start",
                     gap: "10px",
                     cursor: "pointer",
-                    borderLeft: (() => {
-                      if (entry.floating) return "none"; // mémo → pas de filet
-                      if (entry.item?.starred) return "4px solid #f59e0b"; // important → jaune
-                      const statusColors: Record<string, string> = {
-                        "Créé": "#d1d5db",
-                        "Demandé": "#fbbf24",
-                        "Reçu": "#60a5fa",
-                        "Traité": "#34d399",
-                      };
-                      return `4px solid ${statusColors[entry.item?.status ?? "Créé"] ?? "#d1d5db"}`;
-                    })(),
+                    boxShadow: filet,
                   }}>
-                  <div style={{ flex: 1, minWidth: 0, opacity: completingIds.has(entry.selectionId) ? 0.4 : 1, transition: "opacity 0.3s" }}>
-                    <p style={{ fontSize: "15px", fontWeight: 500, color: "#111827", marginBottom: "3px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {title}
-                    </p>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-                      {entry.item && (
-                        <span style={{ fontSize: "11px", color: "#9ca3af", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {caseOf(entry.item)}{parentOf(entry.item) ? ` › ${parentOf(entry.item)}` : ""}
-                        </span>
-                      )}
-                      {dueDate && (
-                        <span style={{ fontSize: "11px", color: isOverdue ? "#ef4444" : isDueToday ? "#16a34a" : "#6b7280", fontWeight: isOverdue || isDueToday ? 600 : 400 }}>
-                          {isOverdue ? "⚠ " : "📅 "}{formatDate(dueDate)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <button onClick={e => { e.stopPropagation(); removeEntry(entry); }}
-                    style={{ width: "28px", height: "28px", borderRadius: "50%", border: "1px solid #e5e7eb", background: "#f9fafb", color: "#9ca3af", fontSize: "13px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    ✕
-                  </button>
-                  {/* Rond "réalisée" uniquement pour les mémos flottants — les tâches de dossier passent par le détail (statut) */}
-                  {entry.type === "floating" && (
+                  {/* Élément de gauche : rond complétion (mémo) ou croix retirer (tâche) */}
+                  {entry.type === "floating" ? (
                     <button
                       onClick={e => {
                         e.stopPropagation();
@@ -323,27 +313,60 @@ export default function MobileMyDay({ user }: { user: User }) {
                         setCompletingIds(prev => new Set(prev).add(id));
                         playDone();
                         setTimeout(async () => {
-                          if (entry.floating) {
-                            await updateFloatingTask(user.uid, entry.floating.id, { status: "Traité" });
-                          }
+                          if (entry.floating) await updateFloatingTask(user.uid, entry.floating.id, { status: "Traité" });
                           removeEntry(entry);
                           setCompletingIds(prev => { const s = new Set(prev); s.delete(id); return s; });
                         }, 350);
                       }}
                       style={{
-                        width: "30px", height: "30px", borderRadius: "8px", flexShrink: 0,
-                        border: completingIds.has(entry.selectionId) ? "none" : "2px solid #d1d5db",
+                        width: "26px", height: "26px", borderRadius: "7px", flexShrink: 0, marginTop: "1px",
+                        border: completingIds.has(entry.selectionId) ? "none" : "2px solid #9ca3af",
                         background: completingIds.has(entry.selectionId) ? "#16a34a" : "white",
                         cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-                        transition: "all 0.2s ease", order: -1,
+                        transition: "all 0.2s ease",
                       }}>
                       {completingIds.has(entry.selectionId) && (
-                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                          <path d="M2.5 7L5.5 10L11.5 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
+                        <Icon name="check" size={16} strokeWidth={2.5} style={{ color: "white" }} />
                       )}
                     </button>
+                  ) : (
+                    <button
+                      onClick={e => { e.stopPropagation(); removeEntry(entry); }}
+                      style={{
+                        width: "26px", height: "26px", borderRadius: "7px", border: "2px solid transparent",
+                        background: "transparent", color: "#9ca3af", cursor: "pointer",
+                        display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: "1px",
+                      }}>
+                      <Icon name="close" size={16} strokeWidth={1.75} />
+                    </button>
                   )}
+
+                  <div style={{ flex: 1, minWidth: 0, opacity: completingIds.has(entry.selectionId) ? 0.4 : 1, transition: "opacity 0.3s" }}>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
+                      <p style={{ fontSize: "15px", fontWeight: starred ? 600 : 500, color: "#111827", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.35 }}>
+                        {title}
+                      </p>
+                      {relativeLabel && (
+                        <span style={{ fontSize: "12px", color: isOverdue ? "#ef4444" : "#9ca3af", fontWeight: isOverdue ? 600 : 400, flexShrink: 0, display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                          {isOverdue && <Icon name="warning" size={11} />}
+                          {relativeLabel}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "3px", minHeight: "16px" }}>
+                      {entry.item && (
+                        <span style={{ fontSize: "11.5px", color: "#9ca3af", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {caseOf(entry.item)}{parentOf(entry.item) ? ` › ${parentOf(entry.item)}` : ""}
+                        </span>
+                      )}
+                      {!entry.item && <span style={{ flex: 1 }} />}
+                      {recurrence && (
+                        <span style={{ color: "#9ca3af", flexShrink: 0, display: "inline-flex", alignItems: "center" }} title="Récurrent">
+                          <Icon name="recurrence" size={11} />
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               );
             })}
