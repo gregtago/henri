@@ -587,28 +587,192 @@ export default function MobileMyDay({ user }: { user: User }) {
           <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: "92vw", maxWidth: "420px", background: "white", boxShadow: "-4px 0 24px rgba(0,0,0,0.12)", display: "flex", flexDirection: "column" }}
             onClick={e => e.stopPropagation()}>
 
-            {/* Header */}
-            <div style={{ padding: "14px 16px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <p style={{ fontSize: "12px", fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                {detailEntry.item ? "Tâche" : "Mémo"}
-              </p>
-              <button onClick={() => setDetailEntry(null)}
-                style={{ width: "30px", height: "30px", border: "1px solid #e5e7eb", borderRadius: "8px", background: "#f9fafb", fontSize: "15px", cursor: "pointer", color: "#6b7280", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
-            </div>
+            {detailEntry.floating ? (
+              /* ─── DÉTAIL MÉMO (post-it) ─── */
+              <>
+                {/* Header jaune */}
+                <div style={{ padding: "14px 16px", borderBottom: "1px solid #fde68a", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#fef9c3" }}>
+                  <p style={{ fontSize: "12px", fontWeight: 600, color: "#92400e", textTransform: "uppercase", letterSpacing: "0.08em" }}>Mémo</p>
+                  <button onClick={() => setDetailEntry(null)}
+                    style={{ width: "30px", height: "30px", border: "1px solid #fde68a", borderRadius: "8px", background: "rgba(255,255,255,0.7)", cursor: "pointer", color: "#92400e", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Icon name="close" size={16} />
+                  </button>
+                </div>
 
-            {/* Contenu scrollable */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", flexDirection: "column", gap: "18px" }}>
+                <div style={{ flex: 1, overflowY: "auto" }}>
+                  {/* Zone post-it haute : titre (avec étoile) + échéance */}
+                  <div style={{ background: "#fef9c3", borderBottom: "1px solid #fde68a", padding: "16px", display: "flex", flexDirection: "column", gap: "16px" }}>
+                    {/* Titre avec étoile à gauche */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <button onClick={() => {
+                        const newVal = !detailEntry.floating!.starred;
+                        updateFloatingTask(user.uid, detailEntry.floating!.id, { starred: newVal });
+                        setDetailEntry(prev => prev ? { ...prev, floating: { ...prev.floating!, starred: newVal } } : prev);
+                      }}
+                        style={{ flexShrink: 0, border: "none", background: "transparent", cursor: "pointer", padding: 0, lineHeight: 0, color: detailEntry.floating.starred ? "#f59e0b" : "#d6a96b" }}
+                        title={detailEntry.floating.starred ? "Retirer l'étoile" : "Marquer important"}>
+                        <Icon name="star" size={24} filled={!!detailEntry.floating.starred} strokeWidth={1.75} />
+                      </button>
+                      <input
+                        defaultValue={detailEntry.floating.title}
+                        onBlur={e => {
+                          const val = e.target.value.trim();
+                          if (!val) return;
+                          updateFloatingTask(user.uid, detailEntry.floating!.id, { title: val });
+                        }}
+                        placeholder="Sans titre"
+                        style={{
+                          flex: 1, minWidth: 0,
+                          fontSize: "18px", fontWeight: 600, color: "#451a03",
+                          background: "rgba(255,255,255,0.45)", border: "1px solid #fde68a", borderRadius: "8px",
+                          padding: "8px 12px", outline: "none", fontFamily: "inherit",
+                          lineHeight: 1.3,
+                        }}
+                      />
+                    </div>
+
+                    {/* Échéance avec calendrier à gauche */}
+                    <div>
+                      <p style={{ fontSize: "10px", fontWeight: 700, color: "#92400e", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Échéance</p>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "10px" }}>
+                        {[
+                          { label: "Auj.", days: 0 },
+                          { label: "Demain", days: 1 },
+                          { label: "2 j.", days: 2 },
+                          { label: "1 sem.", days: 7 },
+                          { label: "1 mois", days: 30 },
+                        ].map(({ label, days }) => {
+                          const d = new Date(); d.setDate(d.getDate() + days); d.setHours(12, 0, 0, 0);
+                          return (
+                            <button key={label} onClick={() => {
+                              const dk = d.toISOString().slice(0, 10) <= todayKey ? todayKey : d.toISOString().slice(0, 10);
+                              updateFloatingTask(user.uid, detailEntry.floating!.id, { dueDate: d.toISOString(), dateKey: dk });
+                              setDetailEntry(prev => prev ? { ...prev, floating: { ...prev.floating!, dueDate: d.toISOString(), dateKey: dk } } : prev);
+                            }}
+                              style={{ padding: "6px 12px", borderRadius: "20px", border: "1px solid #fde68a", background: "rgba(255,255,255,0.7)", color: "#92400e", fontSize: "12px", cursor: "pointer", fontFamily: "inherit" }}>
+                              {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <button
+                          type="button"
+                          onClick={e => { const inp = (e.currentTarget.parentElement?.querySelector("input[type=date]") as any); if (inp?.showPicker) inp.showPicker(); else inp?.focus(); }}
+                          style={{ flexShrink: 0, border: "none", background: "transparent", cursor: "pointer", padding: 0, lineHeight: 0, color: "#92400e" }}
+                          title="Ouvrir le calendrier">
+                          <Icon name="calendar" size={20} />
+                        </button>
+                        <input type="date"
+                          defaultValue={detailEntry.floating.dueDate?.slice(0, 10) ?? ""}
+                          onBlur={e => {
+                            if (!e.target.value) {
+                              updateFloatingTask(user.uid, detailEntry.floating!.id, { dueDate: null });
+                              setDetailEntry(prev => prev ? { ...prev, floating: { ...prev.floating!, dueDate: null } } : prev);
+                              return;
+                            }
+                            const iso = new Date(e.target.value + "T12:00:00").toISOString();
+                            const dk = e.target.value <= todayKey ? todayKey : e.target.value;
+                            updateFloatingTask(user.uid, detailEntry.floating!.id, { dueDate: iso, dateKey: dk });
+                            setDetailEntry(prev => prev ? { ...prev, floating: { ...prev.floating!, dueDate: iso } } : prev);
+                          }}
+                          style={{ flex: 1, fontSize: "14px", border: "1px solid #fde68a", borderRadius: "8px", padding: "8px 12px", outline: "none", fontFamily: "inherit", background: "rgba(255,255,255,0.85)", color: "#451a03", boxSizing: "border-box" }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Zone blanche basse : commentaire + rattacher */}
+                  <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "18px" }}>
+                    <div>
+                      <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Commentaires</p>
+                      <textarea
+                        defaultValue={detailEntry.floating.note ?? ""}
+                        onBlur={e => updateFloatingTask(user.uid, detailEntry.floating!.id, { note: e.target.value })}
+                        placeholder="Ajouter un commentaire…"
+                        rows={3}
+                        style={{ width: "100%", fontSize: "14px", border: "1.5px solid #d1d5db", borderRadius: "10px", padding: "10px 12px", resize: "none", outline: "none", fontFamily: "inherit", background: "white", color: "#374151", boxSizing: "border-box" }}
+                      />
+                    </div>
+
+                    <div>
+                      <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Rattacher à un dossier</p>
+                      <input
+                        value={memoCaseSearch}
+                        onChange={e => setMemoCaseSearch(e.target.value)}
+                        placeholder="Rechercher un dossier…"
+                        style={{ width: "100%", fontSize: "14px", border: "1.5px solid #d1d5db", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "white", color: "#374151", boxSizing: "border-box", marginBottom: "6px" }}
+                      />
+                      {memoCaseSearch.trim() && (
+                        <div style={{ border: "1px solid #e5e7eb", borderRadius: "10px", overflow: "hidden", maxHeight: "160px", overflowY: "auto" }}>
+                          {cases.filter(c => c.title.toLowerCase().includes(memoCaseSearch.toLowerCase())).slice(0, 6).map(c => (
+                            <button key={c.id} onClick={async () => {
+                              if (!detailEntry.floating) return;
+                              const floating = detailEntry.floating;
+                              setDetailEntry(null);
+                              setMemoCaseSearch("");
+                              const { createItem, addMyDaySelection, deleteFloatingTasks, createComment } = await import("@/lib/firestore");
+                              const newItemId = await createItem(user.uid, {
+                                caseId: c.id, level: 2, title: floating.title,
+                                status: floating.status ?? "Créé",
+                                starred: floating.starred ?? false,
+                                parentItemId: null, dueDate: floating.dueDate ?? null,
+                              });
+                              if (floating.note && floating.note.trim().length > 0) {
+                                try { await createComment(user.uid, { itemId: newItemId, body: floating.note, author: user.email ?? null }); }
+                                catch (err) { console.warn("[Mobile attach] copie commentaire échouée", err); }
+                              }
+                              const memoDateKey = floating.dateKey && floating.dateKey > todayKey ? floating.dateKey : todayKey;
+                              try {
+                                const newSelectionId = await addMyDaySelection(user.uid, { refType: "item", refId: newItemId, dateKey: memoDateKey, selectionDate: null, dateTs: null });
+                                setMyDaySelections(prev => [...prev, { id: newSelectionId, refType: "item", refId: newItemId, dateKey: memoDateKey }]);
+                              } catch (err) { console.error("[Mobile attach] addMyDaySelection a échoué", err); }
+                              await deleteFloatingTasks(user.uid, [floating.id]);
+                            }}
+                              style={{ width: "100%", padding: "10px 14px", textAlign: "left", background: "white", border: "none", borderBottom: "1px solid #f3f4f6", fontSize: "13px", color: "#111827", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: "8px" }}>
+                              <Icon name="folder" size={14} />
+                              {c.title}
+                            </button>
+                          ))}
+                          {cases.filter(c => c.title.toLowerCase().includes(memoCaseSearch.toLowerCase())).length === 0 && (
+                            <p style={{ padding: "10px 14px", fontSize: "13px", color: "#9ca3af" }}>Aucun dossier trouvé</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Barre actions bas — fond blanc */}
+                <div style={{ borderTop: "1px solid #e5e7eb", padding: "12px 16px", display: "flex", gap: "8px", background: "white" }}>
+                  <button onClick={() => { removeEntry(detailEntry); setDetailEntry(null); }}
+                    style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid #fca5a5", background: "#fff1f2", color: "#dc2626", fontSize: "13px", fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+                    <Icon name="delete" size={14} /> Supprimer le mémo
+                  </button>
+                </div>
+              </>
+            ) : (
+              /* ─── DÉTAIL TÂCHE (étape 3 à venir, on garde l'existant pour l'instant) ─── */
+              <>
+                {/* Header */}
+                <div style={{ padding: "14px 16px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <p style={{ fontSize: "12px", fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em" }}>Tâche</p>
+                  <button onClick={() => setDetailEntry(null)}
+                    style={{ width: "30px", height: "30px", border: "1px solid #e5e7eb", borderRadius: "8px", background: "#f9fafb", fontSize: "15px", cursor: "pointer", color: "#6b7280", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+                </div>
+
+                {/* Contenu scrollable */}
+                <div style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", flexDirection: "column", gap: "18px" }}>
 
               {/* Titre éditable */}
               <div>
                 <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "6px" }}>Intitulé</p>
                 <input
-                  defaultValue={detailEntry.item?.title ?? detailEntry.floating?.title}
+                  defaultValue={detailEntry.item?.title ?? ""}
                   onBlur={e => {
                     const val = e.target.value.trim();
                     if (!val) return;
                     if (detailEntry.item) updateItem(user.uid, detailEntry.item.id, { title: val });
-                    else if (detailEntry.floating) updateFloatingTask(user.uid, detailEntry.floating.id, { title: val });
                   }}
                   style={{ width: "100%", fontSize: "16px", fontWeight: 600, color: "#111827", border: "1.5px solid #e5e7eb", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "#f9fafb", boxSizing: "border-box" }}
                 />
@@ -629,14 +793,12 @@ export default function MobileMyDay({ user }: { user: User }) {
                 <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em" }}>Important</p>
                 <button onClick={() => {
                   if (detailEntry.item) updateItem(user.uid, detailEntry.item.id, { starred: !detailEntry.item.starred });
-                  else if (detailEntry.floating) updateFloatingTask(user.uid, detailEntry.floating.id, { starred: !detailEntry.floating.starred });
-                  setDetailEntry(prev => prev ? {
+                  setDetailEntry(prev => prev?.item ? {
                     ...prev,
-                    item: prev.item ? { ...prev.item, starred: !prev.item.starred } : undefined,
-                    floating: prev.floating ? { ...prev.floating, starred: !prev.floating.starred } : undefined,
+                    item: { ...prev.item, starred: !prev.item.starred },
                   } : prev);
                 }}
-                  style={{ fontSize: "26px", background: "none", border: "none", cursor: "pointer", color: (detailEntry.item?.starred || detailEntry.floating?.starred) ? "#f59e0b" : "#d1d5db" }}>
+                  style={{ fontSize: "26px", background: "none", border: "none", cursor: "pointer", color: detailEntry.item?.starred ? "#f59e0b" : "#d1d5db" }}>
                   ★
                 </button>
               </div>
@@ -660,23 +822,6 @@ export default function MobileMyDay({ user }: { user: User }) {
                   {items.filter(i => i.parentItemId === detailEntry.item?.id && i.status !== "Traité").length > 0 && (
                     <p style={{ fontSize: "11px", color: "#f59e0b", marginTop: "6px" }}>⚠ Des sous-tâches ne sont pas encore traitées</p>
                   )}
-                </div>
-              )}
-              {detailEntry.floating && (
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em" }}>Réalisé</p>
-                  <button onClick={() => {
-                    const done = detailEntry.floating?.status !== "Traité";
-                    updateFloatingTask(user.uid, detailEntry.floating!.id, { status: done ? "Traité" : "Créé" });
-                    setDetailEntry(prev => prev ? { ...prev, floating: { ...prev.floating!, status: done ? "Traité" : "Créé" } } : prev);
-                  }}
-                    style={{ width: "32px", height: "32px", borderRadius: "8px", border: detailEntry.floating?.status === "Traité" ? "none" : "2px solid #d1d5db", background: detailEntry.floating?.status === "Traité" ? "#16a34a" : "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}>
-                    {detailEntry.floating?.status === "Traité" && (
-                      <svg width="16" height="16" viewBox="0 0 14 14" fill="none">
-                        <path d="M2.5 7L5.5 10L11.5 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    )}
-                  </button>
                 </div>
               )}
 
@@ -704,30 +849,23 @@ export default function MobileMyDay({ user }: { user: User }) {
                   })}
                 </div>
                 <input type="date"
-                  value={(detailEntry.item?.dueDate ?? detailEntry.floating?.dueDate ?? "").slice(0, 10)}
+                  value={(detailEntry.item?.dueDate ?? "").slice(0, 10)}
                   onChange={e => {
                     if (!e.target.value) return;
                     const d = new Date(e.target.value + "T12:00:00");
                     const iso = d.toISOString();
                     if (detailEntry.item) {
                       updateItem(user.uid, detailEntry.item.id, { dueDate: iso });
-                      setDetailEntry(prev => prev ? { ...prev, item: { ...prev.item!, dueDate: iso } } : prev);
-                    } else if (detailEntry.floating) {
-                      const dk = e.target.value <= todayKey ? todayKey : e.target.value;
-                      updateFloatingTask(user.uid, detailEntry.floating.id, { dueDate: iso, dateKey: dk });
-                      setDetailEntry(prev => prev ? { ...prev, floating: { ...prev.floating!, dueDate: iso } } : prev);
+                      setDetailEntry(prev => prev?.item ? { ...prev, item: { ...prev.item, dueDate: iso } } : prev);
                     }
                   }}
                   style={{ width: "100%", fontSize: "14px", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "#f9fafb", color: "#374151", boxSizing: "border-box" }}
                 />
-                {(detailEntry.item?.dueDate || detailEntry.floating?.dueDate) && (
+                {detailEntry.item?.dueDate && (
                   <button onClick={() => {
                     if (detailEntry.item) {
                       updateItem(user.uid, detailEntry.item.id, { dueDate: null });
-                      setDetailEntry(prev => prev ? { ...prev, item: { ...prev.item!, dueDate: null } } : prev);
-                    } else if (detailEntry.floating) {
-                      updateFloatingTask(user.uid, detailEntry.floating.id, { dueDate: null });
-                      setDetailEntry(prev => prev ? { ...prev, floating: { ...prev.floating!, dueDate: null } } : prev);
+                      setDetailEntry(prev => prev?.item ? { ...prev, item: { ...prev.item, dueDate: null } } : prev);
                     }
                   }}
                     style={{ marginTop: "6px", fontSize: "12px", color: "#ef4444", background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit" }}>
@@ -736,100 +874,22 @@ export default function MobileMyDay({ user }: { user: User }) {
                 )}
               </div>
 
-              {/* Observations (mémo) */}
-              {detailEntry.floating && (
-                <div>
-                  <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Note</p>
-                  <textarea
-                    defaultValue={detailEntry.floating.note ?? ""}
-                    onBlur={e => updateFloatingTask(user.uid, detailEntry.floating!.id, { note: e.target.value })}
-                    placeholder="Ajouter une note…"
-                    rows={3}
-                    style={{ width: "100%", fontSize: "14px", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "10px 12px", resize: "none", outline: "none", fontFamily: "inherit", background: "#f9fafb", color: "#374151", boxSizing: "border-box" }}
-                  />
-                </div>
-              )}
+              {/* (Note et Rattacher uniquement pour mémo — déplacés dans la branche post-it) */}
 
               {/* Rattacher mémo à un dossier */}
-              {detailEntry.floating && (
-                <div>
-                  <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Rattacher à un dossier</p>
-                  <input
-                    value={memoCaseSearch}
-                    onChange={e => setMemoCaseSearch(e.target.value)}
-                    placeholder="Rechercher un dossier…"
-                    style={{ width: "100%", fontSize: "14px", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "#f9fafb", color: "#374151", boxSizing: "border-box", marginBottom: "6px" }}
-                  />
-                  {memoCaseSearch.trim() && (
-                    <div style={{ border: "1px solid #e5e7eb", borderRadius: "10px", overflow: "hidden", maxHeight: "160px", overflowY: "auto" }}>
-                      {cases.filter(c => c.title.toLowerCase().includes(memoCaseSearch.toLowerCase())).slice(0, 6).map(c => (
-                        <button key={c.id} onClick={async () => {
-                          if (!detailEntry.floating) return;
-                          const floating = detailEntry.floating;
-                          setDetailEntry(null);
-                          setMemoCaseSearch("");
-                          const { createItem, addMyDaySelection, deleteFloatingTasks, createComment } = await import("@/lib/firestore");
-                          // Préserver tous les attributs du mémo
-                          const newItemId = await createItem(user.uid, {
-                            caseId: c.id,
-                            level: 2,
-                            title: floating.title,
-                            status: floating.status ?? "Créé",
-                            starred: floating.starred ?? false,
-                            parentItemId: null,
-                            dueDate: floating.dueDate ?? null,
-                          });
-                          // Copier la note du mémo en commentaire de la tâche
-                          if (floating.note && floating.note.trim().length > 0) {
-                            try {
-                              await createComment(user.uid, { itemId: newItemId, body: floating.note, author: user.email ?? null });
-                            } catch (err) {
-                              console.warn("[Mobile attach] copie commentaire échouée", err);
-                            }
-                          }
-                          // dateKey : futur → conserver ; sinon → aujourd'hui
-                          const memoDateKey = floating.dateKey && floating.dateKey > todayKey ? floating.dateKey : todayKey;
-                          try {
-                            const newSelectionId = await addMyDaySelection(user.uid, { refType: "item", refId: newItemId, dateKey: memoDateKey, selectionDate: null, dateTs: null });
-                            // Injection optimiste
-                            setMyDaySelections(prev => [
-                              ...prev,
-                              { id: newSelectionId, refType: "item", refId: newItemId, dateKey: memoDateKey },
-                            ]);
-                          } catch (err) {
-                            console.error("[Mobile attach] addMyDaySelection a échoué", err);
-                          }
-                          await deleteFloatingTasks(user.uid, [floating.id]);
-                        }}
-                          style={{ width: "100%", padding: "10px 14px", textAlign: "left", background: "white", border: "none", borderBottom: "1px solid #f3f4f6", fontSize: "13px", color: "#111827", cursor: "pointer", fontFamily: "inherit" }}>
-                          📁 {c.title}
-                        </button>
-                      ))}
-                      {cases.filter(c => c.title.toLowerCase().includes(memoCaseSearch.toLowerCase())).length === 0 && (
-                        <p style={{ padding: "10px 14px", fontSize: "13px", color: "#9ca3af" }}>Aucun dossier trouvé</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* (Rattacher est mémo-only — déplacé dans la branche post-it) */}
 
             </div>
 
             {/* Barre d'actions bas */}
             <div style={{ borderTop: "1px solid #e5e7eb", padding: "12px 16px", display: "flex", gap: "8px", background: "#f9fafb" }}>
-              {detailEntry.item && (
-                <button onClick={() => { removeEntry(detailEntry); setDetailEntry(null); }}
-                  style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "white", color: "#374151", fontSize: "13px", fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
-                  Retirer de Ma journée
-                </button>
-              )}
-              {detailEntry.floating && (
-                <button onClick={() => { removeEntry(detailEntry); setDetailEntry(null); }}
-                  style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid #fca5a5", background: "#fff1f2", color: "#dc2626", fontSize: "13px", fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
-                  🗑 Supprimer le mémo
-                </button>
-              )}
+              <button onClick={() => { removeEntry(detailEntry); setDetailEntry(null); }}
+                style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "white", color: "#374151", fontSize: "13px", fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
+                Retirer de Ma journée
+              </button>
             </div>
+              </>
+            )}
           </div>
         </div>
       )}
