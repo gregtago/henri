@@ -695,8 +695,8 @@ export default function MobileMyDay({ user }: { user: User }) {
                           <Icon name="calendar" size={20} />
                         </button>
                         <input type="date"
-                          defaultValue={detailEntry.floating.dueDate?.slice(0, 10) ?? ""}
-                          onBlur={e => {
+                          value={detailEntry.floating?.dueDate?.slice(0, 10) ?? ""}
+                          onChange={e => {
                             if (!e.target.value) {
                               updateFloatingTask(user.uid, detailEntry.floating!.id, { dueDate: null });
                               setDetailEntry(prev => prev ? { ...prev, floating: { ...prev.floating!, dueDate: null } } : prev);
@@ -705,7 +705,7 @@ export default function MobileMyDay({ user }: { user: User }) {
                             const iso = new Date(e.target.value + "T12:00:00").toISOString();
                             const dk = e.target.value <= todayKey ? todayKey : e.target.value;
                             updateFloatingTask(user.uid, detailEntry.floating!.id, { dueDate: iso, dateKey: dk });
-                            setDetailEntry(prev => prev ? { ...prev, floating: { ...prev.floating!, dueDate: iso } } : prev);
+                            setDetailEntry(prev => prev ? { ...prev, floating: { ...prev.floating!, dueDate: iso, dateKey: dk } } : prev);
                           }}
                           style={{ flex: 1, fontSize: "14px", border: "1px solid #fde68a", borderRadius: "8px", padding: "8px 12px", outline: "none", fontFamily: "inherit", background: "rgba(255,255,255,0.85)", color: "#451a03", boxSizing: "border-box" }}
                         />
