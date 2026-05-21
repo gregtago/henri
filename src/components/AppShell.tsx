@@ -53,6 +53,7 @@ import type { Case, Comment, Event, FloatingTask, Item, MyDaySelection, Status }
 import { STATUSES } from "@/lib/types";
 import { RecurrencePicker } from "./RecurrencePicker";
 import { Icon } from "./Icon";
+import { ReminderPicker } from "./ReminderPicker";
 import { formatRecurrence } from "@/lib/recurrence";
 
 const isEditableElement = (element: EventTarget | null) => {
@@ -101,6 +102,33 @@ export default function AppShell() {
   const [pendingRemovalIds, setPendingRemovalIds] = useState<Set<string>>(new Set());
   const [completingFloatingIds, setCompletingFloatingIds] = useState<Set<string>>(new Set());
   const [upcomingExpanded, setUpcomingExpanded] = useState(false);
+  const [notifStatus, setNotifStatus] = useState<"unknown" | "granted" | "denied" | "default" | "unsupported">("unknown");
+
+  // Vérifier l'état des notifs au montage + rafraîchir le token si déjà accordé
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!("Notification" in window)) {
+      setNotifStatus("unsupported");
+      return;
+    }
+    setNotifStatus(Notification.permission as any);
+    if (Notification.permission === "granted" && user) {
+      import("@/lib/messaging").then(m => m.refreshPushToken(user.uid)).catch(() => {});
+    }
+  }, [user]);
+
+  // Écouter les notifs reçues au premier plan → toast (Service Worker n'affiche
+  // pas de notif quand l'onglet est actif, donc on affiche un toast custom)
+  useEffect(() => {
+    if (notifStatus !== "granted" || !user) return;
+    let unsub: (() => void) | undefined;
+    import("@/lib/messaging").then(m => {
+      m.listenForegroundMessages(({ title, body }) => {
+        showToast(`🔔 ${title ?? "Rappel"}${body ? ` — ${body}` : ""}`);
+      }).then(fn => { unsub = fn; });
+    });
+    return () => { if (unsub) unsub(); };
+  }, [notifStatus, user]);
 
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -2070,6 +2098,14 @@ export default function AppShell() {
                 })()}
               </div>
 
+              {/* Rappel push */}
+              <div>
+                <ReminderPicker
+                  value={detailItem.reminderAt}
+                  onChange={iso => updateItem(user.uid, detailItem.id, { reminderAt: iso, reminderSentAt: null })}
+                />
+              </div>
+
               {/* Dossier — lien vers Mes Dossiers */}
               <div>
                 <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1">Dossier</p>
@@ -2245,6 +2281,39 @@ export default function AppShell() {
         {/* Actions — droite */}
         <div className="flex items-center gap-2.5 text-[12px] text-tx-3 ml-auto z-10">
           <span className="hidden sm:inline">{user.email}</span>
+          {notifStatus !== "unsupported" && (
+            <button
+              className={`inline-flex items-center gap-1 px-2 py-1 rounded border cursor-pointer transition-colors ${
+                notifStatus === "granted"
+                  ? "bg-transparent text-tx-2 border-border hover:border-border-strong"
+                  : "bg-transparent text-tx-2 border-border hover:border-border-strong hover:text-tx"
+              }`}
+              title={notifStatus === "granted" ? "Rappels activés (cliquer pour désactiver sur ce device)" : "Activer les notifications de rappel"}
+              onClick={async () => {
+                if (notifStatus === "granted") {
+                  const m = await import("@/lib/messaging");
+                  await m.disablePushNotifications(user.uid);
+                  showToast("Rappels désactivés sur ce navigateur.");
+                } else {
+                  const m = await import("@/lib/messaging");
+                  const res = await m.enablePushNotifications(user.uid);
+                  if (res.ok) {
+                    setNotifStatus("granted");
+                    showToast("Rappels activés.");
+                  } else {
+                    if (res.reason === "denied") showToast("Permission refusée par le navigateur.");
+                    else if (res.reason === "no-vapid") showToast("Configuration serveur incomplète.");
+                    else if (res.reason === "unsupported") showToast("Navigateur non supporté.");
+                    else showToast("Erreur lors de l'activation.");
+                  }
+                }
+              }}>
+              <Icon name="time" size={12} />
+              {notifStatus === "granted" ? (
+                <span style={{ color: "#16a34a", fontWeight: 600 }}>Rappels ✓</span>
+              ) : "Rappels"}
+            </button>
+          )}
           <Link href="/settings" className={btnGhost} style={{textDecoration:"none"}}>Préférences</Link>
           <button className={btnGhost} onClick={() => signOut(auth)}>Déconnexion</button>
         </div>
@@ -3085,6 +3154,13 @@ export default function AppShell() {
                                 onBlur={e => { if (!e.target.value) { updateFloatingTask(user.uid, task.id, { dueDate: null, dateKey: todayKey }); return; } const [y,m,d] = e.target.value.split("-").map(Number); if (y < 1900 || y > 2100) return; handleFloatingDueDate(task.id, new Date(y,m-1,d,12)); }} />
                             </div>
                           </div>
+
+                          {/* Rappel push */}
+                          <ReminderPicker
+                            value={task.reminderAt}
+                            onChange={iso => updateFloatingTask(user.uid, task.id, { reminderAt: iso, reminderSentAt: null })}
+                            themeColor="#92400e"
+                          />
                         </div>
 
                         {/* Zone blanche : récurrence, rattacher, commentaires */}
