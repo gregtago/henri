@@ -22,6 +22,7 @@ import { getProgressLevel } from "@/lib/progress";
 import { addDoc, collection } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Icon } from "./Icon";
+import { ReminderPicker } from "./ReminderPicker";
 
 const STATUSES: Status[] = ["Créé", "Demandé", "Reçu", "Traité"];
 const STATUS_COLORS: Record<string, string> = {
@@ -64,6 +65,21 @@ export default function MobileMyDay({ user }: { user: User }) {
   const [pendingRemovalIds, setPendingRemovalIds] = useState<Set<string>>(new Set());
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [notifStatus, setNotifStatus] = useState<"unknown" | "granted" | "denied" | "default" | "unsupported">("unknown");
+
+  // Au montage : vérifier l'état actuel de la permission notification
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!("Notification" in window)) {
+      setNotifStatus("unsupported");
+      return;
+    }
+    setNotifStatus(Notification.permission as any);
+    // Si déjà granted, rafraîchir le token pour mise à jour de lastSeenAt
+    if (Notification.permission === "granted") {
+      import("@/lib/messaging").then(m => m.refreshPushToken(user.uid)).catch(() => {});
+    }
+  }, [user.uid]);
 
   const playDone = () => {
     try {
@@ -269,6 +285,46 @@ export default function MobileMyDay({ user }: { user: User }) {
                 <p style={{ fontSize: "10px", fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em" }}>Connecté</p>
                 <p style={{ fontSize: "13px", color: "#111827", marginTop: "4px", wordBreak: "break-all" }}>{user.email}</p>
               </div>
+
+              {/* Notifications */}
+              {notifStatus !== "unsupported" && (
+                <button
+                  onClick={async () => {
+                    if (notifStatus === "granted") {
+                      // Désactiver
+                      const m = await import("@/lib/messaging");
+                      await m.disablePushNotifications(user.uid);
+                      // L'utilisateur doit retirer la permission OS manuellement,
+                      // donc l'état reste "granted" mais le token est supprimé.
+                      alert("Notifications désactivées pour cet appareil. Pour les retirer définitivement, modifiez les permissions du site dans votre navigateur.");
+                      setAccountMenuOpen(false);
+                    } else {
+                      // Activer
+                      const m = await import("@/lib/messaging");
+                      const res = await m.enablePushNotifications(user.uid);
+                      if (res.ok) {
+                        setNotifStatus("granted");
+                        alert("Rappels activés ! Tu recevras une notification quand tu programmes un rappel sur une tâche ou un mémo.");
+                      } else {
+                        if (res.reason === "denied") alert("Permission refusée. Modifie les permissions du site dans les réglages de ton navigateur pour réactiver.");
+                        else if (res.reason === "no-vapid") alert("Configuration serveur incomplète. Contacte le support.");
+                        else if (res.reason === "unsupported") alert("Ton navigateur ne supporte pas les notifications. Sur iPhone, installe d'abord l'application sur l'écran d'accueil.");
+                        else alert("Une erreur s'est produite. Réessaie.");
+                      }
+                      setAccountMenuOpen(false);
+                    }
+                  }}
+                  style={{ display: "flex", width: "100%", textAlign: "left", padding: "12px 14px", fontSize: "14px", color: "#374151", background: "white", border: "none", borderBottom: "1px solid #f3f4f6", cursor: "pointer", fontFamily: "inherit", alignItems: "center", gap: "8px" }}>
+                  <Icon name="time" size={16} style={{ color: notifStatus === "granted" ? "#16a34a" : "#9ca3af" }} />
+                  <span style={{ flex: 1 }}>
+                    {notifStatus === "granted" ? "Rappels activés" : "Activer les rappels"}
+                  </span>
+                  {notifStatus === "granted" && (
+                    <span style={{ fontSize: "11px", color: "#16a34a", fontWeight: 600 }}>✓</span>
+                  )}
+                </button>
+              )}
+
               <button
                 onClick={async () => {
                   setAccountMenuOpen(false);
@@ -711,9 +767,17 @@ export default function MobileMyDay({ user }: { user: User }) {
                         />
                       </div>
                     </div>
-                  </div>
 
-                  {/* Zone blanche basse : commentaire + rattacher */}
+                    {/* Rappel push */}
+                    <ReminderPicker
+                      value={detailEntry.floating.reminderAt}
+                      onChange={(iso) => {
+                        updateFloatingTask(user.uid, detailEntry.floating!.id, { reminderAt: iso, reminderSentAt: null });
+                        setDetailEntry(prev => prev ? { ...prev, floating: { ...prev.floating!, reminderAt: iso, reminderSentAt: null } } : prev);
+                      }}
+                      themeColor="#92400e"
+                    />
+                  </div>
                   <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "18px" }}>
                     <div>
                       <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Commentaires</p>
@@ -912,6 +976,17 @@ export default function MobileMyDay({ user }: { user: User }) {
                       />
                     </div>
                   </div>
+
+                  {/* Rappel push */}
+                  {detailEntry.item && (
+                    <ReminderPicker
+                      value={detailEntry.item.reminderAt}
+                      onChange={(iso) => {
+                        updateItem(user.uid, detailEntry.item!.id, { reminderAt: iso, reminderSentAt: null });
+                        setDetailEntry(prev => prev?.item ? { ...prev, item: { ...prev.item, reminderAt: iso, reminderSentAt: null } } : prev);
+                      }}
+                    />
+                  )}
 
                 </div>
 

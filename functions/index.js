@@ -198,3 +198,108 @@ function getTodayInParis() {
   const [day, month, year] = parisStr.split("/").map(Number);
   return new Date(year, month - 1, day);
 }
+
+// ─────────────────────────────────────────────────────────────────────
+//  RAPPELS PUSH (FCM)
+// ─────────────────────────────────────────────────────────────────────
+const { getMessaging } = require("firebase-admin/messaging");
+
+/**
+ * Toutes les 5 minutes :
+ *   - parcourt tous les utilisateurs
+ *   - cherche les items et floatingTasks dont reminderAt <= now et reminderSentAt vide
+ *   - envoie une notif aux tokens FCM du user
+ *   - marque reminderSentAt pour ne pas réenvoyer
+ *
+ * Les tokens invalides (404 / Unregistered) sont automatiquement purgés.
+ */
+exports.sendDueReminders = onSchedule(
+  { schedule: "every 5 minutes", timeZone: "Europe/Paris", region: "europe-west1" },
+  async (event) => {
+    const db = getFirestore();
+    const messaging = getMessaging();
+    const now = new Date();
+    const nowIso = now.toISOString();
+
+    const usersSnap = await db.collection("users").get();
+    let totalSent = 0;
+    let totalSkipped = 0;
+
+    for (const userDoc of usersSnap.docs) {
+      const uid = userDoc.id;
+
+      // Récupère les tokens du user
+      const tokensSnap = await db.collection(`users/${uid}/pushTokens`).get();
+      const tokens = tokensSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (tokens.length === 0) continue;
+
+      // Items à notifier (tâches de dossiers)
+      const itemsSnap = await db.collection(`users/${uid}/items`)
+        .where("reminderAt", "<=", nowIso)
+        .get();
+      const dueItems = itemsSnap.docs
+        .filter(d => !d.data().reminderSentAt && d.data().status !== "Traité");
+
+      // FloatingTasks à notifier (mémos)
+      const ftSnap = await db.collection(`users/${uid}/floatingTasks`)
+        .where("reminderAt", "<=", nowIso)
+        .get();
+      const dueFloating = ftSnap.docs
+        .filter(d => !d.data().reminderSentAt && d.data().status !== "Traité");
+
+      const targets = [
+        ...dueItems.map(d => ({ doc: d, collection: "items", data: d.data() })),
+        ...dueFloating.map(d => ({ doc: d, collection: "floatingTasks", data: d.data() })),
+      ];
+
+      for (const t of targets) {
+        // Envoi multicast à tous les devices du user
+        const tokenStrings = tokens.map(tt => tt.token).filter(Boolean);
+        if (tokenStrings.length === 0) continue;
+
+        const title = t.data.title || "Rappel";
+        const body = t.collection === "items"
+          ? "Tâche à réaliser"
+          : "Mémo à traiter";
+
+        try {
+          const response = await messaging.sendEachForMulticast({
+            tokens: tokenStrings,
+            notification: { title, body },
+            data: {
+              url: "/my-day",
+              tag: `${t.collection}-${t.doc.id}`,
+              title, body,
+            },
+            webpush: {
+              fcmOptions: { link: "/my-day" },
+            },
+          });
+          totalSent += response.successCount;
+
+          // Purger les tokens invalides
+          if (response.failureCount > 0) {
+            for (let i = 0; i < response.responses.length; i++) {
+              const r = response.responses[i];
+              if (!r.success) {
+                const errCode = r.error && r.error.code;
+                if (errCode === "messaging/registration-token-not-registered"
+                  || errCode === "messaging/invalid-registration-token") {
+                  await db.doc(`users/${uid}/pushTokens/${tokenStrings[i]}`).delete().catch(() => {});
+                }
+              }
+            }
+          }
+
+          // Marquer comme envoyé pour ne pas répéter
+          await t.doc.ref.update({ reminderSentAt: nowIso });
+        } catch (err) {
+          console.error(`[sendDueReminders] échec envoi ${t.collection}/${t.doc.id}`, err);
+          totalSkipped++;
+        }
+      }
+    }
+
+    console.log(`[sendDueReminders] ${totalSent} envoyés, ${totalSkipped} échoués.`);
+  }
+);

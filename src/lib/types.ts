@@ -29,6 +29,8 @@ export type Item = {
   starred?: boolean | null;
   dueDate?: string | null;
   lastReminderAt?: string | null;
+  reminderAt?: string | null;        // ISO timestamp — quand notifier l'utilisateur
+  reminderSentAt?: string | null;    // ISO timestamp — quand la notif a été envoyée (anti-doublon)
   progressLevel?: number | null;
   lastProgressAt?: string | import("firebase/firestore").Timestamp | null;
   createdAt: string;
@@ -91,6 +93,8 @@ export type FloatingTask = {
   recurrence?: Recurrence | null;
   recurringTemplateId?: string | null; // référence au template d'origine
   note?: string | null;
+  reminderAt?: string | null;
+  reminderSentAt?: string | null;
   createdAt: string;
   updatedAt: string;
 };
