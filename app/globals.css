@@ -43,6 +43,19 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* ── FIX SAFARI iOS : empêcher le zoom auto sur focus input ──
+ * Safari iOS zoome systématiquement sur tout input dont font-size < 16px,
+ * et ignore maximum-scale=1 depuis iOS 10. Solution : forcer 16px minimum
+ * sur les écrans tactiles. La taille visuelle reste contrôlée par le
+ * inline-style ou la classe Tailwind qui override sur desktop. */
+@media (hover: none) and (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
 /* ── SCROLLBARS ── */
 * {
   scrollbar-width: thin;
