@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import {
-  sendPasswordResetEmail,
   signInWithEmailAndPassword,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -30,19 +29,19 @@ export default function AuthPanel() {
       return;
     }
     try {
-      await sendPasswordResetEmail(auth, email.trim());
+      const res = await fetch("/api/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data?.error ?? "Erreur lors de l'envoi.");
+        return;
+      }
       setResetSent(true);
     } catch (err: any) {
-      const code = err?.code ?? "";
-      if (code === "auth/user-not-found") {
-        setError("Aucun compte trouvé avec cet email.");
-      } else if (code === "auth/invalid-email") {
-        setError("Adresse email invalide.");
-      } else if (code === "auth/too-many-requests") {
-        setError("Trop de tentatives. Réessayez dans quelques minutes.");
-      } else {
-        setError(`Erreur : ${code || err?.message || "inconnue"}`);
-      }
+      setError("Impossible de contacter le serveur. Réessayez.");
     }
   };
 
