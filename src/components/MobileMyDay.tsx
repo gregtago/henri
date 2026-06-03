@@ -66,6 +66,9 @@ export default function MobileMyDay({ user }: { user: User }) {
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [notifStatus, setNotifStatus] = useState<"unknown" | "granted" | "denied" | "default" | "unsupported">("unknown");
+  // Reflète la présence RÉELLE d'un token push pour cet appareil (et pas seulement
+  // la permission navigateur, qui reste "granted" à vie une fois accordée sur iOS).
+  const [hasToken, setHasToken] = useState(false);
 
   // Au montage : vérifier l'état actuel de la permission notification
   useEffect(() => {
@@ -75,9 +78,12 @@ export default function MobileMyDay({ user }: { user: User }) {
       return;
     }
     setNotifStatus(Notification.permission as any);
-    // Si déjà granted, rafraîchir le token pour mise à jour de lastSeenAt
+    // Si déjà granted, rafraîchir le token et refléter sa présence réelle dans l'UI.
     if (Notification.permission === "granted") {
-      import("@/lib/messaging").then(m => m.refreshPushToken(user.uid)).catch(() => {});
+      import("@/lib/messaging")
+        .then(m => m.refreshPushToken(user.uid))
+        .then(tok => setHasToken(!!tok))
+        .catch(() => {});
     }
   }, [user.uid]);
 
@@ -296,20 +302,19 @@ export default function MobileMyDay({ user }: { user: User }) {
               {notifStatus !== "unsupported" && (
                 <button
                   onClick={async () => {
-                    if (notifStatus === "granted") {
-                      // Désactiver
-                      const m = await import("@/lib/messaging");
+                    const m = await import("@/lib/messaging");
+                    if (hasToken) {
+                      // Désactiver sur cet appareil (retire le token push)
                       await m.disablePushNotifications(user.uid);
-                      // L'utilisateur doit retirer la permission OS manuellement,
-                      // donc l'état reste "granted" mais le token est supprimé.
-                      alert("Notifications désactivées pour cet appareil. Pour les retirer définitivement, modifiez les permissions du site dans votre navigateur.");
+                      setHasToken(false);
+                      alert("Rappels désactivés sur cet appareil.");
                       setAccountMenuOpen(false);
                     } else {
-                      // Activer
-                      const m = await import("@/lib/messaging");
+                      // Activer / ré-enregistrer le token (enregistre aussi le SW au besoin)
                       const res = await m.enablePushNotifications(user.uid);
                       if (res.ok) {
                         setNotifStatus("granted");
+                        setHasToken(true);
                         alert("Rappels activés ! Tu recevras une notification quand tu programmes un rappel sur une tâche ou un mémo.");
                       } else {
                         if (res.reason === "denied") alert("Permission refusée. Modifie les permissions du site dans les réglages de ton navigateur pour réactiver.");
@@ -321,11 +326,11 @@ export default function MobileMyDay({ user }: { user: User }) {
                     }
                   }}
                   style={{ display: "flex", width: "100%", textAlign: "left", padding: "12px 14px", fontSize: "14px", color: "#374151", background: "white", border: "none", borderBottom: "1px solid #f3f4f6", cursor: "pointer", fontFamily: "inherit", alignItems: "center", gap: "8px" }}>
-                  <Icon name="time" size={16} style={{ color: notifStatus === "granted" ? "#16a34a" : "#9ca3af" }} />
+                  <Icon name="time" size={16} style={{ color: hasToken ? "#16a34a" : "#9ca3af" }} />
                   <span style={{ flex: 1 }}>
-                    {notifStatus === "granted" ? "Rappels activés" : "Activer les rappels"}
+                    {hasToken ? "Rappels activés" : "Activer les rappels"}
                   </span>
-                  {notifStatus === "granted" && (
+                  {hasToken && (
                     <span style={{ fontSize: "11px", color: "#16a34a", fontWeight: 600 }}>✓</span>
                   )}
                 </button>
