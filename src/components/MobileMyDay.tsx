@@ -111,9 +111,15 @@ export default function MobileMyDay({ user }: { user: User }) {
   const todayEntries = useMemo<SelectionEntry[]>(() => {
     const sels = myDaySelections.filter(s => s.dateKey === todayKey && !pendingRemovalIds.has(s.id));
     const entries: SelectionEntry[] = [];
+    const seenItemIds = new Set<string>();
     for (const s of sels) {
       const item = items.find(i => i.id === s.refId);
-      if (item) entries.push({ selectionId: s.id, type: "item", item });
+      // Filet de sécurité : une seule entrée par tâche, même si plusieurs
+      // sélections pointent sur le même item (évite les doublons d'affichage).
+      if (item && !seenItemIds.has(item.id)) {
+        seenItemIds.add(item.id);
+        entries.push({ selectionId: s.id, type: "item", item });
+      }
     }
     const todayFloating = floatingTasks.filter(t => t.status !== "Traité" && t.dateKey != null && t.dateKey <= todayKey);
     for (const f of todayFloating) {
@@ -820,7 +826,12 @@ export default function MobileMyDay({ user }: { user: User }) {
                               const memoDateKey = floating.dateKey && floating.dateKey > todayKey ? floating.dateKey : todayKey;
                               try {
                                 const newSelectionId = await addMyDaySelection(user.uid, { refType: "item", refId: newItemId, dateKey: memoDateKey, selectionDate: null, dateTs: null });
-                                setMyDaySelections(prev => [...prev, { id: newSelectionId, refType: "item", refId: newItemId, dateKey: memoDateKey }]);
+                                // Injection optimiste dédoublonnée par id : l'abonnement Firestore peut
+                                // avoir déjà livré ce doc (même id), auquel cas un push aveugle créerait
+                                // une sélection en double → la tâche apparaîtrait deux fois dans Ma journée.
+                                setMyDaySelections(prev => prev.some(s => s.id === newSelectionId)
+                                  ? prev
+                                  : [...prev, { id: newSelectionId, refType: "item", refId: newItemId, dateKey: memoDateKey }]);
                               } catch (err) { console.error("[Mobile attach] addMyDaySelection a échoué", err); }
                               await deleteFloatingTasks(user.uid, [floating.id]);
                             }}
