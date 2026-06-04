@@ -224,14 +224,13 @@ exports.sendDueReminders = onSchedule(
     const usersSnap = await db.collection("users").get();
     let totalSent = 0;
     let totalSkipped = 0;
+    // Compteurs de diagnostic
+    let totalTokens = 0;
+    let totalDueItems = 0;
+    let totalDueFloating = 0;
 
     for (const userDoc of usersSnap.docs) {
       const uid = userDoc.id;
-
-      // Récupère les tokens du user
-      const tokensSnap = await db.collection(`users/${uid}/pushTokens`).get();
-      const tokens = tokensSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      if (tokens.length === 0) continue;
 
       // Items à notifier (tâches de dossiers)
       const itemsSnap = await db.collection(`users/${uid}/items`)
@@ -246,6 +245,20 @@ exports.sendDueReminders = onSchedule(
         .get();
       const dueFloating = ftSnap.docs
         .filter(d => !d.data().reminderSentAt && d.data().status !== "Traité");
+
+      // Récupère les tokens du user
+      const tokensSnap = await db.collection(`users/${uid}/pushTokens`).get();
+      const tokens = tokensSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      // Diagnostic : log dès qu'un rappel est dû, qu'il y ait un token ou non
+      totalTokens += tokens.length;
+      totalDueItems += dueItems.length;
+      totalDueFloating += dueFloating.length;
+      if ((dueItems.length + dueFloating.length) > 0) {
+        console.log(`[sendDueReminders][diag] user=${uid} tokens=${tokens.length} dueItems=${dueItems.length} dueFloating=${dueFloating.length}`);
+      }
+
+      if (tokens.length === 0) continue;
 
       const targets = [
         ...dueItems.map(d => ({ doc: d, collection: "items", data: d.data() })),
@@ -300,6 +313,6 @@ exports.sendDueReminders = onSchedule(
       }
     }
 
-    console.log(`[sendDueReminders] ${totalSent} envoyés, ${totalSkipped} échoués.`);
+    console.log(`[sendDueReminders] users=${usersSnap.size} tokens=${totalTokens} dueItems=${totalDueItems} dueFloating=${totalDueFloating} → ${totalSent} envoyés, ${totalSkipped} échoués.`);
   }
 );
