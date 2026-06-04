@@ -117,10 +117,10 @@ exports.generateRecurringTasks = onSchedule(
     console.log(`[generateRecurringTasks] Traitement pour ${todayKey}`);
 
     // Parcourir tous les utilisateurs
-    const usersSnap = await db.collection("users").get();
+    const userRefs = await db.collection("users").listDocuments();
 
-    for (const userDoc of usersSnap.docs) {
-      const uid = userDoc.id;
+    for (const userRef of userRefs) {
+      const uid = userRef.id;
 
       try {
         const templatesSnap = await db
@@ -221,7 +221,7 @@ exports.sendDueReminders = onSchedule(
     const now = new Date();
     const nowIso = now.toISOString();
 
-    const usersSnap = await db.collection("users").get();
+    const userRefs = await db.collection("users").listDocuments();
     let totalSent = 0;
     let totalSkipped = 0;
     // Compteurs de diagnostic
@@ -229,8 +229,8 @@ exports.sendDueReminders = onSchedule(
     let totalDueItems = 0;
     let totalDueFloating = 0;
 
-    for (const userDoc of usersSnap.docs) {
-      const uid = userDoc.id;
+    for (const userRef of userRefs) {
+      const uid = userRef.id;
 
       // Items à notifier (tâches de dossiers)
       const itemsSnap = await db.collection(`users/${uid}/items`)
@@ -313,6 +313,6 @@ exports.sendDueReminders = onSchedule(
       }
     }
 
-    console.log(`[sendDueReminders] users=${usersSnap.size} tokens=${totalTokens} dueItems=${totalDueItems} dueFloating=${totalDueFloating} → ${totalSent} envoyés, ${totalSkipped} échoués.`);
+    console.log(`[sendDueReminders] users=${userRefs.length} tokens=${totalTokens} dueItems=${totalDueItems} dueFloating=${totalDueFloating} → ${totalSent} envoyés, ${totalSkipped} échoués.`);
   }
 );
