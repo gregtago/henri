@@ -229,6 +229,18 @@ exports.sendDueReminders = onSchedule(
     let totalDueItems = 0;
     let totalDueFloating = 0;
 
+    // DIAG2 : projet réellement utilisé + comptage direct (contourne les
+    // documents "users" fantômes et l'itération par utilisateur).
+    try {
+      const projectId = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || "?";
+      const cgTokens = (await db.collectionGroup("pushTokens").count().get()).data().count;
+      const cgItems = (await db.collectionGroup("items").count().get()).data().count;
+      const cgFloat = (await db.collectionGroup("floatingTasks").count().get()).data().count;
+      console.log(`[sendDueReminders][diag2] project=${projectId} listDocs=${userRefs.length} cgTokens=${cgTokens} cgItems=${cgItems} cgFloat=${cgFloat}`);
+    } catch (e) {
+      console.error("[sendDueReminders][diag2] échec", e && e.message ? e.message : e);
+    }
+
     for (const userRef of userRefs) {
       const uid = userRef.id;
 
