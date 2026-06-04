@@ -272,15 +272,19 @@ exports.sendDueReminders = onSchedule(
           : "Mémo à traiter";
 
         try {
+          // Message "data-only" (PAS de champ `notification`) : sur iOS PWA, FCM
+          // n'affiche pas de façon fiable les messages avec `notification`.
+          // En data-only, c'est notre service worker (onBackgroundMessage →
+          // showNotification) qui affiche la notif, ce qui marche sur iOS.
           const response = await messaging.sendEachForMulticast({
             tokens: tokenStrings,
-            notification: { title, body },
             data: {
               url: "/my-day",
               tag: `${t.collection}-${t.doc.id}`,
               title, body,
             },
             webpush: {
+              headers: { Urgency: "high" },
               fcmOptions: { link: "/my-day" },
             },
           });
