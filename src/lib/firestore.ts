@@ -325,6 +325,7 @@ export const importCaseFromJson = async (
     throw new Error("Structure > 3 niveaux détectée.");
   }
   const batch = writeBatch(db);
+
   const caseRef = doc(userCollection(uid, "cases"));
   batch.set(caseRef, {
     ...parsed.case,
@@ -332,17 +333,28 @@ export const importCaseFromJson = async (
     createdAt: nowIso(),
     updatedAt: nowIso()
   });
-  parsed.items.forEach((item) => {
+
+  // Pré-générer les nouveaux IDs : ancien id -> nouvel id
+  const idMap = new Map<string, string>();
+  const refs = parsed.items.map((item) => {
     const ref = doc(userCollection(uid, "items"));
-    batch.set(ref, {
+    idMap.set(item.id, ref.id);
+    return ref;
+  });
+
+  // Écrire en remappant caseId ET parentItemId
+  parsed.items.forEach((item, i) => {
+    batch.set(refs[i], {
       ...item,
-      id: ref.id,
+      id: refs[i].id,
       caseId: caseRef.id,
+      parentItemId: item.parentItemId ? idMap.get(item.parentItemId) ?? null : null,
       status: mode === "model" ? ("Créé" as Status) : item.status,
       createdAt: nowIso(),
       updatedAt: nowIso()
     });
   });
+
   await batch.commit();
 };
 
