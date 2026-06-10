@@ -25,13 +25,21 @@ du détail d'un dossier : les tâches sont ajoutées au dossier déjà ouvert.
 - `level` *(requis)* — `2` pour une tâche, `3` pour une sous-tâche
 - `parentItemId` — pour une sous-tâche (`level: 3`), l'`id` de la tâche parente ;
   `null` pour une tâche de premier niveau
-- `status` *(requis)* — `"Créé"`, `"Demandé"`, `"Reçu"` ou `"Traité"`
+- `status` — `"Créé"`, `"Demandé"`, `"Reçu"` ou `"Traité"`.
+  **À l'import, toutes les tâches repartent du statut « Créé »** : ce champ
+  n'est donc pas pris en compte ici (il sert surtout pour les exports, qui
+  sont une photo fidèle de l'état des tâches).
 - `starred` — `true` pour marquer la tâche comme importante (optionnel)
 - `dueDate` — échéance (ISO, ou `null`)
 
 ## Bon à savoir
+- **Les tâches importées repartent toujours du statut « Créé »**, que ce soit
+  via « Importer » ou « Importer des tâches ».
 - Les `id` du fichier ne servent qu'à relier les sous-tâches à leur parent :
   ils sont régénérés à l'import, donc aucun risque de collision avec l'existant.
 - Le `caseId` des tâches est ignoré lors d'un import « Importer des tâches » :
   les tâches sont automatiquement rattachées au dossier ouvert.
 - Profondeur maximale : 3 niveaux (dossier → tâche → sous-tâche).
+- Inversement, l'**export de tâches sélectionnées** (mode « Sélection » de la
+  colonne Tâches → « Exporter ») produit un fichier `{ items }` directement
+  réimportable via « Importer des tâches ».

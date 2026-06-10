@@ -16,7 +16,7 @@
       "parentItemId": null,
       "level": 2,
       "title": "Pièces du vendeur",
-      "status": "Demandé",
+      "status": "Créé",
       "starred": true,
       "createdAt": "2026-06-10T08:00:00.000Z",
       "updatedAt": "2026-06-10T08:00:00.000Z"
@@ -27,7 +27,7 @@
       "parentItemId": "i1",
       "level": 3,
       "title": "Titre de propriété",
-      "status": "Reçu",
+      "status": "Créé",
       "createdAt": "2026-06-10T08:00:00.000Z",
       "updatedAt": "2026-06-10T08:00:00.000Z"
     },
@@ -37,7 +37,7 @@
       "parentItemId": "i1",
       "level": 3,
       "title": "Pièce d'identité (CNI ou passeport)",
-      "status": "Reçu",
+      "status": "Créé",
       "createdAt": "2026-06-10T08:00:00.000Z",
       "updatedAt": "2026-06-10T08:00:00.000Z"
     },
@@ -47,7 +47,7 @@
       "parentItemId": "i1",
       "level": 3,
       "title": "Justificatif de domicile",
-      "status": "Demandé",
+      "status": "Créé",
       "createdAt": "2026-06-10T08:00:00.000Z",
       "updatedAt": "2026-06-10T08:00:00.000Z"
     },
@@ -57,7 +57,7 @@
       "parentItemId": null,
       "level": 2,
       "title": "Pièces de l'acquéreur",
-      "status": "Demandé",
+      "status": "Créé",
       "createdAt": "2026-06-10T08:00:00.000Z",
       "updatedAt": "2026-06-10T08:00:00.000Z"
     },
@@ -67,7 +67,7 @@
       "parentItemId": "i2",
       "level": 3,
       "title": "Pièce d'identité",
-      "status": "Reçu",
+      "status": "Créé",
       "createdAt": "2026-06-10T08:00:00.000Z",
       "updatedAt": "2026-06-10T08:00:00.000Z"
     },
@@ -77,7 +77,7 @@
       "parentItemId": "i2",
       "level": 3,
       "title": "Offre de prêt / plan de financement",
-      "status": "Demandé",
+      "status": "Créé",
       "dueDate": "2026-07-15T00:00:00.000Z",
       "createdAt": "2026-06-10T08:00:00.000Z",
       "updatedAt": "2026-06-10T08:00:00.000Z"
@@ -88,7 +88,7 @@
       "parentItemId": null,
       "level": 2,
       "title": "Diagnostics techniques",
-      "status": "Demandé",
+      "status": "Créé",
       "createdAt": "2026-06-10T08:00:00.000Z",
       "updatedAt": "2026-06-10T08:00:00.000Z"
     },
@@ -98,7 +98,7 @@
       "parentItemId": "i3",
       "level": 3,
       "title": "DPE (diagnostic de performance énergétique)",
-      "status": "Reçu",
+      "status": "Créé",
       "createdAt": "2026-06-10T08:00:00.000Z",
       "updatedAt": "2026-06-10T08:00:00.000Z"
     },
@@ -108,7 +108,7 @@
       "parentItemId": "i3",
       "level": 3,
       "title": "Amiante",
-      "status": "Demandé",
+      "status": "Créé",
       "createdAt": "2026-06-10T08:00:00.000Z",
       "updatedAt": "2026-06-10T08:00:00.000Z"
     },
@@ -118,7 +118,7 @@
       "parentItemId": "i3",
       "level": 3,
       "title": "Plomb (CREP)",
-      "status": "Demandé",
+      "status": "Créé",
       "createdAt": "2026-06-10T08:00:00.000Z",
       "updatedAt": "2026-06-10T08:00:00.000Z"
     },
@@ -148,7 +148,7 @@
       "parentItemId": "i4",
       "level": 3,
       "title": "Certificat d'urbanisme",
-      "status": "Demandé",
+      "status": "Créé",
       "createdAt": "2026-06-10T08:00:00.000Z",
       "updatedAt": "2026-06-10T08:00:00.000Z"
     },

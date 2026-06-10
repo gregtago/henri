@@ -317,8 +317,7 @@ export const exportCaseToJson = (caseData: Case, items: Item[]) =>
 
 export const importCaseFromJson = async (
   uid: string,
-  raw: string,
-  mode: "model" | "history"
+  raw: string
 ) => {
   const parsed = JSON.parse(raw) as { case: Case; items: Item[] };
   if (!validateImportDepth(parsed.items)) {
@@ -342,14 +341,15 @@ export const importCaseFromJson = async (
     return ref;
   });
 
-  // Écrire en remappant caseId ET parentItemId
+  // Écrire en remappant caseId ET parentItemId.
+  // Les tâches importées repartent toujours du statut « Créé ».
   parsed.items.forEach((item, i) => {
     batch.set(refs[i], {
       ...item,
       id: refs[i].id,
       caseId: caseRef.id,
       parentItemId: item.parentItemId ? idMap.get(item.parentItemId) ?? null : null,
-      status: mode === "model" ? ("Créé" as Status) : item.status,
+      status: "Créé" as Status,
       createdAt: nowIso(),
       updatedAt: nowIso()
     });
@@ -364,8 +364,7 @@ export const importCaseFromJson = async (
 export const importItemsIntoCase = async (
   uid: string,
   caseId: string,
-  raw: string,
-  mode: "model" | "history" = "history"
+  raw: string
 ) => {
   const parsed = JSON.parse(raw) as { case?: Case; items?: Item[] };
   const sourceItems = parsed.items ?? [];
@@ -385,14 +384,15 @@ export const importItemsIntoCase = async (
     return ref;
   });
 
-  // Écrire en rattachant chaque tâche au dossier cible, en remappant parentItemId
+  // Écrire en rattachant chaque tâche au dossier cible, en remappant parentItemId.
+  // Les tâches importées repartent toujours du statut « Créé ».
   sourceItems.forEach((item, i) => {
     batch.set(refs[i], {
       ...item,
       id: refs[i].id,
       caseId,
       parentItemId: item.parentItemId ? idMap.get(item.parentItemId) ?? null : null,
-      status: mode === "model" ? ("Créé" as Status) : item.status,
+      status: "Créé" as Status,
       createdAt: nowIso(),
       updatedAt: nowIso()
     });
@@ -400,6 +400,11 @@ export const importItemsIntoCase = async (
 
   await batch.commit();
 };
+
+// Exporter une liste de tâches au format `{ items }`, réimportable dans un
+// dossier existant via « Importer des tâches ».
+export const exportItemsToJson = (items: Item[]) =>
+  JSON.stringify({ items }, null, 2);
 
 export const getItemsByParent = (items: Item[], parentItemId: string | null) =>
   items.filter((item) => (parentItemId ? item.parentItemId === parentItemId : !item.parentItemId));
