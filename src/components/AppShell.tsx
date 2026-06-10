@@ -55,6 +55,7 @@ import type { Case, Comment, Event, FloatingTask, Item, MyDaySelection, Status }
 import { STATUSES } from "@/lib/types";
 import { RecurrencePicker } from "./RecurrencePicker";
 import { Icon } from "./Icon";
+import { EditableInput, EditableTextarea } from "./EditableField";
 import { ReminderPicker } from "./ReminderPicker";
 import { formatRecurrence } from "@/lib/recurrence";
 
@@ -1889,11 +1890,12 @@ export default function AppShell() {
         {/* ── DÉTAIL DOSSIER ── */}
         {detailCase ? (
           <>
-            <input
+            <EditableInput
+              key={detailCase.id}
               ref={detailCaseRef}
               className="detail-title-input"
               value={detailCase.title}
-              onChange={(e) => updateCase(user.uid, detailCase.id, { title: e.target.value })}
+              onCommit={(next) => updateCase(user.uid, detailCase.id, { title: next })}
               onKeyDown={e => {
                 if (e.key === "Enter") {
                   e.stopPropagation();
@@ -1963,11 +1965,12 @@ export default function AppShell() {
               {/* Note */}
               <div>
                 <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1.5">Note</p>
-                <textarea
+                <EditableTextarea
+                  key={detailCase.id}
                   className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-2 outline-none w-full resize-none focus:border-border-strong transition-colors"
                   rows={4}
                   value={detailCase.caseNote ?? ""}
-                  onChange={(e) => updateCase(user.uid, detailCase.id, { caseNote: e.target.value })}
+                  onCommit={(next) => updateCase(user.uid, detailCase.id, { caseNote: next })}
                   placeholder="Ajouter une note…"
                 />
               </div>
@@ -1991,12 +1994,13 @@ export default function AppShell() {
               >
                 <Icon name="star" size={26} filled={!!detailItem.starred} strokeWidth={1.75} />
               </button>
-              <input
+              <EditableInput
+                key={detailItem.id}
                 ref={detailTitleRef}
                 className="detail-title-input"
                 style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
                 value={detailItem.title}
-                onChange={(e) => updateItem(user.uid, detailItem.id, { title: e.target.value })}
+                onCommit={(next) => updateItem(user.uid, detailItem.id, { title: next })}
                 onKeyDown={e => {
                   if (e.key === "Enter") {
                     e.stopPropagation();
@@ -3107,7 +3111,8 @@ export default function AppShell() {
                             >
                               <Icon name="star" size={26} filled={task.starred} strokeWidth={1.75} />
                             </button>
-                            <input
+                            <EditableInput
+                              key={task.id}
                               ref={myDayTitleRef}
                               className="block flex-1 min-w-0 font-[inherit] text-[20px] font-semibold text-[#451a03] placeholder:text-[#a16207] outline-none transition-all"
                               style={{
@@ -3129,7 +3134,7 @@ export default function AppShell() {
                               }}
                               placeholder="Sans titre"
                               value={task.title}
-                              onChange={e => updateFloatingTask(user.uid, task.id, { title: e.target.value })}
+                              onCommit={next => updateFloatingTask(user.uid, task.id, { title: next })}
                               onKeyDown={e => {
                                 if (e.key === "Enter") { e.stopPropagation(); (e.target as HTMLInputElement).blur(); }
                               }}
