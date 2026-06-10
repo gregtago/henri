@@ -1,0 +1,206 @@
+{
+  "case": {
+    "id": "dossier-modele-vente",
+    "title": "Vente immobilière — 12 rue des Lilas",
+    "type": "Vente",
+    "legalDueDate": "2026-09-30T00:00:00.000Z",
+    "caseNote": "Modèle de dossier de vente immobilière. Adapter le titre, les parties et les dates avant utilisation.",
+    "archived": false,
+    "createdAt": "2026-06-10T08:00:00.000Z",
+    "updatedAt": "2026-06-10T08:00:00.000Z"
+  },
+  "items": [
+    {
+      "id": "i1",
+      "caseId": "dossier-modele-vente",
+      "parentItemId": null,
+      "level": 2,
+      "title": "Pièces du vendeur",
+      "status": "Créé",
+      "starred": true,
+      "createdAt": "2026-06-10T08:00:00.000Z",
+      "updatedAt": "2026-06-10T08:00:00.000Z"
+    },
+    {
+      "id": "i1a",
+      "caseId": "dossier-modele-vente",
+      "parentItemId": "i1",
+      "level": 3,
+      "title": "Titre de propriété",
+      "status": "Créé",
+      "createdAt": "2026-06-10T08:00:00.000Z",
+      "updatedAt": "2026-06-10T08:00:00.000Z"
+    },
+    {
+      "id": "i1b",
+      "caseId": "dossier-modele-vente",
+      "parentItemId": "i1",
+      "level": 3,
+      "title": "Pièce d'identité (CNI ou passeport)",
+      "status": "Créé",
+      "createdAt": "2026-06-10T08:00:00.000Z",
+      "updatedAt": "2026-06-10T08:00:00.000Z"
+    },
+    {
+      "id": "i1c",
+      "caseId": "dossier-modele-vente",
+      "parentItemId": "i1",
+      "level": 3,
+      "title": "Justificatif de domicile",
+      "status": "Créé",
+      "createdAt": "2026-06-10T08:00:00.000Z",
+      "updatedAt": "2026-06-10T08:00:00.000Z"
+    },
+    {
+      "id": "i2",
+      "caseId": "dossier-modele-vente",
+      "parentItemId": null,
+      "level": 2,
+      "title": "Pièces de l'acquéreur",
+      "status": "Créé",
+      "createdAt": "2026-06-10T08:00:00.000Z",
+      "updatedAt": "2026-06-10T08:00:00.000Z"
+    },
+    {
+      "id": "i2a",
+      "caseId": "dossier-modele-vente",
+      "parentItemId": "i2",
+      "level": 3,
+      "title": "Pièce d'identité",
+      "status": "Créé",
+      "createdAt": "2026-06-10T08:00:00.000Z",
+      "updatedAt": "2026-06-10T08:00:00.000Z"
+    },
+    {
+      "id": "i2b",
+      "caseId": "dossier-modele-vente",
+      "parentItemId": "i2",
+      "level": 3,
+      "title": "Offre de prêt / plan de financement",
+      "status": "Créé",
+      "dueDate": "2026-07-15T00:00:00.000Z",
+      "createdAt": "2026-06-10T08:00:00.000Z",
+      "updatedAt": "2026-06-10T08:00:00.000Z"
+    },
+    {
+      "id": "i3",
+      "caseId": "dossier-modele-vente",
+      "parentItemId": null,
+      "level": 2,
+      "title": "Diagnostics techniques",
+      "status": "Créé",
+      "createdAt": "2026-06-10T08:00:00.000Z",
+      "updatedAt": "2026-06-10T08:00:00.000Z"
+    },
+    {
+      "id": "i3a",
+      "caseId": "dossier-modele-vente",
+      "parentItemId": "i3",
+      "level": 3,
+      "title": "DPE (diagnostic de performance énergétique)",
+      "status": "Créé",
+      "createdAt": "2026-06-10T08:00:00.000Z",
+      "updatedAt": "2026-06-10T08:00:00.000Z"
+    },
+    {
+      "id": "i3b",
+      "caseId": "dossier-modele-vente",
+      "parentItemId": "i3",
+      "level": 3,
+      "title": "Amiante",
+      "status": "Créé",
+      "createdAt": "2026-06-10T08:00:00.000Z",
+      "updatedAt": "2026-06-10T08:00:00.000Z"
+    },
+    {
+      "id": "i3c",
+      "caseId": "dossier-modele-vente",
+      "parentItemId": "i3",
+      "level": 3,
+      "title": "Plomb (CREP)",
+      "status": "Créé",
+      "createdAt": "2026-06-10T08:00:00.000Z",
+      "updatedAt": "2026-06-10T08:00:00.000Z"
+    },
+    {
+      "id": "i3d",
+      "caseId": "dossier-modele-vente",
+      "parentItemId": "i3",
+      "level": 3,
+      "title": "État de l'installation électrique",
+      "status": "Créé",
+      "createdAt": "2026-06-10T08:00:00.000Z",
+      "updatedAt": "2026-06-10T08:00:00.000Z"
+    },
+    {
+      "id": "i4",
+      "caseId": "dossier-modele-vente",
+      "parentItemId": null,
+      "level": 2,
+      "title": "Urbanisme",
+      "status": "Créé",
+      "createdAt": "2026-06-10T08:00:00.000Z",
+      "updatedAt": "2026-06-10T08:00:00.000Z"
+    },
+    {
+      "id": "i4a",
+      "caseId": "dossier-modele-vente",
+      "parentItemId": "i4",
+      "level": 3,
+      "title": "Certificat d'urbanisme",
+      "status": "Créé",
+      "createdAt": "2026-06-10T08:00:00.000Z",
+      "updatedAt": "2026-06-10T08:00:00.000Z"
+    },
+    {
+      "id": "i4b",
+      "caseId": "dossier-modele-vente",
+      "parentItemId": "i4",
+      "level": 3,
+      "title": "Note de renseignements d'urbanisme",
+      "status": "Créé",
+      "createdAt": "2026-06-10T08:00:00.000Z",
+      "updatedAt": "2026-06-10T08:00:00.000Z"
+    },
+    {
+      "id": "i5",
+      "caseId": "dossier-modele-vente",
+      "parentItemId": null,
+      "level": 2,
+      "title": "Avant-contrat (compromis de vente)",
+      "status": "Créé",
+      "createdAt": "2026-06-10T08:00:00.000Z",
+      "updatedAt": "2026-06-10T08:00:00.000Z"
+    },
+    {
+      "id": "i5a",
+      "caseId": "dossier-modele-vente",
+      "parentItemId": "i5",
+      "level": 3,
+      "title": "Rédaction du compromis",
+      "status": "Créé",
+      "createdAt": "2026-06-10T08:00:00.000Z",
+      "updatedAt": "2026-06-10T08:00:00.000Z"
+    },
+    {
+      "id": "i5b",
+      "caseId": "dossier-modele-vente",
+      "parentItemId": "i5",
+      "level": 3,
+      "title": "Signature du compromis",
+      "status": "Créé",
+      "createdAt": "2026-06-10T08:00:00.000Z",
+      "updatedAt": "2026-06-10T08:00:00.000Z"
+    },
+    {
+      "id": "i6",
+      "caseId": "dossier-modele-vente",
+      "parentItemId": null,
+      "level": 2,
+      "title": "Acte authentique de vente",
+      "status": "Créé",
+      "createdAt": "2026-06-10T08:00:00.000Z",
+      "updatedAt": "2026-06-10T08:00:00.000Z"
+    }
+  ]
+}

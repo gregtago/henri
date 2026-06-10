@@ -20,9 +20,11 @@ import {
   restoreFloatingTasks,
   deleteMyDaySelection,
   exportCaseToJson,
+  exportItemsToJson,
   getItemsByCase,
   getSubItems,
   importCaseFromJson,
+  importItemsIntoCase,
   logStatusEvent,
   queryMyDayByDate,
   subscribeCases,
@@ -163,7 +165,6 @@ export default function AppShell() {
   const [myDayDetailId, setMyDayDetailId] = useState<string | null>(null);
   const [dossierSearch, setDossierSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
-  const [importMode, setImportMode] = useState<"model" | "history">("history");
   const [isImportOpen, setIsImportOpen] = useState(false); // "f-{id}" pour volante, selectionId pour dossier
   const toastTimeout = useRef<number | null>(null);
   const backfilledItemIds = useRef<Set<string>>(new Set());
@@ -1684,15 +1685,34 @@ export default function AppShell() {
     URL.revokeObjectURL(url);
   };
 
-  const handleImport = async (file: File | null, mode: "model" | "history") => {
+  const handleImportItemsIntoCase = async (caseId: string, file: File | null) => {
     if (!user || !file) return;
     const text = await file.text();
     try {
-      await importCaseFromJson(user.uid, text, mode);
-      showToast("Import terminé.");
+      await importItemsIntoCase(user.uid, caseId, text);
+      showToast("Tâches importées.");
     } catch (err) {
       showToast((err as Error).message);
     }
+  };
+
+  const handleExportSelectedItems = () => {
+    if (selectedItemIds.length === 0) return;
+    const selectedSet = new Set(selectedItemIds);
+    // Inclure les tâches cochées + les sous-tâches des tâches de niveau 2
+    // sélectionnées, pour conserver la hiérarchie à la réimportation.
+    const toExport = items.filter(
+      (it) => selectedSet.has(it.id) || (it.parentItemId ? selectedSet.has(it.parentItemId) : false)
+    );
+    const json = exportItemsToJson(toExport);
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `taches-${todayKey}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    showToast(`${toExport.length} tâche(s) exportée(s).`);
   };
 
   const handleArchiveCase = async (caseId: string, archive: boolean) => {
@@ -2205,6 +2225,13 @@ export default function AppShell() {
             <button className="detail-action-btn" onClick={() => handleExport(detailCase)}>
               <span>↓</span> Exporter
             </button>
+            <label className="detail-action-btn" title="Importer des tâches dans ce dossier depuis un fichier JSON">
+              <span>↑</span> Importer des tâches
+              <input type="file" accept="application/json" className="hidden" onChange={async (e) => {
+                await handleImportItemsIntoCase(detailCase.id, e.target.files?.[0] ?? null);
+                e.target.value = "";
+              }} />
+            </label>
             <button className="detail-action-btn" onClick={() => handleArchiveCase(detailCase.id, !detailCase.archived)}>
               <span>{detailCase.archived ? "↩" : "📦"}</span> {detailCase.archived ? "Restaurer" : "Archiver"}
             </button>
@@ -2522,7 +2549,7 @@ export default function AppShell() {
                     if (!file || !user) return;
                     const text = await file.text();
                     try {
-                      await importCaseFromJson(user.uid, text, importMode);
+                      await importCaseFromJson(user.uid, text);
                       showToast("Dossier importé.");
                     } catch (err) {
                       showToast((err as Error).message);
@@ -2567,6 +2594,7 @@ export default function AppShell() {
                       showToast("☀ Ajouté à Ma journée.");
                     }}
                   >Ma journée</button>
+                  <button className={btnGhost} onClick={handleExportSelectedItems}>Exporter</button>
                   <button className={btnDanger} onClick={handleDelete}>Supprimer</button>
                   <button
                     className="text-[14px] text-tx-3 bg-transparent border-none cursor-pointer ml-auto"

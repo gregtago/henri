@@ -317,8 +317,7 @@ export const exportCaseToJson = (caseData: Case, items: Item[]) =>
 
 export const importCaseFromJson = async (
   uid: string,
-  raw: string,
-  mode: "model" | "history"
+  raw: string
 ) => {
   const parsed = JSON.parse(raw) as { case: Case; items: Item[] };
   if (!validateImportDepth(parsed.items)) {
@@ -342,14 +341,15 @@ export const importCaseFromJson = async (
     return ref;
   });
 
-  // Écrire en remappant caseId ET parentItemId
+  // Écrire en remappant caseId ET parentItemId.
+  // Les tâches importées repartent toujours du statut « Créé ».
   parsed.items.forEach((item, i) => {
     batch.set(refs[i], {
       ...item,
       id: refs[i].id,
       caseId: caseRef.id,
       parentItemId: item.parentItemId ? idMap.get(item.parentItemId) ?? null : null,
-      status: mode === "model" ? ("Créé" as Status) : item.status,
+      status: "Créé" as Status,
       createdAt: nowIso(),
       updatedAt: nowIso()
     });
@@ -357,6 +357,54 @@ export const importCaseFromJson = async (
 
   await batch.commit();
 };
+
+// Importer les tâches d'un fichier JSON dans un dossier déjà existant.
+// Réutilise le même format que l'export (`{ case, items }`) : seules les tâches
+// sont reprises, le dossier cible reste celui passé en argument.
+export const importItemsIntoCase = async (
+  uid: string,
+  caseId: string,
+  raw: string
+) => {
+  const parsed = JSON.parse(raw) as { case?: Case; items?: Item[] };
+  const sourceItems = parsed.items ?? [];
+  if (!sourceItems.length) {
+    throw new Error("Aucune tâche à importer dans ce fichier.");
+  }
+  if (!validateImportDepth(sourceItems)) {
+    throw new Error("Structure > 3 niveaux détectée.");
+  }
+  const batch = writeBatch(db);
+
+  // Pré-générer les nouveaux IDs : ancien id -> nouvel id
+  const idMap = new Map<string, string>();
+  const refs = sourceItems.map((item) => {
+    const ref = doc(userCollection(uid, "items"));
+    idMap.set(item.id, ref.id);
+    return ref;
+  });
+
+  // Écrire en rattachant chaque tâche au dossier cible, en remappant parentItemId.
+  // Les tâches importées repartent toujours du statut « Créé ».
+  sourceItems.forEach((item, i) => {
+    batch.set(refs[i], {
+      ...item,
+      id: refs[i].id,
+      caseId,
+      parentItemId: item.parentItemId ? idMap.get(item.parentItemId) ?? null : null,
+      status: "Créé" as Status,
+      createdAt: nowIso(),
+      updatedAt: nowIso()
+    });
+  });
+
+  await batch.commit();
+};
+
+// Exporter une liste de tâches au format `{ items }`, réimportable dans un
+// dossier existant via « Importer des tâches ».
+export const exportItemsToJson = (items: Item[]) =>
+  JSON.stringify({ items }, null, 2);
 
 export const getItemsByParent = (items: Item[], parentItemId: string | null) =>
   items.filter((item) => (parentItemId ? item.parentItemId === parentItemId : !item.parentItemId));

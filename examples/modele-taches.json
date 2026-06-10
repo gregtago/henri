@@ -1,0 +1,114 @@
+{
+  "items": [
+    {
+      "id": "t1",
+      "caseId": "modele-taches",
+      "parentItemId": null,
+      "level": 2,
+      "title": "Ouverture du dossier",
+      "status": "Créé",
+      "createdAt": "2026-06-10T08:00:00.000Z",
+      "updatedAt": "2026-06-10T08:00:00.000Z"
+    },
+    {
+      "id": "t1a",
+      "caseId": "modele-taches",
+      "parentItemId": "t1",
+      "level": 3,
+      "title": "Créer la fiche client",
+      "status": "Créé",
+      "createdAt": "2026-06-10T08:00:00.000Z",
+      "updatedAt": "2026-06-10T08:00:00.000Z"
+    },
+    {
+      "id": "t1b",
+      "caseId": "modele-taches",
+      "parentItemId": "t1",
+      "level": 3,
+      "title": "Vérifier l'identité des parties",
+      "status": "Créé",
+      "createdAt": "2026-06-10T08:00:00.000Z",
+      "updatedAt": "2026-06-10T08:00:00.000Z"
+    },
+    {
+      "id": "t2",
+      "caseId": "modele-taches",
+      "parentItemId": null,
+      "level": 2,
+      "title": "Demander les pièces",
+      "status": "Créé",
+      "createdAt": "2026-06-10T08:00:00.000Z",
+      "updatedAt": "2026-06-10T08:00:00.000Z"
+    },
+    {
+      "id": "t2a",
+      "caseId": "modele-taches",
+      "parentItemId": "t2",
+      "level": 3,
+      "title": "Justificatifs d'identité et de domicile",
+      "status": "Créé",
+      "createdAt": "2026-06-10T08:00:00.000Z",
+      "updatedAt": "2026-06-10T08:00:00.000Z"
+    },
+    {
+      "id": "t2b",
+      "caseId": "modele-taches",
+      "parentItemId": "t2",
+      "level": 3,
+      "title": "Pièces spécifiques au dossier",
+      "status": "Créé",
+      "createdAt": "2026-06-10T08:00:00.000Z",
+      "updatedAt": "2026-06-10T08:00:00.000Z"
+    },
+    {
+      "id": "t3",
+      "caseId": "modele-taches",
+      "parentItemId": null,
+      "level": 2,
+      "title": "Rédaction de l'acte",
+      "status": "Créé",
+      "createdAt": "2026-06-10T08:00:00.000Z",
+      "updatedAt": "2026-06-10T08:00:00.000Z"
+    },
+    {
+      "id": "t4",
+      "caseId": "modele-taches",
+      "parentItemId": null,
+      "level": 2,
+      "title": "Signature",
+      "status": "Créé",
+      "createdAt": "2026-06-10T08:00:00.000Z",
+      "updatedAt": "2026-06-10T08:00:00.000Z"
+    },
+    {
+      "id": "t5",
+      "caseId": "modele-taches",
+      "parentItemId": null,
+      "level": 2,
+      "title": "Formalités postérieures",
+      "status": "Créé",
+      "createdAt": "2026-06-10T08:00:00.000Z",
+      "updatedAt": "2026-06-10T08:00:00.000Z"
+    },
+    {
+      "id": "t5a",
+      "caseId": "modele-taches",
+      "parentItemId": "t5",
+      "level": 3,
+      "title": "Publication au service de publicité foncière",
+      "status": "Créé",
+      "createdAt": "2026-06-10T08:00:00.000Z",
+      "updatedAt": "2026-06-10T08:00:00.000Z"
+    },
+    {
+      "id": "t5b",
+      "caseId": "modele-taches",
+      "parentItemId": "t5",
+      "level": 3,
+      "title": "Envoi des copies authentiques aux parties",
+      "status": "Créé",
+      "createdAt": "2026-06-10T08:00:00.000Z",
+      "updatedAt": "2026-06-10T08:00:00.000Z"
+    }
+  ]
+}
