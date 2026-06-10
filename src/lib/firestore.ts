@@ -358,6 +358,49 @@ export const importCaseFromJson = async (
   await batch.commit();
 };
 
+// Importer les tâches d'un fichier JSON dans un dossier déjà existant.
+// Réutilise le même format que l'export (`{ case, items }`) : seules les tâches
+// sont reprises, le dossier cible reste celui passé en argument.
+export const importItemsIntoCase = async (
+  uid: string,
+  caseId: string,
+  raw: string,
+  mode: "model" | "history" = "history"
+) => {
+  const parsed = JSON.parse(raw) as { case?: Case; items?: Item[] };
+  const sourceItems = parsed.items ?? [];
+  if (!sourceItems.length) {
+    throw new Error("Aucune tâche à importer dans ce fichier.");
+  }
+  if (!validateImportDepth(sourceItems)) {
+    throw new Error("Structure > 3 niveaux détectée.");
+  }
+  const batch = writeBatch(db);
+
+  // Pré-générer les nouveaux IDs : ancien id -> nouvel id
+  const idMap = new Map<string, string>();
+  const refs = sourceItems.map((item) => {
+    const ref = doc(userCollection(uid, "items"));
+    idMap.set(item.id, ref.id);
+    return ref;
+  });
+
+  // Écrire en rattachant chaque tâche au dossier cible, en remappant parentItemId
+  sourceItems.forEach((item, i) => {
+    batch.set(refs[i], {
+      ...item,
+      id: refs[i].id,
+      caseId,
+      parentItemId: item.parentItemId ? idMap.get(item.parentItemId) ?? null : null,
+      status: mode === "model" ? ("Créé" as Status) : item.status,
+      createdAt: nowIso(),
+      updatedAt: nowIso()
+    });
+  });
+
+  await batch.commit();
+};
+
 export const getItemsByParent = (items: Item[], parentItemId: string | null) =>
   items.filter((item) => (parentItemId ? item.parentItemId === parentItemId : !item.parentItemId));
 

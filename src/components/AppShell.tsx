@@ -23,6 +23,7 @@ import {
   getItemsByCase,
   getSubItems,
   importCaseFromJson,
+  importItemsIntoCase,
   logStatusEvent,
   queryMyDayByDate,
   subscribeCases,
@@ -1695,6 +1696,17 @@ export default function AppShell() {
     }
   };
 
+  const handleImportItemsIntoCase = async (caseId: string, file: File | null) => {
+    if (!user || !file) return;
+    const text = await file.text();
+    try {
+      await importItemsIntoCase(user.uid, caseId, text, importMode);
+      showToast("Tâches importées.");
+    } catch (err) {
+      showToast((err as Error).message);
+    }
+  };
+
   const handleArchiveCase = async (caseId: string, archive: boolean) => {
     if (!user) return;
     await updateCase(user.uid, caseId, {
@@ -2205,6 +2217,13 @@ export default function AppShell() {
             <button className="detail-action-btn" onClick={() => handleExport(detailCase)}>
               <span>↓</span> Exporter
             </button>
+            <label className="detail-action-btn" title="Importer des tâches dans ce dossier depuis un fichier JSON">
+              <span>↑</span> Importer des tâches
+              <input type="file" accept="application/json" className="hidden" onChange={async (e) => {
+                await handleImportItemsIntoCase(detailCase.id, e.target.files?.[0] ?? null);
+                e.target.value = "";
+              }} />
+            </label>
             <button className="detail-action-btn" onClick={() => handleArchiveCase(detailCase.id, !detailCase.archived)}>
               <span>{detailCase.archived ? "↩" : "📦"}</span> {detailCase.archived ? "Restaurer" : "Archiver"}
             </button>
