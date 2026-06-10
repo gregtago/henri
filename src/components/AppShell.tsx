@@ -55,6 +55,7 @@ import type { Case, Comment, Event, FloatingTask, Item, MyDaySelection, Status }
 import { STATUSES } from "@/lib/types";
 import { RecurrencePicker } from "./RecurrencePicker";
 import { Icon } from "./Icon";
+import InstallButton from "./InstallButton";
 import { EditableInput, EditableTextarea } from "./EditableField";
 import { ReminderPicker } from "./ReminderPicker";
 import { formatRecurrence } from "@/lib/recurrence";
@@ -2345,6 +2346,7 @@ export default function AppShell() {
               ) : "Rappels"}
             </button>
           )}
+          <InstallButton />
           <Link href="/settings" className={btnGhost} style={{textDecoration:"none"}}>Préférences</Link>
           <button className={btnGhost} onClick={() => signOut(auth)}>Déconnexion</button>
         </div>

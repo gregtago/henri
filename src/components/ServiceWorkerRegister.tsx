@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { initInstallCapture } from "@/lib/pwaInstall";
 
 /**
  * Enregistre le service worker pour la PWA et gère sa mise à jour automatique.
@@ -16,6 +17,11 @@ import { useEffect } from "react";
  */
 export default function ServiceWorkerRegister() {
   useEffect(() => {
+    // Capter l'événement d'installabilité dans tous les environnements
+    // (le navigateur ne le déclenche de toute façon que si les critères PWA
+    // sont remplis, ce qui suppose le SW de production servi en HTTPS).
+    initInstallCapture();
+
     if (process.env.NODE_ENV !== "production") return;
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
 
