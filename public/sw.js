@@ -4,7 +4,7 @@
 // cache offline natif de Firestore (côté client SDK) qui sait gérer la
 // reconnexion et la résolution de conflits proprement.
 
-const CACHE_VERSION = "henri-v2";
+const CACHE_VERSION = "henri-v3";
 const APP_SHELL = [
   "/",
   "/my-day",
@@ -57,6 +57,22 @@ self.addEventListener("fetch", (event) => {
     url.hostname.includes("firestore") ||
     url.hostname.includes("googleapis")
   ) {
+    return;
+  }
+
+  // Manifest PWA : network-first impératif. En cache-first, Chrome lirait un
+  // ancien manifest (nom/icônes) et l'invite d'installation resterait périmée.
+  // On rafraîchit toujours depuis le réseau, avec fallback cache pour l'offline.
+  if (url.pathname === "/site.webmanifest") {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE_VERSION).then((cache) => cache.put(event.request, copy));
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
     return;
   }
 
