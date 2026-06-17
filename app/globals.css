@@ -240,6 +240,46 @@ kbd {
   flex-shrink: 0;
 }
 
+/* ── MOBILE RESPONSIVE — VUE DOSSIERS ── */
+@media (max-width: 767px) {
+  .finder-column {
+    width: 100vw;
+    flex-shrink: 0;
+  }
+
+  .finder-detail {
+    width: 100vw;
+    min-width: unset;
+    flex-shrink: 0;
+  }
+
+  /* Conteneur de toutes les colonnes — glisse horizontalement */
+  .finder-mobile-slider {
+    display: flex;
+    flex-direction: row;
+    height: 100%;
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform;
+  }
+
+  /* Cacher la bande latérale Ma journée sur mobile (remplacée par l'icône ☀ du header) */
+  .side-tab { display: none; }
+
+  /* Éléments masqués sur mobile (archives, import…) — !important pour primer sur les classes composants */
+  .mobile-hide { display: none !important; }
+}
+
+@media (min-width: 768px) {
+  .finder-mobile-slider {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    overflow: hidden;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
 /* ── PANNEAU LATÉRAL NAVIGATION ── */
 .side-tab {
   width: 28px;

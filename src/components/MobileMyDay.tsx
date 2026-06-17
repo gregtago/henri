@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useRef } from "react";
+import Link from "next/link";
 import type { User } from "firebase/auth";
 import {
   subscribeItems,
@@ -262,7 +263,18 @@ export default function MobileMyDay({ user }: { user: User }) {
 
       {/* Header */}
       <header style={{ background: "white", borderBottom: "1px solid #e5e7eb", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, position: "relative" }}>
-        <img src="/logo-henri-new.png" alt="Henri" style={{ height: "28px" }} />
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          {/* Accès Mes dossiers — haut à gauche */}
+          <Link
+            href="/"
+            style={{ width: "32px", height: "32px", borderRadius: "50%", border: "1px solid #e5e7eb", background: "#f9fafb", color: "#6b7280", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, textDecoration: "none" }}
+            title="Mes dossiers"
+            aria-label="Mes dossiers"
+          >
+            <Icon name="folder" size={16} />
+          </Link>
+          <img src="/logo-henri-new.png" alt="Henri" style={{ height: "28px" }} />
+        </div>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <span style={{ fontSize: "12px", color: "#6b7280" }}>
             {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
