@@ -3,10 +3,38 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 
-// Domaine de réception (ex. "in.henri.app"). Configuré côté hébergeur.
-const INBOUND_DOMAIN = process.env.INBOUND_EMAIL_DOMAIN || "";
+// Domaine de réception (ex. "in.henri.tagot.fr"). Surchargé par l'env.
+const INBOUND_DOMAIN = process.env.INBOUND_EMAIL_DOMAIN || "in.henri.tagot.fr";
 
-// Normalise un alias d'adresse : minuscules, sans accents, [a-z0-9._-].
+// Mots juridiques notariaux (ASCII, un seul token) servant de base mémorisable.
+const LEGAL_WORDS = [
+  "usufruit", "tontine", "servitude", "hypotheque", "succession", "donation",
+  "legataire", "testament", "indivision", "mitoyennete", "emphyteose", "viager",
+  "licitation", "soulte", "quotite", "saisine", "mandat", "procuration",
+  "caution", "nantissement", "bail", "rente", "dotation", "partage",
+  "codicille", "heritier", "minute", "grosse", "comparant", "vacation",
+  "fideicommis", "antichrese", "preciput", "douaire", "legs", "rapport",
+  "mutation", "prescription", "quittance", "compromis", "mandataire", "clause",
+  "mainlevee", "gage", "aubaine",
+];
+
+const SUFFIX_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789";
+
+function randInt(n: number): number {
+  const a = new Uint32Array(1);
+  globalThis.crypto.getRandomValues(a);
+  return a[0] % n;
+}
+
+// Génère un alias "mot-juridique" + 4 caractères alphanumériques, ex. "usufruit-h56c".
+function randomAlias(): string {
+  const word = LEGAL_WORDS[randInt(LEGAL_WORDS.length)];
+  let suffix = "";
+  for (let i = 0; i < 4; i++) suffix += SUFFIX_CHARS[randInt(SUFFIX_CHARS.length)];
+  return `${word}-${suffix}`;
+}
+
+// Normalise un alias personnalisé : minuscules, sans accents, [a-z0-9._-].
 function sanitizeAlias(raw: string): string {
   return raw
     .toLowerCase()
@@ -14,7 +42,7 @@ function sanitizeAlias(raw: string): string {
     .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9._-]+/g, "")
     .replace(/^[._-]+|[._-]+$/g, "")
-    .slice(0, 32);
+    .slice(0, 40);
 }
 
 async function authFromRequest(
@@ -56,18 +84,24 @@ async function claimAlias(
   });
 }
 
-async function findFreeAlias(uid: string, base: string): Promise<string> {
-  const candidate = base || `henri-${uid.slice(0, 6).toLowerCase()}`;
-  for (let i = 0; i < 50; i++) {
-    const tryAlias = i === 0 ? candidate : `${candidate}-${i + 1}`;
-    const snap = await adminDb.doc(`inboxAliases/${tryAlias}`).get();
-    if (!snap.exists || snap.get("uid") === uid) return tryAlias;
+// Cherche un alias aléatoire libre (le suffixe aléatoire rend les collisions rares).
+async function freeRandomAlias(uid: string): Promise<string> {
+  for (let i = 0; i < 10; i++) {
+    const candidate = randomAlias();
+    const snap = await adminDb.doc(`inboxAliases/${candidate}`).get();
+    if (!snap.exists || snap.get("uid") === uid) return candidate;
   }
-  return `${candidate}-${Date.now().toString(36)}`;
+  // Repli quasi impossible : suffixe plus long.
+  return `${randomAlias()}${randInt(36).toString(36)}`;
 }
 
 function addressOf(alias: string): string | null {
   return INBOUND_DOMAIN ? `${alias}@${INBOUND_DOMAIN}` : null;
+}
+
+async function previousAlias(uid: string): Promise<string | null> {
+  const meta = await adminDb.doc(`users/${uid}/meta/inbox`).get();
+  return meta.exists ? ((meta.get("alias") as string) ?? null) : null;
 }
 
 // GET : renvoie l'adresse mémo de l'utilisateur (en la créant si absente).
@@ -75,25 +109,29 @@ export async function GET(req: NextRequest) {
   const auth = await authFromRequest(req);
   if (!auth) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const metaRef = adminDb.doc(`users/${auth.uid}/meta/inbox`);
-  const meta = await metaRef.get();
-  let alias = meta.exists ? (meta.get("alias") as string | undefined) : undefined;
-
+  let alias = await previousAlias(auth.uid);
   if (!alias) {
-    const base = sanitizeAlias(auth.email?.split("@")[0] || "");
-    alias = await findFreeAlias(auth.uid, base);
+    alias = await freeRandomAlias(auth.uid);
     await claimAlias(auth.uid, alias, null);
   }
 
   return NextResponse.json({ alias, domain: INBOUND_DOMAIN || null, address: addressOf(alias) });
 }
 
-// POST { alias } : personnalise l'adresse mémo (unicité garantie).
+// POST : { regenerate: true } → nouvelle adresse aléatoire ; { alias } → personnalisation.
 export async function POST(req: NextRequest) {
   const auth = await authFromRequest(req);
   if (!auth) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const body = await req.json().catch(() => null);
+  const previous = await previousAlias(auth.uid);
+
+  if (body?.regenerate) {
+    const next = await freeRandomAlias(auth.uid);
+    await claimAlias(auth.uid, next, previous);
+    return NextResponse.json({ alias: next, domain: INBOUND_DOMAIN || null, address: addressOf(next) });
+  }
+
   const desired = sanitizeAlias(String(body?.alias ?? ""));
   if (desired.length < 3) {
     return NextResponse.json(
@@ -101,9 +139,6 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
-
-  const meta = await adminDb.doc(`users/${auth.uid}/meta/inbox`).get();
-  const previous = meta.exists ? ((meta.get("alias") as string) ?? null) : null;
 
   const res = await claimAlias(auth.uid, desired, previous);
   if (!res.ok) {

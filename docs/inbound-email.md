@@ -13,7 +13,10 @@ adresse. Gardez-la donc raisonnablement confidentielle.
 
 - `app/api/inbox/route.ts`
   - `GET` : renvoie (et crée si besoin) l'adresse mémo de l'utilisateur connecté.
+    L'adresse par défaut combine un **terme notarial** et **4 caractères
+    alphanumériques** aléatoires, ex. `usufruit-h56c` — mémorisable mais non devinable.
   - `POST { alias }` : personnalise l'adresse (unicité garantie par transaction).
+  - `POST { regenerate: true }` : tire une nouvelle adresse aléatoire.
   - Stockage : `users/{uid}/meta/inbox` + table inverse `inboxAliases/{alias} → { uid }`.
 - `app/api/inbound-email/route.ts` : webhook appelé par le service de réception.
   - Vérifie un secret partagé, résout `alias → uid`, déduplique, crée le mémo.
@@ -23,7 +26,7 @@ adresse. Gardez-la donc raisonnablement confidentielle.
 
 | Variable | Exemple | Rôle |
 |----------|---------|------|
-| `INBOUND_EMAIL_DOMAIN` | `in.henri.app` | Domaine des adresses entrantes. Tant qu'il est vide, l'UI affiche l'alias mais pas d'adresse complète. |
+| `INBOUND_EMAIL_DOMAIN` | `in.henri.tagot.fr` | Domaine des adresses entrantes (valeur par défaut dans le code, surchargeable). |
 | `INBOUND_WEBHOOK_SECRET` | (chaîne aléatoire longue) | Secret que le service de réception doit présenter (`?token=…` ou en-tête `x-inbound-token`). |
 
 ## Configuration de la réception (Brevo Inbound Parsing)

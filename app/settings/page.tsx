@@ -98,6 +98,29 @@ export default function SettingsPage() {
     }
   };
 
+  const regenerateAlias = async () => {
+    setSavingAlias(true);
+    setInboxError(null);
+    try {
+      const res = await authedFetch("/api/inbox", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ regenerate: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setInboxError(data?.message ?? "Erreur lors de la régénération.");
+        return;
+      }
+      setInbox(data as Inbox);
+      setAliasDraft((data as Inbox).alias);
+    } catch {
+      setInboxError("Erreur réseau.");
+    } finally {
+      setSavingAlias(false);
+    }
+  };
+
   const copyAddress = async () => {
     if (!inbox?.address) return;
     try {
@@ -390,6 +413,10 @@ export default function SettingsPage() {
                         className="text-[12px] font-[inherit] px-3 py-2 rounded border border-border bg-transparent text-tx-2 hover:border-border-strong hover:text-tx cursor-pointer transition-all">
                         {copyOk ? "Copié ✓" : "Copier"}
                       </button>
+                      <button onClick={regenerateAlias} disabled={savingAlias}
+                        className="text-[12px] font-[inherit] px-3 py-2 rounded border border-border bg-transparent text-tx-2 hover:border-border-strong hover:text-tx cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                        {savingAlias ? "…" : "Régénérer"}
+                      </button>
                     </div>
                   ) : (
                     <p className="text-[12.5px] text-tx-2 bg-bg-subtle border border-border rounded px-3 py-2">
@@ -409,7 +436,9 @@ export default function SettingsPage() {
                       </button>
                     </div>
                     <p className="text-[11.5px] text-tx-3 mt-1.5">
-                      Lettres, chiffres, points et tirets. Gardez cette adresse confidentielle :
+                      Par défaut, l'adresse combine un terme notarial et un suffixe aléatoire
+                      (ex. <span className="text-tx-2">usufruit-h56c</span>) : mémorisable mais non devinable.
+                      Vous pouvez la personnaliser ou la régénérer. Gardez-la confidentielle :
                       toute personne qui la connaît peut créer des mémos dans votre compte.
                     </p>
                   </div>

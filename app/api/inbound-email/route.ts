@@ -7,7 +7,7 @@ import { adminDb } from "@/lib/firebase-admin";
 // Un email envoyé à <alias>@INBOUND_EMAIL_DOMAIN crée un mémo (FloatingTask)
 // dans le compte de l'utilisateur propriétaire de cet alias.
 
-const INBOUND_DOMAIN = (process.env.INBOUND_EMAIL_DOMAIN || "").toLowerCase();
+const INBOUND_DOMAIN = (process.env.INBOUND_EMAIL_DOMAIN || "in.henri.tagot.fr").toLowerCase();
 const WEBHOOK_SECRET = process.env.INBOUND_WEBHOOK_SECRET || "";
 
 // YYYY-MM-DD dans le fuseau de l'app (cohérent avec getDateKey côté client).
