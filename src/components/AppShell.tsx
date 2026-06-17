@@ -2345,12 +2345,12 @@ export default function AppShell() {
     <div className="flex flex-col h-screen overflow-hidden">
 
       {/* ── HEADER ── */}
-      <header className="h-[48px] md:h-[44px] flex items-center px-4 border-b border-border bg-bg shrink-0 z-10 relative">
-        {/* Mobile : ☀ Ma journée + logo — à gauche */}
-        <div className="md:hidden flex items-center gap-2.5 z-10">
+      <header className="h-[48px] md:h-[44px] flex items-center px-[16px] border-b border-border bg-bg shrink-0 z-10 relative">
+        {/* Mobile : ☀ Ma journée + logo — à gauche (valeurs en px fixes pour matcher MobileMyDay) */}
+        <div className="md:hidden flex items-center gap-[10px] z-10">
           <Link
             href="/my-day"
-            className="w-8 h-8 flex items-center justify-center rounded-full border border-border bg-bg-subtle text-tx-2 hover:bg-bg-hover"
+            className="w-[32px] h-[32px] flex items-center justify-center rounded-full border border-border bg-bg-subtle text-tx-2 hover:bg-bg-hover"
             style={{ textDecoration: "none" }}
             title="Ma journée"
             aria-label="Ma journée"
@@ -2427,8 +2427,8 @@ export default function AppShell() {
           <Link href="/settings" className={`hidden md:inline-flex ${btnGhost}`} style={{textDecoration:"none"}}>Préférences</Link>
           <button className={`hidden md:inline-flex ${btnGhost}`} onClick={() => signOut(auth)}>Déconnexion</button>
           {/* Mobile : icônes rondes compactes */}
-          <Link href="/settings" className="md:hidden w-8 h-8 flex items-center justify-center rounded-full border border-border bg-bg-subtle hover:bg-bg-hover text-tx-2" style={{textDecoration:"none"}} title="Préférences" aria-label="Préférences"><Icon name="settings" size={16} /></Link>
-          <button className="md:hidden w-8 h-8 flex items-center justify-center rounded-full border border-border bg-bg-subtle hover:bg-bg-hover text-tx-2 cursor-pointer" onClick={() => signOut(auth)} title="Déconnexion" aria-label="Déconnexion"><Icon name="log-out" size={16} /></button>
+          <Link href="/settings" className="md:hidden w-[32px] h-[32px] flex items-center justify-center rounded-full border border-border bg-bg-subtle hover:bg-bg-hover text-tx-2" style={{textDecoration:"none"}} title="Préférences" aria-label="Préférences"><Icon name="settings" size={16} /></Link>
+          <button className="md:hidden w-[32px] h-[32px] flex items-center justify-center rounded-full border border-border bg-bg-subtle hover:bg-bg-hover text-tx-2 cursor-pointer" onClick={() => signOut(auth)} title="Déconnexion" aria-label="Déconnexion"><Icon name="log-out" size={16} /></button>
         </div>
       </header>
 
