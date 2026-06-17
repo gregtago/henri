@@ -67,6 +67,16 @@ export default function MobileMyDay({ user }: { user: User }) {
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [notifStatus, setNotifStatus] = useState<"unknown" | "granted" | "denied" | "default" | "unsupported">("unknown");
+  const [showMobileAnnounce, setShowMobileAnnounce] = useState(false);
+
+  // Annonce ponctuelle : « Mes dossiers » est maintenant sur mobile (affichée une seule fois)
+  useEffect(() => {
+    const key = `henri_mobile_dossiers_announce_${user.uid}`;
+    if (!localStorage.getItem(key)) {
+      setShowMobileAnnounce(true);
+      localStorage.setItem(key, "1");
+    }
+  }, [user.uid]);
 
   // Au montage : vérifier l'état actuel de la permission notification
   useEffect(() => {
@@ -1012,6 +1022,56 @@ export default function MobileMyDay({ user }: { user: User }) {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── ANNONCE : « Mes dossiers » désormais sur mobile (affichée une seule fois) ── */}
+      {showMobileAnnounce && (
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}
+          onClick={() => setShowMobileAnnounce(false)}
+        >
+          <div
+            style={{ background: "white", borderRadius: "16px", maxWidth: "360px", width: "100%", padding: "24px", boxShadow: "0 20px 60px rgba(0,0,0,0.28)" }}
+            onClick={e => e.stopPropagation()}
+          >
+            <p style={{ fontSize: "40px", textAlign: "center", margin: 0 }}>📱</p>
+            <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#111827", textAlign: "center", margin: "8px 0 6px" }}>
+              Mes dossiers arrive sur mobile
+            </h2>
+            <p style={{ fontSize: "14px", color: "#374151", lineHeight: 1.5, textAlign: "center", margin: "0 0 16px" }}>
+              Consultez et gérez tous vos dossiers directement depuis votre téléphone.
+            </p>
+
+            <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "14px 16px", marginBottom: "20px", display: "flex", flexDirection: "column", gap: "12px" }}>
+              <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
+                <span style={{ fontSize: "18px", lineHeight: "20px", flexShrink: 0 }}>👉</span>
+                <p style={{ fontSize: "13px", color: "#374151", lineHeight: 1.5, margin: 0 }}>
+                  <strong>Balayez</strong> l'écran vers la gauche ou la droite pour passer de <strong>Dossiers → Tâches → Sous-tâches → Détail</strong> (et revenir).
+                </p>
+              </div>
+              <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
+                <span style={{ display: "inline-flex", flexShrink: 0, color: "#6b7280", marginTop: "1px" }}><Icon name="folder" size={18} /></span>
+                <p style={{ fontSize: "13px", color: "#374151", lineHeight: 1.5, margin: 0 }}>
+                  En haut à gauche : l'icône <strong>dossier</strong> ouvre Mes dossiers, l'icône <strong>soleil</strong> revient à Ma journée.
+                </p>
+              </div>
+            </div>
+
+            <Link
+              href="/"
+              onClick={() => setShowMobileAnnounce(false)}
+              style={{ display: "block", width: "100%", textAlign: "center", boxSizing: "border-box", background: "#111827", color: "white", padding: "12px", borderRadius: "10px", fontSize: "14px", fontWeight: 600, textDecoration: "none", marginBottom: "6px" }}
+            >
+              Découvrir Mes dossiers
+            </Link>
+            <button
+              onClick={() => setShowMobileAnnounce(false)}
+              style={{ display: "block", width: "100%", textAlign: "center", background: "transparent", border: "none", color: "#6b7280", padding: "8px", fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}
+            >
+              Plus tard
+            </button>
           </div>
         </div>
       )}
