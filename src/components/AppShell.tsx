@@ -2345,7 +2345,7 @@ export default function AppShell() {
     <div className="flex flex-col h-screen overflow-hidden">
 
       {/* ── HEADER ── */}
-      <header className="h-12 md:h-[44px] flex items-center px-4 border-b border-border bg-bg shrink-0 z-10 relative">
+      <header className="h-[48px] md:h-[44px] flex items-center px-4 border-b border-border bg-bg shrink-0 z-10 relative">
         {/* Mobile : ☀ Ma journée + logo — à gauche */}
         <div className="md:hidden flex items-center gap-2.5 z-10">
           <Link
