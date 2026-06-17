@@ -263,7 +263,18 @@ export default function MobileMyDay({ user }: { user: User }) {
 
       {/* Header */}
       <header style={{ background: "white", borderBottom: "1px solid #e5e7eb", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, position: "relative" }}>
-        <img src="/logo-henri-new.png" alt="Henri" style={{ height: "28px" }} />
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          {/* Accès Mes dossiers — haut à gauche */}
+          <Link
+            href="/"
+            style={{ width: "32px", height: "32px", borderRadius: "50%", border: "1px solid #e5e7eb", background: "#f9fafb", color: "#6b7280", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, textDecoration: "none" }}
+            title="Mes dossiers"
+            aria-label="Mes dossiers"
+          >
+            <Icon name="folder" size={16} />
+          </Link>
+          <img src="/logo-henri-new.png" alt="Henri" style={{ height: "28px" }} />
+        </div>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <span style={{ fontSize: "12px", color: "#6b7280" }}>
             {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
@@ -286,15 +297,6 @@ export default function MobileMyDay({ user }: { user: User }) {
                 <p style={{ fontSize: "10px", fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em" }}>Connecté</p>
                 <p style={{ fontSize: "13px", color: "#111827", marginTop: "4px", wordBreak: "break-all" }}>{user.email}</p>
               </div>
-
-              {/* Mes dossiers */}
-              <Link
-                href="/"
-                onClick={() => setAccountMenuOpen(false)}
-                style={{ display: "flex", width: "100%", textAlign: "left", padding: "12px 14px", fontSize: "14px", color: "#374151", background: "white", borderBottom: "1px solid #f3f4f6", cursor: "pointer", fontFamily: "inherit", alignItems: "center", gap: "8px", textDecoration: "none" }}>
-                <Icon name="folder" size={16} style={{ color: "#9ca3af" }} />
-                <span style={{ flex: 1 }}>Mes dossiers</span>
-              </Link>
 
               {/* Notifications */}
               {notifStatus !== "unsupported" && (

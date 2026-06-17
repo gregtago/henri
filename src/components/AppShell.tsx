@@ -2242,14 +2242,14 @@ export default function AppShell() {
             <button className="detail-action-btn" onClick={() => handleExport(detailCase)}>
               <span>↓</span> Exporter
             </button>
-            <label className="detail-action-btn" title="Importer des tâches dans ce dossier depuis un fichier JSON">
+            <label className="detail-action-btn mobile-hide" title="Importer des tâches dans ce dossier depuis un fichier JSON">
               <span>↑</span> Importer des tâches
               <input type="file" accept="application/json" className="hidden" onChange={async (e) => {
                 await handleImportItemsIntoCase(detailCase.id, e.target.files?.[0] ?? null);
                 e.target.value = "";
               }} />
             </label>
-            <button className="detail-action-btn" onClick={() => handleArchiveCase(detailCase.id, !detailCase.archived)}>
+            <button className="detail-action-btn mobile-hide" onClick={() => handleArchiveCase(detailCase.id, !detailCase.archived)}>
               <span>{detailCase.archived ? "↩" : "📦"}</span> {detailCase.archived ? "Restaurer" : "Archiver"}
             </button>
             {detailCase.archived && (
@@ -2337,35 +2337,6 @@ export default function AppShell() {
     }
   };
 
-  // Fil d'Ariane mobile (éléments cliquables jusqu'à la colonne courante)
-  const mobileBreadcrumb = (() => {
-    const crumbs: { label: string; onClick: () => void }[] = [
-      {
-        label: "Dossiers",
-        onClick: () => {
-          setMobileCol("cases");
-          setSelectedCaseId(null);
-          setDetailTarget(null);
-        },
-      },
-    ];
-    if (mobileSliderPos >= mobileVisibleCols.indexOf("items") && mobileVisibleCols.includes("items") && selectedCase) {
-      crumbs.push({ label: selectedCase.title, onClick: () => setMobileCol("items") });
-    }
-    if (mobileSliderPos >= mobileVisibleCols.indexOf("subitems") && mobileVisibleCols.includes("subitems") && selectedItem) {
-      crumbs.push({ label: selectedItem.title, onClick: () => setMobileCol("subitems") });
-    }
-    return crumbs;
-  })();
-
-  const mobileColLabel: Record<MobileCol, string> = {
-    cases: "Dossiers",
-    items: "Tâches",
-    subitems: "Sous-tâches",
-    detail: "Détail",
-  };
-  const mobileCurrentLabel = mobileColLabel[mobileVisibleCols[mobileSliderPos] ?? "cases"];
-
   // ─────────────────────────────────────────────────────────────────────────
   // RENDER PRINCIPAL
   // ─────────────────────────────────────────────────────────────────────────
@@ -2375,6 +2346,16 @@ export default function AppShell() {
 
       {/* ── HEADER ── */}
       <header className="h-[44px] flex items-center px-4 border-b border-border bg-bg shrink-0 z-10 relative">
+        {/* Mobile : icône ☀ Ma journée — haut à gauche */}
+        <Link
+          href="/my-day"
+          className="md:hidden w-8 h-8 flex items-center justify-center rounded hover:bg-bg-hover text-tx-2 z-10"
+          style={{ textDecoration: "none" }}
+          title="Ma journée"
+          aria-label="Ma journée"
+        >
+          <Icon name="myday" size={18} />
+        </Link>
         {/* Liens navigation — gauche (desktop uniquement) */}
         <nav className="hidden md:flex gap-0.5 z-10">
           <Link
@@ -2633,8 +2614,8 @@ export default function AppShell() {
                 />
               </div>
 
-              {/* Pied de colonne : Archivés + Importer (côte à côte) */}
-              <div className="border-t border-border px-3 py-2 flex items-center gap-1.5">
+              {/* Pied de colonne : Archivés + Importer (côte à côte) — masqué sur mobile */}
+              <div className="border-t border-border px-3 py-2 flex items-center gap-1.5 mobile-hide">
                 <button
                   className={`flex-1 inline-flex items-center justify-center gap-1.5 text-[12.5px] font-[inherit] px-2.5 py-1.5 rounded border cursor-pointer transition-colors ${
                     showArchived
@@ -2871,21 +2852,6 @@ export default function AppShell() {
               </Link>
             )}
           </div>{/* fin wrapper colonnes */}
-
-          {/* ── BARRE BAS MOBILE (fil d'Ariane + Ma journée) ── */}
-          <div className="mobile-bottom-bar">
-            <div className="mobile-bottom-crumbs">
-              {mobileBreadcrumb.map((crumb, i) => (
-                <React.Fragment key={i}>
-                  {i > 0 && <span className="mobile-breadcrumb-sep">›</span>}
-                  <button className="mobile-breadcrumb-btn" onClick={crumb.onClick}>{crumb.label}</button>
-                </React.Fragment>
-              ))}
-              {mobileBreadcrumb.length > 0 && <span className="mobile-breadcrumb-sep">›</span>}
-              <span className="mobile-breadcrumb-current">{mobileCurrentLabel}</span>
-            </div>
-            <Link href="/my-day" className="mobile-nav-btn">☀ Ma journée</Link>
-          </div>
 
         </div>
 

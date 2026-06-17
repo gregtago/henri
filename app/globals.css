@@ -240,75 +240,6 @@ kbd {
   flex-shrink: 0;
 }
 
-/* ── BARRE NAVIGATION MOBILE BAS ── */
-@media (max-width: 767px) {
-  .mobile-bottom-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 14px;
-    height: 48px;
-    border-top: 1px solid var(--border);
-    background: var(--bg);
-    flex-shrink: 0;
-  }
-
-  .mobile-bottom-crumbs {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    overflow: hidden;
-    flex: 1;
-    min-width: 0;
-  }
-
-  .mobile-nav-btn {
-    flex-shrink: 0;
-    font-family: inherit;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--accent);
-    background: var(--bg-subtle);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 5px 12px;
-    cursor: pointer;
-    text-decoration: none;
-    white-space: nowrap;
-  }
-
-  .mobile-breadcrumb-sep {
-    color: var(--text-3);
-    flex-shrink: 0;
-  }
-
-  .mobile-breadcrumb-btn {
-    background: none;
-    border: none;
-    color: var(--accent);
-    font-size: 13px;
-    font-family: inherit;
-    cursor: pointer;
-    padding: 0 2px;
-    max-width: 120px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .mobile-breadcrumb-current {
-    color: var(--text);
-    font-weight: 500;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-}
-
-@media (min-width: 768px) {
-  .mobile-bottom-bar { display: none; }
-}
-
 /* ── MOBILE RESPONSIVE — VUE DOSSIERS ── */
 @media (max-width: 767px) {
   .finder-column {
@@ -331,11 +262,11 @@ kbd {
     will-change: transform;
   }
 
-  /* Cacher la bande latérale Ma journée sur mobile (remplacée par la barre du bas) */
+  /* Cacher la bande latérale Ma journée sur mobile (remplacée par l'icône ☀ du header) */
   .side-tab { display: none; }
 
-  /* Header mobile : cacher l'email */
-  .mobile-hide { display: none; }
+  /* Éléments masqués sur mobile (archives, import…) — !important pour primer sur les classes composants */
+  .mobile-hide { display: none !important; }
 }
 
 @media (min-width: 768px) {
