@@ -3476,7 +3476,7 @@ export default function AppShell() {
       {showWelcome && (
         <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}
           onClick={() => setShowWelcome(false)}>
-          <div style={{ background: "white", borderRadius: "20px", maxWidth: "540px", width: "100%", overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}
+          <div style={{ background: "white", borderRadius: "20px", maxWidth: "540px", width: "100%", maxHeight: "calc(100dvh - 48px)", overflowX: "hidden", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}
             onClick={e => e.stopPropagation()}>
             {/* Header sombre */}
             <div style={{ background: "#111827", padding: "32px 36px", color: "white" }}>
