@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 import {
   DEFAULT_SETTINGS,
   loadSettings,
@@ -13,7 +15,8 @@ import {
   type SortChoice,
 } from "@/lib/settings";
 
-type Tab = "apparence" | "aide" | "versions" | "legal";
+type Tab = "apparence" | "aide" | "email" | "versions" | "legal";
+type Inbox = { alias: string; address: string | null; domain: string | null };
 
 export default function SettingsPage() {
   const [s, setS] = useState<UserSettings>(DEFAULT_SETTINGS);
@@ -21,11 +24,113 @@ export default function SettingsPage() {
   const [tab, setTab] = useState<Tab>("apparence");
   const [aideSection, setAideSection] = useState(0);
 
+  // Mémo par email
+  const [signedIn, setSignedIn] = useState(false);
+  const [inbox, setInbox] = useState<Inbox | null>(null);
+  const [inboxLoading, setInboxLoading] = useState(false);
+  const [inboxError, setInboxError] = useState<string | null>(null);
+  const [aliasDraft, setAliasDraft] = useState("");
+  const [savingAlias, setSavingAlias] = useState(false);
+  const [copyOk, setCopyOk] = useState(false);
+
   useEffect(() => {
     const loaded = loadSettings();
     setS(loaded);
     applySettings(loaded);
   }, []);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => setSignedIn(!!u));
+    return () => unsub();
+  }, []);
+
+  const authedFetch = async (input: string, init?: RequestInit) => {
+    const u = auth.currentUser;
+    if (!u) throw new Error("no-user");
+    const token = await u.getIdToken();
+    return fetch(input, {
+      ...init,
+      headers: { ...(init?.headers ?? {}), Authorization: `Bearer ${token}` },
+    });
+  };
+
+  const loadInbox = async () => {
+    setInboxLoading(true);
+    setInboxError(null);
+    try {
+      const res = await authedFetch("/api/inbox");
+      if (!res.ok) throw new Error();
+      const data: Inbox = await res.json();
+      setInbox(data);
+      setAliasDraft(data.alias);
+    } catch {
+      setInboxError("Impossible de charger votre adresse mémo.");
+    } finally {
+      setInboxLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab === "email" && signedIn && !inbox && !inboxLoading) loadInbox();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, signedIn]);
+
+  const saveAlias = async () => {
+    setSavingAlias(true);
+    setInboxError(null);
+    try {
+      const res = await authedFetch("/api/inbox", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ alias: aliasDraft }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setInboxError(data?.message ?? "Erreur lors de l'enregistrement.");
+        return;
+      }
+      setInbox(data as Inbox);
+      setAliasDraft((data as Inbox).alias);
+    } catch {
+      setInboxError("Erreur réseau.");
+    } finally {
+      setSavingAlias(false);
+    }
+  };
+
+  const regenerateAlias = async () => {
+    setSavingAlias(true);
+    setInboxError(null);
+    try {
+      const res = await authedFetch("/api/inbox", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ regenerate: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setInboxError(data?.message ?? "Erreur lors de la régénération.");
+        return;
+      }
+      setInbox(data as Inbox);
+      setAliasDraft((data as Inbox).alias);
+    } catch {
+      setInboxError("Erreur réseau.");
+    } finally {
+      setSavingAlias(false);
+    }
+  };
+
+  const copyAddress = async () => {
+    if (!inbox?.address) return;
+    try {
+      await navigator.clipboard.writeText(inbox.address);
+      setCopyOk(true);
+      setTimeout(() => setCopyOk(false), 1500);
+    } catch {
+      /* clipboard indisponible */
+    }
+  };
 
   const update = <K extends keyof UserSettings>(key: K, value: UserSettings[K]) => {
     const next = { ...s, [key]: value };
@@ -75,8 +180,8 @@ export default function SettingsPage() {
 
       {/* Onglets */}
       <div className="flex bg-bg border-b border-border shrink-0">
-        {(["apparence", "aide", "versions", "legal"] as Tab[]).map((t) => {
-          const labels: Record<Tab, string> = { apparence: "Apparence", aide: "Aide", versions: "Notes de version", legal: "Mentions légales" };
+        {(["apparence", "aide", "email", "versions", "legal"] as Tab[]).map((t) => {
+          const labels: Record<Tab, string> = { apparence: "Apparence", aide: "Aide", email: "Mémo par email", versions: "Notes de version", legal: "Mentions légales" };
           return (
             <button key={t} onClick={() => setTab(t)}
               className="flex-1 text-[13px] font-medium font-[inherit] py-2.5 border-none bg-transparent cursor-pointer transition-colors"
@@ -284,6 +389,64 @@ export default function SettingsPage() {
                 </div>
               ))}
             </div>
+          )}
+
+          {tab === "email" && (
+            <section className="bg-bg border border-border rounded-xl p-5 space-y-4">
+              <div>
+                <h2 className="text-[15px] font-semibold text-tx mb-1">Créer un mémo par email</h2>
+                <p className="text-[13px] text-tx-2 leading-relaxed">
+                  Envoyez ou transférez un email à votre adresse personnelle ci-dessous :
+                  l'<strong>objet</strong> devient le titre d'un mémo et le <strong>corps</strong> sa note.
+                  Le mémo apparaît dans Ma journée.
+                </p>
+              </div>
+
+              {inboxLoading && <p className="text-[13px] text-tx-3">Chargement…</p>}
+
+              {!inboxLoading && inbox && (
+                <>
+                  {inbox.address ? (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <code className="text-[13px] text-tx bg-bg-subtle border border-border rounded px-3 py-2 select-all break-all">{inbox.address}</code>
+                      <button onClick={copyAddress}
+                        className="text-[12px] font-[inherit] px-3 py-2 rounded border border-border bg-transparent text-tx-2 hover:border-border-strong hover:text-tx cursor-pointer transition-all">
+                        {copyOk ? "Copié ✓" : "Copier"}
+                      </button>
+                      <button onClick={regenerateAlias} disabled={savingAlias}
+                        className="text-[12px] font-[inherit] px-3 py-2 rounded border border-border bg-transparent text-tx-2 hover:border-border-strong hover:text-tx cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                        {savingAlias ? "…" : "Régénérer"}
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-[12.5px] text-tx-2 bg-bg-subtle border border-border rounded px-3 py-2">
+                      La réception d'emails n'est pas encore activée (domaine non configuré). Votre identifiant réservé est <strong>{inbox.alias}</strong>.
+                    </p>
+                  )}
+
+                  <div>
+                    <p className="text-[11px] font-medium text-tx-3 uppercase tracking-wider mb-1.5">Personnaliser l'adresse</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <input value={aliasDraft} onChange={e => setAliasDraft(e.target.value)} spellCheck={false}
+                        className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded px-3 py-2 outline-none focus:border-border-strong transition-colors" />
+                      {inbox.domain && <span className="text-[13px] text-tx-3">@{inbox.domain}</span>}
+                      <button onClick={saveAlias} disabled={savingAlias || aliasDraft === inbox.alias}
+                        className="text-[12px] font-[inherit] px-4 py-2 rounded cursor-pointer transition-all bg-tx text-bg border border-tx hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed">
+                        {savingAlias ? "…" : "Enregistrer"}
+                      </button>
+                    </div>
+                    <p className="text-[11.5px] text-tx-3 mt-1.5">
+                      Par défaut, l'adresse combine un terme notarial et un suffixe aléatoire
+                      (ex. <span className="text-tx-2">usufruit-h56c</span>) : mémorisable mais non devinable.
+                      Vous pouvez la personnaliser ou la régénérer. Gardez-la confidentielle :
+                      toute personne qui la connaît peut créer des mémos dans votre compte.
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {inboxError && <p className="text-[12.5px] text-red-500">{inboxError}</p>}
+            </section>
           )}
 
           {tab === "legal" && (
