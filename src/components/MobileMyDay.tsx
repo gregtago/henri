@@ -262,7 +262,7 @@ export default function MobileMyDay({ user }: { user: User }) {
     <div style={{ height: "100dvh", display: "flex", flexDirection: "column", background: "#f9fafb", overflow: "hidden", position: "relative" }}>
 
       {/* Header */}
-      <header style={{ background: "white", borderBottom: "1px solid #e5e7eb", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, position: "relative" }}>
+      <header style={{ background: "white", borderBottom: "1px solid #e5e7eb", padding: "8px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, position: "relative" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           {/* Accès Mes dossiers — haut à gauche */}
           <Link
@@ -273,7 +273,7 @@ export default function MobileMyDay({ user }: { user: User }) {
           >
             <Icon name="folder" size={16} />
           </Link>
-          <img src="/logo-henri-new.png" alt="Henri" style={{ height: "28px" }} />
+          <img src="/logo-henri-new.png" alt="Henri" style={{ height: "24px" }} />
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <span style={{ fontSize: "12px", color: "#6b7280" }}>

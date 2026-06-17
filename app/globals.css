@@ -253,6 +253,11 @@ kbd {
     flex-shrink: 0;
   }
 
+  /* Remonter le champ de recherche sous l'en-tête : la liste passe en dessous */
+  .finder-column > .finder-list {
+    order: 1;
+  }
+
   /* Conteneur de toutes les colonnes — glisse horizontalement */
   .finder-mobile-slider {
     display: flex;

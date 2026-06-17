@@ -2345,17 +2345,20 @@ export default function AppShell() {
     <div className="flex flex-col h-screen overflow-hidden">
 
       {/* ── HEADER ── */}
-      <header className="h-[44px] flex items-center px-4 border-b border-border bg-bg shrink-0 z-10 relative">
-        {/* Mobile : icône ☀ Ma journée — haut à gauche */}
-        <Link
-          href="/my-day"
-          className="md:hidden w-8 h-8 flex items-center justify-center rounded hover:bg-bg-hover text-tx-2 z-10"
-          style={{ textDecoration: "none" }}
-          title="Ma journée"
-          aria-label="Ma journée"
-        >
-          <Icon name="myday" size={18} />
-        </Link>
+      <header className="h-12 md:h-[44px] flex items-center px-4 border-b border-border bg-bg shrink-0 z-10 relative">
+        {/* Mobile : ☀ Ma journée + logo — à gauche */}
+        <div className="md:hidden flex items-center gap-2.5 z-10">
+          <Link
+            href="/my-day"
+            className="w-8 h-8 flex items-center justify-center rounded-full border border-border bg-bg-subtle text-tx-2 hover:bg-bg-hover"
+            style={{ textDecoration: "none" }}
+            title="Ma journée"
+            aria-label="Ma journée"
+          >
+            <Icon name="myday" size={16} />
+          </Link>
+          <img src="/logo-henri-new.png" alt="Henri" style={{ height: "24px", width: "auto" }} />
+        </div>
         {/* Liens navigation — gauche (desktop uniquement) */}
         <nav className="hidden md:flex gap-0.5 z-10">
           <Link
@@ -2376,8 +2379,8 @@ export default function AppShell() {
           </Link>
         </nav>
 
-        {/* Logo — centré absolument */}
-        <div className="absolute left-0 right-0 flex justify-center pointer-events-none">
+        {/* Logo — centré absolument (desktop uniquement) */}
+        <div className="hidden md:flex absolute left-0 right-0 justify-center pointer-events-none">
           <Link href="/" className="pointer-events-auto">
             <img src="/logo-henri.png" alt="Henri" style={{height:"36px", width:"auto"}} />
           </Link>
@@ -2423,9 +2426,9 @@ export default function AppShell() {
           {/* Desktop : boutons texte */}
           <Link href="/settings" className={`hidden md:inline-flex ${btnGhost}`} style={{textDecoration:"none"}}>Préférences</Link>
           <button className={`hidden md:inline-flex ${btnGhost}`} onClick={() => signOut(auth)}>Déconnexion</button>
-          {/* Mobile : icônes compactes */}
-          <Link href="/settings" className="md:hidden w-8 h-8 flex items-center justify-center rounded hover:bg-bg-hover text-tx-2" style={{textDecoration:"none"}} title="Préférences" aria-label="Préférences">⚙</Link>
-          <button className="md:hidden w-8 h-8 flex items-center justify-center rounded hover:bg-bg-hover text-tx-2 bg-transparent border-none cursor-pointer" onClick={() => signOut(auth)} title="Déconnexion" aria-label="Déconnexion">⏻</button>
+          {/* Mobile : icônes rondes compactes */}
+          <Link href="/settings" className="md:hidden w-8 h-8 flex items-center justify-center rounded-full border border-border bg-bg-subtle hover:bg-bg-hover text-tx-2" style={{textDecoration:"none"}} title="Préférences" aria-label="Préférences"><Icon name="settings" size={16} /></Link>
+          <button className="md:hidden w-8 h-8 flex items-center justify-center rounded-full border border-border bg-bg-subtle hover:bg-bg-hover text-tx-2 cursor-pointer" onClick={() => signOut(auth)} title="Déconnexion" aria-label="Déconnexion"><Icon name="log-out" size={16} /></button>
         </div>
       </header>
 
