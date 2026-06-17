@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useRef } from "react";
+import Link from "next/link";
 import type { User } from "firebase/auth";
 import {
   subscribeItems,
@@ -285,6 +286,15 @@ export default function MobileMyDay({ user }: { user: User }) {
                 <p style={{ fontSize: "10px", fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em" }}>Connecté</p>
                 <p style={{ fontSize: "13px", color: "#111827", marginTop: "4px", wordBreak: "break-all" }}>{user.email}</p>
               </div>
+
+              {/* Mes dossiers */}
+              <Link
+                href="/"
+                onClick={() => setAccountMenuOpen(false)}
+                style={{ display: "flex", width: "100%", textAlign: "left", padding: "12px 14px", fontSize: "14px", color: "#374151", background: "white", borderBottom: "1px solid #f3f4f6", cursor: "pointer", fontFamily: "inherit", alignItems: "center", gap: "8px", textDecoration: "none" }}>
+                <Icon name="folder" size={16} style={{ color: "#9ca3af" }} />
+                <span style={{ flex: 1 }}>Mes dossiers</span>
+              </Link>
 
               {/* Notifications */}
               {notifStatus !== "unsupported" && (

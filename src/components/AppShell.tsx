@@ -168,6 +168,13 @@ export default function AppShell() {
   const [dossierSearch, setDossierSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false); // "f-{id}" pour volante, selectionId pour dossier
+
+  // ── MOBILE : colonne visible (slider horizontal) ──
+  type MobileCol = "cases" | "items" | "subitems" | "detail";
+  const [mobileCol, setMobileCol] = useState<MobileCol>("cases");
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+
   const toastTimeout = useRef<number | null>(null);
   const backfilledItemIds = useRef<Set<string>>(new Set());
   // Refs pour scroll automatique lors de la navigation clavier
@@ -875,6 +882,7 @@ export default function AppShell() {
       setSelectedCaseIds([id]);
     }
     setLastCaseId(id);
+    setMobileCol("items");
   };
 
   const handleSelectItem = (id: string, options?: { multi?: boolean; range?: boolean }) => {
@@ -891,6 +899,9 @@ export default function AppShell() {
       setSelectedItemIds([id]);
     }
     setLastItemId(id);
+    // Mobile : sous-tâches si elles existent, sinon détail directement
+    const hasSubs = items.some((entry) => entry.parentItemId === id);
+    setMobileCol(hasSubs ? "subitems" : "detail");
   };
 
   const handleSelectSubItem = (id: string, options?: { multi?: boolean; range?: boolean }) => {
@@ -907,6 +918,7 @@ export default function AppShell() {
       setSelectedSubItemIds([id]);
     }
     setLastSubItemId(id);
+    setMobileCol("detail");
   };
 
   const handleOpenReparent = useCallback(() => {
@@ -2275,6 +2287,86 @@ export default function AppShell() {
   ) : null;
 
   // ─────────────────────────────────────────────────────────────────────────
+  // MOBILE — slider, swipe, fil d'Ariane (vue Dossiers)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // Colonnes réellement présentes dans le slider, dans l'ordre
+  const mobileAllCols: MobileCol[] = ["cases", "items", "subitems", "detail"];
+  const mobileColVisible: Record<MobileCol, boolean> = {
+    cases: showCasesColumn,
+    items: showItemsColumn,
+    subitems: showSubItemsColumn,
+    detail: showDetailColumn,
+  };
+  const mobileVisibleCols = mobileAllCols.filter((k) => mobileColVisible[k]);
+
+  // Position du slider = index de mobileCol parmi les colonnes visibles.
+  // Si la colonne demandée est absente, on retombe sur la dernière visible avant elle.
+  const mobileSliderPos = (() => {
+    const idx = mobileVisibleCols.indexOf(mobileCol);
+    if (idx >= 0) return idx;
+    const targetOrder = mobileAllCols.indexOf(mobileCol);
+    let best = 0;
+    mobileVisibleCols.forEach((k, i) => {
+      if (mobileAllCols.indexOf(k) < targetOrder) best = i;
+    });
+    return best;
+  })();
+
+  const mobileSliderStyle = { transform: `translateX(-${mobileSliderPos * 100}vw)` };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    const dy = e.changedTouches[0].clientY - touchStartY.current;
+    touchStartX.current = null;
+    touchStartY.current = null;
+    if (Math.abs(dy) > Math.abs(dx)) return; // geste vertical → on ignore
+    if (Math.abs(dx) < 50) return;
+    if (dx < 0) {
+      // Swipe gauche → colonne suivante
+      if (mobileSliderPos < mobileVisibleCols.length - 1) setMobileCol(mobileVisibleCols[mobileSliderPos + 1]);
+    } else {
+      // Swipe droite → colonne précédente
+      if (mobileSliderPos > 0) setMobileCol(mobileVisibleCols[mobileSliderPos - 1]);
+    }
+  };
+
+  // Fil d'Ariane mobile (éléments cliquables jusqu'à la colonne courante)
+  const mobileBreadcrumb = (() => {
+    const crumbs: { label: string; onClick: () => void }[] = [
+      {
+        label: "Dossiers",
+        onClick: () => {
+          setMobileCol("cases");
+          setSelectedCaseId(null);
+          setDetailTarget(null);
+        },
+      },
+    ];
+    if (mobileSliderPos >= mobileVisibleCols.indexOf("items") && mobileVisibleCols.includes("items") && selectedCase) {
+      crumbs.push({ label: selectedCase.title, onClick: () => setMobileCol("items") });
+    }
+    if (mobileSliderPos >= mobileVisibleCols.indexOf("subitems") && mobileVisibleCols.includes("subitems") && selectedItem) {
+      crumbs.push({ label: selectedItem.title, onClick: () => setMobileCol("subitems") });
+    }
+    return crumbs;
+  })();
+
+  const mobileColLabel: Record<MobileCol, string> = {
+    cases: "Dossiers",
+    items: "Tâches",
+    subitems: "Sous-tâches",
+    detail: "Détail",
+  };
+  const mobileCurrentLabel = mobileColLabel[mobileVisibleCols[mobileSliderPos] ?? "cases"];
+
+  // ─────────────────────────────────────────────────────────────────────────
   // RENDER PRINCIPAL
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -2283,8 +2375,8 @@ export default function AppShell() {
 
       {/* ── HEADER ── */}
       <header className="h-[44px] flex items-center px-4 border-b border-border bg-bg shrink-0 z-10 relative">
-        {/* Liens navigation — gauche */}
-        <nav className="flex gap-0.5 z-10">
+        {/* Liens navigation — gauche (desktop uniquement) */}
+        <nav className="hidden md:flex gap-0.5 z-10">
           <Link
             href="/"
             className={`text-[13px] px-2.5 py-1 rounded border-none bg-transparent cursor-pointer transition-all ${
@@ -2315,7 +2407,7 @@ export default function AppShell() {
           <span className="hidden sm:inline">{user.email}</span>
           {notifStatus !== "unsupported" && (
             <button
-              className={`inline-flex items-center gap-1 px-2 py-1 rounded border cursor-pointer transition-colors ${
+              className={`hidden md:inline-flex items-center gap-1 px-2 py-1 rounded border cursor-pointer transition-colors ${
                 notifStatus === "granted"
                   ? "bg-transparent text-tx-2 border-border hover:border-border-strong"
                   : "bg-transparent text-tx-2 border-border hover:border-border-strong hover:text-tx"
@@ -2346,9 +2438,13 @@ export default function AppShell() {
               ) : "Rappels"}
             </button>
           )}
-          <InstallButton />
-          <Link href="/settings" className={btnGhost} style={{textDecoration:"none"}}>Préférences</Link>
-          <button className={btnGhost} onClick={() => signOut(auth)}>Déconnexion</button>
+          <span className="hidden md:inline-flex"><InstallButton /></span>
+          {/* Desktop : boutons texte */}
+          <Link href="/settings" className={`hidden md:inline-flex ${btnGhost}`} style={{textDecoration:"none"}}>Préférences</Link>
+          <button className={`hidden md:inline-flex ${btnGhost}`} onClick={() => signOut(auth)}>Déconnexion</button>
+          {/* Mobile : icônes compactes */}
+          <Link href="/settings" className="md:hidden w-8 h-8 flex items-center justify-center rounded hover:bg-bg-hover text-tx-2" style={{textDecoration:"none"}} title="Préférences" aria-label="Préférences">⚙</Link>
+          <button className="md:hidden w-8 h-8 flex items-center justify-center rounded hover:bg-bg-hover text-tx-2 bg-transparent border-none cursor-pointer" onClick={() => signOut(auth)} title="Déconnexion" aria-label="Déconnexion">⏻</button>
         </div>
       </header>
 
@@ -2439,7 +2535,15 @@ export default function AppShell() {
 
       {/* ══ VUE DOSSIERS ══ */}
       {!isMyDay ? (
-        <div className="flex flex-1 overflow-hidden">
+        <div
+          className="flex flex-col flex-1 overflow-hidden"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
+
+          {/* ── COLONNES (desktop : flex row ; mobile : slider horizontal) ── */}
+          <div className="flex flex-1 overflow-hidden">
+            <div className="finder-mobile-slider" style={mobileSliderStyle}>
 
           {/* ── COL DOSSIERS ── */}
           {showCasesColumn && (
@@ -2753,17 +2857,35 @@ export default function AppShell() {
           {/* ── PANNEAU DÉTAIL ── */}
           {detailPanel}
 
-          {/* Spacer pour coller la bande à droite si pas de détail */}
-          {!showDetailColumn && <div className="flex-1" />}
+          {/* Spacer pour coller la bande à droite si pas de détail (desktop) */}
+          {!showDetailColumn && <div className="flex-1 hidden md:block" />}
 
-          {/* ── BANDE "MA JOURNÉE" toujours à droite ── */}
-          {settings.sideTabs && (
-            <Link href="/my-day" className="side-tab side-tab-myday" title="Aller à Ma journée">
-              <div className="side-tab-inner">
-                <span className="side-tab-label">Ma journée</span>
-              </div>
-            </Link>
-          )}
+            </div>{/* fin .finder-mobile-slider */}
+
+            {/* ── BANDE "MA JOURNÉE" à droite (desktop ; masquée sur mobile via CSS) ── */}
+            {settings.sideTabs && (
+              <Link href="/my-day" className="side-tab side-tab-myday" title="Aller à Ma journée">
+                <div className="side-tab-inner">
+                  <span className="side-tab-label">Ma journée</span>
+                </div>
+              </Link>
+            )}
+          </div>{/* fin wrapper colonnes */}
+
+          {/* ── BARRE BAS MOBILE (fil d'Ariane + Ma journée) ── */}
+          <div className="mobile-bottom-bar">
+            <div className="mobile-bottom-crumbs">
+              {mobileBreadcrumb.map((crumb, i) => (
+                <React.Fragment key={i}>
+                  {i > 0 && <span className="mobile-breadcrumb-sep">›</span>}
+                  <button className="mobile-breadcrumb-btn" onClick={crumb.onClick}>{crumb.label}</button>
+                </React.Fragment>
+              ))}
+              {mobileBreadcrumb.length > 0 && <span className="mobile-breadcrumb-sep">›</span>}
+              <span className="mobile-breadcrumb-current">{mobileCurrentLabel}</span>
+            </div>
+            <Link href="/my-day" className="mobile-nav-btn">☀ Ma journée</Link>
+          </div>
 
         </div>
 
