@@ -24,6 +24,8 @@ type IconName =
   | "archive"
   | "import"
   | "time"
+  | "settings"
+  | "log-out"
   | "user";
 
 const PATHS: Record<IconName, React.ReactNode> = {
@@ -58,6 +60,8 @@ const PATHS: Record<IconName, React.ReactNode> = {
       <path d="M12 7v5l3 2" />
     </>
   ),
+  "settings": <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" />,
+  "log-out": <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />,
   "user": (
     <>
       <circle cx="12" cy="8" r="4" />

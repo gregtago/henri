@@ -2427,8 +2427,8 @@ export default function AppShell() {
           <Link href="/settings" className={`hidden md:inline-flex ${btnGhost}`} style={{textDecoration:"none"}}>Préférences</Link>
           <button className={`hidden md:inline-flex ${btnGhost}`} onClick={() => signOut(auth)}>Déconnexion</button>
           {/* Mobile : icônes rondes compactes */}
-          <Link href="/settings" className="md:hidden w-8 h-8 flex items-center justify-center rounded-full border border-border bg-bg-subtle hover:bg-bg-hover text-tx-2" style={{textDecoration:"none"}} title="Préférences" aria-label="Préférences">⚙</Link>
-          <button className="md:hidden w-8 h-8 flex items-center justify-center rounded-full border border-border bg-bg-subtle hover:bg-bg-hover text-tx-2 cursor-pointer" onClick={() => signOut(auth)} title="Déconnexion" aria-label="Déconnexion">⏻</button>
+          <Link href="/settings" className="md:hidden w-8 h-8 flex items-center justify-center rounded-full border border-border bg-bg-subtle hover:bg-bg-hover text-tx-2" style={{textDecoration:"none"}} title="Préférences" aria-label="Préférences"><Icon name="settings" size={16} /></Link>
+          <button className="md:hidden w-8 h-8 flex items-center justify-center rounded-full border border-border bg-bg-subtle hover:bg-bg-hover text-tx-2 cursor-pointer" onClick={() => signOut(auth)} title="Déconnexion" aria-label="Déconnexion"><Icon name="log-out" size={16} /></button>
         </div>
       </header>
 
