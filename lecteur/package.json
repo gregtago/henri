@@ -1,0 +1,26 @@
+{
+  "name": "lecteur-pdf-ocr",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Lecteur PDF avec OCR sélectif sur zones surlignées — 100% navigateur, pensé pour le notariat.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "postinstall": "node scripts/vendor-tesseract.mjs"
+  },
+  "dependencies": {
+    "pdfjs-dist": "^4.7.76",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tesseract.js": "^5.1.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  }
+}

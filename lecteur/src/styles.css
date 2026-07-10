@@ -1,0 +1,157 @@
+/* Tokens repris de l'esprit henri : gris légèrement chauds, look bureau natif. */
+:root {
+  --bg: #ffffff;
+  --bg-subtle: #f7f7f5;
+  --bg-hover: #f1f1ef;
+  --bg-active: #e9e9e6;
+  --border: #e9e9e6;
+  --border-strong: #c9c9c4;
+  --text: #1a1a18;
+  --text-2: #787774;
+  --text-3: #acaba8;
+  --accent: #2f6eff;
+  --amber: #fbbf24;
+  --green: #16a34a;
+  --red: #ef4444;
+  --topbar-h: 46px;
+  --r: 4px;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body { background: var(--bg-subtle); }
+
+button { font-family: inherit; cursor: pointer; }
+
+.app { display: flex; flex-direction: column; height: 100vh; }
+
+/* ---------- Topbar ---------- */
+.topbar {
+  height: var(--topbar-h);
+  min-height: var(--topbar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+.brand { display: flex; align-items: baseline; gap: 8px; }
+.brand-mark { font-size: 15px; color: var(--text-2); }
+.brand-name { font-size: 14px; font-weight: 600; }
+.brand-sub { font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.08em; }
+.topbar-actions { display: flex; align-items: center; gap: 10px; }
+
+.zoom { display: flex; align-items: center; gap: 2px; }
+.zoom-val { font-size: 12px; color: var(--text-2); min-width: 40px; text-align: center; font-variant-numeric: tabular-nums; }
+
+.btn-primary {
+  background: #111827; color: #fff; border: none;
+  padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 500;
+}
+.btn-primary:disabled { opacity: 0.55; cursor: default; }
+.btn-ghost {
+  background: var(--bg); color: var(--text-2); border: 1px solid var(--border);
+  padding: 4px 9px; border-radius: 6px; font-size: 12.5px; transition: color 80ms, background 80ms;
+}
+.btn-ghost:hover { color: var(--text); background: var(--bg-hover); }
+.btn-ghost:disabled { opacity: 0.45; cursor: default; }
+.btn-danger { color: var(--red); }
+.btn-danger:hover { background: #fef2f2; color: var(--red); }
+
+/* ---------- Tabs ---------- */
+.tabs {
+  display: flex; align-items: stretch; gap: 0;
+  background: var(--bg-subtle); border-bottom: 1px solid var(--border);
+  overflow-x: auto; min-height: 34px;
+}
+.tab {
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 10px 0 12px; max-width: 220px;
+  border-right: 1px solid var(--border);
+  font-size: 12.5px; color: var(--text-2);
+  cursor: pointer; user-select: none; white-space: nowrap;
+}
+.tab:hover { background: var(--bg-hover); }
+.tab-active { background: var(--bg); color: var(--text); font-weight: 500; box-shadow: inset 0 -2px 0 var(--accent); }
+.tab-name { overflow: hidden; text-overflow: ellipsis; }
+.tab-close {
+  background: none; border: none; color: var(--text-3); font-size: 11px;
+  padding: 2px 4px; border-radius: 4px; line-height: 1;
+}
+.tab-close:hover { background: var(--bg-active); color: var(--text); }
+
+/* ---------- Workspace ---------- */
+.workspace { flex: 1; display: flex; min-height: 0; }
+.viewer { flex: 1; min-width: 0; overflow: hidden; background: var(--bg-subtle); }
+
+.doc-scroll { height: 100%; overflow: auto; }
+.doc-pages { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 20px; }
+
+.page-wrap { position: relative; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+.page-canvas { display: block; }
+.page-overlay { position: absolute; inset: 0; cursor: crosshair; }
+.marquee {
+  position: absolute;
+  border: 1.5px solid var(--accent);
+  background: rgba(47, 110, 255, 0.12);
+  pointer-events: none;
+}
+.page-label {
+  position: absolute; top: 4px; right: 6px;
+  font-size: 10px; color: var(--text-3); background: rgba(255,255,255,0.75);
+  padding: 1px 5px; border-radius: 3px; pointer-events: none;
+}
+
+/* ---------- Welcome ---------- */
+.welcome { height: 100%; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.welcome-card {
+  max-width: 420px; text-align: center; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 10px; padding: 28px 26px;
+}
+.welcome-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+.welcome-p { font-size: 13px; line-height: 1.5; color: var(--text-2); margin: 0 0 18px; }
+
+/* ---------- Panel ---------- */
+.panel {
+  width: 340px; min-width: 300px; background: var(--bg);
+  border-left: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0;
+}
+.panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+}
+.panel-head-actions { display: flex; gap: 6px; }
+.section-label { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); }
+.panel-empty { padding: 24px 16px; font-size: 12.5px; color: var(--text-3); text-align: center; line-height: 1.5; }
+
+.capture-list { list-style: none; margin: 0; padding: 0; overflow: auto; }
+.capture { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.capture-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.capture-src { font-size: 11px; color: var(--text-3); }
+.capture-text {
+  font-size: 13px; line-height: 1.45; color: var(--text);
+  white-space: pre-wrap; word-break: break-word; max-height: 180px; overflow: auto;
+}
+.capture-actions { display: flex; gap: 6px; margin-top: 8px; }
+.muted { color: var(--text-3); font-style: normal; }
+
+.badge {
+  display: inline-flex; align-items: center; padding: 2px 7px;
+  border-radius: 3px; font-size: 11px; font-weight: 500;
+}
+.badge-texte { background: #dcfce7; color: #15803d; }
+.badge-ocr { background: #dbeafe; color: #1d4ed8; }
+.badge-en-cours { background: #fbf3db; color: #9a6700; }
+.badge-erreur { background: #fef2f2; color: var(--red); }
+
+/* ---------- Toast ---------- */
+.toast {
+  position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
+  background: var(--text); color: #fff; padding: 8px 14px; border-radius: 6px;
+  font-size: 13px; box-shadow: 0 4px 14px rgba(0,0,0,0.18); animation: toast-in 180ms ease-out;
+}
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
