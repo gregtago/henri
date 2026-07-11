@@ -1,0 +1,55 @@
+name: Deploy Firebase Functions
+
+# Déploie les Cloud Functions (dont sendDueReminders, qui envoie les rappels
+# push toutes les 5 min) automatiquement.
+# - à chaque push sur main touchant les fonctions / la config Firebase
+# - ou à la demande via l'onglet Actions → "Run workflow"
+#
+# Prérequis : ajouter le secret FIREBASE_SERVICE_ACCOUNT (JSON complet d'une
+# clé de compte de service Firebase) dans Settings → Secrets and variables →
+# Actions du dépôt.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "functions/**"
+      - "firebase.json"
+      - ".firebaserc"
+      - ".github/workflows/deploy-functions.yml"
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # Nécessaire : firebase-tools charge le code des fonctions localement
+      # pour découvrir les exports avant le déploiement.
+      - name: Install functions dependencies
+        run: npm ci
+        working-directory: functions
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Write service account credentials
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "::error::Secret FIREBASE_SERVICE_ACCOUNT manquant. Voir le README du workflow."
+            exit 1
+          fi
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-sa.json" >> "$GITHUB_ENV"
+
+      - name: Deploy functions
+        run: firebase deploy --only functions --project henri-11598 --non-interactive
