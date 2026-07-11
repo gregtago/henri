@@ -7,7 +7,8 @@ name: Deploy Firebase Functions
 #
 # Prérequis : ajouter le secret FIREBASE_SERVICE_ACCOUNT (JSON complet d'une
 # clé de compte de service Firebase) dans Settings → Secrets and variables →
-# Actions du dépôt.
+# Actions du dépôt. Le compte de service doit avoir les rôles permettant de
+# déployer des fonctions v2 (ex. Éditeur + Utilisateur du compte de service).
 
 on:
   push:
@@ -19,9 +20,16 @@ on:
       - ".github/workflows/deploy-functions.yml"
   workflow_dispatch: {}
 
+# Un seul déploiement à la fois : on ne coupe pas un déploiement en cours,
+# on met le suivant en file d'attente.
+concurrency:
+  group: deploy-functions
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
