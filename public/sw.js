@@ -4,7 +4,7 @@
 // cache offline natif de Firestore (côté client SDK) qui sait gérer la
 // reconnexion et la résolution de conflits proprement.
 
-const CACHE_VERSION = "henri-v4";
+const CACHE_VERSION = "henri-v5";
 const APP_SHELL = [
   "/",
   "/my-day",
