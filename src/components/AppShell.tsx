@@ -3494,6 +3494,9 @@ export default function AppShell() {
               <p style={{ fontSize: "13px", lineHeight: 1.7, color: "#374151" }}>
                 Contrairement à un simple gestionnaire de tâches où les éléments disparaissent quand ils sont cochés, Henri reflète la réalité du notariat : chaque acte passe par plusieurs étapes — le besoin exprimé, la demande formulée, la réception des pièces, le traitement. Une tâche ne disparaît pas, elle <strong>avance</strong>.
               </p>
+              <p style={{ fontSize: "13px", lineHeight: 1.7, color: "#374151" }}>
+                Henri s'installe comme une <strong>application</strong> sur votre ordinateur ou votre téléphone (bouton <strong>Installer l'app</strong>) et peut vous envoyer des <strong>rappels</strong> au bon moment sur vos tâches et mémos — activez-les d'un clic sur <strong>Rappels</strong>, en haut.
+              </p>
               <button
                 onClick={() => setShowWelcome(false)}
                 style={{ width: "100%", padding: "14px", borderRadius: "12px", background: "#111827", color: "white", border: "none", fontSize: "15px", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginTop: "4px" }}>

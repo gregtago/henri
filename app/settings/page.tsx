@@ -194,6 +194,8 @@ export default function SettingsPage() {
                 ["◎", "Statuts"],
                 ["✎", "Mémos"],
                 ["★", "Importance & échéances"],
+                ["🔔", "Rappels"],
+                ["📲", "Installer l'app"],
                 ["📤", "Export & import"],
                 ["⌨", "Raccourcis clavier"]].map(([icon, label], i) => (
                   <button key={i} onClick={() => setAideSection(i)}
@@ -232,6 +234,14 @@ export default function SettingsPage() {
                   items: [{t: "Marquer une tâche importante", c: "L'étoile ★ dans le panneau de détail marque une tâche comme prioritaire. Les éléments importants s'affichent avec un fond jaune dans toutes les vues et apparaissent en tête des suggestions de Ma journée."}, {t: "Définir une échéance", c: "Des raccourcis rapides évitent de manipuler un calendrier : Aujourd'hui, Demain, Dans 1 semaine, Dans 1 mois. Une échéance dépassée apparaît en rouge dans les colonnes et remonte dans les suggestions."}, {t: "Cohérence tâche / sous-tâches", c: "Une tâche ne peut pas avoir une échéance antérieure à celle de ses sous-tâches, garantissant la cohérence de votre planification."}]
                 },
                 {
+                  icon: "🔔", title: "Rappels",
+                  items: [{t: "Poser un rappel", c: "Depuis le panneau de détail d'une tâche ou d'un mémo, ouvrez « Rappel » et choisissez un moment : Dans 1h, Demain 9h, ou une date et une heure personnalisées. Henri vous préviendra au moment voulu, même si vous avez quitté l'application."}, {t: "Activer les notifications", c: "Cliquez une fois sur « Rappels » dans l'en-tête pour autoriser les notifications sur cet appareil — le bouton passe au vert « Rappels ✓ ». À refaire sur chaque navigateur ou appareil où vous souhaitez être prévenu."}, {t: "Comment arrivent les rappels", c: "À l'échéance, vous recevez une notification. Si Henri est ouvert devant vous, un bandeau discret s'affiche dans l'application ; s'il est en arrière-plan ou fermé (navigateur toujours ouvert), c'est une véritable notification système. Un clic sur la notification ouvre Ma journée."}]
+                },
+                {
+                  icon: "📲", title: "Installer l'app",
+                  items: [{t: "Sur ordinateur (Chrome / Edge)", c: "Cliquez sur « Installer l'app » dans l'en-tête, ou sur l'icône d'installation dans la barre d'adresse. Henri s'ouvre alors dans sa propre fenêtre, avec une icône dans la barre des tâches — comme un logiciel classique, sans passer par un magasin d'applications."}, {t: "Sur mobile", c: "Sur Android (Chrome) : menu ⋮ → « Installer l'application ». Sur iPhone / iPad (Safari) : bouton Partager → « Sur l'écran d'accueil »."}, {t: "Pourquoi l'installer", c: "L'application installée démarre plus vite, s'affiche en plein écran et reçoit les rappels de façon plus fiable. Les mises à jour sont automatiques : rien à réinstaller."}]
+                },
+                {
                   icon: "📤", title: "Export & import",
                   items: [{t: "Exporter un dossier", c: "Depuis le panneau de détail d'un dossier, le bouton Exporter JSON génère un fichier contenant la structure complète : toutes ses tâches, sous-tâches, statuts, commentaires et échéances."}, {t: "Importer et réutiliser", c: "Le lien Importer un dossier en bas de la colonne Dossiers permet de recréer une structure complète depuis un fichier JSON. Idéal pour dupliquer un dossier modèle à chaque nouvelle affaire du même type."}, {t: "Créer des modèles", c: "Exemple : constituez un dossier modèle Vente immobilière avec toutes les tâches standard (appel de fonds, diagnostics, documents d'urbanisme…), exportez-le, réimportez-le à chaque nouvelle vente."}]
                 },
@@ -260,6 +270,7 @@ export default function SettingsPage() {
           {tab === "versions" && (
             <div className="space-y-4">
               {[
+                { v: "Alpha 1.4", date: "Juillet 2026", items: ["Rappels par notification désormais fiables : sur ordinateur, et même lorsque Henri est en arrière-plan ou fermé", "Réception des rappels au bon moment rétablie (l'application pouvait auparavant n'afficher aucune notification)", "Installation en application peaufinée : nom « Henri » et icône corrigés", "Aide enrichie : nouvelles rubriques « Rappels » et « Installer l'app »"] },
                 { v: "Alpha 1.3", date: "Juin 2026", items: ["« Mes dossiers » désormais accessible sur mobile : navigation en pleine largeur, une colonne à la fois", "Balayez horizontalement (swipe) pour passer de Dossiers → Tâches → Sous-tâches → Détail, et revenir en arrière", "Icône ☀ pour aller à Ma journée, icône dossier pour revenir à Mes dossiers", "En-têtes mobiles uniformisés (logo et icônes)"] },
                 { v: "Alpha 1.2", date: "Juin 2026", items: ["Import de tâches dans un dossier existant et export d'une sélection de tâches", "Installation de l'app sur Chrome et Edge (bouton dédié, icônes, nom corrigé)", "Correction du curseur qui sautait en fin de champ pendant la saisie"] },
                 { v: "Alpha 1.1", date: "Mai 2026", items: ["Notifications push : rappels configurables par tâche et par mémo", "Rappels sur ordinateur et notifications même app au premier plan", "Application installable (PWA) avec fonctionnement hors ligne", "Nouvelle page de réinitialisation de mot de passe et de vérification d'email", "Réinitialisation du mot de passe envoyée via Brevo"] },
