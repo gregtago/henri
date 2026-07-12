@@ -523,10 +523,8 @@ export default function MobileMyDay({ user }: { user: User }) {
 
       {/* ── POPUP NOUVEAU MÉMO ── */}
       {memoOpen && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "flex-end" }}
-          onClick={() => setMemoOpen(false)}>
-          <div style={{ width: "100%", background: "white", borderRadius: "20px 20px 0 0", padding: "20px 20px 36px", display: "flex", flexDirection: "column", gap: "16px", maxHeight: "85vh", overflowY: "auto" }}
-            onClick={e => e.stopPropagation()}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 50, background: "white" }}>
+          <div style={{ width: "100%", height: "100%", background: "white", padding: "calc(env(safe-area-inset-top) + 16px) 20px calc(env(safe-area-inset-bottom) + 24px)", display: "flex", flexDirection: "column", gap: "16px", overflowY: "auto", boxSizing: "border-box" }}>
 
             {/* Header popup */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -632,7 +630,7 @@ export default function MobileMyDay({ user }: { user: User }) {
             <button
               disabled={!memoText.trim()}
               onClick={handleCreateMemo}
-              style={{ width: "100%", padding: "16px", borderRadius: "14px", border: "none", background: memoText.trim() ? "#111827" : "#e5e7eb", color: memoText.trim() ? "white" : "#9ca3af", fontSize: "16px", fontWeight: 700, cursor: memoText.trim() ? "pointer" : "not-allowed", fontFamily: "inherit" }}>
+              style={{ width: "100%", padding: "16px", borderRadius: "14px", border: "none", background: memoText.trim() ? "#111827" : "#e5e7eb", color: memoText.trim() ? "white" : "#9ca3af", fontSize: "16px", fontWeight: 700, cursor: memoText.trim() ? "pointer" : "not-allowed", fontFamily: "inherit", marginTop: "auto" }}>
               Ajouter à Ma journée
             </button>
           </div>
