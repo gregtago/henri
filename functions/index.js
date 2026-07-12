@@ -265,14 +265,22 @@ exports.sendDueReminders = onSchedule(
         try {
           const response = await messaging.sendEachForMulticast({
             tokens: tokenStrings,
-            notification: { title, body },
+            // Message "data-only" : c'est le service worker (firebase-messaging-sw.js
+            // → onBackgroundMessage) qui construit et affiche la notif à partir de
+            // `data`. On évite ainsi deux pièges :
+            //  1) le doublon (un payload `notification` est auto-affiché par le SDK
+            //     EN PLUS de onBackgroundMessage) ;
+            //  2) un `webpush.fcmOptions.link` relatif ("/my-day"), refusé par FCM
+            //     qui exige une URL HTTPS absolue — ce qui faisait échouer TOUT l'envoi.
+            // Le clic est géré par le handler notificationclick du SW via data.url.
             data: {
               url: "/my-day",
               tag: `${t.collection}-${t.doc.id}`,
-              title, body,
+              title,
+              body,
             },
             webpush: {
-              fcmOptions: { link: "/my-day" },
+              headers: { Urgency: "high" },
             },
           });
           totalSent += response.successCount;
@@ -291,8 +299,12 @@ exports.sendDueReminders = onSchedule(
             }
           }
 
-          // Marquer comme envoyé pour ne pas répéter
-          await t.doc.ref.update({ reminderSentAt: nowIso });
+          // Ne marquer "envoyé" que si au moins un device a bien reçu la notif.
+          // Sinon on laisse le prochain passage réessayer, au lieu de "consommer"
+          // un rappel qui n'a jamais été délivré.
+          if (response.successCount > 0) {
+            await t.doc.ref.update({ reminderSentAt: nowIso });
+          }
         } catch (err) {
           console.error(`[sendDueReminders] échec envoi ${t.collection}/${t.doc.id}`, err);
           totalSkipped++;
