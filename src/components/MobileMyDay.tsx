@@ -551,42 +551,45 @@ export default function MobileMyDay({ user }: { user: User }) {
             <div>
               <p style={{ fontSize: "11px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Échéance</p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                {[
-                  { label: "Aujourd'hui", days: 0 },
-                  { label: "Demain", days: 1 },
-                  { label: "Dans 2 j.", days: 2 },
-                  { label: "Dans 1 sem.", days: 7 },
-                  { label: "Dans 1 mois", days: 30 },
-                ].map(({ label, days }) => {
-                  const d = new Date(); d.setDate(d.getDate() + days); d.setHours(12,0,0,0);
-                  const iso = d.toISOString().slice(0, 10);
-                  const isSelected = memoDue === iso;
-                  return (
-                    <button key={label} onClick={() => setMemoDue(isSelected ? "" : iso)}
-                      style={{ padding: "8px 14px", borderRadius: "20px", border: isSelected ? "2px solid #111827" : "1px solid #e5e7eb", background: isSelected ? "#111827" : "white", color: isSelected ? "white" : "#374151", fontSize: "13px", fontWeight: isSelected ? 600 : 400, cursor: "pointer", fontFamily: "inherit" }}>
-                      {label}
-                    </button>
-                  );
-                })}
-                {/* Puce "Autre date" : ouvre le sélecteur natif et affiche la date choisie si hors présets */}
                 {(() => {
-                  const presets = [0, 1, 2, 7, 30].map(n => { const d = new Date(); d.setDate(d.getDate() + n); d.setHours(12, 0, 0, 0); return d.toISOString().slice(0, 10); });
-                  const isCustom = !!memoDue && !presets.includes(memoDue);
-                  const label = isCustom ? new Date(memoDue + "T12:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "Autre…";
+                  const mk = (n: number) => { const d = new Date(); d.setDate(d.getDate() + n); d.setHours(12, 0, 0, 0); return d.toISOString().slice(0, 10); };
+                  const mondayIso = () => { const d = new Date(); const add = ((1 - d.getDay()) + 7) % 7 || 7; d.setDate(d.getDate() + add); d.setHours(12, 0, 0, 0); return d.toISOString().slice(0, 10); };
+                  const chips = [
+                    { label: "Aujourd'hui", iso: mk(0) },
+                    { label: "Demain", iso: mk(1) },
+                    { label: "Dans 2 j.", iso: mk(2) },
+                    { label: "Lundi proch.", iso: mondayIso() },
+                    { label: "Dans 1 sem.", iso: mk(7) },
+                    { label: "Dans 1 mois", iso: mk(30) },
+                  ];
+                  const isCustom = !!memoDue && !chips.some(c => c.iso === memoDue);
+                  const customLabel = isCustom ? new Date(memoDue + "T12:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "Autre…";
                   return (
-                    <label style={{ position: "relative", padding: "8px 14px", borderRadius: "20px", border: isCustom ? "2px solid #111827" : "1px solid #e5e7eb", background: isCustom ? "#111827" : "white", color: isCustom ? "white" : "#374151", fontSize: "13px", fontWeight: isCustom ? 600 : 400, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: "5px" }}>
-                      📅 {label}
-                      <input type="date" value={memoDue} onChange={e => setMemoDue(e.target.value)}
-                        style={{ position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", cursor: "pointer" }} />
-                    </label>
+                    <>
+                      {chips.map(({ label, iso }) => {
+                        const isSelected = memoDue === iso;
+                        return (
+                          <button key={label} onClick={() => setMemoDue(isSelected ? "" : iso)}
+                            style={{ padding: "8px 14px", borderRadius: "20px", border: isSelected ? "2px solid #111827" : "1px solid #e5e7eb", background: isSelected ? "#111827" : "white", color: isSelected ? "white" : "#374151", fontSize: "13px", fontWeight: isSelected ? 600 : 400, cursor: "pointer", fontFamily: "inherit" }}>
+                            {label}
+                          </button>
+                        );
+                      })}
+                      {/* Puce "Autre date" : ouvre le sélecteur natif et affiche la date choisie si hors présets */}
+                      <label style={{ position: "relative", padding: "8px 14px", borderRadius: "20px", border: isCustom ? "2px solid #111827" : "1px solid #e5e7eb", background: isCustom ? "#111827" : "white", color: isCustom ? "white" : "#374151", fontSize: "13px", fontWeight: isCustom ? 600 : 400, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                        📅 {customLabel}
+                        <input type="date" value={memoDue} onChange={e => setMemoDue(e.target.value)}
+                          style={{ position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", cursor: "pointer" }} />
+                      </label>
+                      {memoDue && (
+                        <button onClick={() => setMemoDue("")} aria-label="Retirer l'échéance"
+                          style={{ padding: "8px 12px", borderRadius: "20px", border: "1px solid #fee2e2", background: "white", color: "#ef4444", fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>
+                          ✕
+                        </button>
+                      )}
+                    </>
                   );
                 })()}
-                {memoDue && (
-                  <button onClick={() => setMemoDue("")} aria-label="Retirer l'échéance"
-                    style={{ padding: "8px 12px", borderRadius: "20px", border: "1px solid #fee2e2", background: "white", color: "#ef4444", fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>
-                    ✕
-                  </button>
-                )}
               </div>
             </div>
 
