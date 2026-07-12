@@ -8,6 +8,21 @@ import { doc, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
 
 const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY ?? "";
 
+// Scope DÉDIÉ pour le service worker de messagerie.
+// Le SW applicatif (/sw.js) est enregistré sur le scope "/". Comme une seule
+// registration peut exister par scope, enregistrer le SW FCM sur "/" aussi les
+// fait s'évincer mutuellement à chaque rechargement : quand /sw.js reprend "/",
+// il n'y a plus de handler push et les notifs ne s'affichent pas (alors que FCM
+// les envoie avec succès). On isole donc le SW FCM sur son propre scope
+// (celui utilisé par défaut par le SDK Firebase) pour qu'ils coexistent.
+const FCM_SW_SCOPE = "/firebase-cloud-messaging-push-scope";
+
+// Enregistre (idempotent) le SW de messagerie sur son scope dédié et renvoie
+// la registration à passer à getToken.
+async function registerMessagingSW(): Promise<ServiceWorkerRegistration> {
+  return navigator.serviceWorker.register("/firebase-messaging-sw.js", { scope: FCM_SW_SCOPE });
+}
+
 let messagingInstance: Messaging | null = null;
 
 /**
@@ -62,8 +77,7 @@ export async function enablePushNotifications(uid: string): Promise<
   try {
     // L'enregistrement du SW pour FCM se fait via /firebase-messaging-sw.js
     // qui doit exister à la racine.
-    const swReg = await navigator.serviceWorker.getRegistration("/firebase-messaging-sw.js")
-      ?? await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+    const swReg = await registerMessagingSW();
 
     const token = await getToken(messaging, {
       vapidKey: VAPID_KEY,
@@ -99,8 +113,7 @@ export async function refreshPushToken(uid: string): Promise<string | null> {
   const messaging = await getMessagingInstance();
   if (!messaging) return null;
   try {
-    const swReg = await navigator.serviceWorker.getRegistration("/firebase-messaging-sw.js");
-    if (!swReg) return null;
+    const swReg = await registerMessagingSW();
     const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg });
     if (!token) return null;
     await setDoc(doc(db, `users/${uid}/pushTokens/${token}`), {
@@ -124,8 +137,7 @@ export async function disablePushNotifications(uid: string): Promise<void> {
   const messaging = await getMessagingInstance();
   if (!messaging) return;
   try {
-    const swReg = await navigator.serviceWorker.getRegistration("/firebase-messaging-sw.js");
-    if (!swReg) return;
+    const swReg = await registerMessagingSW();
     const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg });
     if (token) {
       await deleteDoc(doc(db, `users/${uid}/pushTokens/${token}`));
