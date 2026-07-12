@@ -61,6 +61,7 @@ export default function MobileMyDay({ user }: { user: User }) {
   const [memoOpen, setMemoOpen] = useState(false);
   const [memoText, setMemoText] = useState("");
   const [memoDue, setMemoDue] = useState("");
+  const [memoReminder, setMemoReminder] = useState("");
   const [memoCaseId, setMemoCaseId] = useState("");
   const [memoCaseSearch, setMemoCaseSearch] = useState("");
   const [pendingRemovalIds, setPendingRemovalIds] = useState<Set<string>>(new Set());
@@ -216,7 +217,7 @@ export default function MobileMyDay({ user }: { user: User }) {
   const handleCreateMemo = async () => {
     const text = memoText.trim();
     if (!text) return;
-    setMemoText(""); setMemoDue(""); setMemoCaseId(""); setMemoCaseSearch(""); setMemoOpen(false);
+    setMemoText(""); setMemoDue(""); setMemoReminder(""); setMemoCaseId(""); setMemoCaseSearch(""); setMemoOpen(false);
 
     if (memoCaseId) {
       // Rattaché à un dossier → créer une tâche item et l'ajouter à Ma journée
@@ -228,6 +229,8 @@ export default function MobileMyDay({ user }: { user: User }) {
         status: "Créé",
         parentItemId: null,
         dueDate: memoDue ? new Date(memoDue + "T12:00:00").toISOString() : null,
+        reminderAt: memoReminder || null,
+        reminderSentAt: null,
       });
       // L'ajouter immédiatement à Ma journée pour éviter le doublon en suggestion
       if (newItemId) await addMyDaySelection(user.uid, {
@@ -245,6 +248,8 @@ export default function MobileMyDay({ user }: { user: User }) {
         dateKey: isFuture ? memoDue : todayKey, // apparaîtra le bon jour
         note: null,
         dueDate: memoDue ? new Date(memoDue + "T12:00:00").toISOString() : null,
+        reminderAt: memoReminder || null,
+        reminderSentAt: null,
         starred: false,
         status: "Créé",
       });
@@ -545,7 +550,7 @@ export default function MobileMyDay({ user }: { user: User }) {
             {/* Échéance */}
             <div>
               <p style={{ fontSize: "11px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Échéance</p>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "10px" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
                 {[
                   { label: "Aujourd'hui", days: 0 },
                   { label: "Demain", days: 1 },
@@ -563,11 +568,31 @@ export default function MobileMyDay({ user }: { user: User }) {
                     </button>
                   );
                 })}
+                {/* Puce "Autre date" : ouvre le sélecteur natif et affiche la date choisie si hors présets */}
+                {(() => {
+                  const presets = [0, 1, 2, 7, 30].map(n => { const d = new Date(); d.setDate(d.getDate() + n); d.setHours(12, 0, 0, 0); return d.toISOString().slice(0, 10); });
+                  const isCustom = !!memoDue && !presets.includes(memoDue);
+                  const label = isCustom ? new Date(memoDue + "T12:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "Autre…";
+                  return (
+                    <label style={{ position: "relative", padding: "8px 14px", borderRadius: "20px", border: isCustom ? "2px solid #111827" : "1px solid #e5e7eb", background: isCustom ? "#111827" : "white", color: isCustom ? "white" : "#374151", fontSize: "13px", fontWeight: isCustom ? 600 : 400, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                      📅 {label}
+                      <input type="date" value={memoDue} onChange={e => setMemoDue(e.target.value)}
+                        style={{ position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", cursor: "pointer" }} />
+                    </label>
+                  );
+                })()}
+                {memoDue && (
+                  <button onClick={() => setMemoDue("")} aria-label="Retirer l'échéance"
+                    style={{ padding: "8px 12px", borderRadius: "20px", border: "1px solid #fee2e2", background: "white", color: "#ef4444", fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>
+                    ✕
+                  </button>
+                )}
               </div>
-              <input type="date" value={memoDue}
-                onChange={e => setMemoDue(e.target.value)}
-                style={{ width: "100%", fontSize: "15px", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "11px 16px", outline: "none", fontFamily: "inherit", background: "#f9fafb", color: "#374151", boxSizing: "border-box" }}
-              />
+            </div>
+
+            {/* Rappel */}
+            <div>
+              <ReminderPicker value={memoReminder || null} onChange={iso => setMemoReminder(iso ?? "")} />
             </div>
 
             {/* Rattachement dossier */}
