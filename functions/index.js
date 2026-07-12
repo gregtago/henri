@@ -116,11 +116,13 @@ exports.generateRecurringTasks = onSchedule(
 
     console.log(`[generateRecurringTasks] Traitement pour ${todayKey}`);
 
-    // Parcourir tous les utilisateurs
-    const usersSnap = await db.collection("users").get();
+    // listDocuments() renvoie aussi les documents "fantômes" : un doc
+    // users/{uid} jamais écrit directement (il n'existe que via ses
+    // sous-collections) est ignoré par un .get() classique.
+    const userRefs = await db.collection("users").listDocuments();
 
-    for (const userDoc of usersSnap.docs) {
-      const uid = userDoc.id;
+    for (const userRef of userRefs) {
+      const uid = userRef.id;
 
       try {
         const templatesSnap = await db
@@ -221,12 +223,16 @@ exports.sendDueReminders = onSchedule(
     const now = new Date();
     const nowIso = now.toISOString();
 
-    const usersSnap = await db.collection("users").get();
+    // listDocuments() renvoie aussi les documents "fantômes" : un doc
+    // users/{uid} jamais écrit directement (il n'existe que via ses
+    // sous-collections) est ignoré par un .get() classique — c'était la
+    // cause du "0 envoyés" permanent.
+    const userRefs = await db.collection("users").listDocuments();
     let totalSent = 0;
     let totalSkipped = 0;
 
-    for (const userDoc of usersSnap.docs) {
-      const uid = userDoc.id;
+    for (const userRef of userRefs) {
+      const uid = userRef.id;
 
       // Récupère les tokens du user
       const tokensSnap = await db.collection(`users/${uid}/pushTokens`).get();
