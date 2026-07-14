@@ -12,20 +12,78 @@ import {
   type DensityChoice,
   type SortChoice,
 } from "@/lib/settings";
+import { onAuthStateChanged, type User } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import { subscribePushTokens, deletePushToken, type PushTokenInfo } from "@/lib/firestore";
+import { getCurrentToken } from "@/lib/messaging";
 
-type Tab = "apparence" | "aide" | "versions" | "legal";
+// Nom lisible d'un appareil à partir de son User-Agent.
+function describeDevice(ua?: string): { name: string; os: string } {
+  if (!ua) return { name: "Appareil", os: "" };
+  let os = "";
+  if (/iphone/i.test(ua)) os = "iPhone";
+  else if (/ipad/i.test(ua)) os = "iPad";
+  else if (/android/i.test(ua)) os = "Android";
+  else if (/windows/i.test(ua)) os = "Windows";
+  else if (/mac os x|macintosh/i.test(ua)) os = "Mac";
+  else if (/linux/i.test(ua)) os = "Linux";
+  let name = "Navigateur";
+  if (/\bedg(e|ios|a)?\//i.test(ua)) name = "Edge";
+  else if (/chrome|crios/i.test(ua)) name = "Chrome";
+  else if (/firefox|fxios/i.test(ua)) name = "Firefox";
+  else if (/safari/i.test(ua)) name = "Safari";
+  return { name, os };
+}
+
+// Convertit un champ date Firestore (Timestamp | ISO string | {seconds}) en Date.
+function tsToDate(v: unknown): Date | null {
+  if (!v) return null;
+  const anyV = v as { toDate?: () => Date; seconds?: number };
+  if (typeof anyV.toDate === "function") return anyV.toDate();
+  if (typeof anyV.seconds === "number") return new Date(anyV.seconds * 1000);
+  if (typeof v === "string") { const d = new Date(v); return isNaN(d.getTime()) ? null : d; }
+  return null;
+}
+
+type Tab = "apparence" | "appareils" | "aide" | "versions" | "legal";
 
 export default function SettingsPage() {
   const [s, setS] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [saved, setSaved] = useState(false);
   const [tab, setTab] = useState<Tab>("apparence");
   const [aideSection, setAideSection] = useState(0);
+  const [user, setUser] = useState<User | null>(null);
+  const [tokens, setTokens] = useState<PushTokenInfo[]>([]);
+  const [currentToken, setCurrentToken] = useState<string | null>(null);
+  const [notifSupported, setNotifSupported] = useState(true);
 
   useEffect(() => {
     const loaded = loadSettings();
     setS(loaded);
     applySettings(loaded);
   }, []);
+
+  // Auth + support notifications
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setNotifSupported("Notification" in window && "serviceWorker" in navigator);
+    }
+    const unsub = onAuthStateChanged(auth, setUser);
+    return () => unsub();
+  }, []);
+
+  // Liste des appareils (tokens push) + token de l'appareil courant
+  useEffect(() => {
+    if (!user) { setTokens([]); return; }
+    const unsub = subscribePushTokens(user.uid, setTokens);
+    getCurrentToken().then(setCurrentToken).catch(() => {});
+    return () => unsub();
+  }, [user]);
+
+  const handleForget = (tokenId: string) => {
+    if (!user) return;
+    deletePushToken(user.uid, tokenId).catch(() => {});
+  };
 
   const update = <K extends keyof UserSettings>(key: K, value: UserSettings[K]) => {
     const next = { ...s, [key]: value };
@@ -75,8 +133,8 @@ export default function SettingsPage() {
 
       {/* Onglets */}
       <div className="flex bg-bg border-b border-border shrink-0">
-        {(["apparence", "aide", "versions", "legal"] as Tab[]).map((t) => {
-          const labels: Record<Tab, string> = { apparence: "Apparence", aide: "Aide", versions: "Notes de version", legal: "Mentions légales" };
+        {(["apparence", "appareils", "aide", "versions", "legal"] as Tab[]).map((t) => {
+          const labels: Record<Tab, string> = { apparence: "Apparence", appareils: "Appareils", aide: "Aide", versions: "Notes de version", legal: "Mentions légales" };
           return (
             <button key={t} onClick={() => setTab(t)}
               className="flex-1 text-[13px] font-medium font-[inherit] py-2.5 border-none bg-transparent cursor-pointer transition-colors"
@@ -183,6 +241,52 @@ export default function SettingsPage() {
             </section>
           </>}
 
+          {tab === "appareils" && (
+            <div className="space-y-4">
+              <div className="bg-bg border border-border rounded-xl p-5">
+                <p className="text-[14px] font-semibold text-tx mb-1">Appareils recevant les rappels</p>
+                <p className="text-[13px] text-tx-2 leading-relaxed">
+                  Vos rappels sont envoyés à <strong>tous</strong> les appareils listés ici. Retirez-en un pour qu'il cesse de recevoir des notifications. Pour ajouter un appareil, ouvrez Henri dessus et activez « Rappels » dans l'en-tête.
+                </p>
+              </div>
+
+              {!user ? (
+                <div className="bg-bg border border-border rounded-xl p-5 text-[13px] text-tx-2">Connectez-vous pour gérer vos appareils.</div>
+              ) : !notifSupported ? (
+                <div className="bg-bg border border-border rounded-xl p-5 text-[13px] text-tx-2">Ce navigateur ne supporte pas les notifications push.</div>
+              ) : tokens.length === 0 ? (
+                <div className="bg-bg border border-border rounded-xl p-5 text-[13px] text-tx-2">
+                  Aucun appareil enregistré pour l'instant. Activez « Rappels » (bouton en haut de l'application) sur un appareil pour l'ajouter ici.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {[...tokens]
+                    .sort((a, b) => (tsToDate(b.lastSeenAt)?.getTime() ?? 0) - (tsToDate(a.lastSeenAt)?.getTime() ?? 0))
+                    .map((t) => {
+                      const { name, os } = describeDevice(t.userAgent);
+                      const isCurrent = !!currentToken && t.id === currentToken;
+                      const last = tsToDate(t.lastSeenAt);
+                      return (
+                        <div key={t.id} className="bg-bg border border-border rounded-xl p-4 flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-[13.5px] text-tx font-medium flex items-center gap-2 flex-wrap">
+                              <span>{name}{os ? ` · ${os}` : ""}</span>
+                              {isCurrent && <span className="text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 rounded px-1.5 py-0.5">Cet appareil</span>}
+                            </p>
+                            <p className="text-[11.5px] text-tx-3 mt-0.5">{last ? `Dernière activité le ${last.toLocaleDateString("fr-FR")}` : "Activité inconnue"}</p>
+                          </div>
+                          <button onClick={() => handleForget(t.id)}
+                            className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-red-300 hover:text-red-600 transition-all shrink-0">
+                            Oublier
+                          </button>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+          )}
+
           {tab === "aide" && (
             <div className="flex gap-0 min-h-[600px] bg-bg border border-border rounded-xl overflow-hidden">
 
@@ -270,7 +374,7 @@ export default function SettingsPage() {
           {tab === "versions" && (
             <div className="space-y-4">
               {[
-                { v: "Alpha 1.4", date: "Juillet 2026", items: ["Rappels par notification désormais fiables : sur ordinateur, et même lorsque Henri est en arrière-plan ou fermé", "Réception des rappels au bon moment rétablie (l'application pouvait auparavant n'afficher aucune notification)", "Installation en application peaufinée : nom « Henri » et icône corrigés", "Aide enrichie : nouvelles rubriques « Rappels » et « Installer l'app »"] },
+                { v: "Alpha 1.4", date: "Juillet 2026", items: ["Rappels par notification désormais fiables : sur ordinateur, et même lorsque Henri est en arrière-plan ou fermé", "Réception des rappels au bon moment rétablie (l'application pouvait auparavant n'afficher aucune notification)", "Installation en application peaufinée : nom « Henri » et icône corrigés", "Aide enrichie : nouvelles rubriques « Rappels » et « Installer l'app »", "Préférences → Appareils : liste des appareils recevant les rappels, avec possibilité d'en retirer"] },
                 { v: "Alpha 1.3", date: "Juin 2026", items: ["« Mes dossiers » désormais accessible sur mobile : navigation en pleine largeur, une colonne à la fois", "Balayez horizontalement (swipe) pour passer de Dossiers → Tâches → Sous-tâches → Détail, et revenir en arrière", "Icône ☀ pour aller à Ma journée, icône dossier pour revenir à Mes dossiers", "En-têtes mobiles uniformisés (logo et icônes)"] },
                 { v: "Alpha 1.2", date: "Juin 2026", items: ["Import de tâches dans un dossier existant et export d'une sélection de tâches", "Installation de l'app sur Chrome et Edge (bouton dédié, icônes, nom corrigé)", "Correction du curseur qui sautait en fin de champ pendant la saisie"] },
                 { v: "Alpha 1.1", date: "Mai 2026", items: ["Notifications push : rappels configurables par tâche et par mémo", "Rappels sur ordinateur et notifications même app au premier plan", "Application installable (PWA) avec fonctionnement hors ligne", "Nouvelle page de réinitialisation de mot de passe et de vérification d'email", "Réinitialisation du mot de passe envoyée via Brevo"] },
