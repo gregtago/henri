@@ -129,6 +129,25 @@ export async function refreshPushToken(uid: string): Promise<string | null> {
 }
 
 /**
+ * Renvoie le token FCM de l'appareil courant si la permission est déjà accordée,
+ * sinon null. Ne demande PAS la permission. Sert à repérer « cet appareil »
+ * dans la liste des appareils (Préférences).
+ */
+export async function getCurrentToken(): Promise<string | null> {
+  if (typeof window === "undefined") return null;
+  if (!("Notification" in window) || Notification.permission !== "granted") return null;
+  if (!VAPID_KEY) return null;
+  const messaging = await getMessagingInstance();
+  if (!messaging) return null;
+  try {
+    const swReg = await registerMessagingSW();
+    return await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg });
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Désactive les notifs pour le device courant : retire le token de Firestore.
  * (La permission OS reste accordée, l'utilisateur doit la retirer manuellement.)
  */

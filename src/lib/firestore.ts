@@ -148,6 +148,23 @@ export const createFloatingTask = async (
 export const updateFloatingTask = (uid: string, id: string, payload: Partial<FloatingTask>) =>
   updateDoc(doc(db, `users/${uid}/floatingTasks/${id}`), { ...payload, updatedAt: nowIso() });
 
+// ── Tokens push (appareils recevant les rappels) ──
+export type PushTokenInfo = {
+  id: string;                 // = le token FCM (id du doc)
+  token?: string;
+  userAgent?: string;
+  createdAt?: unknown;
+  lastSeenAt?: unknown;
+};
+
+export const subscribePushTokens = (uid: string, cb: (tokens: PushTokenInfo[]) => void) =>
+  onSnapshot(collection(db, `users/${uid}/pushTokens`), (snap) =>
+    cb(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<PushTokenInfo, "id">) })))
+  );
+
+export const deletePushToken = (uid: string, tokenId: string) =>
+  deleteDoc(doc(db, `users/${uid}/pushTokens/${tokenId}`));
+
 export const addMyDaySelection = async (uid: string, payload: Omit<MyDaySelection, "id">) => {
   // Garde-fou anti-doublon : si une sélection existe déjà pour ce (dateKey, refType, refId),
   // on la réutilise au lieu d'en créer une nouvelle. Évite l'accumulation de doublons quand
