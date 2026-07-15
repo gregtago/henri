@@ -85,6 +85,15 @@ export default function SettingsPage() {
     deletePushToken(user.uid, tokenId).catch(() => {});
   };
 
+  const handleForgetOthers = () => {
+    if (!user || !currentToken) return;
+    const others = tokens.filter((t) => t.id !== currentToken);
+    if (others.length === 0) return;
+    const n = others.length;
+    if (!window.confirm(`Oublier ${n} autre${n > 1 ? "s" : ""} appareil${n > 1 ? "s" : ""} ? ${n > 1 ? "Ils ne recevront" : "Il ne recevra"} plus de rappels tant que les notifications n'y sont pas réactivées.`)) return;
+    others.forEach((t) => deletePushToken(user.uid, t.id).catch(() => {}));
+  };
+
   const update = <K extends keyof UserSettings>(key: K, value: UserSettings[K]) => {
     const next = { ...s, [key]: value };
     setS(next);
@@ -260,6 +269,14 @@ export default function SettingsPage() {
                 </div>
               ) : (
                 <div className="space-y-2">
+                  {currentToken && tokens.some((t) => t.id !== currentToken) && (
+                    <div className="flex justify-end pb-1">
+                      <button onClick={handleForgetOthers}
+                        className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-red-300 hover:text-red-600 transition-all">
+                        Oublier tous les autres appareils
+                      </button>
+                    </div>
+                  )}
                   {[...tokens]
                     .sort((a, b) => (tsToDate(b.lastSeenAt)?.getTime() ?? 0) - (tsToDate(a.lastSeenAt)?.getTime() ?? 0))
                     .map((t) => {
