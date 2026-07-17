@@ -178,7 +178,12 @@ export default function AppShell() {
   const [detailTarget, setDetailTarget] = useState<DetailTarget>(null);
   const [caseTemplates, setCaseTemplates] = useState<CaseTemplate[]>([]);
   const [templatesModal, setTemplatesModal] = useState<{ mode: "apply"; caseId: string } | { mode: "new" } | null>(null);
-  const [tourOpen, setTourOpen] = useState(false);
+  const [activeTour, setActiveTour] = useState<TourStep[] | null>(null);
+  const [tourIsWalkthrough, setTourIsWalkthrough] = useState(false);
+  const demoCaseIdRef = useRef<string | null>(null);
+  const demoTaskIdRef = useRef<string | null>(null);
+  const itemsRef = useRef<Item[]>([]);
+  itemsRef.current = items;
   const [isReparentOpen, setIsReparentOpen] = useState(false);
   const [reparentTargetId, setReparentTargetId] = useState<string | null>(null);
   const [reparentSearch, setReparentSearch] = useState("");
@@ -327,14 +332,94 @@ export default function AppShell() {
     };
   }, [user, startOfWindow]);
 
-  // Lancement de la visite guidée demandé depuis les Préférences (flag localStorage).
+  // ── Visite guidée & pas à pas ──
+  const cleanupDemoCase = useCallback(async () => {
+    if (user && demoCaseIdRef.current) {
+      const id = demoCaseIdRef.current;
+      demoCaseIdRef.current = null;
+      demoTaskIdRef.current = null;
+      await deleteCaseCascade(user.uid, id, itemsRef.current).catch(() => {});
+    }
+  }, [user]);
+
+  const closeTour = useCallback(() => {
+    if (tourIsWalkthrough) void cleanupDemoCase();
+    setTourIsWalkthrough(false);
+    setActiveTour(null);
+  }, [tourIsWalkthrough, cleanupDemoCase]);
+
+  const buildWalkthroughSteps = useCallback((): TourStep[] => [
+    { title: "Pas à pas — Tâches & sous-tâches", body: "On va créer une tâche, une sous-tâche, puis tout supprimer, dans un dossier « 🎓 Entraînement » (retiré à la fin). Cliquez « Suivant » pour dérouler." },
+    {
+      selector: '[data-tour="cases-list"]', title: "1. Un dossier d'entraînement",
+      body: "On ouvre un dossier d'entraînement. Pour de vrai, un dossier se crée avec le bouton + « Nouveau dossier » (ou la touche N).",
+      action: async () => {
+        if (!user) return;
+        if (!demoCaseIdRef.current) {
+          const id = await createCase(user.uid, { title: "🎓 Entraînement", legalDueDate: null, caseNote: "Dossier d'exercice — supprimé à la fin du pas à pas." });
+          demoCaseIdRef.current = id;
+        }
+        setShowArchived(false);
+        setSelectedCaseId(demoCaseIdRef.current);
+        setSelectedCaseIds(demoCaseIdRef.current ? [demoCaseIdRef.current] : []);
+        setSelectedItemId(null); setSelectedItemIds([]); setSelectedSubItemId(null); setSelectedSubItemIds([]);
+        setActiveColumn("cases");
+        setDetailTarget(demoCaseIdRef.current ? { type: "case", id: demoCaseIdRef.current } : null);
+      },
+    },
+    {
+      selector: '[data-tour="new-item"]', title: "2. Créer une tâche",
+      body: "Une tâche se crée avec ce bouton + (colonne Tâches) ou la touche N. On en ajoute une : « Exemple : appeler le client ».",
+      action: async () => {
+        if (!user || !demoCaseIdRef.current) return;
+        if (!demoTaskIdRef.current) {
+          const id = await createItem(user.uid, { caseId: demoCaseIdRef.current, level: 2, title: "Exemple : appeler le client", status: "Créé", parentItemId: null });
+          demoTaskIdRef.current = id;
+        }
+        setSelectedItemId(demoTaskIdRef.current);
+        setSelectedItemIds(demoTaskIdRef.current ? [demoTaskIdRef.current] : []);
+        setActiveColumn("items");
+        setDetailTarget(demoTaskIdRef.current ? { type: "item", id: demoTaskIdRef.current } : null);
+      },
+    },
+    {
+      selector: '[data-tour="new-subitem"]', title: "3. Créer une sous-tâche",
+      body: "Sélectionnez une tâche, puis ce bouton + (colonne Sous-tâches) ou Maj+N. On décompose : « Retrouver le numéro ».",
+      action: async () => {
+        if (!user || !demoCaseIdRef.current || !demoTaskIdRef.current) return;
+        await createItem(user.uid, { caseId: demoCaseIdRef.current, parentItemId: demoTaskIdRef.current, level: 3, title: "Retrouver le numéro", status: "Créé" });
+        setSelectedItemId(demoTaskIdRef.current);
+        setActiveColumn("subitems");
+      },
+    },
+    { title: "4. Faire avancer", body: "Sur une tâche sélectionnée, les touches 1 à 4 changent le statut (Créé → Demandé → Reçu → Traité), et l'étoile ★ marque l'importance." },
+    {
+      title: "5. Tout supprimer",
+      body: "Pour supprimer : sélectionnez l'élément puis la touche Suppr, ou le bouton « Supprimer » du panneau de détail. On nettoie le dossier d'entraînement…",
+      action: async () => {
+        await cleanupDemoCase();
+        setDetailTarget(null);
+        setSelectedCaseId(null); setSelectedCaseIds([]);
+        setSelectedItemId(null); setSelectedItemIds([]);
+      },
+    },
+    { title: "Terminé ! 🎉", body: "Vous savez créer une tâche, une sous-tâche, et tout supprimer. Le dossier d'entraînement a été retiré." },
+  ], [user, cleanupDemoCase]);
+
+  // Lancement d'une visite / d'un pas à pas demandé depuis les Préférences (flag localStorage).
+  const tourFlagChecked = useRef(false);
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (!user || tourFlagChecked.current || typeof window === "undefined") return;
+    tourFlagChecked.current = true;
     if (localStorage.getItem("henri:startTour") === "1") {
       localStorage.removeItem("henri:startTour");
-      setTourOpen(true);
+      setActiveTour(TOUR_STEPS);
+    } else if (localStorage.getItem("henri:startWalkthrough") === "1") {
+      localStorage.removeItem("henri:startWalkthrough");
+      setTourIsWalkthrough(true);
+      setActiveTour(buildWalkthroughSteps());
     }
-  }, []);
+  }, [user, buildWalkthroughSteps]);
 
   useEffect(() => {
     if (!user) return;
@@ -2812,7 +2897,7 @@ export default function AppShell() {
                     title="Mode sélection multiple"
                     onClick={() => { setSelectionModeItems(p => !p); setSelectedItemIds([]); }}
                   >Sélection</button>
-                  <button className={iconBtn} title="Nouvelle tâche (N)" onClick={async () => { setActiveColumn("items"); if (!user || !selectedCaseId) { showToast("Sélectionnez un dossier d'abord."); return; } const id = await createItem(user.uid, { caseId: selectedCaseId, level: 2, title: "Nouvelle tâche", status: "Créé", parentItemId: null }); setSelectedItemId(id); setSelectedItemIds([id]); setDetailTarget({ type: "item", id }); focusWhenReady(detailTitleRef); }}>
+                  <button data-tour="new-item" className={iconBtn} title="Nouvelle tâche (N)" onClick={async () => { setActiveColumn("items"); if (!user || !selectedCaseId) { showToast("Sélectionnez un dossier d'abord."); return; } const id = await createItem(user.uid, { caseId: selectedCaseId, level: 2, title: "Nouvelle tâche", status: "Créé", parentItemId: null }); setSelectedItemId(id); setSelectedItemIds([id]); setDetailTarget({ type: "item", id }); focusWhenReady(detailTitleRef); }}>
                     <span className="text-[18px] leading-none">+</span>
                   </button>
                 </div>
@@ -2910,7 +2995,7 @@ export default function AppShell() {
                     title="Mode sélection multiple"
                     onClick={() => { setSelectionModeSubItems(p => !p); setSelectedSubItemIds([]); }}
                   >Sélection</button>
-                  <button className={iconBtn} title="Nouvelle sous-tâche (⇧N)" onClick={async () => { setActiveColumn("subitems"); if (!user || !selectedItemId) { showToast("Sélectionnez une tâche d'abord."); return; } const parentCaseId = selectedItem?.caseId ?? selectedCaseId; if (!parentCaseId) return; const id = await createItem(user.uid, { caseId: parentCaseId, parentItemId: selectedItemId, level: 3, title: "Nouvelle sous-tâche", status: "Créé" }); setSelectedSubItemId(id); setSelectedSubItemIds([id]); setActiveColumn("subitems"); setDetailTarget({ type: "item", id }); focusWhenReady(detailTitleRef); }}>
+                  <button data-tour="new-subitem" className={iconBtn} title="Nouvelle sous-tâche (⇧N)" onClick={async () => { setActiveColumn("subitems"); if (!user || !selectedItemId) { showToast("Sélectionnez une tâche d'abord."); return; } const parentCaseId = selectedItem?.caseId ?? selectedCaseId; if (!parentCaseId) return; const id = await createItem(user.uid, { caseId: parentCaseId, parentItemId: selectedItemId, level: 3, title: "Nouvelle sous-tâche", status: "Créé" }); setSelectedSubItemId(id); setSelectedSubItemIds([id]); setActiveColumn("subitems"); setDetailTarget({ type: "item", id }); focusWhenReady(detailTitleRef); }}>
                     <span className="text-[18px] leading-none">+</span>
                   </button>
                 </div>
@@ -3614,8 +3699,8 @@ export default function AppShell() {
         )}
       </>
 
-      {/* ── VISITE GUIDÉE ── */}
-      {tourOpen && <GuidedTour steps={TOUR_STEPS} onClose={() => setTourOpen(false)} />}
+      {/* ── VISITE GUIDÉE / PAS À PAS ── */}
+      {activeTour && <GuidedTour steps={activeTour} onClose={closeTour} />}
 
       {/* ── MODÈLES DE DOSSIER ── */}
       {templatesModal && (
@@ -3656,7 +3741,7 @@ export default function AppShell() {
                 Henri s'installe comme une <strong>application</strong> sur votre ordinateur ou votre téléphone (bouton <strong>Installer l'app</strong>) et peut vous envoyer des <strong>rappels</strong> au bon moment sur vos tâches et mémos — activez-les d'un clic sur <strong>Rappels</strong>, en haut.
               </p>
               <button
-                onClick={() => { setShowWelcome(false); setTourOpen(true); }}
+                onClick={() => { setShowWelcome(false); setActiveTour(TOUR_STEPS); }}
                 style={{ width: "100%", padding: "13px", borderRadius: "12px", background: "white", color: "#111827", border: "1px solid #e5e7eb", fontSize: "14px", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginTop: "4px" }}>
                 ▶ Faire la visite guidée
               </button>
