@@ -67,6 +67,9 @@ import { EditableInput, EditableTextarea } from "./EditableField";
 import { ReminderPicker } from "./ReminderPicker";
 import { formatRecurrence } from "@/lib/recurrence";
 
+// Couleurs d'avancement (Créé, Demandé, Reçu, Traité), alignées sur les badges de statut.
+const STATUS_COLORS = ["var(--s0-fg)", "var(--s1-fg)", "var(--s2-fg)", "var(--s3-fg)"];
+
 const isEditableElement = (element: EventTarget | null) => {
   if (!(element instanceof HTMLElement)) {
     return false;
@@ -408,6 +411,19 @@ export default function AppShell() {
 
   const detailItem = detailTarget?.type === "item" ? items.find((entry) => entry.id === detailTarget.id) ?? null : null;
   const detailCase = detailTarget?.type === "case" ? cases.find((entry) => entry.id === detailTarget.id) ?? null : null;
+
+  // Décompte des tâches (niveau 2) par statut, pour le mini-récap sur chaque dossier.
+  const taskCountsByCase = useMemo(() => {
+    const map = new Map<string, number[]>();
+    for (const it of items) {
+      if (it.parentItemId) continue; // tâches de niveau 2 uniquement
+      let arr = map.get(it.caseId);
+      if (!arr) { arr = [0, 0, 0, 0]; map.set(it.caseId, arr); }
+      const idx = STATUSES.indexOf(it.status);
+      if (idx >= 0) arr[idx]++;
+    }
+    return map;
+  }, [items]);
   const detailComments = detailItem ? comments.filter((comment) => comment.itemId === detailItem.id).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) : [];
   const detailEvents = detailItem ? events.filter((event) => event.itemId === detailItem.id) : [];
   const reparentTarget = reparentTargetId ? items.find((entry) => entry.id === reparentTargetId) ?? null : null;
@@ -2663,11 +2679,25 @@ export default function AppShell() {
                         )}
                         <p className="text-[15px] font-medium text-tx truncate leading-snug">{entry.title}</p>
                       </div>
-                      <p className="text-[12.5px] text-tx-3 mt-0.5 truncate min-h-[1.25rem]">
-                        {entry.legalDueDate ? (
-                          <>Éch. <span className={new Date(entry.legalDueDate) < new Date() ? "text-red-500" : ""}>{formatDateFR(entry.legalDueDate)}</span></>
-                        ) : null}
-                      </p>
+                      <div className="flex items-center justify-between gap-2 mt-0.5 min-h-[1.25rem]">
+                        <p className="text-[12.5px] text-tx-3 truncate">
+                          {entry.legalDueDate ? (
+                            <>Éch. <span className={new Date(entry.legalDueDate) < new Date() ? "text-red-500" : ""}>{formatDateFR(entry.legalDueDate)}</span></>
+                          ) : null}
+                        </p>
+                        {(() => {
+                          const c = taskCountsByCase.get(entry.id);
+                          const total = c ? c[0] + c[1] + c[2] + c[3] : 0;
+                          if (!c || total === 0) return null;
+                          return (
+                            <span className="flex items-center gap-1 shrink-0 tabular-nums" title="Tâches par statut — Créé · Demandé · Reçu · Traité">
+                              {c.map((n, i) => (
+                                <span key={i} style={{ color: STATUS_COLORS[i], fontSize: "10px", fontWeight: 700, lineHeight: 1, opacity: n === 0 ? 0.35 : 1 }}>{n}</span>
+                              ))}
+                            </span>
+                          );
+                        })()}
+                      </div>
                     </div>
                     {entry.type && (
                       <span className="text-[12.5px] text-tx-3 shrink-0">{entry.type}</span>
