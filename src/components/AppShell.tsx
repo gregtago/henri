@@ -36,7 +36,13 @@ import {
   updateCase,
   updateFloatingTask,
   updateItem,
-  updateItemProgress
+  updateItemProgress,
+  subscribeCaseTemplates,
+  createCaseTemplate,
+  renameCaseTemplate,
+  deleteCaseTemplate,
+  buildTemplateItems,
+  applyTemplateToCase
 } from "@/lib/firestore";
 import { auth, db } from "@/lib/firebase";
 import { seedOnboardingIfNeeded } from "@/lib/onboarding";
@@ -51,11 +57,12 @@ import {
   toDate
 } from "@/lib/dates";
 import { getProgressLevel, getProgressStageLabel } from "@/lib/progress";
-import type { Case, Comment, Event, FloatingTask, Item, MyDaySelection, Status } from "@/lib/types";
+import type { Case, CaseTemplate, Comment, Event, FloatingTask, Item, MyDaySelection, Status } from "@/lib/types";
 import { STATUSES } from "@/lib/types";
 import { RecurrencePicker } from "./RecurrencePicker";
 import { Icon } from "./Icon";
 import InstallButton from "./InstallButton";
+import CaseTemplatesModal from "./CaseTemplatesModal";
 import { EditableInput, EditableTextarea } from "./EditableField";
 import { ReminderPicker } from "./ReminderPicker";
 import { formatRecurrence } from "@/lib/recurrence";
@@ -150,6 +157,8 @@ export default function AppShell() {
 
   const [activeColumn, setActiveColumn] = useState<"cases" | "items" | "subitems" | "detail">("cases");
   const [detailTarget, setDetailTarget] = useState<DetailTarget>(null);
+  const [caseTemplates, setCaseTemplates] = useState<CaseTemplate[]>([]);
+  const [templatesModal, setTemplatesModal] = useState<{ mode: "apply"; caseId: string } | { mode: "new" } | null>(null);
   const [isReparentOpen, setIsReparentOpen] = useState(false);
   const [reparentTargetId, setReparentTargetId] = useState<string | null>(null);
   const [reparentSearch, setReparentSearch] = useState("");
@@ -285,6 +294,7 @@ export default function AppShell() {
     const unsubEvents = subscribeEvents(user.uid, setEvents);
     const unsubFloating = subscribeFloatingTasks(user.uid, setFloatingTasks);
     const unsubMyDay = subscribeMyDaySelections(user.uid, setLiveMyDaySelections, startOfWindow);
+    const unsubTemplates = subscribeCaseTemplates(user.uid, setCaseTemplates);
     return () => {
       unsubCases();
       unsubItems();
@@ -292,6 +302,7 @@ export default function AppShell() {
       unsubEvents();
       unsubFloating();
       unsubMyDay();
+      unsubTemplates();
     };
   }, [user, startOfWindow]);
 
@@ -1710,6 +1721,58 @@ export default function AppShell() {
     }
   };
 
+  // ── Modèles de dossier ──
+  const handleSaveCaseAsTemplate = async (caseData: Case) => {
+    if (!user) return;
+    const templateItems = buildTemplateItems(items, caseData.id);
+    if (templateItems.length === 0) {
+      showToast("Ce dossier n'a aucune tâche à enregistrer.");
+      return;
+    }
+    const name = window.prompt("Nom du modèle :", caseData.title)?.trim();
+    if (!name) return;
+    await createCaseTemplate(user.uid, name, templateItems);
+    showToast(`Modèle « ${name} » enregistré (${templateItems.length} tâche${templateItems.length > 1 ? "s" : ""}).`);
+  };
+
+  const handleApplyTemplateToCase = async (template: CaseTemplate, caseId: string) => {
+    if (!user) return;
+    await applyTemplateToCase(user.uid, caseId, template.items);
+    setTemplatesModal(null);
+    setDetailTarget({ type: "case", id: caseId });
+    showToast(`Modèle « ${template.name} » appliqué.`);
+  };
+
+  const handleCreateCaseFromTemplate = async (template: CaseTemplate) => {
+    if (!user) return;
+    const id = await createCase(user.uid, { title: template.name, legalDueDate: null, caseNote: "" });
+    await applyTemplateToCase(user.uid, id, template.items);
+    setTemplatesModal(null);
+    setSelectedCaseId(id);
+    setSelectedCaseIds([id]);
+    setSelectedItemId(null);
+    setSelectedSubItemId(null);
+    setSelectedItemIds([]);
+    setSelectedSubItemIds([]);
+    setActiveColumn("cases");
+    setDetailTarget({ type: "case", id });
+    focusWhenReady(detailCaseRef);
+    showToast(`Dossier créé depuis « ${template.name} ».`);
+  };
+
+  const handleRenameTemplate = async (template: CaseTemplate) => {
+    if (!user) return;
+    const name = window.prompt("Renommer le modèle :", template.name)?.trim();
+    if (!name || name === template.name) return;
+    await renameCaseTemplate(user.uid, template.id, name);
+  };
+
+  const handleDeleteTemplate = async (template: CaseTemplate) => {
+    if (!user) return;
+    if (!window.confirm(`Supprimer le modèle « ${template.name} » ? (Les dossiers déjà créés ne sont pas affectés.)`)) return;
+    await deleteCaseTemplate(user.uid, template.id);
+  };
+
   const handleExportSelectedItems = () => {
     if (selectedItemIds.length === 0) return;
     const selectedSet = new Set(selectedItemIds);
@@ -2242,6 +2305,12 @@ export default function AppShell() {
             <button className="detail-action-btn" onClick={() => handleExport(detailCase)}>
               <span>↓</span> Exporter
             </button>
+            <button className="detail-action-btn" onClick={() => handleSaveCaseAsTemplate(detailCase)} title="Enregistrer les tâches de ce dossier comme modèle réutilisable">
+              <span>📋</span> Enregistrer comme modèle
+            </button>
+            <button className="detail-action-btn mobile-hide" onClick={() => setTemplatesModal({ mode: "apply", caseId: detailCase.id })} title="Ajouter les tâches d'un modèle à ce dossier">
+              <span>＋</span> Appliquer un modèle
+            </button>
             <label className="detail-action-btn mobile-hide" title="Importer des tâches dans ce dossier depuis un fichier JSON">
               <span>↑</span> Importer des tâches
               <input type="file" accept="application/json" className="hidden" onChange={async (e) => {
@@ -2551,6 +2620,9 @@ export default function AppShell() {
                     title={caseSortDirection === "asc" ? "Ordre croissant — cliquer pour inverser" : "Ordre décroissant — cliquer pour inverser"}
                   >
                     <Icon name={caseSortDirection === "asc" ? "chevron-up" : "chevron-down"} size={14} strokeWidth={2} />
+                  </button>
+                  <button className={iconBtn} title="Nouveau dossier depuis un modèle" onClick={() => setTemplatesModal({ mode: "new" })}>
+                    <span className="text-[13px] leading-none">📋</span>
                   </button>
                   <button className={iconBtn} title="Nouveau dossier (N)" onClick={async () => {
                     if (!user) return;
@@ -3471,6 +3543,19 @@ export default function AppShell() {
           </div>
         )}
       </>
+
+      {/* ── MODÈLES DE DOSSIER ── */}
+      {templatesModal && (
+        <CaseTemplatesModal
+          mode={templatesModal.mode}
+          templates={caseTemplates}
+          onApply={(t) => { if (templatesModal.mode === "apply") handleApplyTemplateToCase(t, templatesModal.caseId); }}
+          onCreateNew={(t) => handleCreateCaseFromTemplate(t)}
+          onRename={handleRenameTemplate}
+          onDelete={handleDeleteTemplate}
+          onClose={() => setTemplatesModal(null)}
+        />
+      )}
 
       {/* ── ÉCRAN BIENVENUE ── */}
       {showWelcome && (
