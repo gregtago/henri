@@ -1,6 +1,6 @@
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { db } from "./firebase";
-import { createCase, createItem } from "./firestore";
+import { createCase, createItem, createCaseTemplate } from "./firestore";
 
 export async function seedOnboardingIfNeeded(uid: string): Promise<void> {
   // Vérifier si l'onboarding a déjà été fait
@@ -59,4 +59,29 @@ export async function seedOnboardingIfNeeded(uid: string): Promise<void> {
   const t5 = await createItem(uid, { caseId: case3, level: 2, title: "Exemple : Contacter le client", status: "Demandé", parentItemId: null, dueDate: null });
   await createItem(uid, { caseId: case3, level: 3, title: "Shift+N crée une sous-tâche comme celle-ci", status: "Créé", parentItemId: t5, dueDate: null });
   await createItem(uid, { caseId: case3, level: 3, title: "Utilisez les touches 1-4 pour changer le statut", status: "Reçu", parentItemId: t5, dueDate: null });
+}
+
+// Modèle « intégré » d'exemple, ajouté une seule fois (flag meta dédié), pour que
+// même les comptes existants disposent d'une trame de dossier réutilisable.
+export async function seedExampleTemplateIfNeeded(uid: string): Promise<void> {
+  const metaRef = doc(db, `users/${uid}/meta/exampleTemplate`);
+  const snap = await getDoc(metaRef);
+  if (snap.exists()) return;
+  await setDoc(metaRef, { done: true, createdAt: new Date().toISOString() });
+
+  await createCaseTemplate(uid, "Vente immobilière (exemple)", [
+    { id: "t1", parentItemId: null, level: 2, title: "Ouverture du dossier" },
+    { id: "t1a", parentItemId: "t1", level: 3, title: "Recueillir les pièces d'identité des parties" },
+    { id: "t1b", parentItemId: "t1", level: 3, title: "Vérifier le titre de propriété" },
+    { id: "t2", parentItemId: null, level: 2, title: "Avant-contrat" },
+    { id: "t2a", parentItemId: "t2", level: 3, title: "Rédiger le compromis de vente" },
+    { id: "t2b", parentItemId: "t2", level: 3, title: "Purger le délai de rétractation" },
+    { id: "t3", parentItemId: null, level: 2, title: "Constitution du dossier" },
+    { id: "t3a", parentItemId: "t3", level: 3, title: "Demander l'état hypothécaire" },
+    { id: "t3b", parentItemId: "t3", level: 3, title: "Réunir les diagnostics techniques" },
+    { id: "t3c", parentItemId: "t3", level: 3, title: "Obtenir le certificat d'urbanisme" },
+    { id: "t4", parentItemId: null, level: 2, title: "Signature de l'acte authentique" },
+    { id: "t4a", parentItemId: "t4", level: 3, title: "Lancer l'appel de fonds" },
+    { id: "t4b", parentItemId: "t4", level: 3, title: "Publier l'acte au service de publicité foncière" },
+  ]);
 }
