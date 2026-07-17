@@ -45,7 +45,7 @@ import {
   applyTemplateToCase
 } from "@/lib/firestore";
 import { auth, db } from "@/lib/firebase";
-import { seedOnboardingIfNeeded } from "@/lib/onboarding";
+import { seedOnboardingIfNeeded, seedExampleTemplateIfNeeded } from "@/lib/onboarding";
 import {
   dateKeyToDate,
   formatDateFR,
@@ -77,7 +77,11 @@ const TOUR_STEPS: TourStep[] = [
   { selector: '[data-tour="nav"]', title: "Deux espaces", body: "« Dossiers » regroupe tous vos dossiers et leurs tâches. « Ma journée » est votre plan de travail du jour, où vous extrayez les tâches à faire aujourd'hui." },
   { selector: '[data-tour="cases-actions"]', title: "Créer & trier vos dossiers", body: "Créez un dossier avec +, ou partez d'un modèle avec 📋. Le menu déroulant trie vos dossiers — dont « Charge restante », qui remonte ceux où il reste le plus à faire." },
   { selector: '[data-tour="cases-list"]', title: "Avancement en un coup d'œil", body: "Chaque dossier affiche 4 petits nombres colorés : le nombre de tâches et sous-tâches par statut — Créé, Demandé, Reçu, Traité." },
+  { title: "Tâches & sous-tâches", body: "Sélectionnez un dossier pour afficher ses Tâches (niveau 2), puis une tâche pour ses Sous-tâches (niveau 3). Créez avec N, une sous-tâche avec Maj+N, et faites avancer le statut avec les touches 1 à 4." },
+  { selector: '[data-tour="templates-btn"]', title: "Modèles de dossier", body: "Réutilisez une liste de tâches type. Un modèle d'exemple « Vente immobilière » est déjà intégré : cliquez 📋 pour créer un dossier pré-rempli. Depuis un dossier, « Enregistrer comme modèle » crée le vôtre." },
+  { selector: '[data-tour="import"]', title: "Import & export", body: "Depuis le détail d'un dossier, « Exporter » télécharge un fichier JSON ; « Importer » (ici) recrée un dossier depuis un fichier. Pratique pour dupliquer ou partager une trame." },
   { selector: '[data-tour="reminders"]', title: "Rappels & notifications", body: "Activez les notifications ici, puis posez un rappel sur une tâche ou un mémo. Vous gérez vos appareils dans Préférences → Appareils." },
+  { title: "Raccourcis clavier", body: "N : nouveau · Maj+N : sous-tâche · A : ajouter à Ma journée · 1 à 4 : changer le statut · ← → : naviguer entre colonnes · Suppr : supprimer. La liste complète est dans l'Aide." },
   { selector: '[data-tour="prefs"]', title: "Réglages & aide", body: "Dans Préférences : apparence, aide détaillée, gestion des appareils et notes de version." },
   { title: "C'est parti ! 🎯", body: "Vous êtes prêt. Bonne organisation ! Relancez cette visite quand vous voulez depuis Préférences → Aide." },
 ];
@@ -270,6 +274,7 @@ export default function AppShell() {
   useEffect(() => {
     if (!user) return;
     seedOnboardingIfNeeded(user.uid).catch(() => {});
+    seedExampleTemplateIfNeeded(user.uid).catch(() => {});
   }, [user]);
 
   // Restaurer une sélection après navigation depuis Ma journée
@@ -2672,7 +2677,7 @@ export default function AppShell() {
                   >
                     <Icon name={caseSortDirection === "asc" ? "chevron-up" : "chevron-down"} size={14} strokeWidth={2} />
                   </button>
-                  <button className={iconBtn} title="Nouveau dossier depuis un modèle" onClick={() => setTemplatesModal({ mode: "new" })}>
+                  <button data-tour="templates-btn" className={iconBtn} title="Nouveau dossier depuis un modèle" onClick={() => setTemplatesModal({ mode: "new" })}>
                     <span className="text-[13px] leading-none">📋</span>
                   </button>
                   <button className={iconBtn} title="Nouveau dossier (N)" onClick={async () => {
@@ -2771,7 +2776,7 @@ export default function AppShell() {
                     <><Icon name="archive" size={14} /> Archivés ({archivedCases.length})</>
                   )}
                 </button>
-                <label className="flex-1 inline-flex items-center justify-center gap-1.5 text-[12.5px] font-[inherit] px-2.5 py-1.5 rounded border bg-transparent text-tx-2 border-border hover:border-border-strong hover:text-tx cursor-pointer transition-colors"
+                <label data-tour="import" className="flex-1 inline-flex items-center justify-center gap-1.5 text-[12.5px] font-[inherit] px-2.5 py-1.5 rounded border bg-transparent text-tx-2 border-border hover:border-border-strong hover:text-tx cursor-pointer transition-colors"
                   title="Importer un dossier depuis un fichier JSON">
                   <Icon name="import" size={14} />
                   <span>Importer</span>
