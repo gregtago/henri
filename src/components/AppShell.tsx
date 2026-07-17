@@ -63,12 +63,24 @@ import { RecurrencePicker } from "./RecurrencePicker";
 import { Icon } from "./Icon";
 import InstallButton from "./InstallButton";
 import CaseTemplatesModal from "./CaseTemplatesModal";
+import GuidedTour, { type TourStep } from "./GuidedTour";
 import { EditableInput, EditableTextarea } from "./EditableField";
 import { ReminderPicker } from "./ReminderPicker";
 import { formatRecurrence } from "@/lib/recurrence";
 
 // Couleurs d'avancement (Créé, Demandé, Reçu, Traité), alignées sur les badges de statut.
 const STATUS_COLORS = ["var(--s0-fg)", "var(--s1-fg)", "var(--s2-fg)", "var(--s3-fg)"];
+
+// Étapes de la visite guidée (vue « bureau »).
+const TOUR_STEPS: TourStep[] = [
+  { title: "Bienvenue dans Henri 👋", body: "Une petite visite en quelques étapes. Vous pourrez la relancer à tout moment depuis Préférences → Aide." },
+  { selector: '[data-tour="nav"]', title: "Deux espaces", body: "« Dossiers » regroupe tous vos dossiers et leurs tâches. « Ma journée » est votre plan de travail du jour, où vous extrayez les tâches à faire aujourd'hui." },
+  { selector: '[data-tour="cases-actions"]', title: "Créer & trier vos dossiers", body: "Créez un dossier avec +, ou partez d'un modèle avec 📋. Le menu déroulant trie vos dossiers — dont « Charge restante », qui remonte ceux où il reste le plus à faire." },
+  { selector: '[data-tour="cases-list"]', title: "Avancement en un coup d'œil", body: "Chaque dossier affiche 4 petits nombres colorés : le nombre de tâches et sous-tâches par statut — Créé, Demandé, Reçu, Traité." },
+  { selector: '[data-tour="reminders"]', title: "Rappels & notifications", body: "Activez les notifications ici, puis posez un rappel sur une tâche ou un mémo. Vous gérez vos appareils dans Préférences → Appareils." },
+  { selector: '[data-tour="prefs"]', title: "Réglages & aide", body: "Dans Préférences : apparence, aide détaillée, gestion des appareils et notes de version." },
+  { title: "C'est parti ! 🎯", body: "Vous êtes prêt. Bonne organisation ! Relancez cette visite quand vous voulez depuis Préférences → Aide." },
+];
 
 const isEditableElement = (element: EventTarget | null) => {
   if (!(element instanceof HTMLElement)) {
@@ -162,6 +174,7 @@ export default function AppShell() {
   const [detailTarget, setDetailTarget] = useState<DetailTarget>(null);
   const [caseTemplates, setCaseTemplates] = useState<CaseTemplate[]>([]);
   const [templatesModal, setTemplatesModal] = useState<{ mode: "apply"; caseId: string } | { mode: "new" } | null>(null);
+  const [tourOpen, setTourOpen] = useState(false);
   const [isReparentOpen, setIsReparentOpen] = useState(false);
   const [reparentTargetId, setReparentTargetId] = useState<string | null>(null);
   const [reparentSearch, setReparentSearch] = useState("");
@@ -308,6 +321,15 @@ export default function AppShell() {
       unsubTemplates();
     };
   }, [user, startOfWindow]);
+
+  // Lancement de la visite guidée demandé depuis les Préférences (flag localStorage).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (localStorage.getItem("henri:startTour") === "1") {
+      localStorage.removeItem("henri:startTour");
+      setTourOpen(true);
+    }
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -2456,7 +2478,7 @@ export default function AppShell() {
           <img src="/logo-henri-new.png" alt="Henri" style={{ height: "24px", width: "auto" }} />
         </div>
         {/* Liens navigation — gauche (desktop uniquement) */}
-        <nav className="hidden md:flex gap-0.5 z-10">
+        <nav data-tour="nav" className="hidden md:flex gap-0.5 z-10">
           <Link
             href="/"
             className={`text-[13px] px-2.5 py-1 rounded border-none bg-transparent cursor-pointer transition-all ${
@@ -2487,6 +2509,7 @@ export default function AppShell() {
           <span className="hidden sm:inline">{user.email}</span>
           {notifStatus !== "unsupported" && (
             <button
+              data-tour="reminders"
               className={`hidden md:inline-flex items-center gap-1 px-2 py-1 rounded border cursor-pointer transition-colors ${
                 notifStatus === "granted"
                   ? "bg-transparent text-tx-2 border-border hover:border-border-strong"
@@ -2520,7 +2543,7 @@ export default function AppShell() {
           )}
           <span className="hidden md:inline-flex"><InstallButton /></span>
           {/* Desktop : boutons texte */}
-          <Link href="/settings" className={`hidden md:inline-flex ${btnGhost}`} style={{textDecoration:"none"}}>Préférences</Link>
+          <Link href="/settings" data-tour="prefs" className={`hidden md:inline-flex ${btnGhost}`} style={{textDecoration:"none"}}>Préférences</Link>
           <button className={`hidden md:inline-flex ${btnGhost}`} onClick={() => signOut(auth)}>Déconnexion</button>
           {/* Mobile : icônes rondes compactes */}
           <Link href="/settings" className="md:hidden w-[32px] h-[32px] flex items-center justify-center rounded-full border border-border bg-bg-subtle hover:bg-bg-hover text-tx-2" style={{textDecoration:"none"}} title="Préférences" aria-label="Préférences"><Icon name="settings" size={16} /></Link>
@@ -2630,7 +2653,7 @@ export default function AppShell() {
             <div className="finder-column">
               <div className="finder-header">
                 <span>{showArchived ? "Dossiers archivés" : "Dossiers"}</span>
-                <div className="flex items-center gap-1">
+                <div data-tour="cases-actions" className="flex items-center gap-1">
                   <select
                     className="text-[12.5px] font-[inherit] bg-transparent border-none text-tx-2 cursor-pointer outline-none pr-1 hover:text-tx transition-colors"
                     value={caseSortKey}
@@ -2671,7 +2694,7 @@ export default function AppShell() {
                 </div>
               </div>
 
-              <div className="finder-list" ref={casesListRef}>
+              <div className="finder-list" ref={casesListRef} data-tour="cases-list">
                 {filteredCases.map((entry) => (
                   <div
                     key={entry.id}
@@ -3586,6 +3609,9 @@ export default function AppShell() {
         )}
       </>
 
+      {/* ── VISITE GUIDÉE ── */}
+      {tourOpen && <GuidedTour steps={TOUR_STEPS} onClose={() => setTourOpen(false)} />}
+
       {/* ── MODÈLES DE DOSSIER ── */}
       {templatesModal && (
         <CaseTemplatesModal
@@ -3625,8 +3651,13 @@ export default function AppShell() {
                 Henri s'installe comme une <strong>application</strong> sur votre ordinateur ou votre téléphone (bouton <strong>Installer l'app</strong>) et peut vous envoyer des <strong>rappels</strong> au bon moment sur vos tâches et mémos — activez-les d'un clic sur <strong>Rappels</strong>, en haut.
               </p>
               <button
+                onClick={() => { setShowWelcome(false); setTourOpen(true); }}
+                style={{ width: "100%", padding: "13px", borderRadius: "12px", background: "white", color: "#111827", border: "1px solid #e5e7eb", fontSize: "14px", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginTop: "4px" }}>
+                ▶ Faire la visite guidée
+              </button>
+              <button
                 onClick={() => setShowWelcome(false)}
-                style={{ width: "100%", padding: "14px", borderRadius: "12px", background: "#111827", color: "white", border: "none", fontSize: "15px", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginTop: "4px" }}>
+                style={{ width: "100%", padding: "14px", borderRadius: "12px", background: "#111827", color: "white", border: "none", fontSize: "15px", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
                 Commencer →
               </button>
               <p style={{ fontSize: "11px", color: "#9ca3af", textAlign: "center" }}>
