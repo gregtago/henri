@@ -200,7 +200,7 @@ export default function AppShell() {
   const myDayTitleRef = useRef<HTMLInputElement | null>(null);
   const [undoCountdown, setUndoCountdown] = useState(0);
 
-  const [caseSortKey, setCaseSortKey] = useState<"title" | "createdAt" | "legalDueDate">(settings.defaultSort);
+  const [caseSortKey, setCaseSortKey] = useState<"title" | "createdAt" | "legalDueDate" | "progress">(settings.defaultSort);
   const [caseSearch, setCaseSearch] = useState("");
   const [caseSortDirection, setCaseSortDirection] = useState<"asc" | "desc">(settings.defaultSortDir);
 
@@ -366,12 +366,36 @@ export default function AppShell() {
   const activeCases = useMemo(() => cases.filter(c => !c.archived), [cases]);
   const archivedCases = useMemo(() => cases.filter(c => c.archived), [cases]);
 
+  // Décompte des tâches ET sous-tâches par statut, pour le mini-récap sur chaque
+  // dossier et le tri par charge restante.
+  const taskCountsByCase = useMemo(() => {
+    const map = new Map<string, number[]>();
+    for (const it of items) {
+      let arr = map.get(it.caseId);
+      if (!arr) { arr = [0, 0, 0, 0]; map.set(it.caseId, arr); }
+      const idx = STATUSES.indexOf(it.status);
+      if (idx >= 0) arr[idx]++;
+    }
+    return map;
+  }, [items]);
+
+  // Score de « charge restante » d'un dossier : Créé=2, Demandé=1, Reçu=0,5, Traité=0.
+  // Plus le score est élevé, plus il reste de travail.
+  const caseWorkScore = (caseId: string) => {
+    const c = taskCountsByCase.get(caseId);
+    return c ? c[0] * 2 + c[1] * 1 + c[2] * 0.5 : 0;
+  };
+
   const sortedCases = useMemo(() => {
     const direction = caseSortDirection === "asc" ? 1 : -1;
     const source = showArchived ? archivedCases : activeCases;
     return source
       .map((entry, index) => ({ entry, index }))
       .sort((a, b) => {
+        if (caseSortKey === "progress") {
+          const result = caseWorkScore(a.entry.id) - caseWorkScore(b.entry.id);
+          return result !== 0 ? result * direction : a.index - b.index;
+        }
         if (caseSortKey === "title") {
           const result = a.entry.title.localeCompare(b.entry.title, "fr");
           return result !== 0 ? result * direction : a.index - b.index;
@@ -390,7 +414,7 @@ export default function AppShell() {
         return result !== 0 ? result * direction : a.index - b.index;
       })
       .map(({ entry }) => entry);
-  }, [cases, caseSortDirection, caseSortKey, showArchived, activeCases, archivedCases]);
+  }, [cases, caseSortDirection, caseSortKey, showArchived, activeCases, archivedCases, taskCountsByCase]);
 
   const filteredCases = caseSearch.trim()
     ? sortedCases.filter(c => c.title.toLowerCase().includes(caseSearch.toLowerCase()))
@@ -411,19 +435,6 @@ export default function AppShell() {
 
   const detailItem = detailTarget?.type === "item" ? items.find((entry) => entry.id === detailTarget.id) ?? null : null;
   const detailCase = detailTarget?.type === "case" ? cases.find((entry) => entry.id === detailTarget.id) ?? null : null;
-
-  // Décompte des tâches (niveau 2) par statut, pour le mini-récap sur chaque dossier.
-  const taskCountsByCase = useMemo(() => {
-    const map = new Map<string, number[]>();
-    for (const it of items) {
-      if (it.parentItemId) continue; // tâches de niveau 2 uniquement
-      let arr = map.get(it.caseId);
-      if (!arr) { arr = [0, 0, 0, 0]; map.set(it.caseId, arr); }
-      const idx = STATUSES.indexOf(it.status);
-      if (idx >= 0) arr[idx]++;
-    }
-    return map;
-  }, [items]);
   const detailComments = detailItem ? comments.filter((comment) => comment.itemId === detailItem.id).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) : [];
   const detailEvents = detailItem ? events.filter((event) => event.itemId === detailItem.id) : [];
   const reparentTarget = reparentTargetId ? items.find((entry) => entry.id === reparentTargetId) ?? null : null;
@@ -2623,12 +2634,13 @@ export default function AppShell() {
                   <select
                     className="text-[12.5px] font-[inherit] bg-transparent border-none text-tx-2 cursor-pointer outline-none pr-1 hover:text-tx transition-colors"
                     value={caseSortKey}
-                    onChange={(e) => setCaseSortKey(e.target.value as "title" | "createdAt" | "legalDueDate")}
+                    onChange={(e) => setCaseSortKey(e.target.value as "title" | "createdAt" | "legalDueDate" | "progress")}
                     title="Trier par"
                   >
                     <option value="title">Nom</option>
                     <option value="createdAt">Ancienneté</option>
                     <option value="legalDueDate">Échéance</option>
+                    <option value="progress">Charge restante</option>
                   </select>
                   <button
                     className={iconBtn}
@@ -2690,7 +2702,7 @@ export default function AppShell() {
                           const total = c ? c[0] + c[1] + c[2] + c[3] : 0;
                           if (!c || total === 0) return null;
                           return (
-                            <span className="flex items-center gap-1 shrink-0 tabular-nums" title="Tâches par statut — Créé · Demandé · Reçu · Traité">
+                            <span className="flex items-center gap-1 shrink-0 tabular-nums" title="Tâches et sous-tâches par statut — Créé · Demandé · Reçu · Traité">
                               {c.map((n, i) => (
                                 <span key={i} style={{ color: STATUS_COLORS[i], fontSize: "10px", fontWeight: 700, lineHeight: 1, opacity: n === 0 ? 0.35 : 1 }}>{n}</span>
                               ))}
