@@ -16,6 +16,8 @@ import {
 import { db } from "./firebase";
 import type {
   Case,
+  CaseTemplate,
+  CaseTemplateItem,
   Comment,
   Event,
   FloatingTask,
@@ -422,6 +424,72 @@ export const importItemsIntoCase = async (
 // dossier existant via « Importer des tâches ».
 export const exportItemsToJson = (items: Item[]) =>
   JSON.stringify({ items }, null, 2);
+
+// ── Modèles de dossier (listes de tâches nommées) ──
+export const subscribeCaseTemplates = (uid: string, cb: (templates: CaseTemplate[]) => void) =>
+  onSnapshot(userCollection(uid, "caseTemplates"), (snap) =>
+    cb(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<CaseTemplate, "id">) })))
+  );
+
+export const createCaseTemplate = async (uid: string, name: string, items: CaseTemplateItem[]) => {
+  const ref = await addDoc(userCollection(uid, "caseTemplates"), {
+    name,
+    items,
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
+  });
+  return ref.id;
+};
+
+export const renameCaseTemplate = (uid: string, id: string, name: string) =>
+  updateDoc(doc(db, `users/${uid}/caseTemplates/${id}`), { name, updatedAt: nowIso() });
+
+export const deleteCaseTemplate = (uid: string, id: string) =>
+  deleteDoc(doc(db, `users/${uid}/caseTemplates/${id}`));
+
+// Construit la structure d'un modèle à partir des tâches d'un dossier.
+export const buildTemplateItems = (items: Item[], caseId: string): CaseTemplateItem[] =>
+  items
+    .filter((it) => it.caseId === caseId)
+    .map((it) => ({
+      id: it.id,
+      parentItemId: it.parentItemId ?? null,
+      level: it.level,
+      title: it.title,
+      starred: it.starred ?? false,
+    }));
+
+// Applique les tâches d'un modèle dans un dossier existant.
+// Remappe les ids (parent → enfant), repart du statut « Créé », sans échéance.
+export const applyTemplateToCase = async (uid: string, caseId: string, templateItems: CaseTemplateItem[]) => {
+  if (!templateItems.length) return;
+  const batch = writeBatch(db);
+  const idMap = new Map<string, string>();
+  const refs = templateItems.map((it) => {
+    const ref = doc(userCollection(uid, "items"));
+    idMap.set(it.id, ref.id);
+    return ref;
+  });
+  templateItems.forEach((it, i) => {
+    batch.set(refs[i], {
+      id: refs[i].id,
+      caseId,
+      parentItemId: it.parentItemId ? idMap.get(it.parentItemId) ?? null : null,
+      level: it.level,
+      title: it.title,
+      starred: it.starred ?? false,
+      status: "Créé" as Status,
+      dueDate: null,
+      reminderAt: null,
+      reminderSentAt: null,
+      progressLevel: getProgressLevel("Créé"),
+      lastProgressAt: serverTimestamp(),
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    });
+  });
+  await batch.commit();
+};
 
 export const getItemsByParent = (items: Item[], parentItemId: string | null) =>
   items.filter((item) => (parentItemId ? item.parentItemId === parentItemId : !item.parentItemId));

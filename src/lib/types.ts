@@ -99,6 +99,25 @@ export type FloatingTask = {
   updatedAt: string;
 };
 
+// Modèle de dossier : une liste de tâches nommée, réutilisable pour pré-remplir
+// un dossier (nouveau ou existant). Ne stocke que la structure (pas de statut,
+// d'échéance ni de rappel).
+export type CaseTemplateItem = {
+  id: string;                       // id local, sert au mapping parent → enfant
+  parentItemId?: string | null;
+  level: 2 | 3;
+  title: string;
+  starred?: boolean | null;
+};
+
+export type CaseTemplate = {
+  id: string;
+  name: string;
+  items: CaseTemplateItem[];
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type SeedPayload = {
   cases: Case[];
   items: Item[];
