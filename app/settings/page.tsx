@@ -305,7 +305,12 @@ export default function SettingsPage() {
           )}
 
           {tab === "aide" && (
-            <div className="flex gap-0 min-h-[600px] bg-bg border border-border rounded-xl overflow-hidden">
+            <>
+              <div className="flex items-center justify-between gap-3 bg-bg border border-border rounded-xl px-5 py-3 mb-3">
+                <p className="text-[13px] text-tx-2">Nouveau sur Henri ? La visite guidée fait le tour des fonctions clés.</p>
+                <Link href="/" onClick={() => { try { localStorage.setItem("henri:startTour", "1"); } catch {} }} className="shrink-0 text-[12px] font-[inherit] bg-tx text-bg border border-tx rounded px-3 py-1.5 hover:opacity-90 transition-all" style={{ textDecoration: "none" }}>▶ Lancer la visite</Link>
+              </div>
+              <div className="flex gap-0 min-h-[600px] bg-bg border border-border rounded-xl overflow-hidden">
 
               {/* Menu gauche */}
               <div className="w-52 shrink-0 border-r border-border bg-bg-subtle flex flex-col py-2">
@@ -386,12 +391,13 @@ export default function SettingsPage() {
               </div>
 
             </div>
+            </>
           )}
 
           {tab === "versions" && (
             <div className="space-y-4">
               {[
-                { v: "Alpha 1.5", date: "Juillet 2026", items: ["Modèles de dossier : enregistrez la liste de tâches d'un dossier sous un nom et réutilisez-la", "Appliquez un modèle à un nouveau dossier (bouton 📋) ou à un dossier existant (« Appliquer un modèle »)", "Gérez vos modèles : renommer, supprimer", "Mini-récap d'avancement sur chaque dossier : 4 compteurs colorés (tâches et sous-tâches) — Créé · Demandé · Reçu · Traité", "Tri des dossiers par « charge restante » (Créé=2, Demandé=1, Reçu=0,5, Traité=0)"] },
+                { v: "Alpha 1.5", date: "Juillet 2026", items: ["Modèles de dossier : enregistrez la liste de tâches d'un dossier sous un nom et réutilisez-la", "Appliquez un modèle à un nouveau dossier (bouton 📋) ou à un dossier existant (« Appliquer un modèle »)", "Gérez vos modèles : renommer, supprimer", "Mini-récap d'avancement sur chaque dossier : 4 compteurs colorés (tâches et sous-tâches) — Créé · Demandé · Reçu · Traité", "Tri des dossiers par « charge restante » (Créé=2, Demandé=1, Reçu=0,5, Traité=0)", "Visite guidée interactive de l'application (relançable ici, dans l'Aide)"] },
                 { v: "Alpha 1.4", date: "Juillet 2026", items: ["Rappels par notification désormais fiables : sur ordinateur, et même lorsque Henri est en arrière-plan ou fermé", "Réception des rappels au bon moment rétablie (l'application pouvait auparavant n'afficher aucune notification)", "Installation en application peaufinée : nom « Henri » et icône corrigés", "Aide enrichie : nouvelles rubriques « Rappels » et « Installer l'app »", "Préférences → Appareils : liste des appareils recevant les rappels, avec possibilité d'en retirer"] },
                 { v: "Alpha 1.3", date: "Juin 2026", items: ["« Mes dossiers » désormais accessible sur mobile : navigation en pleine largeur, une colonne à la fois", "Balayez horizontalement (swipe) pour passer de Dossiers → Tâches → Sous-tâches → Détail, et revenir en arrière", "Icône ☀ pour aller à Ma journée, icône dossier pour revenir à Mes dossiers", "En-têtes mobiles uniformisés (logo et icônes)"] },
                 { v: "Alpha 1.2", date: "Juin 2026", items: ["Import de tâches dans un dossier existant et export d'une sélection de tâches", "Installation de l'app sur Chrome et Edge (bouton dédié, icônes, nom corrigé)", "Correction du curseur qui sautait en fin de champ pendant la saisie"] },
