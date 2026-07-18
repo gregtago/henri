@@ -178,6 +178,7 @@ export default function AppShell() {
   const [detailTarget, setDetailTarget] = useState<DetailTarget>(null);
   const [caseTemplates, setCaseTemplates] = useState<CaseTemplate[]>([]);
   const [templatesModal, setTemplatesModal] = useState<{ mode: "apply"; caseId: string } | { mode: "new" } | null>(null);
+  const [caseActionMenu, setCaseActionMenu] = useState<"io" | "template" | null>(null);
   const [activeTour, setActiveTour] = useState<TourStep[] | null>(null);
   const [tourIsWalkthrough, setTourIsWalkthrough] = useState(false);
   const demoCaseIdRef = useRef<string | null>(null);
@@ -2456,22 +2457,50 @@ export default function AppShell() {
       <div className="detail-actions-bar">
         {detailCase && (
           <>
-            <button className="detail-action-btn" onClick={() => handleExport(detailCase)}>
-              <span>↓</span> Exporter
-            </button>
-            <button className="detail-action-btn" onClick={() => handleSaveCaseAsTemplate(detailCase)} title="Enregistrer les tâches de ce dossier comme modèle réutilisable">
-              <span>📋</span> Enregistrer comme modèle
-            </button>
-            <button className="detail-action-btn mobile-hide" onClick={() => setTemplatesModal({ mode: "apply", caseId: detailCase.id })} title="Ajouter les tâches d'un modèle à ce dossier">
-              <span>＋</span> Appliquer un modèle
-            </button>
-            <label className="detail-action-btn mobile-hide" title="Importer des tâches dans ce dossier depuis un fichier JSON">
-              <span>↑</span> Importer des tâches
-              <input type="file" accept="application/json" className="hidden" onChange={async (e) => {
-                await handleImportItemsIntoCase(detailCase.id, e.target.files?.[0] ?? null);
-                e.target.value = "";
-              }} />
-            </label>
+            {/* Export / Import (menu) */}
+            <div className="detail-menu-wrap">
+              <button className="detail-action-btn" onClick={() => setCaseActionMenu(m => m === "io" ? null : "io")} title="Exporter le dossier, ou importer des tâches">
+                <span>⇅</span> Export / Import <span style={{ opacity: 0.45 }}>▾</span>
+              </button>
+              {caseActionMenu === "io" && (
+                <>
+                  <div className="detail-menu-backdrop" onClick={() => setCaseActionMenu(null)} />
+                  <div className="detail-menu">
+                    <button className="detail-menu-item" onClick={() => { setCaseActionMenu(null); handleExport(detailCase); }}>
+                      <span>↓</span> Exporter le dossier
+                    </button>
+                    <label className="detail-menu-item">
+                      <span>↑</span> Importer des tâches
+                      <input type="file" accept="application/json" className="hidden" onChange={async (e) => {
+                        setCaseActionMenu(null);
+                        await handleImportItemsIntoCase(detailCase.id, e.target.files?.[0] ?? null);
+                        e.target.value = "";
+                      }} />
+                    </label>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Modèle (menu) */}
+            <div className="detail-menu-wrap">
+              <button className="detail-action-btn" onClick={() => setCaseActionMenu(m => m === "template" ? null : "template")} title="Enregistrer ce dossier comme modèle, ou appliquer un modèle">
+                <span>📋</span> Modèle <span style={{ opacity: 0.45 }}>▾</span>
+              </button>
+              {caseActionMenu === "template" && (
+                <>
+                  <div className="detail-menu-backdrop" onClick={() => setCaseActionMenu(null)} />
+                  <div className="detail-menu">
+                    <button className="detail-menu-item" onClick={() => { setCaseActionMenu(null); handleSaveCaseAsTemplate(detailCase); }}>
+                      <span>📋</span> Enregistrer comme modèle
+                    </button>
+                    <button className="detail-menu-item" onClick={() => { setCaseActionMenu(null); setTemplatesModal({ mode: "apply", caseId: detailCase.id }); }}>
+                      <span>＋</span> Appliquer un modèle
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
             <button className="detail-action-btn mobile-hide" onClick={() => handleArchiveCase(detailCase.id, !detailCase.archived)}>
               <span>{detailCase.archived ? "↩" : "📦"}</span> {detailCase.archived ? "Restaurer" : "Archiver"}
             </button>

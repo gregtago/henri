@@ -392,6 +392,41 @@ kbd {
 }
 
 /* ── PANNEAU DÉTAIL : BARRE D'ACTIONS ── */
+.detail-menu-wrap { position: relative; display: inline-flex; }
+.detail-menu-backdrop { position: fixed; inset: 0; z-index: 40; }
+.detail-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 41;
+  min-width: 200px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.14);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.detail-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.detail-menu-item:hover { background: var(--bg-hover); }
+
 .detail-actions-bar {
   display: flex;
   gap: 8px;
