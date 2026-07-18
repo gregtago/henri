@@ -162,22 +162,24 @@ export default function SettingsPage() {
         </div>
       </header>
 
-      {/* Onglets */}
-      <div className="flex bg-bg border-b border-border shrink-0">
-        {(["apparence", "appareils", "modeles", "aide", "versions", "legal"] as Tab[]).map((t) => {
-          const labels: Record<Tab, string> = { apparence: "Apparence", appareils: "Appareils", modeles: "Modèles", aide: "Aide", versions: "Notes de version", legal: "Mentions légales" };
-          return (
-            <button key={t} onClick={() => setTab(t)}
-              className="flex-1 text-[13px] font-medium font-[inherit] py-2.5 border-none bg-transparent cursor-pointer transition-colors"
-              style={{ color: tab === t ? "var(--text)" : "var(--text-3)", borderBottom: tab === t ? "2px solid var(--text)" : "2px solid transparent" }}>
-              {labels[t]}
-            </button>
-          );
-        })}
-      </div>
+      {/* Corps : onglets verticaux + contenu */}
+      <div className="flex-1 flex min-h-0">
+        {/* Onglets verticaux */}
+        <nav className="w-40 sm:w-52 shrink-0 border-r border-border bg-bg overflow-y-auto py-2">
+          {(["apparence", "appareils", "modeles", "aide", "versions", "legal"] as Tab[]).map((t) => {
+            const labels: Record<Tab, string> = { apparence: "Apparence", appareils: "Appareils", modeles: "Modèles", aide: "Aide", versions: "Notes de version", legal: "Mentions légales" };
+            return (
+              <button key={t} onClick={() => setTab(t)}
+                className="w-full text-left text-[13px] font-medium font-[inherit] px-4 py-2.5 border-none bg-transparent cursor-pointer transition-colors"
+                style={{ color: tab === t ? "var(--text)" : "var(--text-2)", background: tab === t ? "var(--bg-active)" : "transparent", borderLeft: tab === t ? "3px solid var(--text)" : "3px solid transparent" }}>
+                {labels[t]}
+              </button>
+            );
+          })}
+        </nav>
 
-      {/* Contenu */}
-      <div className="flex-1 overflow-y-auto">
+        {/* Contenu */}
+        <div className="flex-1 overflow-y-auto">
         <div className={"max-w-4xl mx-auto px-6 py-8 space-y-6"}>
 
           {tab === "apparence" && <>
@@ -473,7 +475,7 @@ export default function SettingsPage() {
           {tab === "versions" && (
             <div className="space-y-4">
               {[
-                { v: "Alpha 1.5", date: "Juillet 2026", items: ["Modèles de dossier : enregistrez la liste de tâches d'un dossier sous un nom et réutilisez-la", "Appliquez un modèle à un nouveau dossier (bouton 📋) ou à un dossier existant (« Appliquer un modèle »)", "Gérez vos modèles : renommer, supprimer", "Mini-récap d'avancement sur chaque dossier : 4 compteurs colorés (tâches et sous-tâches) — Créé · Demandé · Reçu · Traité", "Tri des dossiers par « charge restante » (Créé=2, Demandé=1, Reçu=0,5, Traité=0)", "Visite guidée interactive : tâches, sous-tâches, import/export, modèles, raccourcis clavier (relançable dans l'Aide)", "Modèle de dossier d'exemple intégré (« Vente immobilière »)", "Pas à pas interactif : créer une tâche, une sous-tâche, puis tout supprimer (dossier d'entraînement) ; bulles d'aide repositionnées près des boutons", "À la création d'un dossier, choix entre dossier vierge ou modèle", "Actions d'un dossier regroupées en deux menus : « Export / Import » et « Modèle »", "Préférences → Modèles : gérer ses modèles (renommer, supprimer, consulter le détail)"] },
+                { v: "Alpha 1.5", date: "Juillet 2026", items: ["Modèles de dossier : enregistrez la liste de tâches d'un dossier sous un nom et réutilisez-la", "Appliquez un modèle à un nouveau dossier (bouton 📋) ou à un dossier existant (« Appliquer un modèle »)", "Gérez vos modèles : renommer, supprimer", "Mini-récap d'avancement sur chaque dossier : 4 compteurs colorés (tâches et sous-tâches) — Créé · Demandé · Reçu · Traité", "Tri des dossiers par « charge restante » (Créé=2, Demandé=1, Reçu=0,5, Traité=0)", "Visite guidée interactive : tâches, sous-tâches, import/export, modèles, raccourcis clavier (relançable dans l'Aide)", "Modèle de dossier d'exemple intégré (« Vente immobilière »)", "Pas à pas interactif : créer une tâche, une sous-tâche, puis tout supprimer (dossier d'entraînement) ; bulles d'aide repositionnées près des boutons", "À la création d'un dossier, choix entre dossier vierge ou modèle", "Actions d'un dossier regroupées en deux menus : « Export / Import » et « Modèle »", "Préférences → Modèles : gérer ses modèles (renommer, supprimer, consulter le détail)", "Préférences : navigation par onglets verticaux (colonne à gauche)"] },
                 { v: "Alpha 1.4", date: "Juillet 2026", items: ["Rappels par notification désormais fiables : sur ordinateur, et même lorsque Henri est en arrière-plan ou fermé", "Réception des rappels au bon moment rétablie (l'application pouvait auparavant n'afficher aucune notification)", "Installation en application peaufinée : nom « Henri » et icône corrigés", "Aide enrichie : nouvelles rubriques « Rappels » et « Installer l'app »", "Préférences → Appareils : liste des appareils recevant les rappels, avec possibilité d'en retirer"] },
                 { v: "Alpha 1.3", date: "Juin 2026", items: ["« Mes dossiers » désormais accessible sur mobile : navigation en pleine largeur, une colonne à la fois", "Balayez horizontalement (swipe) pour passer de Dossiers → Tâches → Sous-tâches → Détail, et revenir en arrière", "Icône ☀ pour aller à Ma journée, icône dossier pour revenir à Mes dossiers", "En-têtes mobiles uniformisés (logo et icônes)"] },
                 { v: "Alpha 1.2", date: "Juin 2026", items: ["Import de tâches dans un dossier existant et export d'une sélection de tâches", "Installation de l'app sur Chrome et Edge (bouton dédié, icônes, nom corrigé)", "Correction du curseur qui sautait en fin de champ pendant la saisie"] },
@@ -525,6 +527,7 @@ export default function SettingsPage() {
           )}
 
         </div>
+      </div>
       </div>
     </div>
   );
