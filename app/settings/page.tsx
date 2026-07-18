@@ -14,7 +14,8 @@ import {
 } from "@/lib/settings";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { subscribePushTokens, deletePushToken, type PushTokenInfo } from "@/lib/firestore";
+import { subscribePushTokens, deletePushToken, subscribeCaseTemplates, renameCaseTemplate, deleteCaseTemplate, type PushTokenInfo } from "@/lib/firestore";
+import type { CaseTemplate } from "@/lib/types";
 import { getCurrentToken } from "@/lib/messaging";
 
 // Nom lisible d'un appareil à partir de son User-Agent.
@@ -45,7 +46,7 @@ function tsToDate(v: unknown): Date | null {
   return null;
 }
 
-type Tab = "apparence" | "appareils" | "aide" | "versions" | "legal";
+type Tab = "apparence" | "appareils" | "modeles" | "aide" | "versions" | "legal";
 
 export default function SettingsPage() {
   const [s, setS] = useState<UserSettings>(DEFAULT_SETTINGS);
@@ -56,6 +57,8 @@ export default function SettingsPage() {
   const [tokens, setTokens] = useState<PushTokenInfo[]>([]);
   const [currentToken, setCurrentToken] = useState<string | null>(null);
   const [notifSupported, setNotifSupported] = useState(true);
+  const [caseTemplates, setCaseTemplates] = useState<CaseTemplate[]>([]);
+  const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
 
   useEffect(() => {
     const loaded = loadSettings();
@@ -92,6 +95,25 @@ export default function SettingsPage() {
     const n = others.length;
     if (!window.confirm(`Oublier ${n} autre${n > 1 ? "s" : ""} appareil${n > 1 ? "s" : ""} ? ${n > 1 ? "Ils ne recevront" : "Il ne recevra"} plus de rappels tant que les notifications n'y sont pas réactivées.`)) return;
     others.forEach((t) => deletePushToken(user.uid, t.id).catch(() => {}));
+  };
+
+  // Modèles de dossier
+  useEffect(() => {
+    if (!user) { setCaseTemplates([]); return; }
+    const unsub = subscribeCaseTemplates(user.uid, setCaseTemplates);
+    return () => unsub();
+  }, [user]);
+
+  const handleRenameTemplate = (t: CaseTemplate) => {
+    if (!user) return;
+    const name = window.prompt("Renommer le modèle :", t.name)?.trim();
+    if (!name || name === t.name) return;
+    renameCaseTemplate(user.uid, t.id, name).catch(() => {});
+  };
+  const handleDeleteTemplate = (t: CaseTemplate) => {
+    if (!user) return;
+    if (!window.confirm(`Supprimer le modèle « ${t.name} » ? (Les dossiers déjà créés ne sont pas affectés.)`)) return;
+    deleteCaseTemplate(user.uid, t.id).catch(() => {});
   };
 
   const update = <K extends keyof UserSettings>(key: K, value: UserSettings[K]) => {
@@ -142,8 +164,8 @@ export default function SettingsPage() {
 
       {/* Onglets */}
       <div className="flex bg-bg border-b border-border shrink-0">
-        {(["apparence", "appareils", "aide", "versions", "legal"] as Tab[]).map((t) => {
-          const labels: Record<Tab, string> = { apparence: "Apparence", appareils: "Appareils", aide: "Aide", versions: "Notes de version", legal: "Mentions légales" };
+        {(["apparence", "appareils", "modeles", "aide", "versions", "legal"] as Tab[]).map((t) => {
+          const labels: Record<Tab, string> = { apparence: "Apparence", appareils: "Appareils", modeles: "Modèles", aide: "Aide", versions: "Notes de version", legal: "Mentions légales" };
           return (
             <button key={t} onClick={() => setTab(t)}
               className="flex-1 text-[13px] font-medium font-[inherit] py-2.5 border-none bg-transparent cursor-pointer transition-colors"
@@ -304,6 +326,57 @@ export default function SettingsPage() {
             </div>
           )}
 
+          {tab === "modeles" && (
+            <div className="space-y-4">
+              <div className="bg-bg border border-border rounded-xl p-5">
+                <p className="text-[14px] font-semibold text-tx mb-1">Modèles de dossier</p>
+                <p className="text-[13px] text-tx-2 leading-relaxed">
+                  Un modèle est une liste de tâches réutilisable pour pré-remplir un dossier. Pour en créer un : ouvrez un dossier, puis « Modèle → Enregistrer comme modèle ». Pour l'utiliser : bouton + « Nouveau dossier », ou « Modèle → Appliquer un modèle » dans un dossier existant.
+                </p>
+              </div>
+
+              {!user ? (
+                <div className="bg-bg border border-border rounded-xl p-5 text-[13px] text-tx-2">Connectez-vous pour gérer vos modèles.</div>
+              ) : caseTemplates.length === 0 ? (
+                <div className="bg-bg border border-border rounded-xl p-5 text-[13px] text-tx-2">Aucun modèle enregistré pour l'instant.</div>
+              ) : (
+                <div className="space-y-2">
+                  {[...caseTemplates].sort((a, b) => a.name.localeCompare(b.name, "fr")).map((t) => {
+                    const tasks = t.items.filter((it) => it.level === 2);
+                    return (
+                      <div key={t.id} className="bg-bg border border-border rounded-xl p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <button onClick={() => setExpandedTemplate((id) => (id === t.id ? null : t.id))} className="min-w-0 flex-1 text-left bg-transparent border-none cursor-pointer p-0">
+                            <p className="text-[13.5px] text-tx font-medium truncate">{t.name}</p>
+                            <p className="text-[11.5px] text-tx-3 mt-0.5">{t.items.length} tâche{t.items.length > 1 ? "s" : ""} · {expandedTemplate === t.id ? "masquer le détail" : "voir le détail"}</p>
+                          </button>
+                          <button onClick={() => handleRenameTemplate(t)} className="shrink-0 text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-border-strong hover:text-tx transition-all">Renommer</button>
+                          <button onClick={() => handleDeleteTemplate(t)} className="shrink-0 text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-red-300 hover:text-red-600 transition-all">Supprimer</button>
+                        </div>
+                        {expandedTemplate === t.id && (
+                          <div className="mt-3 pt-3 border-t border-border space-y-1.5">
+                            {tasks.length === 0 ? (
+                              <p className="text-[12px] text-tx-3">Aucune tâche dans ce modèle.</p>
+                            ) : (
+                              tasks.map((task) => (
+                                <div key={task.id}>
+                                  <p className="text-[12.5px] text-tx">• {task.title}</p>
+                                  {t.items.filter((sub) => sub.parentItemId === task.id).map((sub) => (
+                                    <p key={sub.id} className="text-[12px] text-tx-3 ml-4">— {sub.title}</p>
+                                  ))}
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           {tab === "aide" && (
             <>
               <div className="flex flex-wrap items-center justify-between gap-3 bg-bg border border-border rounded-xl px-5 py-3 mb-3">
@@ -400,7 +473,7 @@ export default function SettingsPage() {
           {tab === "versions" && (
             <div className="space-y-4">
               {[
-                { v: "Alpha 1.5", date: "Juillet 2026", items: ["Modèles de dossier : enregistrez la liste de tâches d'un dossier sous un nom et réutilisez-la", "Appliquez un modèle à un nouveau dossier (bouton 📋) ou à un dossier existant (« Appliquer un modèle »)", "Gérez vos modèles : renommer, supprimer", "Mini-récap d'avancement sur chaque dossier : 4 compteurs colorés (tâches et sous-tâches) — Créé · Demandé · Reçu · Traité", "Tri des dossiers par « charge restante » (Créé=2, Demandé=1, Reçu=0,5, Traité=0)", "Visite guidée interactive : tâches, sous-tâches, import/export, modèles, raccourcis clavier (relançable dans l'Aide)", "Modèle de dossier d'exemple intégré (« Vente immobilière »)", "Pas à pas interactif : créer une tâche, une sous-tâche, puis tout supprimer (dossier d'entraînement) ; bulles d'aide repositionnées près des boutons", "À la création d'un dossier, choix entre dossier vierge ou modèle", "Actions d'un dossier regroupées en deux menus : « Export / Import » et « Modèle »"] },
+                { v: "Alpha 1.5", date: "Juillet 2026", items: ["Modèles de dossier : enregistrez la liste de tâches d'un dossier sous un nom et réutilisez-la", "Appliquez un modèle à un nouveau dossier (bouton 📋) ou à un dossier existant (« Appliquer un modèle »)", "Gérez vos modèles : renommer, supprimer", "Mini-récap d'avancement sur chaque dossier : 4 compteurs colorés (tâches et sous-tâches) — Créé · Demandé · Reçu · Traité", "Tri des dossiers par « charge restante » (Créé=2, Demandé=1, Reçu=0,5, Traité=0)", "Visite guidée interactive : tâches, sous-tâches, import/export, modèles, raccourcis clavier (relançable dans l'Aide)", "Modèle de dossier d'exemple intégré (« Vente immobilière »)", "Pas à pas interactif : créer une tâche, une sous-tâche, puis tout supprimer (dossier d'entraînement) ; bulles d'aide repositionnées près des boutons", "À la création d'un dossier, choix entre dossier vierge ou modèle", "Actions d'un dossier regroupées en deux menus : « Export / Import » et « Modèle »", "Préférences → Modèles : gérer ses modèles (renommer, supprimer, consulter le détail)"] },
                 { v: "Alpha 1.4", date: "Juillet 2026", items: ["Rappels par notification désormais fiables : sur ordinateur, et même lorsque Henri est en arrière-plan ou fermé", "Réception des rappels au bon moment rétablie (l'application pouvait auparavant n'afficher aucune notification)", "Installation en application peaufinée : nom « Henri » et icône corrigés", "Aide enrichie : nouvelles rubriques « Rappels » et « Installer l'app »", "Préférences → Appareils : liste des appareils recevant les rappels, avec possibilité d'en retirer"] },
                 { v: "Alpha 1.3", date: "Juin 2026", items: ["« Mes dossiers » désormais accessible sur mobile : navigation en pleine largeur, une colonne à la fois", "Balayez horizontalement (swipe) pour passer de Dossiers → Tâches → Sous-tâches → Détail, et revenir en arrière", "Icône ☀ pour aller à Ma journée, icône dossier pour revenir à Mes dossiers", "En-têtes mobiles uniformisés (logo et icônes)"] },
                 { v: "Alpha 1.2", date: "Juin 2026", items: ["Import de tâches dans un dossier existant et export d'une sélection de tâches", "Installation de l'app sur Chrome et Edge (bouton dédié, icônes, nom corrigé)", "Correction du curseur qui sautait en fin de champ pendant la saisie"] },
