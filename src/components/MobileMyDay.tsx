@@ -196,12 +196,14 @@ export default function MobileMyDay({ user }: { user: User }) {
   }, [items, myDaySelections, todayKey]);
 
   const addToMyDay = async (item: Item) => {
+    // On NE ferme PAS le panneau de suggestions : la tâche ajoutée disparaît
+    // de la liste (elle n'est plus « à suggérer »), ce qui permet d'en basculer
+    // plusieurs à la suite sans rouvrir le panneau.
     await addMyDaySelection(user.uid, {
       dateKey: todayKey,
       refType: item.level === 2 ? "item" : "subitem",
       refId: item.id,
     });
-    setSuggestionsOpen(false);
   };
 
   const removeEntry = async (entry: SelectionEntry) => {
