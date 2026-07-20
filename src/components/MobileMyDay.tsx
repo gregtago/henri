@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef, Fragment } from "react";
 import Link from "next/link";
 import type { User } from "firebase/auth";
 import {
@@ -58,6 +58,9 @@ export default function MobileMyDay({ user }: { user: User }) {
   // UI
   const [detailEntry, setDetailEntry] = useState<SelectionEntry | null>(null);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [groupMyDay, setGroupMyDay] = useState(false);
+  useEffect(() => { try { setGroupMyDay(localStorage.getItem("henri:mydayGroup") === "1"); } catch {} }, []);
+  const toggleGroupMyDay = () => setGroupMyDay(g => { const v = !g; try { localStorage.setItem("henri:mydayGroup", v ? "1" : "0"); } catch {} return v; });
   const [memoOpen, setMemoOpen] = useState(false);
   const [memoText, setMemoText] = useState("");
   const [memoDue, setMemoDue] = useState("");
@@ -272,6 +275,29 @@ export default function MobileMyDay({ user }: { user: User }) {
   const formatDate = (iso: string) => new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 
   const caseOf = (item: Item) => cases.find(c => c.id === item.caseId)?.title ?? "";
+
+  // Ma journée regroupée par dossier (option). Sinon, ordre inchangé.
+  const displayEntries = useMemo(() => {
+    if (!groupMyDay) return todayEntries.map(e => ({ entry: e, header: null as string | null }));
+    const MEMO = "Sans dossier";
+    const groups = new Map<string, SelectionEntry[]>();
+    for (const e of todayEntries) {
+      const label = e.item ? (cases.find(c => c.id === e.item!.caseId)?.title ?? MEMO) : MEMO;
+      const arr = groups.get(label) ?? [];
+      arr.push(e);
+      groups.set(label, arr);
+    }
+    const labels = [...groups.keys()].sort((a, b) => {
+      if (a === MEMO) return 1;
+      if (b === MEMO) return -1;
+      return a.localeCompare(b, "fr");
+    });
+    const out: { entry: SelectionEntry; header: string | null }[] = [];
+    for (const label of labels) {
+      groups.get(label)!.forEach((e, i) => out.push({ entry: e, header: i === 0 ? label : null }));
+    }
+    return out;
+  }, [groupMyDay, todayEntries, cases]);
   const parentOf = (item: Item) => item.parentItemId ? items.find(i => i.id === item.parentItemId)?.title : null;
 
   // ── RENDU ──
@@ -379,7 +405,13 @@ export default function MobileMyDay({ user }: { user: User }) {
             </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {todayEntries.map(entry => {
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button onClick={toggleGroupMyDay}
+                style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "12px", fontFamily: "inherit", padding: "5px 11px", borderRadius: "16px", border: "1px solid #e5e7eb", background: groupMyDay ? "#111827" : "white", color: groupMyDay ? "white" : "#374151", cursor: "pointer" }}>
+                <Icon name="folder" size={12} /> Par dossier
+              </button>
+            </div>
+            {displayEntries.map(({ entry, header }) => {
               const title = entry.item?.title ?? entry.floating?.title ?? "";
               const status = entry.item?.status ?? null;
               const starred = Boolean(entry.item?.starred || entry.floating?.starred);
@@ -406,7 +438,13 @@ export default function MobileMyDay({ user }: { user: User }) {
                 : `inset 3px 0 0 ${statusColors[status ?? "Créé"] ?? "#d1d5db"}`;
 
               return (
-                <div key={entry.selectionId}
+                <Fragment key={entry.selectionId}>
+                {header && (
+                  <p style={{ fontSize: "11px", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", margin: "8px 2px 0", display: "flex", alignItems: "center", gap: "6px" }}>
+                    <Icon name="folder" size={11} /> {header}
+                  </p>
+                )}
+                <div
                   onClick={() => setDetailEntry(entry)}
                   style={{
                     background: starred ? "rgba(251,191,36,0.10)" : "white",
@@ -484,6 +522,7 @@ export default function MobileMyDay({ user }: { user: User }) {
                     </div>
                   </div>
                 </div>
+                </Fragment>
               );
             })}
           </div>
