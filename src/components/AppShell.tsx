@@ -179,6 +179,7 @@ export default function AppShell() {
   const [caseTemplates, setCaseTemplates] = useState<CaseTemplate[]>([]);
   const [templatesModal, setTemplatesModal] = useState<{ mode: "apply"; caseId: string } | { mode: "new" } | null>(null);
   const [caseActionMenu, setCaseActionMenu] = useState<"io" | "template" | null>(null);
+  const [groupMyDay, setGroupMyDay] = useState(false);
   const [activeTour, setActiveTour] = useState<TourStep[] | null>(null);
   const [tourIsWalkthrough, setTourIsWalkthrough] = useState(false);
   const demoCaseIdRef = useRef<string | null>(null);
@@ -421,6 +422,16 @@ export default function AppShell() {
       setActiveTour(buildWalkthroughSteps());
     }
   }, [user, buildWalkthroughSteps]);
+
+  // Préférence « grouper Ma journée par dossier » (partagée avec la vue mobile).
+  useEffect(() => {
+    try { setGroupMyDay(localStorage.getItem("henri:mydayGroup") === "1"); } catch {}
+  }, []);
+  const toggleGroupMyDay = () => setGroupMyDay(g => {
+    const v = !g;
+    try { localStorage.setItem("henri:mydayGroup", v ? "1" : "0"); } catch {}
+    return v;
+  });
 
   useEffect(() => {
     if (!user) return;
@@ -857,6 +868,29 @@ export default function AppShell() {
     });
     return all;
   }, [myDayItems, todayFloating, formatDateFR, statusClass, user, cases, items]);
+
+  // Ma journée regroupée par dossier (option). Sinon, ordre par priorité inchangé.
+  const myDayDisplay = useMemo(() => {
+    if (!groupMyDay) return myDayCombined.map(e => ({ entry: e, header: null as string | null }));
+    const MEMO = "Sans dossier";
+    const groups = new Map<string, typeof myDayCombined>();
+    for (const e of myDayCombined) {
+      const label = e.caseLabel || MEMO;
+      const arr = groups.get(label) ?? [];
+      arr.push(e);
+      groups.set(label, arr);
+    }
+    const labels = [...groups.keys()].sort((a, b) => {
+      if (a === MEMO) return 1;
+      if (b === MEMO) return -1;
+      return a.localeCompare(b, "fr");
+    });
+    const out: { entry: (typeof myDayCombined)[number]; header: string | null }[] = [];
+    for (const label of labels) {
+      groups.get(label)!.forEach((e, i) => out.push({ entry: e, header: i === 0 ? label : null }));
+    }
+    return out;
+  }, [groupMyDay, myDayCombined]);
 
   // Liste "À venir" : mémos et tâches dont l'échéance est dans le futur, ré-utilisée
   // dans le bouton du header et dans le popover.
@@ -3246,6 +3280,13 @@ export default function AppShell() {
               <span>{new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}</span>
               <div className="flex items-center gap-2">
                 <span className="text-tx-3">{(() => { const n = myDayCombined.length; return `${n} élément${n > 1 ? "s" : ""}`; })()}</span>
+                <button
+                  onClick={toggleGroupMyDay}
+                  className={`inline-flex items-center gap-1 text-[11px] font-[inherit] font-medium px-1.5 py-0.5 rounded border cursor-pointer transition-colors ${groupMyDay ? "bg-tx text-bg border-tx" : "bg-transparent text-tx-2 border-border hover:border-border-strong hover:text-tx"}`}
+                  title="Grouper Ma journée par dossier"
+                >
+                  <Icon name="folder" size={12} /> Dossier
+                </button>
                 {upcoming.length > 0 && (
                   <button
                     onClick={() => setUpcomingExpanded(p => !p)}
@@ -3316,11 +3357,17 @@ export default function AppShell() {
                 </div>
               ) : (
                 <div>
-                  {myDayCombined.map(entry => {
+                  {myDayDisplay.map(({ entry, header }) => {
                     const statusColor = {"Créé":"#d1d5db","Demandé":"#fbbf24","Reçu":"#60a5fa","Traité":"#34d399"}[entry.status as string] ?? "#d1d5db";
                     const isCompletingRow = entry.kind === "floating" && !!entry.floatingId && completingFloatingIds.has(entry.floatingId);
                     return (
-                      <div key={entry.key} className="finder-row group"
+                      <React.Fragment key={entry.key}>
+                      {header && (
+                        <div className="sticky top-0 z-[1] bg-bg px-3 pt-2.5 pb-1 text-[10px] font-semibold text-tx-3 uppercase tracking-wide flex items-center gap-1.5">
+                          <Icon name="folder" size={11} /> {header}
+                        </div>
+                      )}
+                      <div className="finder-row group"
                         data-active={myDayDetailId === entry.key ? "true" : undefined}
                         style={{
                           borderLeft: "none",
@@ -3403,6 +3450,7 @@ export default function AppShell() {
                           </div>
                         </div>
                       </div>
+                      </React.Fragment>
                     );
                   })}
                 </div>
