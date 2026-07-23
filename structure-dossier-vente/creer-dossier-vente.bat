@@ -3,9 +3,8 @@ chcp 65001 >nul
 setlocal
 
 REM =====================================================================
-REM  A REGLER UNE SEULE FOIS : le fichier a copier dans chaque dossier
-REM  (mettez le vrai chemin de votre modele entre les guillemets)
-set "FICHIER=%OneDrive%\Dossiers\_Modele\modele.docx"
+REM  Fichier modele a dupliquer dans chaque dossier cree
+set "FICHIER=%OneDrive%\Dossiers\_$ventes\_modele.xlsx"
 
 REM  Ou seront crees les dossiers (par defaut : OneDrive\Dossiers)
 set "BASE=%OneDrive%\Dossiers"
@@ -20,13 +19,13 @@ md "%RACINE%\Dossier d'usage %NOM%"
 md "%RACINE%\Après-vente %NOM%"
 
 if exist "%FICHIER%" (
-    copy "%FICHIER%" "%RACINE%\" >nul
+    copy "%FICHIER%" "%RACINE%\$%NOM%.xlsx" >nul
 ) else (
     echo.
-    echo  ATTENTION : fichier a copier introuvable :
+    echo  ATTENTION : fichier modele introuvable :
     echo    %FICHIER%
     echo  Les dossiers ont ete crees, mais aucun fichier n'a ete copie.
-    echo  Corrigez la ligne "set FICHIER=..." en haut de ce script.
+    echo  Verifiez la ligne "set FICHIER=..." en haut de ce script.
 )
 
 echo.
