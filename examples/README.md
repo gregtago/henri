@@ -7,6 +7,13 @@ Contient `case` (le dossier) **et** `items` (les tâches).
 À utiliser avec le bouton **« Importer »** en bas de la colonne des dossiers :
 cela crée un nouveau dossier avec toute sa structure de tâches.
 
+## `modele-dossier-vente-2espaces.json` — dossier de vente en **deux espaces**
+Variante de `modele-dossier.json` organisée en deux branches de premier niveau :
+**Espace partagé** (visible client / confrère) et **Espace privé** (interne office).
+Elle reprend la logique de l'arborescence OneDrive décrite dans
+[`structure-dossier-vente/`](./structure-dossier-vente/) (avec les scripts qui
+créent les dossiers correspondants sur le disque).
+
 ## `modele-taches.json` — importer des **tâches dans un dossier existant**
 Contient uniquement `items` (pas de `case`).
 À utiliser avec le bouton **« Importer des tâches »** dans la barre d'actions
