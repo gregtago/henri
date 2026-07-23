@@ -1,5 +1,5 @@
 @echo off
-chcp 65001 >nul
+chcp 1252 >nul
 setlocal
 
 REM =====================================================================
@@ -11,15 +11,17 @@ set "BASE=%OneDrive%\Dossiers"
 REM =====================================================================
 
 set /p "NOM=Nom du dossier : "
-if "%NOM%"=="" ( echo Aucun nom saisi. & pause & exit /b 1 )
+if "%NOM%"=="" goto :vide
 
 set "RACINE=%BASE%\%NOM%"
 
 md "%RACINE%\Dossier d'usage %NOM%"
-md "%RACINE%\AprÃ¨s-vente %NOM%"
+md "%RACINE%\Après-vente %NOM%"
 
 if exist "%FICHIER%" (
     copy "%FICHIER%" "%RACINE%\$%NOM%.xlsx" >nul
+    echo.
+    echo  Dossier cree : %RACINE%
 ) else (
     echo.
     echo  ATTENTION : fichier modele introuvable :
@@ -29,6 +31,10 @@ if exist "%FICHIER%" (
 )
 
 echo.
-echo  Dossier cree : %RACINE%
-echo.
 pause
+exit /b 0
+
+:vide
+echo Aucun nom saisi.
+pause
+exit /b 1
