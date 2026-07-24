@@ -401,6 +401,7 @@ export default function SettingsPage() {
                 ["🔔", "Rappels"],
                 ["📲", "Installer l'app"],
                 ["📤", "Export & import"],
+                ["📋", "Modèles"],
                 ["⌨", "Raccourcis clavier"]].map(([icon, label], i) => (
                   <button key={i} onClick={() => setAideSection(i)}
                     className={`text-left px-4 py-2.5 text-[13px] font-[inherit] border-none cursor-pointer transition-colors flex items-center gap-2 ${aideSection === i ? "bg-bg font-semibold text-tx border-r-2 border-tx" : "bg-transparent text-tx-2 hover:text-tx hover:bg-bg"}`}
@@ -447,7 +448,11 @@ export default function SettingsPage() {
                 },
                 {
                   icon: "📤", title: "Export & import",
-                  items: [{t: "Exporter un dossier", c: "Depuis le panneau de détail d'un dossier, le bouton Exporter JSON génère un fichier contenant la structure complète : toutes ses tâches, sous-tâches, statuts, commentaires et échéances."}, {t: "Importer et réutiliser", c: "Le lien Importer un dossier en bas de la colonne Dossiers permet de recréer une structure complète depuis un fichier JSON. Idéal pour dupliquer un dossier modèle à chaque nouvelle affaire du même type."}, {t: "Créer des modèles", c: "Exemple : constituez un dossier modèle Vente immobilière avec toutes les tâches standard (appel de fonds, diagnostics, documents d'urbanisme…), exportez-le, réimportez-le à chaque nouvelle vente."}]
+                  items: [{t: "Exporter un dossier", c: "Depuis le panneau de détail d'un dossier, le bouton Exporter JSON génère un fichier contenant la structure complète : toutes ses tâches, sous-tâches, statuts, commentaires et échéances."}, {t: "Importer et réutiliser", c: "Le lien Importer un dossier en bas de la colonne Dossiers permet de recréer une structure complète depuis un fichier JSON. Idéal pour dupliquer un dossier modèle à chaque nouvelle affaire du même type."}, {t: "Voir aussi : Modèles", c: "Plus simple que l'export/import pour réutiliser une trame : la rubrique « Modèles » ci-dessous permet d'enregistrer les tâches d'un dossier et de les réappliquer en un clic."}]
+                },
+                {
+                  icon: "📋", title: "Modèles",
+                  items: [{t: "À quoi ça sert", c: "Un modèle est une liste de tâches type (avec sous-tâches) réutilisable pour pré-remplir un dossier — par exemple une trame « Vente immobilière ». Un modèle d'exemple est déjà fourni."}, {t: "Créer un modèle", c: "Ouvrez un dossier, puis dans sa barre d'actions : « Modèle → Enregistrer comme modèle », et donnez-lui un nom. Seule la structure des tâches est enregistrée (ni statuts, ni échéances)."}, {t: "Appliquer un modèle", c: "À la création : le bouton + « Nouveau dossier » propose un dossier vierge ou l'un de vos modèles. Dans un dossier existant : « Modèle → Appliquer un modèle » ajoute les tâches. Elles repartent du statut « Créé »."}, {t: "Gérer vos modèles", c: "Dans Préférences → Modèles : renommez, supprimez, et consultez le détail (tâches et sous-tâches) de chaque modèle."}]
                 },
                 {
                   icon: "⌨", title: "Raccourcis clavier",
