@@ -59,7 +59,7 @@ import {
 import { getProgressLevel, getProgressStageLabel } from "@/lib/progress";
 import { resolveDelai, latestLaunchDate } from "@/lib/delais";
 import type { Case, CaseTemplate, Comment, Event, FloatingTask, Item, MyDaySelection, Status } from "@/lib/types";
-import { STATUSES, isNote } from "@/lib/types";
+import { STATUSES } from "@/lib/types";
 import { RecurrencePicker } from "./RecurrencePicker";
 import { Icon } from "./Icon";
 import InstallButton from "./InstallButton";
@@ -79,11 +79,11 @@ const TOUR_STEPS: TourStep[] = [
   { selector: '[data-tour="nav"]', title: "Deux espaces", body: "« Dossiers » regroupe tous vos dossiers et leurs tâches. « Ma journée » est votre plan de travail du jour, où vous extrayez les tâches à faire aujourd'hui." },
   { selector: '[data-tour="cases-actions"]', title: "Trier vos dossiers", body: "Le menu déroulant trie vos dossiers — par nom, échéance, ou « Charge restante » (qui remonte ceux où il reste le plus à faire)." },
   { selector: '[data-tour="cases-list"]', title: "Avancement en un coup d'œil", body: "Chaque dossier affiche 4 petits nombres colorés : le nombre de tâches et sous-tâches par statut — Créé, Demandé, Reçu, Traité." },
-  { title: "Tâches & sous-tâches", body: "Sélectionnez un dossier pour afficher ses Tâches (niveau 2), puis une tâche pour ses Sous-tâches (niveau 3). Créez une tâche avec T, une sous-tâche avec Maj+T, une note avec N, et faites avancer le statut avec les touches 1 à 4." },
+  { title: "Tâches & sous-tâches", body: "Sélectionnez un dossier pour afficher ses Tâches (niveau 2), puis une tâche pour ses Sous-tâches (niveau 3). Créez une tâche avec T, une sous-tâche avec Maj+T, un mémo avec M, et faites avancer le statut avec les touches 1 à 4." },
   { selector: '[data-tour="new-case"]', title: "Créer un dossier", body: "Le bouton + propose un dossier vierge ou un modèle. Un modèle d'exemple « Vente immobilière » est déjà intégré. Depuis un dossier, « Enregistrer comme modèle » crée le vôtre." },
   { selector: '[data-tour="import"]', title: "Import & export", body: "Depuis le détail d'un dossier, « Exporter » télécharge un fichier JSON ; « Importer » (ici) recrée un dossier depuis un fichier. Pratique pour dupliquer ou partager une trame." },
   { selector: '[data-tour="reminders"]', title: "Rappels & notifications", body: "Activez les notifications ici, puis posez un rappel sur une tâche ou un mémo. Vous gérez vos appareils dans Préférences → Appareils." },
-  { title: "Raccourcis clavier", body: "Une lettre par nature : D dossier · T tâche · Maj+T sous-tâche · N note · M mémo. Puis A : ajouter à Ma journée · 1 à 4 : changer le statut · ← → : naviguer entre colonnes · Suppr : supprimer. La liste complète est dans l'Aide." },
+  { title: "Raccourcis clavier", body: "Une lettre par nature : D dossier · T tâche · Maj+T sous-tâche · M mémo. Puis A : ajouter à Ma journée · 1 à 4 : changer le statut · ← → : naviguer entre colonnes · Suppr : supprimer. La liste complète est dans l'Aide." },
   { selector: '[data-tour="prefs"]', title: "Réglages & aide", body: "Dans Préférences : apparence, aide détaillée, gestion des appareils et notes de version." },
   { title: "C'est parti ! 🎯", body: "Vous êtes prêt. Bonne organisation ! Relancez cette visite quand vous voulez depuis Préférences → Aide." },
 ];
@@ -500,7 +500,6 @@ export default function AppShell() {
   const taskCountsByCase = useMemo(() => {
     const map = new Map<string, number[]>();
     for (const it of items) {
-      if (isNote(it)) continue; // une note n'est pas du travail : hors avancement
       let arr = map.get(it.caseId);
       if (!arr) { arr = [0, 0, 0, 0]; map.set(it.caseId, arr); }
       const idx = STATUSES.indexOf(it.status);
@@ -559,6 +558,11 @@ export default function AppShell() {
       ? sortByCreatedAt(items.filter((item) => item.caseId === selectedCase.id && item.parentItemId))
       : [];
   const itemsColumnItems = caseItems.length > 0 ? caseItems : fallbackItems;
+  // Les mémos rattachés au dossier : même colonne que les tâches, mais après
+  // elles et avec une case à cocher au lieu d'un statut.
+  const caseMemos = selectedCase
+    ? sortByCreatedAt(floatingTasks.filter(t => t.caseId === selectedCase.id))
+    : [];
   const selectedItem = items.find((entry) => entry.id === selectedItemId) || null;
   const subItems = selectedItem ? sortByCreatedAt(getSubItems(items, selectedItem.id)) : [];
   const selectedSubItem = items.find((entry) => entry.id === selectedSubItemId) || null;
@@ -621,7 +625,6 @@ export default function AppShell() {
     runBackfill();
   }, [events, items, user]);
   const reminderItems = items.filter((item) => {
-    if (isNote(item)) return false; // une note ne peut pas être en retard
     const dueKey = getDateKeyFromValue(item.dueDate);
     if (!dueKey || dueKey > todayKey) return false;
     // Exclure si déjà rappelé aujourd'hui
@@ -767,6 +770,7 @@ export default function AppShell() {
       removeBtn: React.ReactNode | null;
       floatingId?: string;
       selectionId?: string;
+      done: boolean;   // mémo coché : reste affiché, mais en fin de liste
     };
 
     const startOfToday = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); })();
@@ -837,8 +841,9 @@ export default function AppShell() {
       return {
         key: `f-${task.id}`,
         kind: "floating" as const,
+        done: !!task.doneAt,
         title: task.title,
-        caseLabel: "",
+        caseLabel: task.caseId ? (cases.find(c => c.id === task.caseId)?.title ?? "") : "",
         parentLabel: "",
         status: task.status,
         starred: Boolean(task.starred),
@@ -865,6 +870,8 @@ export default function AppShell() {
 
     const all = [...itemEntries, ...floatingEntries];
     all.sort((a, b) => {
+      // Ce qui est fait passe en dernier — visible, mais plus dans le chemin.
+      if (a.done !== b.done) return a.done ? 1 : -1;
       const ba = bucket(a), bb = bucket(b);
       if (ba !== bb) return ba - bb;
       // À bucket égal : tri par date d'échéance croissante (Infinity en dernier)
@@ -1502,50 +1509,21 @@ export default function AppShell() {
   }, [isMyDay, resolvedActiveColumn, selectedCaseId, selectedItem?.caseId, selectedItemId, user, todayKey]);
 
   /**
-   * T — créer une note dans la colonne active.
-   *
-   * Une note se pose là où la tâche se poserait : au niveau du dossier depuis
-   * la colonne Tâches, en sous-note depuis la colonne Sous-tâches. Depuis la
-   * colonne Dossiers, elle va dans le dossier sélectionné — c'est le geste
-   * naturel quand on lit un dossier et qu'on veut y accrocher une information.
+   * M — créer un mémo. Rattaché au dossier courant si on est dans un dossier,
+   * libre sinon. C'est le même objet dans les deux cas : seul `caseId` change.
    */
-  const handleCreateNote = useCallback(async () => {
+  const handleCreateMemoHere = useCallback(async () => {
     if (!user) return;
-    if (isMyDay) {
-      showToast("Les notes se créent depuis un dossier.");
-      return;
-    }
-
-    const inSubItems = resolvedActiveColumn === "subitems" && selectedItemId;
-    const parentCaseId = inSubItems ? (selectedItem?.caseId ?? selectedCaseId) : selectedCaseId;
-    if (!parentCaseId) {
-      showToast("Sélectionnez un dossier d'abord.");
-      return;
-    }
-
-    const id = await createItem(user.uid, {
-      caseId: parentCaseId,
-      parentItemId: inSubItems ? selectedItemId : null,
-      level: inSubItems ? 3 : 2,
-      kind: "note",
-      title: "Nouvelle note",
+    const caseId = isMyDay ? null : selectedCaseId;
+    const id = await createFloatingTask(user.uid, {
+      dateKey: todayKey,
+      caseId,
+      title: "Nouveau mémo",
       status: "Créé",
     });
-
-    if (inSubItems) {
-      setSelectedSubItemId(id);
-      setSelectedSubItemIds([id]);
-      setActiveColumn("subitems");
-    } else {
-      setSelectedItemId(id);
-      setSelectedItemIds([id]);
-      setSelectedSubItemId(null);
-      setSelectedSubItemIds([]);
-      setActiveColumn("items");
-    }
-    setDetailTarget({ type: "item", id });
-    focusWhenReady(detailTitleRef);
-  }, [isMyDay, resolvedActiveColumn, selectedCaseId, selectedItem?.caseId, selectedItemId, user]);
+    setMyDayDetailId(id);
+    showToast(caseId ? "Mémo ajouté au dossier." : "Mémo créé.");
+  }, [isMyDay, selectedCaseId, todayKey, user]);
 
   const handleCreateChildTask = useCallback(async () => {
     if (!user) return;
@@ -1725,20 +1703,25 @@ export default function AppShell() {
     setMyDayDetailId(null);
   };
 
-  const handleMarkFloatingDone = async (taskId: string) => {
+  /**
+   * Cocher / décocher un mémo.
+   *
+   * Cocher ne supprime plus rien : on inscrit `doneAt` et le mémo reste en
+   * place, barré. On doit pouvoir revoir ce qu'on a fait — et se déjuger d'un
+   * clic si on a coché trop vite.
+   */
+  const handleToggleFloatingDone = async (task: FloatingTask) => {
     if (!user) return;
-    if (completingFloatingIds.has(taskId)) return;
-    setCompletingFloatingIds(prev => new Set(prev).add(taskId));
-    playDone();
-    // Laisser le temps à l'animation de jouer avant de retirer
-    setTimeout(async () => {
-      try {
-        await deleteFloatingTasks(user.uid, [taskId]);
-        setMyDayDetailId(null);
-      } finally {
-        setCompletingFloatingIds(prev => { const s = new Set(prev); s.delete(taskId); return s; });
-      }
-    }, 350);
+    const wasDone = !!task.doneAt;
+    if (!wasDone) {
+      // L'animation de complétion reste : c'est la récompense du geste.
+      setCompletingFloatingIds(prev => new Set(prev).add(task.id));
+      playDone();
+      window.setTimeout(() => {
+        setCompletingFloatingIds(prev => { const s = new Set(prev); s.delete(task.id); return s; });
+      }, 350);
+    }
+    await updateFloatingTask(user.uid, task.id, { doneAt: wasDone ? null : new Date().toISOString() });
   };
 
   const handleCommentAdd = async (body: string) => {
@@ -1906,15 +1889,10 @@ export default function AppShell() {
         return;
       }
       // ── Famille de création : une lettre = une nature ──────────────────
-      // D dossier · T tâche · ⇧T sous-tâche · N note · M mémo.
+      // D dossier · T tâche · ⇧T sous-tâche · M mémo.
       // On a abandonné le « N générique » qui créait un dossier, une tâche ou
       // un mémo selon la colonne active : il obligeait à savoir où on était.
       // Ici chaque lettre nomme ce qu'elle crée, et le fait au bon endroit.
-      if (event.key.toLowerCase() === "n") {
-        event.preventDefault();
-        await handleCreateNote();
-        return;
-      }
       if (event.key.toLowerCase() === "t") {
         event.preventDefault();
         if (event.shiftKey) {
@@ -1931,7 +1909,7 @@ export default function AppShell() {
       }
       if (event.key.toLowerCase() === "m") {
         event.preventDefault();
-        await handleCreateMemo();
+        await handleCreateMemoHere();
         return;
       }
       if (event.key === " " && (detailTarget || myDayDetailId)) {
@@ -2013,7 +1991,7 @@ export default function AppShell() {
       handleCreateChildTask,
       handleCreateInActiveColumn,
       handleCreateMemo,
-      handleCreateNote,
+      handleCreateMemoHere,
       handleCreateTask,
       handleOpenReparent,
       handleStatusChange,
@@ -2181,88 +2159,48 @@ export default function AppShell() {
     });
   };
 
-  const handleAttachFloating = async (task: FloatingTask, caseId: string) => {
+  /**
+   * Transformer une tâche en mémo. La tâche perd son cycle de statut et gagne
+   * une case à cocher ; elle reste dans son dossier (on la détache ensuite si
+   * on veut). Ses commentaires sont recopiés dans la note du mémo.
+   */
+  const handleConvertToMemo = async (item: Item) => {
     if (!user) return;
-
-    // 1. Un mémo rattaché à un dossier devient une NOTE, pas une tâche : ce qu'on
-    //    accroche à un dossier est le plus souvent une information (« le client
-    //    est absent en août »), pas quelque chose qui doit avancer par statuts.
-    //    Le panneau détail de la note propose « En faire une tâche » en un clic.
-    //    L'échéance du mémo n'est pas transférée — une note n'a pas d'échéance ;
-    //    si elle portait une date, elle devient un rappel à cette date.
-    const newItemId = await createItem(user.uid, {
-      caseId,
-      level: 2,
-      kind: "note",
-      title: task.title,
+    const children = items.filter(i => i.parentItemId === item.id);
+    if (children.length > 0) {
+      showToast("Cette tâche a des sous-tâches : un mémo n'en a pas.");
+      return;
+    }
+    const body = comments
+      .filter(c => c.itemId === item.id)
+      .map(c => c.body)
+      .join("\n\n");
+    const id = await createFloatingTask(user.uid, {
+      dateKey: todayKey,
+      caseId: item.caseId,
+      title: item.title,
       status: "Créé",
-      starred: task.starred ?? false,         // <- garde l'étoile
-      parentItemId: null,
-      dueDate: null,
-      reminderAt: task.reminderAt ?? null,
+      starred: !!item.starred,
+      dueDate: item.dueDate ?? null,
+      reminderAt: item.reminderAt ?? null,
+      note: body || null,
     });
-
-    // 2. Copier le commentaire du mémo (note) en commentaire de la nouvelle tâche
-    if (task.note && task.note.trim().length > 0) {
-      try {
-        await createComment(user.uid, {
-          itemId: newItemId,
-          body: task.note,
-          author: user.email ?? null,
-        });
-      } catch (err) {
-        console.warn("[handleAttachFloating] copie du commentaire échouée", err);
-      }
-    }
-
-    // 3. Calculer la date Ma journée pour la nouvelle tâche :
-    //    - mémo avec date future → conserver cette date (apparaîtra en "À venir")
-    //    - sinon → aujourd'hui (apparaîtra dans Ma journée d'aujourd'hui)
-    const memoDateKey = task.dateKey && task.dateKey > todayKey ? task.dateKey : todayKey;
-
-    // 4. Créer la sélection Ma journée (avec injection optimiste pour éviter le flash)
-    let newSelectionId: string | null = null;
-    try {
-      newSelectionId = await addMyDaySelection(user.uid, {
-        refType: "item",
-        refId: newItemId,
-        dateKey: memoDateKey,
-        selectionDate: null,
-        dateTs: null,
-      });
-      setLegacyMyDaySelections(prev => [
-        ...prev,
-        { id: newSelectionId!, refType: "item", refId: newItemId, dateKey: memoDateKey },
-      ]);
-    } catch (err) {
-      console.error("[handleAttachFloating] addMyDaySelection a échoué", err);
-      showToast("⚠ Tâche créée mais non ajoutée à Ma journée.");
-    }
-
-    // 5. Supprimer le mémo d'origine
-    await deleteFloatingTasks(user.uid, [task.id]);
-
-    // 6. Basculer le panneau détail sur la nouvelle tâche (au lieu du mémo supprimé)
-    //    Si la tâche est dans Ma journée aujourd'hui → afficher via selectionId.
-    //    Si elle est en À venir → on bascule sur l'ID de l'item lui-même
-    //    (la sync useEffect gère les deux cas).
-    if (newSelectionId && memoDateKey === todayKey) {
-      setMyDayDetailId(newSelectionId);
-    } else {
-      setMyDayDetailId(newItemId);
-    }
-
-    // 7. Toast récapitulatif, mentionnant la perte de récurrence si applicable
-    const lostRecurrence = !!task.recurrence;
-    const caseName = cases.find(c => c.id === caseId)?.title ?? "le dossier";
-    if (lostRecurrence) {
-      showToast(`Rattachée à ${caseName} — récurrence non conservée.`);
-    } else {
-      showToast(`Rattachée à ${caseName}.`);
-    }
+    await deleteItemsCascade(user.uid, [item.id], items);
+    setDetailTarget(null);
+    setMyDayDetailId(id);
+    showToast("Devenue un mémo.");
   };
 
-
+  /**
+   * Rattacher / détacher un mémo. Aucune conversion : c'est le même objet,
+   * il gagne ou perd son dossier. Rattaché, il apparaît dans la colonne
+   * Tâches du dossier ; libre, il ne vit que dans Ma journée.
+   */
+  const handleAttachFloating = async (task: FloatingTask, caseId: string | null) => {
+    if (!user) return;
+    await updateFloatingTask(user.uid, task.id, { caseId });
+    showToast(caseId ? "Mémo rattaché au dossier." : "Mémo détaché.");
+  };
 
   const handleReparentKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "ArrowDown") {
@@ -2444,23 +2382,7 @@ export default function AppShell() {
             </div>
 
             <div className="space-y-4">
-              {/* Nature de l'item — une note se convertit en tâche et inversement.
-                * Le mot « note » est écrit, pas déduit d'une couleur : c'est la
-                * seule chose qui distingue les deux dans la colonne. */}
-              {isNote(detailItem) && (
-                <div className="flex items-center gap-2">
-                  <span className="item-note-tag">note</span>
-                  <span className="text-[12px] text-tx-3">Sans statut ni échéance — hors avancement du dossier.</span>
-                  <button
-                    onClick={() => updateItem(user.uid, detailItem.id, { kind: "tache" })}
-                    className="ml-auto text-[11px] font-[inherit] px-2 py-1 rounded border border-border bg-bg-subtle text-tx-2 cursor-pointer hover:border-border-strong hover:text-tx transition-colors"
-                    title="Lui donner un statut et une échéance"
-                  >En faire une tâche</button>
-                </div>
-              )}
-
               {/* Statuts + retirer de Ma journée */}
-              {!isNote(detailItem) && (
               <div className="flex flex-wrap gap-1.5 items-center">
                 {STATUSES.map(s => (
                   <button key={s} onClick={() => handleStatusChange(s)}
@@ -2488,12 +2410,10 @@ export default function AppShell() {
                   </button>
                 )}
               </div>
-              )}
 
               <div className="border-t border-border" />
 
-              {/* Échéance — une note n'en a pas : elle ne peut pas être en retard. */}
-              {!isNote(detailItem) && (
+              {/* Échéance */}
               <div>
                 <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-2">Échéance</p>
                 {(() => {
@@ -2568,13 +2488,11 @@ export default function AppShell() {
                   );
                 })()}
               </div>
-              )}
 
               {/* Délai de retour — combien de temps la pièce met à revenir.
                 * Toujours visible, jamais bloquant : Henri propose une estimation
                 * déduite du libellé, le notaire la corrige d'un clic. C'est ce
                 * chiffre qui donne la date de lancement dans la vue Calendrier. */}
-              {!isNote(detailItem) && (
               <div>
                 {(() => {
                   const delai = resolveDelai(detailItem);
@@ -2633,7 +2551,6 @@ export default function AppShell() {
                   );
                 })()}
               </div>
-              )}
 
               {/* Rappel push — valable aussi pour une note : un rappel notifie,
                 * il ne présume aucun achèvement. */}
@@ -2794,7 +2711,7 @@ export default function AppShell() {
             {detailCase.archived && (
               <button className="detail-action-btn detail-action-danger" onClick={() => {
                 if (window.confirm("Supprimer définitivement ce dossier et toutes ses tâches ? Cette action est irréversible.")) {
-                  deleteCaseCascade(user.uid, detailCase.id, items).then(() => {
+                  deleteCaseCascade(user.uid, detailCase.id, items, floatingTasks).then(() => {
                     setDetailTarget(null);
                     setSelectedCaseId(null);
                   });
@@ -2815,19 +2732,13 @@ export default function AppShell() {
                 <span>⇄</span> Rattacher
               </button>
             )}
-            {!isNote(detailItem) && (
-              <button
-                className="detail-action-btn mobile-hide"
-                title="Une note ne porte ni statut ni échéance et ne compte pas dans l'avancement"
-                onClick={async () => {
-                  // On retire l'échéance et le délai : ils n'ont plus de sens.
-                  await updateItem(user.uid, detailItem.id, { kind: "note", dueDate: null, delaiDays: null });
-                  showToast("Devenue une note.");
-                }}
-              >
-                <span>✎</span> En faire une note
-              </button>
-            )}
+            <button
+              className="detail-action-btn mobile-hide"
+              title="Un mémo se coche au lieu de suivre un cycle de statut"
+              onClick={() => handleConvertToMemo(detailItem)}
+            >
+              <span>☑</span> En faire un mémo
+            </button>
             <button className="detail-action-btn detail-action-danger" onClick={handleDelete}>
               <span>✕</span> Supprimer
             </button>
@@ -3232,8 +3143,8 @@ export default function AppShell() {
                     title="Mode sélection multiple"
                     onClick={() => { setSelectionModeItems(p => !p); setSelectedItemIds([]); }}
                   >Sélection</button>
-                  <button className={iconBtn} title="Nouvelle note (N) — une information, sans statut ni échéance" onClick={async () => { setActiveColumn("items"); if (!user || !selectedCaseId) { showToast("Sélectionnez un dossier d'abord."); return; } const id = await createItem(user.uid, { caseId: selectedCaseId, level: 2, kind: "note", title: "Nouvelle note", status: "Créé", parentItemId: null }); setSelectedItemId(id); setSelectedItemIds([id]); setDetailTarget({ type: "item", id }); focusWhenReady(detailTitleRef); }}>
-                    <span className="text-[13px] leading-none">✎</span>
+                  <button className={iconBtn} title="Nouveau mémo (M) — une chose à cocher" onClick={async () => { if (!user || !selectedCaseId) { showToast("Sélectionnez un dossier d'abord."); return; } const id = await createFloatingTask(user.uid, { dateKey: todayKey, caseId: selectedCaseId, title: "Nouveau mémo", status: "Créé" }); setMyDayDetailId(id); }}>
+                    <span className="text-[13px] leading-none">☑</span>
                   </button>
                   <button data-tour="new-item" className={iconBtn} title="Nouvelle tâche (T)" onClick={async () => { setActiveColumn("items"); if (!user || !selectedCaseId) { showToast("Sélectionnez un dossier d'abord."); return; } const id = await createItem(user.uid, { caseId: selectedCaseId, level: 2, title: "Nouvelle tâche", status: "Créé", parentItemId: null }); setSelectedItemId(id); setSelectedItemIds([id]); setDetailTarget({ type: "item", id }); focusWhenReady(detailTitleRef); }}>
                     <span className="text-[18px] leading-none">+</span>
@@ -3301,9 +3212,7 @@ export default function AppShell() {
                         <p className="text-[15px] text-tx truncate leading-snug">{entry.title}</p>
                       </div>
                       <p className="text-[12.5px] text-tx-3 mt-0.5 truncate min-h-[1.25rem]">
-                        {isNote(entry) ? (
-                          entry.reminderAt ? <>Rappel {formatDateFR(entry.reminderAt)}</> : null
-                        ) : entry.dueDate ? (
+                        {entry.dueDate ? (
                           <>Éch. <span className={new Date(entry.dueDate) < new Date() ? "text-red-500" : ""}>{formatDateFR(entry.dueDate)}</span></>
                         ) : (
                           getSubItems(items, entry.id).length > 0
@@ -3312,12 +3221,51 @@ export default function AppShell() {
                         )}
                       </p>
                     </div>
-                    {isNote(entry)
-                      ? <span className="item-note-tag">note</span>
-                      : <span className={statusClass(entry.status)}>{entry.status}</span>}
+                    <span className={statusClass(entry.status)}>{entry.status}</span>
                   </div>
                   );
                 })}
+
+                {caseMemos.length > 0 && (
+                  <>
+                    <div className="px-[14px] pt-3 pb-1 text-[10px] font-medium text-tx-3 uppercase tracking-widest">
+                      Mémos
+                    </div>
+                    {caseMemos.map((memo) => {
+                      const done = !!memo.doneAt;
+                      return (
+                        <div
+                          key={memo.id}
+                          className="finder-row"
+                          style={{ opacity: done ? 0.45 : 1 }}
+                          onClick={() => setMyDayDetailId(memo.id)}
+                        >
+                          <button
+                            className="shrink-0 cursor-pointer flex items-center justify-center transition-all duration-200"
+                            onClick={e => { e.stopPropagation(); handleToggleFloatingDone(memo); }}
+                            title={done ? `Fait le ${formatDateFR(memo.doneAt)} — cliquer pour décocher` : "Marquer réalisé"}
+                            style={{
+                              width: "20px", height: "20px", borderRadius: "6px",
+                              border: done ? "none" : "2px solid #9ca3af",
+                              background: done ? "#16a34a" : "white",
+                            }}
+                          >
+                            {done && <Icon name="check" size={13} className="text-white" strokeWidth={2.5} />}
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <p
+                              className="text-[15px] text-tx truncate leading-snug"
+                              style={done ? { textDecoration: "line-through" } : undefined}
+                            >{memo.title}</p>
+                            <p className="text-[12.5px] text-tx-3 mt-0.5 truncate min-h-[1.25rem]">
+                              {done ? `Fait le ${formatDateFR(memo.doneAt)}` : memo.dueDate ? `Éch. ${formatDateFR(memo.dueDate)}` : ""}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -3400,9 +3348,7 @@ export default function AppShell() {
                         {entry.dueDate ? formatDateFR(entry.dueDate) : ""}
                       </p>
                     </div>
-                    {isNote(entry)
-                      ? <span className="item-note-tag">note</span>
-                      : <span className={statusClass(entry.status)}>{entry.status}</span>}
+                    <span className={statusClass(entry.status)}>{entry.status}</span>
                   </div>
                 ))}
               </div>
@@ -3641,6 +3587,7 @@ export default function AppShell() {
                   {myDayDisplay.map(({ entry, header }) => {
                     const statusColor = {"Créé":"#d1d5db","Demandé":"#fbbf24","Reçu":"#60a5fa","Traité":"#34d399"}[entry.status as string] ?? "#d1d5db";
                     const isCompletingRow = entry.kind === "floating" && !!entry.floatingId && completingFloatingIds.has(entry.floatingId);
+                    const isFloatingDone = entry.kind === "floating" && !!floatingTasks.find(t => t.id === entry.floatingId)?.doneAt;
                     return (
                       <React.Fragment key={entry.key}>
                       {header && (
@@ -3654,7 +3601,8 @@ export default function AppShell() {
                           borderLeft: "none",
                           boxShadow: entry.kind === "floating" ? "none" : `inset 3px 0 0 ${statusColor}`,
                           background: entry.starred ? "rgba(251,191,36,0.10)" : undefined,
-                          opacity: isCompletingRow ? 0.5 : 1,
+                          // Un mémo fait reste visible — estompé, jamais supprimé.
+                          opacity: isCompletingRow || isFloatingDone ? 0.45 : 1,
                           transition: "opacity 0.3s ease",
                           alignItems: "flex-start",
                           paddingTop: "8px",
@@ -3664,23 +3612,26 @@ export default function AppShell() {
                         {/* Élément de gauche : rond pour mémo, croix pour tâche — alignés sur le titre */}
                         {entry.kind === "floating" ? (
                           (() => {
+                            const floating = floatingTasks.find(t => t.id === entry.floatingId);
                             const isCompleting = completingFloatingIds.has(entry.floatingId!);
+                            const done = !!floating?.doneAt;
+                            const filled = done || isCompleting;
                             return (
                               <button
                                 className="shrink-0 cursor-pointer transition-all duration-200 flex items-center justify-center"
-                                onClick={e => { e.stopPropagation(); handleMarkFloatingDone(entry.floatingId!); }}
-                                title="Réalisée"
+                                onClick={e => { e.stopPropagation(); if (floating) handleToggleFloatingDone(floating); }}
+                                title={done ? `Fait le ${formatDateFR(floating?.doneAt)} — cliquer pour décocher` : "Marquer réalisé"}
                                 style={{
                                   width: "22px",
                                   height: "22px",
                                   borderRadius: "6px",
-                                  border: isCompleting ? "none" : "2px solid #9ca3af",
-                                  background: isCompleting ? "#16a34a" : "white",
+                                  border: filled ? "none" : "2px solid #9ca3af",
+                                  background: filled ? "#16a34a" : "white",
                                   transform: isCompleting ? "scale(1.1)" : "scale(1)",
                                   marginTop: "1px",
                                 }}
                               >
-                                {isCompleting && <Icon name="check" size={14} className="text-white" strokeWidth={2.5} />}
+                                {filled && <Icon name="check" size={14} className="text-white" strokeWidth={2.5} />}
                               </button>
                             );
                           })()
@@ -3702,7 +3653,10 @@ export default function AppShell() {
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-baseline gap-2">
-                            <p className={`text-[15px] text-tx truncate leading-snug flex-1 min-w-0 ${entry.starred ? "font-medium" : ""}`}>{entry.title}</p>
+                            <p
+                              className={`text-[15px] text-tx truncate leading-snug flex-1 min-w-0 ${entry.starred ? "font-medium" : ""}`}
+                              style={isFloatingDone ? { textDecoration: "line-through" } : undefined}
+                            >{entry.title}</p>
                             {entry.hasDue && (() => {
                               const startOfToday = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); })();
                               const dueDay = (() => { const d = new Date(entry.dueTs); d.setHours(0,0,0,0); return d.getTime(); })();
@@ -3885,9 +3839,23 @@ export default function AppShell() {
                             <RecurrencePicker value={task.recurrence ?? null} onChange={r => updateFloatingTask(user.uid, task.id, { recurrence: r ?? null })} />
                           </div>
 
-                          {/* Rattacher à un dossier */}
+                          {/* Rattachement — le mémo est le même objet, avec ou
+                            * sans dossier. On le pose, on le retire. */}
                           <div>
-                            <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1.5">Rattacher à un dossier</p>
+                            <div className="flex items-baseline gap-2 mb-1.5">
+                              <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest">Dossier</p>
+                              {task.caseId && (
+                                <button
+                                  onClick={() => handleAttachFloating(task, null)}
+                                  className="ml-auto text-[10px] font-[inherit] bg-transparent border-none text-tx-3 cursor-pointer hover:text-tx transition-colors"
+                                >Détacher</button>
+                              )}
+                            </div>
+                            {task.caseId && (
+                              <p className="text-[13px] text-tx mb-2">
+                                {cases.find(c => c.id === task.caseId)?.title ?? "Dossier introuvable"}
+                              </p>
+                            )}
                             <div className="space-y-1.5">
                               <input type="text" placeholder="Rechercher un dossier…"
                                 value={dossierSearch} onChange={e => setDossierSearch(e.target.value)}
@@ -3971,7 +3939,6 @@ export default function AppShell() {
                     ["D", "Nouveau dossier"],
                     ["T", "Nouvelle tâche"],
                     ["⇧T", "Nouvelle sous-tâche"],
-                    ["N", "Nouvelle note"],
                     ["M", "Nouveau mémo"],
                     ["Espace", "Renommer"],
                     ["Entrée", "Valider le nom"],

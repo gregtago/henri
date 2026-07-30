@@ -671,8 +671,8 @@ kbd {
 .cal-chip[data-variant="fait"] { border-left-color: #34d399; background: transparent; color: var(--text-2); border-color: transparent; }
 .cal-chip[data-overdue="true"] { border-left-color: var(--cal-late); }
 .cal-chip[data-reason="rappel"] { border-left-style: dashed; }
-/* Le rappel d'une note ne réclame rien : pas de filet coloré, pas de poids. */
-.cal-chip[data-note="true"] {
+/* Un mémo ne réclame rien : pas de filet coloré, pas de poids visuel. */
+.cal-chip[data-memo="true"] {
   border-left-color: transparent;
   background: transparent;
   color: var(--text-2);

@@ -567,7 +567,7 @@ export default function SettingsPage() {
                 },
                 {
                   icon: "⌨", title: "Raccourcis clavier",
-                  items: [{t: "Une lettre par nature", c: "D : dossier · T : tâche · Shift+T : sous-tâche · N : note (une information, sans statut ni échéance) · M : mémo. Chaque touche crée exactement ce qu'elle nomme, dans le dossier courant — plus besoin de savoir quelle colonne est active."}, {t: "Éditer", c: "Espace : renommer · Entrée : valider · Échap : annuler"}, {t: "Actions", c: "A : ajouter à Ma journée · I : ouvrir/fermer le détail · R : rattacher une tâche · ⌫ : supprimer"}, {t: "Navigation et statuts", c: "← → : naviguer entre colonnes · ↑ ↓ : déplacer la sélection · 1–4 : changer le statut (Créée / Demandé / Reçu / Traité)"}]
+                  items: [{t: "Une lettre par nature", c: "D : dossier · T : tâche · Shift+T : sous-tâche · M : mémo. Chaque touche crée exactement ce qu'elle nomme, dans le dossier courant — plus besoin de savoir quelle colonne est active."}, {t: "Éditer", c: "Espace : renommer · Entrée : valider · Échap : annuler"}, {t: "Actions", c: "A : ajouter à Ma journée · I : ouvrir/fermer le détail · R : rattacher une tâche · ⌫ : supprimer"}, {t: "Navigation et statuts", c: "← → : naviguer entre colonnes · ↑ ↓ : déplacer la sélection · 1–4 : changer le statut (Créée / Demandé / Reçu / Traité)"}]
                 }].map((section, i) => aideSection !== i ? null : (
                   <div key={i} className="space-y-6">
                     <div className="flex items-center gap-3 pb-4 border-b border-border">

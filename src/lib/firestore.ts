@@ -203,11 +203,21 @@ export const addMyDaySelection = async (uid: string, payload: Omit<MyDaySelectio
 export const deleteMyDaySelection = (uid: string, id: string) =>
   deleteDoc(doc(db, `users/${uid}/myDaySelections/${id}`));
 
-export const deleteCaseCascade = async (uid: string, caseId: string, items: Item[]) => {
+export const deleteCaseCascade = async (
+  uid: string,
+  caseId: string,
+  items: Item[],
+  memos: import("./types").FloatingTask[] = []
+) => {
   const batch = writeBatch(db);
   batch.delete(doc(db, `users/${uid}/cases/${caseId}`));
   items.filter((item) => item.caseId === caseId).forEach((item) => {
     batch.delete(doc(db, `users/${uid}/items/${item.id}`));
+  });
+  // Les mémos rattachés partent avec le dossier : ils n'existent que par lui.
+  // (Les détacher d'abord si on veut les garder.)
+  memos.filter((memo) => memo.caseId === caseId).forEach((memo) => {
+    batch.delete(doc(db, `users/${uid}/floatingTasks/${memo.id}`));
   });
   await batch.commit();
 };

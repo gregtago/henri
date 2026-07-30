@@ -49,12 +49,16 @@ npm run dev
 - L'historique (timeline) des événements d'une tâche est masqué par défaut et accessible via “Afficher la timeline”.
 - Toutes les dates affichées dans l'UI utilisent le format JJ/MM/AAAA (helper `formatDateFR`).
 - Raccourcis de création : une lettre par nature — `D` dossier · `T` tâche · `⇧T` sous-tâche ·
-  `N` note · `M` mémo. Remplace l'ancien `N` contextuel (qui créait un dossier, une tâche ou
-  un mémo selon la colonne active) et l'ancien `⇧N`.
-- `items.kind` distingue les tâches (`undefined` ou `"tache"`) des **notes** (`"note"`) :
-  une note est une information rattachée à un dossier, sans statut ni échéance, exclue des
-  compteurs d'avancement, du tri « charge restante », du bandeau d'échéances et des rives du
-  calendrier. Elle accepte un rappel. Un mémo rattaché à un dossier devient une note.
+  `M` mémo. Remplace l'ancien `N` contextuel (qui créait un dossier, une tâche ou un mémo
+  selon la colonne active) et l'ancien `⇧N`.
+- Deux natures d'objets, et deux seulement :
+  - une **tâche** (`items`) se *traite* — cycle Créé → Demandé → Reçu → Traité ;
+  - un **mémo** (`floatingTasks`) se *réalise* — une case à cocher, rien d'autre.
+- Un mémo peut être rattaché à un dossier (`floatingTasks.caseId`) ou libre : c'est le même
+  objet, on le rattache et on le détache à volonté. Rattaché, il s'affiche sous les tâches
+  du dossier ; libre, il ne vit que dans Ma journée. Il ne compte jamais dans l'avancement.
+- **Cocher un mémo ne le supprime pas** : `floatingTasks.doneAt` marque le moment où il a été
+  fait, la ligne reste barrée en bas de Ma journée, et se décoche d'un clic.
 - La vue Calendrier (`/calendrier`) affiche trois bandes, dans l'ordre du cycle d'une tâche :
   « à faire » (ce qu'on réalise ce jour-là), « j'attends » (les demandes sans réponse, en barres
   de durée), « échéances » (ce qui tombe). Une tâche « Traité » quitte les trois bandes et

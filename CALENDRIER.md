@@ -287,36 +287,26 @@ sélectionnée : c'est la même donnée, écrite au même endroit.
 
 ---
 
-## 6 ter. Notes de dossier
+## 6 ter. Tâches et mémos
 
-Un dossier contient deux natures d'objets, désormais distinguées par
-`Item.kind` (`undefined` = tâche, donc aucune migration) :
+Un dossier contient deux natures d'objets, et deux seulement :
 
-- **une tâche** — quelque chose à faire ou à obtenir. Statut, échéance, délai de
-  retour, poids dans l'avancement du dossier ;
-- **une note** — quelque chose de simplement vrai. « Le client est absent en
-  août », « vérifier la servitude de passage ». Ni statut, ni échéance, ni
-  délai ; hors compteurs et hors tri « charge restante ».
+- une **tâche** — quelque chose à obtenir. Elle se *traite* : cycle Créé →
+  Demandé → Reçu → Traité, échéance, délai de retour, poids dans l'avancement ;
+- un **mémo** — quelque chose de léger. Il se *réalise* : une case à cocher,
+  rien d'autre. Ni statut, ni délai, ni poids dans l'avancement.
 
-Pourquoi ça concerne le calendrier : sans cette distinction, une note héritait
-de l'échéance du dossier, se voyait attribuer une date au plus tard et
-atterrissait dans « à faire » avec un `−15 j`. Une note n'a rien à faire.
+Un mémo peut être rattaché à un dossier ou libre — c'est le même objet, seul
+`caseId` change. Rattaché, il s'affiche sous les tâches du dossier ; libre, il
+ne vit que dans Ma journée. On le rattache et on le détache à volonté, et une
+tâche peut devenir un mémo (elle perd alors son cycle de statut).
 
-Règle retenue : **une note peut porter un rappel, jamais une échéance.** Le
-rappel notifie, il ne présume aucun achèvement — « refais-moi surface le 25
-août » est exactement ce qu'on demande à une note. L'échéance, elle, veut dire
-« ce doit être fait pour le… » : elle implique un achèvement, donc un statut.
-Une note ne peut pas être en retard, elle peut seulement devenir obsolète.
+Pourquoi ça concerne le calendrier : un mémo n'a rien à envoyer et rien à
+attendre. Il n'entre donc jamais dans « à faire » ni dans « j'attends », et
+n'apparaît que le jour de son échéance ou de son rappel.
 
-Dans le calendrier, une note n'apparaît donc **que le jour de son rappel**,
-en pastille sans filet ni couleur. Jamais dans « à faire », jamais dans
-« j'attends », jamais dans « en retard ».
-
-**Un mémo rattaché à un dossier devient une note**, plus une tâche : ce qu'on
-accroche à un dossier est le plus souvent une information. Le panneau détail
-propose la conversion dans les deux sens (« En faire une tâche » / « En faire
-une note ») ; passer en note efface l'échéance et le délai, qui n'ont plus
-de sens.
+**Cocher un mémo ne le supprime pas.** Il reste consultable, barré : on doit
+pouvoir voir ce qu'on a fait, et se déjuger d'un clic si on a coché trop vite.
 
 ---
 

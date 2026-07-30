@@ -468,26 +468,32 @@ export default function MobileMyDay({ user }: { user: User }) {
                   {/* Élément de gauche : rond complétion (mémo) ou croix retirer (tâche) */}
                   {entry.type === "floating" ? (
                     <button
-                      onClick={e => {
+                      onClick={async e => {
                         e.stopPropagation();
                         const id = entry.selectionId;
                         if (completingIds.has(id)) return;
                         setCompletingIds(prev => new Set(prev).add(id));
                         playDone();
-                        setTimeout(async () => {
-                          if (entry.floating) await updateFloatingTask(user.uid, entry.floating.id, { status: "Traité" });
-                          removeEntry(entry);
+                        // Cocher ne fait pas disparaître le mémo : on marque la
+                        // date, la ligne reste barrée et se décoche d'un clic.
+                        if (entry.floating) {
+                          const wasDone = !!entry.floating.doneAt;
+                          await updateFloatingTask(user.uid, entry.floating.id, {
+                            doneAt: wasDone ? null : new Date().toISOString(),
+                          });
+                        }
+                        setTimeout(() => {
                           setCompletingIds(prev => { const s = new Set(prev); s.delete(id); return s; });
                         }, 350);
                       }}
                       style={{
                         width: "26px", height: "26px", borderRadius: "7px", flexShrink: 0, marginTop: "1px",
-                        border: completingIds.has(entry.selectionId) ? "none" : "2px solid #9ca3af",
-                        background: completingIds.has(entry.selectionId) ? "#16a34a" : "white",
+                        border: (completingIds.has(entry.selectionId) || entry.floating?.doneAt) ? "none" : "2px solid #9ca3af",
+                        background: (completingIds.has(entry.selectionId) || entry.floating?.doneAt) ? "#16a34a" : "white",
                         cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
                         transition: "all 0.2s ease",
                       }}>
-                      {completingIds.has(entry.selectionId) && (
+                      {(completingIds.has(entry.selectionId) || entry.floating?.doneAt) && (
                         <Icon name="check" size={16} strokeWidth={2.5} style={{ color: "white" }} />
                       )}
                     </button>
@@ -503,7 +509,7 @@ export default function MobileMyDay({ user }: { user: User }) {
                     </button>
                   )}
 
-                  <div style={{ flex: 1, minWidth: 0, opacity: completingIds.has(entry.selectionId) ? 0.4 : 1, transition: "opacity 0.3s" }}>
+                  <div style={{ flex: 1, minWidth: 0, opacity: (completingIds.has(entry.selectionId) || entry.floating?.doneAt) ? 0.45 : 1, transition: "opacity 0.3s" }}>
                     <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
                       <p style={{ fontSize: "15px", fontWeight: starred ? 600 : 500, color: "#111827", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.35 }}>
                         {title}

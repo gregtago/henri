@@ -19,29 +19,11 @@ export type Case = {
   updatedAt: string;
 };
 
-/**
- * Nature d'un item de dossier.
- *
- *  • `tache` — quelque chose à faire ou à obtenir. Porte un statut, une
- *    échéance, un délai de retour, compte dans l'avancement du dossier.
- *  • `note`  — quelque chose de simplement vrai : « le client est absent en
- *    août », « vérifier la servitude de passage ». Pas de statut, pas
- *    d'échéance, hors compteurs. Une note ne peut pas être en retard, elle
- *    peut seulement devenir obsolète. Elle accepte en revanche un rappel :
- *    un rappel notifie, il ne présume aucun achèvement.
- *
- * `undefined` vaut `tache` : aucune migration des données existantes.
- */
-export type ItemKind = "tache" | "note";
-
-export const isNote = (item: { kind?: ItemKind | null }) => item.kind === "note";
-
 export type Item = {
   id: string;
   caseId: string;
   parentItemId?: string | null;
   level: 2 | 3;
-  kind?: ItemKind | null;
   title: string;
   status: Status;
   starred?: boolean | null;
@@ -105,12 +87,29 @@ export type RecurringTemplate = {
   updatedAt: string;
 };
 
+/**
+ * Un mémo : une chose légère qu'on coche.
+ *
+ * C'est le pendant de la tâche de dossier, et la différence tient en un mot :
+ * une tâche se **traite** (cycle Créé → Demandé → Reçu → Traité), un mémo se
+ * **réalise** (une case à cocher, rien d'autre).
+ *
+ * Un mémo peut être rattaché à un dossier (`caseId`) ou libre. Rattaché, il
+ * s'affiche dans la colonne Tâches du dossier ; libre, il ne vit que dans
+ * Ma journée. Le rattachement se fait et se défait à volonté — c'est le même
+ * objet dans les deux cas.
+ *
+ * Cocher un mémo ne le supprime jamais : `doneAt` marque le moment où il a été
+ * fait, et le mémo reste consultable. On doit pouvoir voir ce qu'on a fait.
+ */
 export type FloatingTask = {
   id: string;
   dateKey: string;
+  caseId?: string | null;   // dossier de rattachement — null = mémo libre
+  doneAt?: string | null;   // ISO — quand il a été coché. null = à faire.
   title: string;
-  status: Status;
-  starred?: boolean;  // tâche volante prioritaire (⭐)
+  status: Status;           // hérité : un mémo ne suit plus de cycle de statut
+  starred?: boolean;  // mémo prioritaire (⭐)
   dueDate?: string | null;
   recurrence?: Recurrence | null;
   recurringTemplateId?: string | null; // référence au template d'origine

@@ -716,7 +716,7 @@ function EntryChip({ entry, variant, large, selected, dimmed, onSelect, onHover,
       data-variant={variant}
       data-reason={reason}
       data-overdue={overdue}
-      data-note={task.isNote}
+      data-memo={task.isMemo}
       data-selected={selected}
       data-dim={dimmed}
       data-large={!!large}
@@ -770,12 +770,11 @@ function Inspector({ entry, onClose, onAddToMyDay, onAdvance, onDelai }: Inspect
 
         <p className="cal-inspector-explain">{explainEntry(entry)}</p>
 
-        {/* Une note n'a ni trace, ni délai, ni statut : elle n'entre ici que
-          * par son rappel. On ne lui invente pas de sections vides. */}
-        {task.isNote ? (
+        {/* Un mémo se coche : ni délai de retour, ni cycle de statut à afficher. */}
+        {task.isMemo ? (
           <p className="cal-note-hint">
-            Note de dossier — sans statut ni échéance. Elle apparaît dans le
-            calendrier uniquement le jour de son rappel.
+            Mémo — il se coche dans Ma journée. Il apparaît ici le jour de son
+            échéance ou de son rappel.
           </p>
         ) : (
         <>
