@@ -55,7 +55,11 @@ npm run dev
   une note est une information rattachée à un dossier, sans statut ni échéance, exclue des
   compteurs d'avancement, du tri « charge restante », du bandeau d'échéances et des rives du
   calendrier. Elle accepte un rappel. Un mémo rattaché à un dossier devient une note.
-- La vue Calendrier (`/calendrier`) lit les mêmes collections ; elle n'ajoute qu'un champ,
+- La vue Calendrier (`/calendrier`) affiche trois bandes, dans l'ordre du cycle d'une tâche :
+  « à faire » (ce qu'on réalise ce jour-là), « j'attends » (les demandes sans réponse, en barres
+  de durée), « échéances » (ce qui tombe). Une tâche « Traité » quitte les trois bandes et
+  réapparaît, sur le jour où elle a été traitée, dans « à faire » des jours passés.
+  Elle lit les mêmes collections ; elle n'ajoute qu'un champ,
   `items.delaiDays` (délai de retour d'une pièce, en jours). Nul = Henri l'estime d'après
   le libellé via le barème de `src/lib/delais.ts`. Le raisonnement de la vue est dans
   `CALENDRIER.md`.

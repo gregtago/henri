@@ -4,8 +4,9 @@
 // Ce module transforme les dossiers, tâches et mémos en une lecture temporelle
 // à deux rives :
 //
-//   • la rive haute — CE QUI REVIENT : échéances, retours attendus, rappels.
-//   • la rive basse — CE QUI PART   : demandes à lancer, relances à faire.
+//   • À FAIRE    : ce que je réalise ce jour-là — demandes à faire, relances.
+//   • J'ATTENDS  : les demandes parties dont le retour n'est pas arrivé.
+//   • ÉCHÉANCES  : ce qui tombe ce jour-là.
 //
 // La rive basse n'est stockée nulle part : elle est *calculée* à rebours depuis
 // les échéances (échéance − délai de la pièce). C'est ce qui distingue cette vue
@@ -372,11 +373,11 @@ export const buildCalendarModel = ({
 export const REASON_LABELS: Record<EntryReason, string> = {
   echeance: "Échéance",
   retour: "Retour attendu",
-  legal: "Échéance légale du dossier",
-  rappel: "Rappel programmé",
-  lancement: "À lancer au plus tard",
+  legal: "Échéance du dossier",
+  rappel: "Rappel",
+  lancement: "À faire au plus tard",
   relance: "Relance",
-  fait: "Traité",
+  fait: "Fait",
 };
 
 /** Explication littérale du calcul, affichée au survol. Henri doit savoir se justifier. */
@@ -386,15 +387,15 @@ export const explainEntry = (entry: CalendarEntry): string => {
     date ? `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}` : "?";
   switch (reason) {
     case "lancement":
-      return `Échéance ${fmt(task.dueDate)} − ${task.delai.days} j (${task.delai.label}) → à envoyer le ${fmt(task.launchAt)}`;
+      return `Échéance ${fmt(task.dueDate)} − ${task.delai.days} j de délai (${task.delai.label}) → à faire le ${fmt(task.launchAt)}`;
     case "relance":
-      return `Demandé le ${fmt(task.requestedAt)}, retour attendu le ${fmt(task.expectedReturn)} (${task.delai.label})`;
+      return `Demandé le ${fmt(task.requestedAt)}, le retour était attendu le ${fmt(task.expectedReturn)} (${task.delai.label})`;
     case "retour":
-      return `Demandé le ${fmt(task.requestedAt)} · ${task.delai.label} : ${task.delai.days} j`;
+      return `Demandé le ${fmt(task.requestedAt)} · retour sous ${task.delai.days} j (${task.delai.label})`;
     case "legal":
-      return `Échéance légale du dossier ${task.caseTitle ?? ""}`.trim();
+      return `Échéance du dossier ${task.caseTitle ?? ""}`.trim();
     case "rappel":
-      return `Rappel programmé le ${fmt(task.reminderAt)}`;
+      return `Rappel le ${fmt(task.reminderAt)}`;
     case "echeance":
       return `Échéance de la tâche : ${fmt(task.dueDate)}`;
     case "fait":

@@ -1,4 +1,4 @@
-# Henri — Vue Calendrier : « les deux rives »
+# Henri — Vue Calendrier
 
 Proposition de vue Jour + Semaine. Ce document explique le raisonnement ; le code
 de la maquette fonctionnelle est dans `src/components/CalendarShell.tsx`,
@@ -39,27 +39,34 @@ C'est cette réalité-là que la vue doit rendre visible. D'où la proposition.
 
 ## 2. Le parti pris : quatre idées
 
-### Idée 1 — Deux rives autour de l'axe du temps
+### Idée 1 — Trois bandes, dans l'ordre du cycle d'une tâche
 
-L'axe du temps est horizontal. Il sépare deux flux de sens opposé :
+Le vocabulaire suit la vie d'une tâche telle qu'on la vit : **je la crée, je la
+réalise, j'attends le retour, elle est traitée — et elle disparaît.** L'axe du
+temps est horizontal, et porte trois bandes dans cet ordre :
 
 ```
-       ↓ CE QUI REVIENT      échéances · retours attendus · rappels
-  ─────────────────────────  l'axe des jours
-       ≈ EN ATTENTE          les pièces en circulation, en barres
-  ─────────────────────────
-       ↑ CE QUI PART         demandes à envoyer · relances à faire
+  À FAIRE      ce que je réalise ce jour-là — demandes à faire, relances
+  ─────────────────────────────────────────  l'axe des jours
+  J'ATTENDS    les demandes parties dont le retour n'est pas arrivé
+  ─────────────────────────────────────────
+  ÉCHÉANCES    ce qui tombe ce jour-là — échéance, retour attendu, rappel
 ```
 
-Tous les agendas du monde n'affichent que la rive haute : ce qui tombe. La rive
-basse est l'apport propre d'Henri : **ce qu'il faut envoyer aujourd'hui pour que
-ça tombe bien plus tard**. Elle n'est stockée nulle part, elle est calculée.
+« À faire » est en tête parce que c'est ce qu'on regarde en premier le matin.
+C'est aussi l'apport propre d'Henri : les autres agendas n'affichent que la
+dernière bande, les échéances. Celle du haut n'est stockée nulle part — elle est
+calculée à rebours (voir Idée 3).
+
+Une tâche traitée quitte les trois bandes : c'est bien le statut « Traité » qui
+la fait disparaître. Elle ne se perd pas pour autant — elle réapparaît sur le
+jour où elle a été traitée, dans la bande « à faire » des jours passés.
 
 ### Idée 2 — Les attentes sont des durées, pas des points
 
 Une tâche au statut « Demandé » n'est pas un événement, c'est un **segment** :
 il commence le jour de la demande et finit le jour du retour attendu. La bande
-médiane — la « ligne d'eau » — la dessine comme une barre qui traverse les jours.
+« j'attends » la dessine comme une barre qui traverse les jours.
 
 Une barre qui dépasse sa date de retour ne s'arrête pas : elle continue jusqu'à
 aujourd'hui, en hachuré rouge. On voit littéralement l'attente s'étirer.
@@ -67,12 +74,12 @@ aujourd'hui, en hachuré rouge. On voit littéralement l'attente s'étirer.
 C'est la chose qu'aucune liste ne peut dire et qu'aucun agenda ne dit :
 *« ça fait 34 jours que j'attends l'état daté du syndic Foncia. »*
 
-### Idée 3 — La date de lancement au plus tard (le point de non-retour)
+### Idée 3 — La date au plus tard (le point de non-retour)
 
-Le calcul central. Pour toute tâche non lancée qui porte une échéance :
+Le calcul central. Pour toute tâche pas encore réalisée qui porte une échéance :
 
 ```
-date de lancement = échéance − délai type de la pièce   (ramenée au jour ouvré précédent)
+date au plus tard = échéance − délai de retour de la pièce   (ramenée au jour ouvré précédent)
 ```
 
 Le délai type vient d'un barème notarial (`src/lib/delais.ts`) déduit du libellé
@@ -82,9 +89,9 @@ surchargeable d'un clic sur la tâche).
 
 Ce calcul produit trois affichages :
 
-- la pastille apparaît sur la rive basse **le jour où il faut envoyer** ;
+- la pastille apparaît dans « à faire » **le jour où il faut s'y mettre** ;
 - elle porte son étiquette de calcul : `−30 j` ;
-- si ce jour est déjà passé, la tâche bascule dans le sas « en souffrance »
+- si ce jour est déjà passé, la tâche bascule dans la colonne « en retard »
   **alors même que son échéance est encore dans le futur**. C'est le signal le
   plus précieux de toute la vue : l'échéance n'est pas encore ratée, elle est
   déjà mathématiquement menacée.
@@ -93,25 +100,27 @@ Ce calcul produit trois affichages :
 
 Un même axe, deux natures selon le côté d'aujourd'hui :
 
-- **à droite d'aujourd'hui** : le prévu (ce qui va tomber, ce qu'il faut lancer) ;
+- **à droite d'aujourd'hui** : le prévu — ce qui va tomber, ce qu'il faut faire ;
 - **à gauche d'aujourd'hui** : le réalisé — les tâches dont le statut a
-  effectivement avancé ce jour-là, lues dans la timeline d'événements
-  qu'Henri journalise déjà ; et en rive basse, le nombre d'éléments qui avaient
-  été mis dans Ma journée ce jour-là.
+  effectivement avancé ce jour-là, lues dans la timeline d'événements qu'Henri
+  journalise déjà, avec le nombre d'éléments qui avaient été mis dans Ma journée.
 
 Le passé de la semaine devient donc une lecture **prévu / fait** : « lundi
 j'avais prévu 9 choses, 3 ont bougé ». Aucun calendrier ne fait ça, parce
 qu'aucun calendrier ne sait ce que vous aviez prévu.
 
-### Corollaire — le sas « En souffrance »
+### Corollaire — la colonne « En retard »
 
 Colonne fixe à gauche, hors du flux. Elle rassemble tout ce qui a franchi une
-date sans être traité : échéances dépassées, lancements dépassés, retours
-dépassés.
+date sans être traité : échéances dépassées et dates-au-plus-tard dépassées.
 
 Raison : **dans un calendrier, le retard n'a pas de jour.** Le repeindre en rouge
 sur une case du passé, c'est le ranger là où plus personne ne regarde. Le retard
 n'est pas une date, c'est un tas — et un tas se met devant la porte.
+
+Une relance en retard n'y figure pas : son action a une date évidente,
+aujourd'hui, et elle est déjà posée dans « à faire » du jour. On ne compte pas
+deux fois la même tâche.
 
 ---
 
@@ -119,24 +128,25 @@ n'est pas une date, c'est un tas — et un tas se met devant la porte.
 
 ```
 ┌──────────────┬────┬────────┬────────┬────────┬────────┬────────┬─────┬─────┐
-│ EN SOUFFRANCE│    │ LUN 27 │ MAR 28 │ MER 29 │ JEU 30 │ VEN 31 │ SAM │ DIM │
-│              │    │        │        │  ▬▬▬   │        │        │     │     │ ← jauge de charge
-├──────────────┤ ↓  ├────────┴────────┴────────┴────────┴────────┴─────┴─────┤
-│ ▌État daté   │ c  │                                                        │
-│  VENTE MARTIN│ e  │   ● Note d'urbanisme      ● Offre de prêt              │
-│  attendu 04/07 │ q  │     VENTE DUPONT           SUCCESSION LEROY          │
-│              │ u  │                                                        │
-│ ▌DIA          │ i  │                                                        │
-│  −60 j dépassé│ r  │                                                        │
-│              │ e  │                                                        │
-│              │ v  │                                                        │
+│  EN RETARD   │    │ LUN 27 │ MAR 28 │ MER 29 │ JEU 30 │ VEN 31 │ SAM │ DIM │
+│              │    │        │        │        │  ▬▬▬   │        │     │     │ ← charge du jour
+├──────────────┼────┼────────┴────────┴────────┴────────┴────────┴─────┴─────┤
+│ État daté    │ à  │                        ● Demander le    ● Demander     │
+│ VENTE MARTIN │ f  │  (jours passés :         décompte −15 j   la DIA −60 j │
+│ 35 j de retard│ a  │   ce qui a avancé)      VENTE MOREAU     VENTE DUPONT │
+│              │ i  │                        ● Relancer le prêt              │
+│ Relevé cadastral│ r │                         VEFA TILLEULS   (relance)     │
+│ DONATION BERNARD│ e │                                                       │
+│ à faire avant │    │                                                        │
+│ le 13/07 —   │    │                                                        │
+│ échéance 12/08│   │                                                        │
 ├──────────────┼────┼────────────────────────────────────────────────────────┤
-│              │ ≈  │ ▸ État hypothécaire · VENTE DUPONT · attendu 12/08 ─────┼──▸
-│              │ at │ ▨▨▨ État daté · VENTE MARTIN · en retard depuis le 04/07│
+│              │ j' │ ▸ État hypothécaire · VENTE DUPONT · attendu 12/08 ─────┼──▸
+│              │ att│ ▨▨▨ État daté · VENTE MARTIN · en retard depuis le 25/06│
 ├──────────────┼────┼────────────────────────────────────────────────────────┤
-│              │ ↑  │            ● Demander DIA −60 j                        │
-│              │ p  │              VENTE DUPONT                              │
-│              │ art│                                                        │
+│              │ éch│                        ● Acte de décès  ● Note d'urba.  │
+│              │ éan│                          retour attendu   retour attendu│
+│              │ ces│                                                        │
 └──────────────┴────┴────────────────────────────────────────────────────────┘
 ```
 
@@ -158,17 +168,17 @@ n'est pas une date, c'est un tas — et un tas se met devant la porte.
 
 ```
 ┌────────────┬─────────────────┬─────────────────┬─────────────────┐
-│  RAPPELS   │  ↑ À LANCER   3 │  ≈ EN ATTENTE 7 │  ↓ ATTENDU    2 │
-│ 08         │ Envoyer aujourd'│ en circulation  │ doit atterrir   │
+│  RAPPELS   │  À FAIRE      3 │  J'ATTENDS    7 │  ÉCHÉANCES    2 │
+│ 08         │ pour tenir      │ sans réponse    │ tombe aujourd'hui│
 │ 09  ▪ Appel│ ─────────────── │ ─────────────── │ ─────────────── │
 │ 10         │ ▌Demander DIA   │ ▌État daté      │ ▌Note urbanisme │
 │ 11         │  VENTE DUPONT   │  VENTE MARTIN   │  VENTE DUPONT   │
-│ 12         │  −60 j          │  retard 26 j    │                 │
+│ 12         │  −60 j          │  retard 26 j    │  retour attendu │
 │ 14  ▪ Relan│ ▌Relancer syndic│ ▌État hypoth.   │                 │
 │ 15         │  VENTE MARTIN   │  attendu 12/08  │                 │
 │ …          │                 │                 │                 │
 ├────────────┴─────────────────┴─────────────────┴─────────────────┤
-│ CE QUE LA JOURNÉE ENGAGE   Demander DIA → retour sous 60 j · échéance 30/09 │
+│ CE QUE ÇA DÉCLENCHE   Demander la DIA → retour sous 60 j · échéance 30/09 │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -182,13 +192,13 @@ existantes s'en chargent). Programmer un rappel devient un geste de deux
 secondes, alors qu'il faut aujourd'hui ouvrir le détail et passer par le
 `ReminderPicker`.
 
-**Trois couloirs, pas des heures** : à lancer / en attente / attendu. C'est la
+**Trois couloirs, pas des heures** : à faire / j'attends / échéances. C'est la
 seule découpe de journée qui a du sens quand on n'a pas de rendez-vous — elle
 répond à « qu'est-ce que je fais maintenant ? » et non à « où suis-je dans
 l'heure ? ».
 
-**Le bandeau « ce que la journée engage »** ferme la boucle : chaque envoi
-d'aujourd'hui annonce sa date de retour. La journée n'est pas seulement une
+**Le bandeau « ce que ça déclenche »** ferme la boucle : chaque demande faite
+aujourd'hui annonce sa date de retour. La journée n'est pas seulement une
 consommation de tâches, c'est un **investissement de temps** dont on voit
 l'échéance.
 
@@ -228,7 +238,7 @@ suivra pas.
 | Échéance | `Item.dueDate`, sinon `Case.legalDueDate` |
 | Date de demande | timeline `events` (`progress_changed` → `Demandé`), déjà journalisée ; repli sur `updatedAt` |
 | Retour attendu | calculé : demande + barème |
-| Date de lancement | calculée : échéance − barème |
+| Date au plus tard | calculée : échéance − barème |
 | Réalisé du passé | timeline `events` |
 | Prévu du passé | `myDaySelections.dateKey` |
 | Rappels | `Item.reminderAt` |
@@ -289,8 +299,8 @@ Un dossier contient deux natures d'objets, désormais distinguées par
   délai ; hors compteurs et hors tri « charge restante ».
 
 Pourquoi ça concerne le calendrier : sans cette distinction, une note héritait
-de l'échéance légale du dossier, se voyait attribuer une date de lancement et
-atterrissait sur la rive basse avec un `−15 j`. Une note n'a rien à envoyer.
+de l'échéance du dossier, se voyait attribuer une date au plus tard et
+atterrissait dans « à faire » avec un `−15 j`. Une note n'a rien à faire.
 
 Règle retenue : **une note peut porter un rappel, jamais une échéance.** Le
 rappel notifie, il ne présume aucun achèvement — « refais-moi surface le 25
@@ -299,8 +309,8 @@ août » est exactement ce qu'on demande à une note. L'échéance, elle, veut d
 Une note ne peut pas être en retard, elle peut seulement devenir obsolète.
 
 Dans le calendrier, une note n'apparaît donc **que le jour de son rappel**,
-en pastille sans filet ni couleur. Jamais sur la rive basse, jamais dans la
-ligne d'eau, jamais dans le sas.
+en pastille sans filet ni couleur. Jamais dans « à faire », jamais dans
+« j'attends », jamais dans « en retard ».
 
 **Un mémo rattaché à un dossier devient une note**, plus une tâche : ce qu'on
 accroche à un dossier est le plus souvent une information. Le panneau détail
@@ -345,11 +355,11 @@ Désactivé dès que le focus est dans un champ éditable.
 
 | Lot | Contenu | État |
 |---|---|---|
-| **V1 — lire** | semaine deux rives + ligne d'eau + sas + vue jour + inspecteur + barème + clavier | **fait, sur `/calendrier`** |
+| **V1 — lire** | semaine à trois bandes + colonne « en retard » + vue jour + inspecteur + barème + clavier | **fait, sur `/calendrier`** |
 | **V2 — écrire** | glisser sur le rail = poser un rappel ; changer le statut depuis la vue ; ajouter à Ma journée | **fait** |
 | **V3 — persister** | `delaiDays` sur l'`Item`, réglable dans le panneau détail et dans l'inspecteur | **fait** |
 | **V3 bis** | barème éditable dans les Préférences ; `requestedAt` dénormalisé | à faire |
-| **V4 — projeter** | glisser une pastille d'un jour à l'autre = décaler l'échéance et recalculer le lancement ; simulation « si je signe le 30/09, que dois-je lancer ? » | à faire |
+| **V4 — projeter** | glisser une pastille d'un jour à l'autre = décaler l'échéance et recalculer la date au plus tard ; simulation « si je signe le 30/09, que dois-je faire, et quand ? » | à faire |
 
 ---
 

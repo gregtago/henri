@@ -5,9 +5,12 @@
 // Parti pris : Henri n'a pas de rendez-vous, il a des pièces qui circulent.
 // Une grille horaire classique serait vide 90 % du temps. On remplace donc
 // les heures par un axe à deux rives :
-//   ↓ rive haute — ce qui REVIENT (échéances, retours attendus, rappels)
-//   ≈ ligne d'eau — les attentes en cours, dessinées comme des durées
-//   ↑ rive basse — ce qui doit PARTIR ce jour-là (demandes, relances)
+//   À FAIRE    — ce que je réalise ce jour-là (demandes à faire, relances)
+//   J'ATTENDS  — les demandes parties sans réponse, dessinées comme des durées
+//   ÉCHÉANCES  — ce qui tombe ce jour-là (échéance, retour attendu, rappel)
+//
+// La terminologie suit le cycle de vie d'une tâche dans Henri :
+// je la crée → je la réalise → j'attends le retour → traité, elle disparaît.
 //
 // Voir CALENDRIER.md pour le raisonnement complet.
 
@@ -261,12 +264,12 @@ export default function CalendarShell({ user }: { user: User }) {
         {/* ── LE SAS ── tout ce qui a franchi sa date sans être traité */}
         <aside className="cal-sas">
           <div className="finder-header" style={{ paddingRight: 8 }}>
-            <span>En souffrance</span>
+            <span>En retard</span>
             <span className="text-tx-3">{model.souffrance.length}</span>
           </div>
           <div className="cal-sas-list">
             {model.souffrance.length === 0 && (
-              <p className="px-3 py-4 text-[12px] text-tx-3">Rien en retard. Journée nette.</p>
+              <p className="px-3 py-4 text-[12px] text-tx-3">Rien en retard.</p>
             )}
             {model.souffrance.map((entry) => (
               <EntryChip
@@ -385,13 +388,16 @@ function WeekView({ model, selected, hoveredTaskId, onSelect, onHover, onOpenDay
         ))}
       </div>
 
-      {/* ── RIVE HAUTE ── */}
-      <div className="cal-grid cal-band cal-band-in">
-        <div className="cal-gutter"><span className="cal-gutter-label">↓ ce qui revient</span></div>
+      {/* ── À FAIRE ── en tête : c'est ce qu'on regarde en premier le matin.
+        * Sur un jour passé, la même bande raconte ce qui a effectivement
+        * avancé ce jour-là, et combien on en avait prévu. */}
+      <div className="cal-grid cal-band cal-band-out">
+        <div className="cal-gutter"><span className="cal-gutter-label">à faire</span></div>
         {model.days.map((cell) => (
           <div key={cell.dateKey} className="cal-cell" data-today={cell.isToday} data-weekend={cell.isWeekend} data-past={cell.isPast}>
-            {cell.isPast
-              ? cell.fait.slice(0, 6).map((entry) => (
+            {cell.isPast ? (
+              <>
+                {cell.fait.slice(0, 5).map((entry) => (
                   <EntryChip
                     key={entry.key}
                     entry={entry}
@@ -402,21 +408,23 @@ function WeekView({ model, selected, hoveredTaskId, onSelect, onHover, onOpenDay
                     onHover={onHover}
                     onDragStart={onDragStart}
                   />
-                ))
-              : cell.entrant.map((entry) => (
-                  <EntryChip
-                    key={entry.key}
-                    entry={entry}
-                    variant="in"
-                    selected={selected?.key === entry.key}
-                    dimmed={!!hoveredTaskId && hoveredTaskId !== entry.task.id}
-                    onSelect={() => onSelect(entry)}
-                    onHover={onHover}
-                    onDragStart={onDragStart}
-                  />
                 ))}
-            {cell.isPast && cell.fait.length > 6 && (
-              <span className="cal-more">+{cell.fait.length - 6} autres</span>
+                {cell.fait.length > 5 && <span className="cal-more">+{cell.fait.length - 5} autres</span>}
+                {cell.myDayCount > 0 && <span className="cal-past-plan">{cell.myDayCount} prévues ce jour-là</span>}
+              </>
+            ) : (
+              cell.sortant.map((entry) => (
+                <EntryChip
+                  key={entry.key}
+                  entry={entry}
+                  variant="out"
+                  selected={selected?.key === entry.key}
+                  dimmed={!!hoveredTaskId && hoveredTaskId !== entry.task.id}
+                  onSelect={() => onSelect(entry)}
+                  onHover={onHover}
+                  onDragStart={onDragStart}
+                />
+              ))
             )}
           </div>
         ))}
@@ -425,7 +433,7 @@ function WeekView({ model, selected, hoveredTaskId, onSelect, onHover, onOpenDay
       {/* ── LA LIGNE D'EAU : les attentes en cours, dessinées comme des durées ── */}
       <div className="cal-water">
         <div className="cal-grid cal-water-bg">
-          <div className="cal-gutter"><span className="cal-gutter-label">≈ en attente</span></div>
+          <div className="cal-gutter"><span className="cal-gutter-label">j'attends</span></div>
           {model.days.map((cell) => (
             <div key={cell.dateKey} className="cal-water-col" data-today={cell.isToday} data-weekend={cell.isWeekend} />
           ))}
@@ -482,27 +490,24 @@ function WeekView({ model, selected, hoveredTaskId, onSelect, onHover, onOpenDay
         </div>
       </div>
 
-      {/* ── RIVE BASSE ── */}
-      <div className="cal-grid cal-band cal-band-out">
-        <div className="cal-gutter"><span className="cal-gutter-label">↑ ce qui part</span></div>
+      {/* ── ÉCHÉANCES ── ce qui tombe ce jour-là : échéance de tâche ou de
+        * dossier, retour attendu d'une pièce, rappel programmé. */}
+      <div className="cal-grid cal-band cal-band-in">
+        <div className="cal-gutter"><span className="cal-gutter-label">échéances</span></div>
         {model.days.map((cell) => (
           <div key={cell.dateKey} className="cal-cell" data-today={cell.isToday} data-weekend={cell.isWeekend} data-past={cell.isPast}>
-            {cell.isPast ? (
-              cell.myDayCount > 0 ? <span className="cal-past-plan">☀ {cell.myDayCount} prévues</span> : null
-            ) : (
-              cell.sortant.map((entry) => (
-                <EntryChip
-                  key={entry.key}
-                  entry={entry}
-                  variant="out"
-                  selected={selected?.key === entry.key}
-                  dimmed={!!hoveredTaskId && hoveredTaskId !== entry.task.id}
-                  onSelect={() => onSelect(entry)}
-                  onHover={onHover}
-                  onDragStart={onDragStart}
-                />
-              ))
-            )}
+            {!cell.isPast && cell.entrant.map((entry) => (
+              <EntryChip
+                key={entry.key}
+                entry={entry}
+                variant="in"
+                selected={selected?.key === entry.key}
+                dimmed={!!hoveredTaskId && hoveredTaskId !== entry.task.id}
+                onSelect={() => onSelect(entry)}
+                onHover={onHover}
+                onDragStart={onDragStart}
+              />
+            ))}
           </div>
         ))}
       </div>
@@ -537,8 +542,8 @@ function DayView({
   const railEntries = cell.entrant.filter((entry) => entry.reason === "rappel");
   const attendu = cell.entrant.filter((entry) => entry.reason !== "rappel");
 
-  // Ce que la journée engage : les demandes qu'on lance aujourd'hui reviendront
-  // à telle date. C'est la contrepartie de la rive basse.
+  // Ce que ça déclenche : une demande faite aujourd'hui revient à telle date.
+  // C'est la contrepartie de la bande « à faire ».
   const engagements = cell.sortant
     .filter((entry) => entry.reason === "lancement" || entry.reason === "relance")
     .map((entry) => ({ entry, back: entry.task.dueDate }));
@@ -588,10 +593,10 @@ function DayView({
         {/* Trois couloirs */}
         <div className="cal-lanes">
           <Lane
-            title="↑ À lancer"
-            hint="Envoyer aujourd'hui pour tenir l'échéance"
+            title="À faire"
+            hint="À réaliser aujourd'hui pour tenir l'échéance"
             entries={cell.sortant}
-            empty="Rien à envoyer aujourd'hui."
+            empty="Rien à faire aujourd'hui."
             variant="out"
             selected={selected}
             hoveredTaskId={hoveredTaskId}
@@ -600,15 +605,15 @@ function DayView({
             onDragStart={onDragStart}
           />
           <Lane
-            title="≈ En attente"
-            hint={`${model.bars.length} pièce${model.bars.length > 1 ? "s" : ""} en circulation`}
+            title="J'attends"
+            hint={`${model.bars.length} demande${model.bars.length > 1 ? "s" : ""} sans réponse`}
             entries={model.bars.map((bar) => ({
               key: `${bar.task.id}-wait`,
               task: bar.task,
               reason: bar.overdueFrom ? ("relance" as const) : ("retour" as const),
               overdue: !!bar.overdueFrom,
             }))}
-            empty="Aucune pièce en circulation."
+            empty="Aucune demande en attente."
             variant="wait"
             selected={selected}
             hoveredTaskId={hoveredTaskId}
@@ -617,10 +622,10 @@ function DayView({
             onDragStart={onDragStart}
           />
           <Lane
-            title="↓ Attendu"
-            hint="Ce qui doit atterrir aujourd'hui"
+            title="Échéances"
+            hint="Ce qui tombe aujourd'hui"
             entries={attendu}
-            empty="Rien n'est attendu aujourd'hui."
+            empty="Aucune échéance aujourd'hui."
             variant="in"
             selected={selected}
             hoveredTaskId={hoveredTaskId}
@@ -633,8 +638,8 @@ function DayView({
 
       {/* Ce que la journée engage */}
       <div className="cal-engage">
-        <span className="cal-engage-label">Ce que la journée engage</span>
-        {engagements.length === 0 && <span className="text-[12px] text-tx-3">Aucun départ aujourd&apos;hui.</span>}
+        <span className="cal-engage-label">Ce que ça déclenche</span>
+        {engagements.length === 0 && <span className="text-[12px] text-tx-3">Rien à faire aujourd&apos;hui.</span>}
         {engagements.map(({ entry, back }) => (
           <button key={`${entry.key}-engage`} className="cal-engage-chip" onClick={() => onSelect(entry)}>
             <span>{entry.task.title}</span>
@@ -775,10 +780,10 @@ function Inspector({ entry, onClose, onAddToMyDay, onAdvance, onDelai }: Inspect
         ) : (
         <>
         {/* La trace : les trois dates qui structurent la vie d'une pièce */}
-        <p className="cal-section-label">Sa trace dans le temps</p>
+        <p className="cal-section-label">Les dates de cette tâche</p>
         <ol className="cal-trace">
           <li data-done={!!task.launchAt}>
-            <span>À lancer avant</span>
+            <span>À faire au plus tard le</span>
             <strong>{task.launchAt ? formatDateFR(task.launchAt) : "—"}</strong>
           </li>
           <li data-done={!!task.requestedAt}>
@@ -795,7 +800,7 @@ function Inspector({ entry, onClose, onAddToMyDay, onAdvance, onDelai }: Inspect
           </li>
         </ol>
 
-        <p className="cal-section-label">Délai retenu</p>
+        <p className="cal-section-label">Délai de retour</p>
         <div className="cal-delai">
           <input
             value={draftDelai}

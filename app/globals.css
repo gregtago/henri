@@ -493,10 +493,10 @@ kbd {
   padding: 1px 6px;
 }
 
-/* ── CALENDRIER — « les deux rives » ─────────────────────────────────────
- * Pas de grille horaire : Henri n'a pas de rendez-vous, il a des pièces qui
- * circulent. L'axe du temps est horizontal, la rive haute reçoit, la rive
- * basse envoie, la ligne d'eau porte les attentes en cours. Cf. CALENDRIER.md.
+/* ── CALENDRIER ───────────────────────────────────────────────────────────
+ * Pas de grille horaire : Henri n'a pas de rendez-vous, il a des demandes qui
+ * partent et des retours qu'on attend. L'axe du temps est horizontal et porte
+ * trois bandes : à faire · j'attends · échéances. Cf. CALENDRIER.md.
  */
 
 :root {
@@ -598,8 +598,10 @@ kbd {
 
 /* Rives */
 .cal-band { flex: 1; min-height: 0; overflow-y: auto; }
-.cal-band-in { background: var(--bg); border-bottom: 1px solid var(--border); }
-.cal-band-out { background: #fdfcf9; border-top: 1px solid var(--border); }
+/* « À faire » vient en tête (fond légèrement chaud : c'est la bande d'action),
+ * « Échéances » ferme la vue. Les noms de classes gardent leur origine. */
+.cal-band-out { background: #fdfcf9; border-bottom: 1px solid var(--border); }
+.cal-band-in { background: var(--bg); border-top: 1px solid var(--border); }
 .cal-cell {
   border-right: 1px solid var(--border);
   padding: 5px 5px 14px;
@@ -612,7 +614,7 @@ kbd {
 .cal-more { font-size: 10.5px; color: var(--text-3); padding-left: 4px; }
 .cal-past-plan { font-size: 10.5px; color: var(--text-3); padding-left: 4px; }
 
-/* La ligne d'eau */
+/* La bande « j'attends » */
 .cal-water { position: relative; flex-shrink: 0; background: var(--bg-subtle); border-top: 1px solid var(--border); }
 .cal-water-bg { position: absolute; inset: 0; }
 .cal-water-col { border-right: 1px solid var(--border); }
