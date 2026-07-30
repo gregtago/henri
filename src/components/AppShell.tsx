@@ -64,6 +64,7 @@ import { RecurrencePicker } from "./RecurrencePicker";
 import { Icon } from "./Icon";
 import InstallButton from "./InstallButton";
 import CaseTemplatesModal from "./CaseTemplatesModal";
+import MemoComposer, { type MemoDraft } from "./MemoComposer";
 import GuidedTour, { type TourStep } from "./GuidedTour";
 import { EditableInput, EditableTextarea } from "./EditableField";
 import { ReminderPicker } from "./ReminderPicker";
@@ -184,6 +185,9 @@ export default function AppShell() {
   const [caseTemplates, setCaseTemplates] = useState<CaseTemplate[]>([]);
   const [templatesModal, setTemplatesModal] = useState<{ mode: "apply"; caseId: string } | { mode: "new" } | null>(null);
   const [caseActionMenu, setCaseActionMenu] = useState<"io" | "template" | null>(null);
+  // Fenêtre de saisie d'un mémo. Contient le dossier pré-sélectionné, ou null
+  // pour un mémo libre. `false` = fermée.
+  const [memoComposer, setMemoComposer] = useState<{ caseId: string | null } | null>(null);
   const [groupMyDay, setGroupMyDay] = useState(false);
   const [activeTour, setActiveTour] = useState<TourStep[] | null>(null);
   const [tourIsWalkthrough, setTourIsWalkthrough] = useState(false);
@@ -1364,17 +1368,6 @@ export default function AppShell() {
     setTimeout(attempt, 50);
   };
 
-  /** M — un mémo, où qu'on soit. C'est le seul objet qui n'appartient à rien. */
-  const handleCreateMemo = useCallback(async () => {
-    if (!user) return;
-    await createFloatingTask(user.uid, {
-      dateKey: todayKey,
-      title: "Nouveau mémo",
-      status: "Créé"
-    });
-    if (!isMyDay) showToast("Mémo créé — il vous attend dans Ma journée.");
-  }, [user, todayKey, isMyDay]);
-
   /** D — un dossier. */
   const handleCreateCase = useCallback(async () => {
     if (!user) return;
@@ -1442,15 +1435,22 @@ export default function AppShell() {
     focusWhenReady(detailTitleRef);
   }, [isMyDay, resolvedActiveColumn, selectedCaseId, selectedItem?.caseId, selectedItemId, user]);
 
+  /**
+   * M — ouvrir la fenêtre de saisie d'un mémo, pré-rattachée au dossier qu'on
+   * regarde. Un mémo naît avec ses paramètres : le créer à l'aveugle obligeait
+   * à le retrouver ensuite pour lui donner une échéance ou un rappel.
+   */
+  const handleOpenMemoComposer = useCallback(() => {
+    setMemoComposer({ caseId: isMyDay ? null : selectedCaseId });
+  }, [isMyDay, selectedCaseId]);
+
   // Conservé : les boutons « + » des en-têtes de colonne s'appuient dessus.
   const handleCreateInActiveColumn = useCallback(async () => {
     if (!user) return;
     if (isMyDay) {
-      await createFloatingTask(user.uid, {
-        dateKey: todayKey,
-        title: "Nouveau mémo",
-        status: "Créé"
-      });
+      // Dans Ma journée, le seul objet qu'on crée est un mémo : on ouvre sa
+      // fenêtre de saisie plutôt que d'en poser un anonyme.
+      handleOpenMemoComposer();
       return;
     }
     if (resolvedActiveColumn === "cases") {
@@ -1506,33 +1506,32 @@ export default function AppShell() {
     setActiveColumn("subitems");
     setDetailTarget({ type: "item", id });
     focusWhenReady(detailTitleRef);
-  }, [isMyDay, resolvedActiveColumn, selectedCaseId, selectedItem?.caseId, selectedItemId, user, todayKey]);
+  }, [handleOpenMemoComposer, isMyDay, resolvedActiveColumn, selectedCaseId, selectedItem?.caseId, selectedItemId, user, todayKey]);
 
-  /**
-   * M — créer un mémo. Rattaché au dossier courant si on est dans un dossier,
-   * libre sinon. C'est le même objet dans les deux cas : seul `caseId` change.
-   */
-  const handleCreateMemoHere = useCallback(async () => {
+  const handleCreateMemoFromDraft = useCallback(async (draft: MemoDraft) => {
     if (!user) return;
-    const caseId = isMyDay ? null : selectedCaseId;
-    const id = await createFloatingTask(user.uid, {
-      dateKey: todayKey,
-      caseId,
-      title: "Nouveau mémo",
+    // Une échéance future sort le mémo de la journée du jour : il réapparaîtra
+    // le bon jour, comme les tâches à venir.
+    const dateKey = draft.dueDate ? getDateKeyFromValue(draft.dueDate) ?? todayKey : todayKey;
+    await createFloatingTask(user.uid, {
+      dateKey: dateKey > todayKey ? dateKey : todayKey,
+      caseId: draft.caseId,
+      title: draft.title,
       status: "Créé",
+      starred: draft.starred,
+      dueDate: draft.dueDate,
+      reminderAt: draft.reminderAt,
+      recurrence: draft.recurrence,
+      note: draft.note,
     });
-    setMyDayDetailId(id);
-    showToast(caseId ? "Mémo ajouté au dossier." : "Mémo créé.");
-  }, [isMyDay, selectedCaseId, todayKey, user]);
+    setMemoComposer(null);
+    showToast(draft.caseId ? "Mémo ajouté au dossier." : "Mémo créé.");
+  }, [todayKey, user]);
 
   const handleCreateChildTask = useCallback(async () => {
     if (!user) return;
     if (isMyDay) {
-      await createFloatingTask(user.uid, {
-        dateKey: todayKey,
-        title: "Nouveau mémo",
-        status: "Créé"
-      });
+      handleOpenMemoComposer();
       return;
     }
     if (resolvedActiveColumn === "cases") {
@@ -1581,7 +1580,7 @@ export default function AppShell() {
       return;
     }
     showToast("Niveau maximal atteint.");
-  }, [isMyDay, resolvedActiveColumn, selectedCaseId, selectedItem?.caseId, selectedItemId, user, todayKey]);
+  }, [handleOpenMemoComposer, isMyDay, resolvedActiveColumn, selectedCaseId, selectedItem?.caseId, selectedItemId, user, todayKey]);
 
   const handleAddToMyDay = async () => {
     if (!user) return;
@@ -1909,7 +1908,7 @@ export default function AppShell() {
       }
       if (event.key.toLowerCase() === "m") {
         event.preventDefault();
-        await handleCreateMemoHere();
+        handleOpenMemoComposer();
         return;
       }
       if (event.key === " " && (detailTarget || myDayDetailId)) {
@@ -1990,8 +1989,7 @@ export default function AppShell() {
       handleCreateCase,
       handleCreateChildTask,
       handleCreateInActiveColumn,
-      handleCreateMemo,
-      handleCreateMemoHere,
+      handleOpenMemoComposer,
       handleCreateTask,
       handleOpenReparent,
       handleStatusChange,
@@ -3142,7 +3140,7 @@ export default function AppShell() {
                     title="Mode sélection multiple"
                     onClick={() => { setSelectionModeItems(p => !p); setSelectedItemIds([]); }}
                   >Sélection</button>
-                  <button className={iconBtn} title="Nouveau mémo (M) — une chose à cocher" onClick={async () => { if (!user || !selectedCaseId) { showToast("Sélectionnez un dossier d'abord."); return; } const id = await createFloatingTask(user.uid, { dateKey: todayKey, caseId: selectedCaseId, title: "Nouveau mémo", status: "Créé" }); setMyDayDetailId(id); }}>
+                  <button className={iconBtn} title="Nouveau mémo (M) — une chose à cocher" onClick={() => { if (!selectedCaseId) { showToast("Sélectionnez un dossier d'abord."); return; } setMemoComposer({ caseId: selectedCaseId }); }}>
                     <span className="text-[13px] leading-none">☑</span>
                   </button>
                   <button data-tour="new-item" className={iconBtn} title="Nouvelle tâche (T)" onClick={async () => { setActiveColumn("items"); if (!user || !selectedCaseId) { showToast("Sélectionnez un dossier d'abord."); return; } const id = await createItem(user.uid, { caseId: selectedCaseId, level: 2, title: "Nouvelle tâche", status: "Créé", parentItemId: null }); setSelectedItemId(id); setSelectedItemIds([id]); setDetailTarget({ type: "item", id }); focusWhenReady(detailTitleRef); }}>
@@ -4034,6 +4032,17 @@ export default function AppShell() {
       {activeTour && <GuidedTour steps={activeTour} onClose={closeTour} />}
 
       {/* ── MODÈLES DE DOSSIER ── */}
+      {memoComposer && (
+        <MemoComposer
+          cases={cases}
+          defaultCaseId={memoComposer.caseId}
+          onCreate={handleCreateMemoFromDraft}
+          onClose={() => setMemoComposer(null)}
+          defaultRepeat={reminderPolicy.repeatEnabled}
+          repeatLabel={describeRepeat(reminderPolicy)}
+        />
+      )}
+
       {templatesModal && (
         <CaseTemplatesModal
           mode={templatesModal.mode}

@@ -57,6 +57,10 @@ npm run dev
 - Un mémo peut être rattaché à un dossier (`floatingTasks.caseId`) ou libre : c'est le même
   objet, on le rattache et on le détache à volonté. Rattaché, il s'affiche sous les tâches
   du dossier ; libre, il ne vit que dans Ma journée. Il ne compte jamais dans l'avancement.
+- Sur desktop, un mémo se crée par une **fenêtre de saisie** (`M`, ou le bouton ☑ de la
+  colonne Tâches) : titre, dossier, échéance, rappel, étoile, répétition et observations
+  en un seul geste. Entrée crée, Échap annule. Un mémo avec une échéance future part
+  directement au bon jour plutôt que dans la journée en cours.
 - **Cocher un mémo ne le supprime pas** : `floatingTasks.doneAt` marque le moment où il a été
   fait, la ligne reste barrée en bas de Ma journée, et se décoche d'un clic.
 - La vue Calendrier (`/calendrier`) affiche trois bandes, dans l'ordre du cycle d'une tâche :
