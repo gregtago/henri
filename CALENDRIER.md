@@ -277,6 +277,39 @@ sélectionnée : c'est la même donnée, écrite au même endroit.
 
 ---
 
+## 6 ter. Notes de dossier
+
+Un dossier contient deux natures d'objets, désormais distinguées par
+`Item.kind` (`undefined` = tâche, donc aucune migration) :
+
+- **une tâche** — quelque chose à faire ou à obtenir. Statut, échéance, délai de
+  retour, poids dans l'avancement du dossier ;
+- **une note** — quelque chose de simplement vrai. « Le client est absent en
+  août », « vérifier la servitude de passage ». Ni statut, ni échéance, ni
+  délai ; hors compteurs et hors tri « charge restante ».
+
+Pourquoi ça concerne le calendrier : sans cette distinction, une note héritait
+de l'échéance légale du dossier, se voyait attribuer une date de lancement et
+atterrissait sur la rive basse avec un `−15 j`. Une note n'a rien à envoyer.
+
+Règle retenue : **une note peut porter un rappel, jamais une échéance.** Le
+rappel notifie, il ne présume aucun achèvement — « refais-moi surface le 25
+août » est exactement ce qu'on demande à une note. L'échéance, elle, veut dire
+« ce doit être fait pour le… » : elle implique un achèvement, donc un statut.
+Une note ne peut pas être en retard, elle peut seulement devenir obsolète.
+
+Dans le calendrier, une note n'apparaît donc **que le jour de son rappel**,
+en pastille sans filet ni couleur. Jamais sur la rive basse, jamais dans la
+ligne d'eau, jamais dans le sas.
+
+**Un mémo rattaché à un dossier devient une note**, plus une tâche : ce qu'on
+accroche à un dossier est le plus souvent une information. Le panneau détail
+propose la conversion dans les deux sens (« En faire une tâche » / « En faire
+une note ») ; passer en note efface l'échéance et le délai, qui n'ont plus
+de sens.
+
+---
+
 ## 7. Clavier
 
 Cohérent avec l'existant (DESIGN.md, « clavier first ») :

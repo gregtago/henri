@@ -711,6 +711,7 @@ function EntryChip({ entry, variant, large, selected, dimmed, onSelect, onHover,
       data-variant={variant}
       data-reason={reason}
       data-overdue={overdue}
+      data-note={task.isNote}
       data-selected={selected}
       data-dim={dimmed}
       data-large={!!large}
@@ -764,6 +765,15 @@ function Inspector({ entry, onClose, onAddToMyDay, onAdvance, onDelai }: Inspect
 
         <p className="cal-inspector-explain">{explainEntry(entry)}</p>
 
+        {/* Une note n'a ni trace, ni délai, ni statut : elle n'entre ici que
+          * par son rappel. On ne lui invente pas de sections vides. */}
+        {task.isNote ? (
+          <p className="cal-note-hint">
+            Note de dossier — sans statut ni échéance. Elle apparaît dans le
+            calendrier uniquement le jour de son rappel.
+          </p>
+        ) : (
+        <>
         {/* La trace : les trois dates qui structurent la vie d'une pièce */}
         <p className="cal-section-label">Sa trace dans le temps</p>
         <ol className="cal-trace">
@@ -814,6 +824,8 @@ function Inspector({ entry, onClose, onAddToMyDay, onAdvance, onDelai }: Inspect
             </button>
           ))}
         </div>
+        </>
+        )}
       </div>
 
       <div className="cal-inspector-actions">

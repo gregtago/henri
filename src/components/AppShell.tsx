@@ -59,7 +59,7 @@ import {
 import { getProgressLevel, getProgressStageLabel } from "@/lib/progress";
 import { resolveDelai, latestLaunchDate } from "@/lib/delais";
 import type { Case, CaseTemplate, Comment, Event, FloatingTask, Item, MyDaySelection, Status } from "@/lib/types";
-import { STATUSES } from "@/lib/types";
+import { STATUSES, isNote } from "@/lib/types";
 import { RecurrencePicker } from "./RecurrencePicker";
 import { Icon } from "./Icon";
 import InstallButton from "./InstallButton";
@@ -500,6 +500,7 @@ export default function AppShell() {
   const taskCountsByCase = useMemo(() => {
     const map = new Map<string, number[]>();
     for (const it of items) {
+      if (isNote(it)) continue; // une note n'est pas du travail : hors avancement
       let arr = map.get(it.caseId);
       if (!arr) { arr = [0, 0, 0, 0]; map.set(it.caseId, arr); }
       const idx = STATUSES.indexOf(it.status);
@@ -620,6 +621,7 @@ export default function AppShell() {
     runBackfill();
   }, [events, items, user]);
   const reminderItems = items.filter((item) => {
+    if (isNote(item)) return false; // une note ne peut pas être en retard
     const dueKey = getDateKeyFromValue(item.dueDate);
     if (!dueKey || dueKey > todayKey) return false;
     // Exclure si déjà rappelé aujourd'hui
@@ -2032,15 +2034,22 @@ export default function AppShell() {
   const handleAttachFloating = async (task: FloatingTask, caseId: string) => {
     if (!user) return;
 
-    // 1. Créer la tâche en préservant tous les attributs transférables
+    // 1. Un mémo rattaché à un dossier devient une NOTE, pas une tâche : ce qu'on
+    //    accroche à un dossier est le plus souvent une information (« le client
+    //    est absent en août »), pas quelque chose qui doit avancer par statuts.
+    //    Le panneau détail de la note propose « En faire une tâche » en un clic.
+    //    L'échéance du mémo n'est pas transférée — une note n'a pas d'échéance ;
+    //    si elle portait une date, elle devient un rappel à cette date.
     const newItemId = await createItem(user.uid, {
       caseId,
       level: 2,
+      kind: "note",
       title: task.title,
-      status: task.status ?? "Créé",          // <- garde le statut du mémo
+      status: "Créé",
       starred: task.starred ?? false,         // <- garde l'étoile
       parentItemId: null,
-      dueDate: task.dueDate ?? null,
+      dueDate: null,
+      reminderAt: task.reminderAt ?? null,
     });
 
     // 2. Copier le commentaire du mémo (note) en commentaire de la nouvelle tâche
@@ -2285,7 +2294,23 @@ export default function AppShell() {
             </div>
 
             <div className="space-y-4">
+              {/* Nature de l'item — une note se convertit en tâche et inversement.
+                * Le mot « note » est écrit, pas déduit d'une couleur : c'est la
+                * seule chose qui distingue les deux dans la colonne. */}
+              {isNote(detailItem) && (
+                <div className="flex items-center gap-2">
+                  <span className="item-note-tag">note</span>
+                  <span className="text-[12px] text-tx-3">Sans statut ni échéance — hors avancement du dossier.</span>
+                  <button
+                    onClick={() => updateItem(user.uid, detailItem.id, { kind: "tache" })}
+                    className="ml-auto text-[11px] font-[inherit] px-2 py-1 rounded border border-border bg-bg-subtle text-tx-2 cursor-pointer hover:border-border-strong hover:text-tx transition-colors"
+                    title="Lui donner un statut et une échéance"
+                  >En faire une tâche</button>
+                </div>
+              )}
+
               {/* Statuts + retirer de Ma journée */}
+              {!isNote(detailItem) && (
               <div className="flex flex-wrap gap-1.5 items-center">
                 {STATUSES.map(s => (
                   <button key={s} onClick={() => handleStatusChange(s)}
@@ -2313,10 +2338,12 @@ export default function AppShell() {
                   </button>
                 )}
               </div>
+              )}
 
               <div className="border-t border-border" />
 
-              {/* Échéance */}
+              {/* Échéance — une note n'en a pas : elle ne peut pas être en retard. */}
+              {!isNote(detailItem) && (
               <div>
                 <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-2">Échéance</p>
                 {(() => {
@@ -2391,11 +2418,13 @@ export default function AppShell() {
                   );
                 })()}
               </div>
+              )}
 
               {/* Délai de retour — combien de temps la pièce met à revenir.
                 * Toujours visible, jamais bloquant : Henri propose une estimation
                 * déduite du libellé, le notaire la corrige d'un clic. C'est ce
                 * chiffre qui donne la date de lancement dans la vue Calendrier. */}
+              {!isNote(detailItem) && (
               <div>
                 {(() => {
                   const delai = resolveDelai(detailItem);
@@ -2454,8 +2483,10 @@ export default function AppShell() {
                   );
                 })()}
               </div>
+              )}
 
-              {/* Rappel push */}
+              {/* Rappel push — valable aussi pour une note : un rappel notifie,
+                * il ne présume aucun achèvement. */}
               <div>
                 <ReminderPicker
                   value={detailItem.reminderAt}
@@ -2632,6 +2663,19 @@ export default function AppShell() {
             {detailItem && (
               <button className="detail-action-btn" onClick={handleOpenReparent}>
                 <span>⇄</span> Rattacher
+              </button>
+            )}
+            {!isNote(detailItem) && (
+              <button
+                className="detail-action-btn mobile-hide"
+                title="Une note ne porte ni statut ni échéance et ne compte pas dans l'avancement"
+                onClick={async () => {
+                  // On retire l'échéance et le délai : ils n'ont plus de sens.
+                  await updateItem(user.uid, detailItem.id, { kind: "note", dueDate: null, delaiDays: null });
+                  showToast("Devenue une note.");
+                }}
+              >
+                <span>✎</span> En faire une note
               </button>
             )}
             <button className="detail-action-btn detail-action-danger" onClick={handleDelete}>
@@ -3038,6 +3082,9 @@ export default function AppShell() {
                     title="Mode sélection multiple"
                     onClick={() => { setSelectionModeItems(p => !p); setSelectedItemIds([]); }}
                   >Sélection</button>
+                  <button className={iconBtn} title="Nouvelle note — une information, sans statut ni échéance" onClick={async () => { setActiveColumn("items"); if (!user || !selectedCaseId) { showToast("Sélectionnez un dossier d'abord."); return; } const id = await createItem(user.uid, { caseId: selectedCaseId, level: 2, kind: "note", title: "Nouvelle note", status: "Créé", parentItemId: null }); setSelectedItemId(id); setSelectedItemIds([id]); setDetailTarget({ type: "item", id }); focusWhenReady(detailTitleRef); }}>
+                    <span className="text-[13px] leading-none">✎</span>
+                  </button>
                   <button data-tour="new-item" className={iconBtn} title="Nouvelle tâche (N)" onClick={async () => { setActiveColumn("items"); if (!user || !selectedCaseId) { showToast("Sélectionnez un dossier d'abord."); return; } const id = await createItem(user.uid, { caseId: selectedCaseId, level: 2, title: "Nouvelle tâche", status: "Créé", parentItemId: null }); setSelectedItemId(id); setSelectedItemIds([id]); setDetailTarget({ type: "item", id }); focusWhenReady(detailTitleRef); }}>
                     <span className="text-[18px] leading-none">+</span>
                   </button>
@@ -3104,7 +3151,9 @@ export default function AppShell() {
                         <p className="text-[15px] text-tx truncate leading-snug">{entry.title}</p>
                       </div>
                       <p className="text-[12.5px] text-tx-3 mt-0.5 truncate min-h-[1.25rem]">
-                        {entry.dueDate ? (
+                        {isNote(entry) ? (
+                          entry.reminderAt ? <>Rappel {formatDateFR(entry.reminderAt)}</> : null
+                        ) : entry.dueDate ? (
                           <>Éch. <span className={new Date(entry.dueDate) < new Date() ? "text-red-500" : ""}>{formatDateFR(entry.dueDate)}</span></>
                         ) : (
                           getSubItems(items, entry.id).length > 0
@@ -3113,7 +3162,9 @@ export default function AppShell() {
                         )}
                       </p>
                     </div>
-                    <span className={statusClass(entry.status)}>{entry.status}</span>
+                    {isNote(entry)
+                      ? <span className="item-note-tag">note</span>
+                      : <span className={statusClass(entry.status)}>{entry.status}</span>}
                   </div>
                   );
                 })}
@@ -3199,7 +3250,9 @@ export default function AppShell() {
                         {entry.dueDate ? formatDateFR(entry.dueDate) : ""}
                       </p>
                     </div>
-                    <span className={statusClass(entry.status)}>{entry.status}</span>
+                    {isNote(entry)
+                      ? <span className="item-note-tag">note</span>
+                      : <span className={statusClass(entry.status)}>{entry.status}</span>}
                   </div>
                 ))}
               </div>

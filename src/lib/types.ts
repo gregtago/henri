@@ -19,11 +19,29 @@ export type Case = {
   updatedAt: string;
 };
 
+/**
+ * Nature d'un item de dossier.
+ *
+ *  • `tache` — quelque chose à faire ou à obtenir. Porte un statut, une
+ *    échéance, un délai de retour, compte dans l'avancement du dossier.
+ *  • `note`  — quelque chose de simplement vrai : « le client est absent en
+ *    août », « vérifier la servitude de passage ». Pas de statut, pas
+ *    d'échéance, hors compteurs. Une note ne peut pas être en retard, elle
+ *    peut seulement devenir obsolète. Elle accepte en revanche un rappel :
+ *    un rappel notifie, il ne présume aucun achèvement.
+ *
+ * `undefined` vaut `tache` : aucune migration des données existantes.
+ */
+export type ItemKind = "tache" | "note";
+
+export const isNote = (item: { kind?: ItemKind | null }) => item.kind === "note";
+
 export type Item = {
   id: string;
   caseId: string;
   parentItemId?: string | null;
   level: 2 | 3;
+  kind?: ItemKind | null;
   title: string;
   status: Status;
   starred?: boolean | null;

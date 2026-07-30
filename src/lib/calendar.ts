@@ -13,6 +13,7 @@
 // il faut agir pour que ça tombe bien.
 
 import type { Case, FloatingTask, Item, MyDaySelection, Event as HenriEvent } from "./types";
+import { isNote } from "./types";
 import { getDateKey, toDate } from "./dates";
 import { addDays, expectedReturnDate, inferDelai, isWeekend, latestLaunchDate, resolveDelai, type DelaiInfo } from "./delais";
 
@@ -27,6 +28,9 @@ export type CalendarTask = {
   status: Item["status"];
   starred: boolean;
   level: 2 | 3 | null;
+  /** Une note n'a ni échéance, ni délai, ni attente : elle est, c'est tout.
+   *  Elle n'entre dans le calendrier que si elle porte un rappel. */
+  isNote: boolean;
   dueDate: Date | null;         // échéance portée par la tâche (ou l'échéance légale du dossier)
   dueFromCase: boolean;         // l'échéance vient du dossier, pas de la tâche
   reminderAt: Date | null;
@@ -143,9 +147,12 @@ export const toCalendarTask = (
   const delai = resolveDelai(item);
   const days = delai.days;
 
+  const note = isNote(item);
   const own = toDate(item.dueDate ?? null);
   const legal = toDate(caseData?.legalDueDate ?? null);
-  const dueDate = own ?? legal;
+  // Une note n'hérite jamais de l'échéance du dossier : rien ne lui est demandé,
+  // donc rien ne peut être en retard.
+  const dueDate = note ? null : own ?? legal;
 
   return {
     id: item.id,
@@ -156,12 +163,13 @@ export const toCalendarTask = (
     status: item.status,
     starred: !!item.starred,
     level: item.level,
+    isNote: note,
     dueDate,
-    dueFromCase: !own && !!legal,
+    dueFromCase: !note && !own && !!legal,
     reminderAt: toDate(item.reminderAt ?? null),
-    requestedAt: item.status === "Demandé" ? (requestedAt ?? toDate(item.updatedAt)) : requestedAt,
+    requestedAt: note ? null : item.status === "Demandé" ? (requestedAt ?? toDate(item.updatedAt)) : requestedAt,
     expectedReturn:
-      item.status === "Demandé" && (requestedAt ?? toDate(item.updatedAt))
+      !note && item.status === "Demandé" && (requestedAt ?? toDate(item.updatedAt))
         ? expectedReturnDate((requestedAt ?? toDate(item.updatedAt)) as Date, days)
         : null,
     launchAt: dueDate ? latestLaunchDate(dueDate, days) : null,
@@ -178,6 +186,7 @@ const floatingToTask = (task: FloatingTask): CalendarTask => ({
   status: task.status,
   starred: !!task.starred,
   level: null,
+  isNote: false,
   dueDate: toDate(task.dueDate ?? null),
   dueFromCase: false,
   reminderAt: toDate(task.reminderAt ?? null),
@@ -234,6 +243,9 @@ export const buildCalendarModel = ({
     const fait: CalendarEntry[] = [];
 
     for (const task of tasks) {
+      // Les notes restent « ouvertes » : elles doivent pouvoir porter un rappel.
+      // Leur exclusion des rives basses est structurelle — pas d'échéance, donc
+      // pas de `launchAt` ; pas d'attente, donc pas de `expectedReturn`.
       const open = OPEN_STATUSES.has(task.status);
 
       // ── Rive haute ──────────────────────────────────────────────────────
@@ -313,7 +325,7 @@ export const buildCalendarModel = ({
   const windowStart = days[0];
   const windowEnd = days[days.length - 1];
   const bars: WaitingBar[] = tasks
-    .filter((task) => task.status === "Demandé" && task.requestedAt && task.expectedReturn)
+    .filter((task) => !task.isNote && task.status === "Demandé" && task.requestedAt && task.expectedReturn)
     .map((task) => ({
       task,
       start: task.requestedAt as Date,
@@ -336,6 +348,7 @@ export const buildCalendarModel = ({
   // jour. On évite ainsi de compter deux fois la même tâche.
   const souffrance: CalendarEntry[] = [];
   for (const task of tasks) {
+    if (task.isNote) continue; // une note ne peut pas être en souffrance
     if (!OPEN_STATUSES.has(task.status)) continue;
     if (task.dueDate && task.dueDate < todayStart) {
       souffrance.push({ key: `${task.id}-souffrance-echeance`, task, reason: "echeance", overdue: true });
