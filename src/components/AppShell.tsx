@@ -67,6 +67,7 @@ import GuidedTour, { type TourStep } from "./GuidedTour";
 import { EditableInput, EditableTextarea } from "./EditableField";
 import { ReminderPicker } from "./ReminderPicker";
 import { formatRecurrence } from "@/lib/recurrence";
+import { useReminderPolicy, describeRepeat } from "@/lib/reminderPolicy";
 
 // Couleurs d'avancement (Créé, Demandé, Reçu, Traité), alignées sur les badges de statut.
 const STATUS_COLORS = ["var(--s0-fg)", "var(--s1-fg)", "var(--s2-fg)", "var(--s3-fg)"];
@@ -122,6 +123,9 @@ type ParentOption = {
 
 export default function AppShell() {
   const [user, setUser] = useState<User | null>(null);
+  // Réglages de relance (Préférences → Rappels) : servent de valeur par défaut
+  // à l'interrupteur « Relancer tant que ce n'est pas fait ».
+  const reminderPolicy = useReminderPolicy(user?.uid);
   const [cases, setCases] = useState<Case[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -2391,7 +2395,11 @@ export default function AppShell() {
               <div>
                 <ReminderPicker
                   value={detailItem.reminderAt}
-                  onChange={iso => updateItem(user.uid, detailItem.id, { reminderAt: iso, reminderSentAt: null })}
+                  onChange={iso => updateItem(user.uid, detailItem.id, { reminderAt: iso, reminderSentAt: null, reminderCount: 0 })}
+                  repeat={detailItem.reminderRepeat}
+                  onRepeatChange={v => updateItem(user.uid, detailItem.id, { reminderRepeat: v })}
+                  defaultRepeat={reminderPolicy.repeatEnabled}
+                  repeatLabel={describeRepeat(reminderPolicy)}
                 />
               </div>
 
@@ -3588,8 +3596,12 @@ export default function AppShell() {
                           {/* Rappel push */}
                           <ReminderPicker
                             value={task.reminderAt}
-                            onChange={iso => updateFloatingTask(user.uid, task.id, { reminderAt: iso, reminderSentAt: null })}
+                            onChange={iso => updateFloatingTask(user.uid, task.id, { reminderAt: iso, reminderSentAt: null, reminderCount: 0 })}
                             themeColor="#92400e"
+                            repeat={task.reminderRepeat}
+                            onRepeatChange={v => updateFloatingTask(user.uid, task.id, { reminderRepeat: v })}
+                            defaultRepeat={reminderPolicy.repeatEnabled}
+                            repeatLabel={describeRepeat(reminderPolicy)}
                           />
                         </div>
 

@@ -17,6 +17,12 @@ import { auth } from "@/lib/firebase";
 import { subscribePushTokens, deletePushToken, subscribeCaseTemplates, renameCaseTemplate, deleteCaseTemplate, type PushTokenInfo } from "@/lib/firestore";
 import type { CaseTemplate } from "@/lib/types";
 import { getCurrentToken } from "@/lib/messaging";
+import {
+  DEFAULT_REMINDER_POLICY,
+  subscribeReminderPolicy,
+  saveReminderPolicy,
+  type ReminderPolicy,
+} from "@/lib/reminderPolicy";
 
 // Nom lisible d'un appareil à partir de son User-Agent.
 function describeDevice(ua?: string): { name: string; os: string } {
@@ -46,7 +52,10 @@ function tsToDate(v: unknown): Date | null {
   return null;
 }
 
-type Tab = "apparence" | "appareils" | "modeles" | "aide" | "versions" | "legal";
+type Tab = "apparence" | "rappels" | "appareils" | "modeles" | "aide" | "versions" | "legal";
+
+const HOURS = Array.from({ length: 24 }, (_, h) => h);
+const formatHour = (h: number) => `${String(h).padStart(2, "0")}h`;
 
 export default function SettingsPage() {
   const [s, setS] = useState<UserSettings>(DEFAULT_SETTINGS);
@@ -59,6 +68,8 @@ export default function SettingsPage() {
   const [notifSupported, setNotifSupported] = useState(true);
   const [caseTemplates, setCaseTemplates] = useState<CaseTemplate[]>([]);
   const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
+  const [policy, setPolicy] = useState<ReminderPolicy>(DEFAULT_REMINDER_POLICY);
+  const [policySaved, setPolicySaved] = useState(false);
 
   useEffect(() => {
     const loaded = loadSettings();
@@ -95,6 +106,25 @@ export default function SettingsPage() {
     const n = others.length;
     if (!window.confirm(`Oublier ${n} autre${n > 1 ? "s" : ""} appareil${n > 1 ? "s" : ""} ? ${n > 1 ? "Ils ne recevront" : "Il ne recevra"} plus de rappels tant que les notifications n'y sont pas réactivées.`)) return;
     others.forEach((t) => deletePushToken(user.uid, t.id).catch(() => {}));
+  };
+
+  // Réglages de relance (stockés dans Firestore : les Cloud Functions les lisent)
+  useEffect(() => {
+    if (!user) { setPolicy(DEFAULT_REMINDER_POLICY); return; }
+    const unsub = subscribeReminderPolicy(user.uid, setPolicy);
+    return () => unsub();
+  }, [user]);
+
+  const updatePolicy = <K extends keyof ReminderPolicy>(key: K, value: ReminderPolicy[K]) => {
+    if (!user) return;
+    const next = { ...policy, [key]: value };
+    setPolicy(next);
+    saveReminderPolicy(user.uid, next)
+      .then(() => {
+        setPolicySaved(true);
+        setTimeout(() => setPolicySaved(false), 1800);
+      })
+      .catch(() => {});
   };
 
   // Modèles de dossier
@@ -166,8 +196,8 @@ export default function SettingsPage() {
       <div className="flex-1 flex min-h-0">
         {/* Onglets verticaux */}
         <nav className="w-40 sm:w-52 shrink-0 border-r border-border bg-bg overflow-y-auto py-2">
-          {(["apparence", "appareils", "modeles", "aide", "versions", "legal"] as Tab[]).map((t) => {
-            const labels: Record<Tab, string> = { apparence: "Apparence", appareils: "Appareils", modeles: "Modèles", aide: "Aide", versions: "Notes de version", legal: "Mentions légales" };
+          {(["apparence", "rappels", "appareils", "modeles", "aide", "versions", "legal"] as Tab[]).map((t) => {
+            const labels: Record<Tab, string> = { apparence: "Apparence", rappels: "Rappels", appareils: "Appareils", modeles: "Modèles", aide: "Aide", versions: "Notes de version", legal: "Mentions légales" };
             return (
               <button key={t} onClick={() => setTab(t)}
                 className="w-full text-left text-[13px] font-medium font-[inherit] px-4 py-2.5 border-none bg-transparent cursor-pointer transition-colors"
@@ -273,6 +303,87 @@ export default function SettingsPage() {
               </div>
             </section>
           </>}
+
+          {tab === "rappels" && (
+            <div className="space-y-6">
+              <div className="bg-bg border border-border rounded-xl p-5">
+                <p className="text-[14px] font-semibold text-tx mb-1">Relances</p>
+                <p className="text-[13px] text-tx-2 leading-relaxed">
+                  Une notification s'évacue d'un geste, et la tâche est oubliée. Henri peut donc <strong>revenir à la charge</strong> : tant qu'une tâche avec rappel n'est pas passée « Traité », il renotifie à intervalle régulier, puis le lendemain matin si la journée est finie. Ces réglages valent pour tous vos appareils.
+                </p>
+                {!user && <p className="text-[12.5px] text-tx-3 mt-2">Connectez-vous pour modifier ces réglages.</p>}
+                {policySaved && <p className="text-[12px] text-green-700 mt-2">Enregistré ✓</p>}
+              </div>
+
+              <section>
+                <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-3">Relance des rappels</h2>
+                <div className="bg-bg border border-border rounded-xl overflow-hidden px-4">
+                  <div className={row}>
+                    <div><p className={lbl}>Relancer par défaut</p><p className={sublbl}>S'applique aux nouveaux rappels ; réglable tâche par tâche</p></div>
+                    <button disabled={!user} onClick={() => updatePolicy("repeatEnabled", !policy.repeatEnabled)} style={{background: policy.repeatEnabled ? "var(--accent)" : "var(--border-strong)", position:"relative", width:40, height:22, borderRadius:11, cursor: user ? "pointer" : "not-allowed", border:"none", flexShrink:0, transition:"background 0.2s", opacity: user ? 1 : 0.5}}>
+                      <span style={{position:"absolute", top:3, left: policy.repeatEnabled ? 21 : 3, width:16, height:16, background:"white", borderRadius:"50%", boxShadow:"0 1px 3px rgba(0,0,0,0.2)", transition:"left 0.2s", display:"block"}} />
+                    </button>
+                  </div>
+                  <div className={row}>
+                    <div><p className={lbl}>Intervalle entre deux relances</p><p className={sublbl}>Délai avant que la tâche ne resonne</p></div>
+                    <select disabled={!user} className={sel} value={policy.repeatIntervalHours} onChange={e => updatePolicy("repeatIntervalHours", Number(e.target.value))}>
+                      {[1, 2, 3, 4, 6, 8, 12, 24].map(h => <option key={h} value={h}>{h} h</option>)}
+                    </select>
+                  </div>
+                  <div className={row}>
+                    <div><p className={lbl}>Nombre de relances</p><p className={sublbl}>Après quoi Henri se tait — le récap prend le relais</p></div>
+                    <select disabled={!user} className={sel} value={policy.repeatMax} onChange={e => updatePolicy("repeatMax", Number(e.target.value))}>
+                      {[1, 2, 3, 4, 5, 6, 8, 10].map(n => <option key={n} value={n}>{n} fois</option>)}
+                    </select>
+                  </div>
+                  <div className={row}>
+                    <div><p className={lbl}>Ne pas déranger avant</p><p className={sublbl}>Une relance plus matinale est décalée à cette heure</p></div>
+                    <select disabled={!user} className={sel} value={policy.dayStartHour} onChange={e => updatePolicy("dayStartHour", Number(e.target.value))}>
+                      {HOURS.map(h => <option key={h} value={h}>{formatHour(h)}</option>)}
+                    </select>
+                  </div>
+                  <div className={row}>
+                    <div><p className={lbl}>Plus de relance après</p><p className={sublbl}>Les relances du soir repartent le lendemain à {formatHour(policy.dayStartHour)}</p></div>
+                    <select disabled={!user} className={sel} value={policy.dayEndHour} onChange={e => updatePolicy("dayEndHour", Number(e.target.value))}>
+                      {HOURS.filter(h => h > policy.dayStartHour).map(h => <option key={h} value={h}>{formatHour(h)}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <p className="text-[12px] text-tx-3 mt-2 leading-relaxed">
+                  Exemple : un rappel à 14h non traité revient {14 + policy.repeatIntervalHours >= policy.dayEndHour
+                    ? `le lendemain à ${formatHour(policy.dayStartHour)}`
+                    : `à ${formatHour(14 + policy.repeatIntervalHours)}`}, et ainsi de suite jusqu'à {policy.repeatMax} relance{policy.repeatMax > 1 ? "s" : ""} — sauf si vous passez la tâche « Traité » entre-temps.
+                </p>
+              </section>
+
+              <section>
+                <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-3">Récapitulatif des tâches non traitées</h2>
+                <div className="bg-bg border border-border rounded-xl overflow-hidden px-4">
+                  <div className={row}>
+                    <div><p className={lbl}>Récapitulatif quotidien</p><p className={sublbl}>Le soir : ce qu'il reste. Le matin : ce qui n'a pas été fait hier</p></div>
+                    <button disabled={!user} onClick={() => updatePolicy("recapEnabled", !policy.recapEnabled)} style={{background: policy.recapEnabled ? "var(--accent)" : "var(--border-strong)", position:"relative", width:40, height:22, borderRadius:11, cursor: user ? "pointer" : "not-allowed", border:"none", flexShrink:0, transition:"background 0.2s", opacity: user ? 1 : 0.5}}>
+                      <span style={{position:"absolute", top:3, left: policy.recapEnabled ? 21 : 3, width:16, height:16, background:"white", borderRadius:"50%", boxShadow:"0 1px 3px rgba(0,0,0,0.2)", transition:"left 0.2s", display:"block"}} />
+                    </button>
+                  </div>
+                  <div className={row}>
+                    <div><p className={lbl}>Bilan du soir</p><p className={sublbl}>Tâches de Ma journée encore ouvertes</p></div>
+                    <select disabled={!user || !policy.recapEnabled} className={sel} value={policy.recapEveningHour} onChange={e => updatePolicy("recapEveningHour", Number(e.target.value))}>
+                      {HOURS.map(h => <option key={h} value={h}>{formatHour(h)}</option>)}
+                    </select>
+                  </div>
+                  <div className={row}>
+                    <div><p className={lbl}>Rappel du lendemain</p><p className={sublbl}>Les tâches de la veille restées non traitées</p></div>
+                    <select disabled={!user || !policy.recapEnabled} className={sel} value={policy.recapMorningHour} onChange={e => updatePolicy("recapMorningHour", Number(e.target.value))}>
+                      {HOURS.map(h => <option key={h} value={h}>{formatHour(h)}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <p className="text-[12px] text-tx-3 mt-2 leading-relaxed">
+                  Le récapitulatif ne dépend pas des rappels : il couvre <em>toutes</em> les tâches de Ma journée, même celles pour lesquelles vous n'aviez posé aucun rappel.
+                </p>
+              </section>
+            </div>
+          )}
 
           {tab === "appareils" && (
             <div className="space-y-4">
@@ -440,7 +551,7 @@ export default function SettingsPage() {
                 },
                 {
                   icon: "🔔", title: "Rappels",
-                  items: [{t: "Poser un rappel", c: "Depuis le panneau de détail d'une tâche ou d'un mémo, ouvrez « Rappel » et choisissez un moment : Dans 1h, Demain 9h, ou une date et une heure personnalisées. Henri vous préviendra au moment voulu, même si vous avez quitté l'application."}, {t: "Activer les notifications", c: "Cliquez une fois sur « Rappels » dans l'en-tête pour autoriser les notifications sur cet appareil — le bouton passe au vert « Rappels ✓ ». À refaire sur chaque navigateur ou appareil où vous souhaitez être prévenu."}, {t: "Comment arrivent les rappels", c: "À l'échéance, vous recevez une notification. Si Henri est ouvert devant vous, un bandeau discret s'affiche dans l'application ; s'il est en arrière-plan ou fermé (navigateur toujours ouvert), c'est une véritable notification système. Un clic sur la notification ouvre Ma journée."}]
+                  items: [{t: "Poser un rappel", c: "Depuis le panneau de détail d'une tâche ou d'un mémo, ouvrez « Rappel » et choisissez un moment : Dans 1h, Demain 9h, ou une date et une heure personnalisées. Henri vous préviendra au moment voulu, même si vous avez quitté l'application."}, {t: "Activer les notifications", c: "Cliquez une fois sur « Rappels » dans l'en-tête pour autoriser les notifications sur cet appareil — le bouton passe au vert « Rappels ✓ ». À refaire sur chaque navigateur ou appareil où vous souhaitez être prévenu."}, {t: "Comment arrivent les rappels", c: "À l'échéance, vous recevez une notification. Si Henri est ouvert devant vous, un bandeau discret s'affiche dans l'application ; s'il est en arrière-plan ou fermé (navigateur toujours ouvert), c'est une véritable notification système. Un clic sur la notification ouvre Ma journée."}, {t: "Les relances : une notification qui revient", c: "Une notification s'évacue d'un geste — et la tâche est oubliée. Henri revient donc à la charge : tant que la tâche n'est pas passée « Traité », il renotifie toutes les 3 heures (jusqu'à 3 fois par défaut). Une relance reste affichée à l'écran jusqu'à ce que vous la traitiez, contrairement au premier rappel. L'interrupteur « Relancer tant que ce n'est pas fait », sous les présets de rappel, permet de couper la relance pour une tâche donnée."}, {t: "Les relances de nuit", c: "Aucune relance entre 20h et 8h : une relance qui tomberait le soir est reportée au lendemain matin. C'est ainsi qu'une tâche du jour J vous revient le lendemain. Ces horaires se règlent dans Préférences → Rappels."}, {t: "Le récapitulatif du soir et du matin", c: "Indépendamment des rappels, Henri envoie chaque soir à 18h la liste des tâches de Ma journée encore ouvertes, et le lendemain à 8h celles de la veille restées non traitées. Il couvre toutes les tâches du jour, même celles sans rappel. Réglable ou désactivable dans Préférences → Rappels."}]
                 },
                 {
                   icon: "📲", title: "Installer l'app",
@@ -480,6 +591,7 @@ export default function SettingsPage() {
           {tab === "versions" && (
             <div className="space-y-4">
               {[
+                { v: "Alpha 1.6", date: "Juillet 2026", items: ["Relances : une tâche avec rappel non traitée fait l'objet d'une nouvelle notification (toutes les 3 h par défaut, jusqu'à 3 fois)", "Une relance reste affichée jusqu'à ce que vous vous en occupiez — plus difficile à balayer qu'un simple rappel", "Pas de relance la nuit : une relance du soir est reportée au lendemain matin", "Récapitulatif du soir (18h) : les tâches de Ma journée encore ouvertes", "Rappel du lendemain (8h) : les tâches de la veille restées non traitées", "Interrupteur « Relancer tant que ce n'est pas fait » sur chaque rappel", "Nouvel onglet Préférences → Rappels : intervalle, nombre de relances, plage horaire, récapitulatifs"] },
                 { v: "Alpha 1.5", date: "Juillet 2026", items: ["Modèles de dossier : enregistrez la liste de tâches d'un dossier sous un nom et réutilisez-la", "Appliquez un modèle à un nouveau dossier (bouton 📋) ou à un dossier existant (« Appliquer un modèle »)", "Gérez vos modèles : renommer, supprimer", "Mini-récap d'avancement sur chaque dossier : 4 compteurs colorés (tâches et sous-tâches) — Créé · Demandé · Reçu · Traité", "Tri des dossiers par « charge restante » (Créé=2, Demandé=1, Reçu=0,5, Traité=0)", "Visite guidée interactive : tâches, sous-tâches, import/export, modèles, raccourcis clavier (relançable dans l'Aide)", "Modèle de dossier d'exemple intégré (« Vente immobilière »)", "Pas à pas interactif : créer une tâche, une sous-tâche, puis tout supprimer (dossier d'entraînement) ; bulles d'aide repositionnées près des boutons", "À la création d'un dossier, choix entre dossier vierge ou modèle", "Actions d'un dossier regroupées en deux menus : « Export / Import » et « Modèle »", "Préférences → Modèles : gérer ses modèles (renommer, supprimer, consulter le détail)", "Préférences : navigation par onglets verticaux (colonne à gauche)", "Ma journée : option « grouper par dossier » (desktop et mobile), avec en-têtes de dossier"] },
                 { v: "Alpha 1.4", date: "Juillet 2026", items: ["Rappels par notification désormais fiables : sur ordinateur, et même lorsque Henri est en arrière-plan ou fermé", "Réception des rappels au bon moment rétablie (l'application pouvait auparavant n'afficher aucune notification)", "Installation en application peaufinée : nom « Henri » et icône corrigés", "Aide enrichie : nouvelles rubriques « Rappels » et « Installer l'app »", "Préférences → Appareils : liste des appareils recevant les rappels, avec possibilité d'en retirer"] },
                 { v: "Alpha 1.3", date: "Juin 2026", items: ["« Mes dossiers » désormais accessible sur mobile : navigation en pleine largeur, une colonne à la fois", "Balayez horizontalement (swipe) pour passer de Dossiers → Tâches → Sous-tâches → Détail, et revenir en arrière", "Icône ☀ pour aller à Ma journée, icône dossier pour revenir à Mes dossiers", "En-têtes mobiles uniformisés (logo et icônes)"] },
