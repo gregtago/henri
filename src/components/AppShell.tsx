@@ -2671,6 +2671,12 @@ export default function AppShell() {
           >
             Ma journée
           </Link>
+          <Link
+            href="/calendrier"
+            className="text-[13px] px-2.5 py-1 rounded border-none bg-transparent cursor-pointer transition-all text-tx-2 hover:bg-bg-hover hover:text-tx"
+          >
+            Calendrier
+          </Link>
         </nav>
 
         {/* Logo — centré absolument (desktop uniquement) */}
