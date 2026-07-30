@@ -233,17 +233,47 @@ suivra pas.
 | Prévu du passé | `myDaySelections.dateKey` |
 | Rappels | `Item.reminderAt` |
 
+Un seul champ ajouté : **`Item.delaiDays`** — le délai retenu pour cette pièce.
+Nul par défaut (Henri estime d'après le libellé), renseigné dès que le notaire
+corrige le chiffre. Voir § 6 bis.
+
 Évolutions possibles, par ordre de rentabilité :
 
-1. `expectedReturnAt` / `delaiDays` stockés sur l'`Item` — aujourd'hui la
-   surcharge de délai est en `localStorage`, donc locale à l'appareil.
-2. `requestedAt` dénormalisé sur l'`Item` — évite de charger toute la collection
+1. `requestedAt` dénormalisé sur l'`Item` — évite de charger toute la collection
    `events` (le seul point de scalabilité à surveiller : au-delà de quelques
    milliers d'événements, il faudra une requête fenêtrée).
+2. Barème éditable dans les Préférences — aujourd'hui il est en dur dans
+   `src/lib/delais.ts`. À faire quand les corrections manuelles se répètent sur
+   les mêmes natures de pièces : c'est le signal que le barème a tort.
 3. Une collection `appointments` (RDV de signature) — c'est le seul vrai objet
    horaire du métier. Il donnerait au rail sa deuxième couche. **À ne faire que
    si on assume qu'Henri devienne aussi un agenda**, ce qui est une autre
    décision produit que celle-ci.
+
+---
+
+## 6 bis. Où se règle le délai
+
+Le délai n'appartient pas au calendrier : c'est une propriété de la pièce. Il se
+lit et se corrige **dans le panneau détail de la tâche**, juste sous l'échéance —
+c'est-à-dire au moment même où on nomme la tâche, puisque créer une tâche dans
+Henri, c'est la créer puis la nommer dans ce panneau.
+
+Trois principes :
+
+- **Affiché, jamais demandé.** Le champ est toujours visible et toujours
+  pré-rempli. Créer une tâche reste un titre + Entrée ; on ne rajoute pas une
+  question à la création.
+- **Provenance annoncée.** Le champ dit d'où sort le chiffre : *estimé — syndic
+  de copropriété*, *estimation par défaut*, ou *fixé à la main*. Avec un
+  « Réinitialiser » pour revenir à l'estimation d'Henri.
+- **Conséquence affichée sous le champ.** « Pour tenir l'échéance du 30/09/2026,
+  la demande doit partir le 31/07/2026. » Un nombre de jours seul est abstrait ;
+  la date qu'il produit ne l'est pas. C'est cette ligne qui donne envie de
+  corriger le chiffre quand il est faux.
+
+Le même réglage est accessible depuis l'inspecteur du calendrier, sur la pièce
+sélectionnée : c'est la même donnée, écrite au même endroit.
 
 ---
 
@@ -283,8 +313,9 @@ Désactivé dès que le focus est dans un champ éditable.
 | Lot | Contenu | État |
 |---|---|---|
 | **V1 — lire** | semaine deux rives + ligne d'eau + sas + vue jour + inspecteur + barème + clavier | **fait, sur `/calendrier`** |
-| **V2 — écrire** | glisser sur le rail = poser un rappel ; changer le statut depuis la vue ; ajouter à Ma journée | **fait** (délais surchargés encore en local) |
-| **V3 — persister** | `delaiDays` / `expectedReturnAt` sur l'`Item`, barème éditable dans les Préférences | à faire |
+| **V2 — écrire** | glisser sur le rail = poser un rappel ; changer le statut depuis la vue ; ajouter à Ma journée | **fait** |
+| **V3 — persister** | `delaiDays` sur l'`Item`, réglable dans le panneau détail et dans l'inspecteur | **fait** |
+| **V3 bis** | barème éditable dans les Préférences ; `requestedAt` dénormalisé | à faire |
 | **V4 — projeter** | glisser une pastille d'un jour à l'autre = décaler l'échéance et recalculer le lancement ; simulation « si je signe le 30/09, que dois-je lancer ? » | à faire |
 
 ---

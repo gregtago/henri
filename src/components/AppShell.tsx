@@ -57,6 +57,7 @@ import {
   toDate
 } from "@/lib/dates";
 import { getProgressLevel, getProgressStageLabel } from "@/lib/progress";
+import { resolveDelai, latestLaunchDate } from "@/lib/delais";
 import type { Case, CaseTemplate, Comment, Event, FloatingTask, Item, MyDaySelection, Status } from "@/lib/types";
 import { STATUSES } from "@/lib/types";
 import { RecurrencePicker } from "./RecurrencePicker";
@@ -2386,6 +2387,69 @@ export default function AppShell() {
                           }}
                         />
                       </div>
+                    </>
+                  );
+                })()}
+              </div>
+
+              {/* Délai de retour — combien de temps la pièce met à revenir.
+                * Toujours visible, jamais bloquant : Henri propose une estimation
+                * déduite du libellé, le notaire la corrige d'un clic. C'est ce
+                * chiffre qui donne la date de lancement dans la vue Calendrier. */}
+              <div>
+                {(() => {
+                  const delai = resolveDelai(detailItem);
+                  const due = toDate(detailItem.dueDate ?? null)
+                    ?? toDate(cases.find(c => c.id === detailItem.caseId)?.legalDueDate ?? null);
+                  const launch = due ? latestLaunchDate(due, delai.days) : null;
+                  const setDelai = (days: number | null) =>
+                    updateItem(user.uid, detailItem.id, { delaiDays: days });
+
+                  return (
+                    <>
+                      <div className="flex items-baseline gap-2 mb-2">
+                        <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest">Délai de retour</p>
+                        <span className="text-[10px] text-tx-3">
+                          {delai.source === "manual" ? "fixé à la main"
+                            : delai.source === "rule" ? `estimé — ${delai.label.toLowerCase()}`
+                            : "estimation par défaut"}
+                        </span>
+                        {delai.source === "manual" && (
+                          <button
+                            onClick={() => setDelai(null)}
+                            className="ml-auto text-[10px] font-[inherit] bg-transparent border-none text-tx-3 cursor-pointer hover:text-tx transition-colors"
+                            title="Revenir à l'estimation d'Henri"
+                          >Réinitialiser</button>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 items-center mb-2">
+                        {[7, 10, 15, 21, 30, 60].map(days => (
+                          <button key={days} onClick={() => setDelai(days)}
+                            className={`text-[11px] font-[inherit] px-2 py-1 rounded border cursor-pointer transition-colors ${
+                              delai.days === days
+                                ? "border-border-strong bg-bg-active text-tx"
+                                : "border-border bg-bg-subtle text-tx-2 hover:border-border-strong hover:text-tx"
+                            }`}>
+                            {days} j
+                          </button>
+                        ))}
+                        <input
+                          key={detailItem.id + "-delai"}
+                          type="number" min={1} max={365} inputMode="numeric"
+                          className="w-[64px] font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-2 py-1 outline-none focus:border-border-strong transition-colors"
+                          defaultValue={delai.days}
+                          onBlur={(e) => {
+                            const parsed = Number(e.target.value);
+                            if (parsed > 0 && parsed <= 365 && parsed !== delai.days) setDelai(parsed);
+                          }}
+                          aria-label="Délai de retour en jours"
+                        />
+                      </div>
+                      <p className="text-[11px] text-tx-3">
+                        {launch
+                          ? <>Pour tenir l&apos;échéance du {formatDateFR(due)}, la demande doit partir <strong className="font-medium text-tx-2">le {formatDateFR(launch)}</strong>.</>
+                          : "Sans échéance, ce délai sert à dater le retour attendu une fois la pièce demandée."}
+                      </p>
                     </>
                   );
                 })()}

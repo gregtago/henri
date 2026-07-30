@@ -44,7 +44,13 @@ export type DelaiInfo = {
   days: number;
   label: string;
   key: string;
-  inferred: boolean; // false = on est retombé sur le délai par défaut
+  /**
+   * D'où vient le chiffre — Henri doit toujours pouvoir le dire :
+   *  • `manual`  : fixé à la main sur la tâche, il fait autorité ;
+   *  • `rule`    : reconnu dans le libellé (« état daté » → 30 j) ;
+   *  • `default` : rien de reconnu, on applique le délai standard.
+   */
+  source: "manual" | "rule" | "default";
 };
 
 /** Devine le délai d'attente d'une pièce à partir de son libellé. */
@@ -52,10 +58,23 @@ export const inferDelai = (title: string): DelaiInfo => {
   const normalized = stripAccents(title ?? "");
   for (const rule of DELAI_RULES) {
     if (rule.test.test(normalized)) {
-      return { days: rule.days, label: rule.label, key: rule.key, inferred: true };
+      return { days: rule.days, label: rule.label, key: rule.key, source: "rule" };
     }
   }
-  return { days: DEFAULT_DELAI_DAYS, label: "Délai standard", key: "default", inferred: false };
+  return { days: DEFAULT_DELAI_DAYS, label: "Délai standard", key: "default", source: "default" };
+};
+
+/**
+ * Délai effectif d'une tâche : ce que l'utilisateur a fixé l'emporte toujours
+ * sur l'estimation. On garde le libellé de la règle reconnue, il reste utile
+ * pour expliquer d'où venait la proposition initiale.
+ */
+export const resolveDelai = (task: { title: string; delaiDays?: number | null }): DelaiInfo => {
+  const guessed = inferDelai(task.title);
+  if (typeof task.delaiDays === "number" && task.delaiDays > 0) {
+    return { ...guessed, days: task.delaiDays, source: "manual" };
+  }
+  return guessed;
 };
 
 // ── Jours ouvrés ──────────────────────────────────────────────────────────

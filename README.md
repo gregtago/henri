@@ -48,6 +48,10 @@ npm run dev
 - Les suggestions "À reproposer" listent les tâches vues dans Ma journée sur les 7 derniers jours (hors aujourd'hui), sans évolution de statut sur la période (`lastProgressAt` <= maintenant - 7 jours), non traitées et absentes d'aujourd'hui.
 - L'historique (timeline) des événements d'une tâche est masqué par défaut et accessible via “Afficher la timeline”.
 - Toutes les dates affichées dans l'UI utilisent le format JJ/MM/AAAA (helper `formatDateFR`).
+- La vue Calendrier (`/calendrier`) lit les mêmes collections ; elle n'ajoute qu'un champ,
+  `items.delaiDays` (délai de retour d'une pièce, en jours). Nul = Henri l'estime d'après
+  le libellé via le barème de `src/lib/delais.ts`. Le raisonnement de la vue est dans
+  `CALENDRIER.md`.
 
 ## Rappels et relances (Cloud Functions)
 

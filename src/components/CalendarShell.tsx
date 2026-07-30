@@ -29,7 +29,7 @@ import {
 } from "@/lib/firestore";
 import type { Case, Event as HenriEvent, FloatingTask, Item, MyDaySelection, Status } from "@/lib/types";
 import { getDateKey, formatDateFR } from "@/lib/dates";
-import { addDays } from "@/lib/delais";
+import { addDays, type DelaiInfo } from "@/lib/delais";
 import {
   buildCalendarModel,
   explainEntry,
@@ -50,6 +50,13 @@ const MONTH_NAMES = [
 
 const RAIL_START_HOUR = 8;
 const RAIL_END_HOUR = 19;
+
+// Henri dit toujours d'où vient le chiffre qu'il applique.
+const DELAI_SOURCE_LABEL: Record<DelaiInfo["source"], (label: string) => string> = {
+  manual: () => "fixé à la main",
+  rule: (label) => label,
+  default: () => "estimation par défaut",
+};
 
 const STATUS_DOT: Record<Status, string> = {
   "Créé": "#d1d5db",
@@ -80,7 +87,6 @@ export default function CalendarShell({ user }: { user: User }) {
 
   const [selected, setSelected] = useState<CalendarEntry | null>(null);
   const [hoveredTaskId, setHoveredTaskId] = useState<string | null>(null);
-  const [delaiOverrides, setDelaiOverrides] = useState<Record<string, number>>({});
   const [toast, setToast] = useState<string | null>(null);
   const [dragTaskId, setDragTaskId] = useState<string | null>(null);
   const [dropHour, setDropHour] = useState<number | null>(null);
@@ -112,27 +118,16 @@ export default function CalendarShell({ user }: { user: User }) {
     return () => unsubs.forEach((unsub) => unsub());
   }, [user.uid]);
 
-  // Surcharges de délai : local d'abord (V1). Le jour où on les stocke sur la
-  // tâche, seul ce bloc change.
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem("henri.delaiOverrides");
-      if (raw) setDelaiOverrides(JSON.parse(raw));
-    } catch {
-      /* préférence non critique */
-    }
-  }, []);
-  const setDelaiOverride = useCallback((taskId: string, days: number) => {
-    setDelaiOverrides((prev) => {
-      const next = { ...prev, [taskId]: days };
-      try {
-        window.localStorage.setItem("henri.delaiOverrides", JSON.stringify(next));
-      } catch {
-        /* préférence non critique */
-      }
-      return next;
-    });
-  }, []);
+  // Le délai est une donnée de la tâche, pas une préférence d'affichage : il est
+  // saisi depuis le panneau détail comme depuis ici, et se propage aux deux vues.
+  const setDelaiDays = useCallback(
+    async (task: CalendarTask, days: number) => {
+      if (task.kind !== "item") return;
+      await updateItem(user.uid, task.id, { delaiDays: days });
+      showToast(`Délai fixé à ${days} jours.`);
+    },
+    [user.uid, showToast]
+  );
 
   const days = useMemo(() => {
     if (mode === "jour") return [anchor];
@@ -150,9 +145,8 @@ export default function CalendarShell({ user }: { user: User }) {
         floatingTasks,
         events,
         myDaySelections,
-        delaiOverrides,
       }),
-    [days, today, cases, items, floatingTasks, events, myDaySelections, delaiOverrides]
+    [days, today, cases, items, floatingTasks, events, myDaySelections]
   );
 
   // ── Navigation ──────────────────────────────────────────────────────────
@@ -329,7 +323,7 @@ export default function CalendarShell({ user }: { user: User }) {
             onClose={() => setSelected(null)}
             onAddToMyDay={() => addToMyDay(selected.task)}
             onAdvance={(status) => advanceStatus(selected.task, status)}
-            onDelai={(days) => setDelaiOverride(selected.task.id, days)}
+            onDelai={(days) => setDelaiDays(selected.task, days)}
           />
         )}
       </div>
@@ -804,7 +798,7 @@ function Inspector({ entry, onClose, onAddToMyDay, onAdvance, onDelai }: Inspect
             aria-label="Délai en jours"
           />
           <span>jours</span>
-          <span className="cal-delai-src">{task.delai.inferred ? task.delai.label : "estimation par défaut"}</span>
+          <span className="cal-delai-src">{DELAI_SOURCE_LABEL[task.delai.source](task.delai.label)}</span>
         </div>
 
         <p className="cal-section-label">Statut</p>

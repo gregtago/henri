@@ -34,6 +34,7 @@ export type Item = {
   reminderRepeat?: boolean | null;   // relancer tant que la tâche n'est pas traitée (null = préférence globale)
   reminderCount?: number | null;     // nombre de notifications déjà envoyées pour ce rappel
   lastReminderSentAt?: string | null; // ISO timestamp — dernière notification effectivement envoyée
+  delaiDays?: number | null;         // délai de retour retenu, en jours (null = estimé d'après le libellé)
   progressLevel?: number | null;
   lastProgressAt?: string | import("firebase/firestore").Timestamp | null;
   createdAt: string;

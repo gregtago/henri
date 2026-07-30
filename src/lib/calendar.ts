@@ -14,7 +14,7 @@
 
 import type { Case, FloatingTask, Item, MyDaySelection, Event as HenriEvent } from "./types";
 import { getDateKey, toDate } from "./dates";
-import { addDays, expectedReturnDate, inferDelai, isWeekend, latestLaunchDate, type DelaiInfo } from "./delais";
+import { addDays, expectedReturnDate, inferDelai, isWeekend, latestLaunchDate, resolveDelai, type DelaiInfo } from "./delais";
 
 export type TaskKind = "item" | "floating" | "case";
 
@@ -136,14 +136,12 @@ const buildProgressIndex = (events: HenriEvent[]) => {
 export const toCalendarTask = (
   item: Item,
   caseData: Case | undefined,
-  requestedAt: Date | null,
-  overrides?: { delaiDays?: number | null }
+  requestedAt: Date | null
 ): CalendarTask => {
-  const delai = inferDelai(item.title);
-  const days = overrides?.delaiDays ?? delai.days;
-  const effectiveDelai: DelaiInfo = overrides?.delaiDays
-    ? { ...delai, days: overrides.delaiDays, inferred: true }
-    : delai;
+  // `delaiDays` est le délai que l'utilisateur a fixé sur la tâche ; à défaut,
+  // on retombe sur l'estimation déduite du libellé.
+  const delai = resolveDelai(item);
+  const days = delai.days;
 
   const own = toDate(item.dueDate ?? null);
   const legal = toDate(caseData?.legalDueDate ?? null);
@@ -167,7 +165,7 @@ export const toCalendarTask = (
         ? expectedReturnDate((requestedAt ?? toDate(item.updatedAt)) as Date, days)
         : null,
     launchAt: dueDate ? latestLaunchDate(dueDate, days) : null,
-    delai: effectiveDelai,
+    delai,
   };
 };
 
@@ -197,8 +195,6 @@ export type BuildInput = {
   floatingTasks: FloatingTask[];
   events: HenriEvent[];
   myDaySelections: MyDaySelection[];
-  /** Délais surchargés à la main, par id de tâche. */
-  delaiOverrides?: Record<string, number>;
 };
 
 export const buildCalendarModel = ({
@@ -209,7 +205,6 @@ export const buildCalendarModel = ({
   floatingTasks,
   events,
   myDaySelections,
-  delaiOverrides = {},
 }: BuildInput): CalendarModel => {
   const todayStart = startOfDay(today);
   const casesById = new Map(cases.map((c) => [c.id, c]));
@@ -220,11 +215,7 @@ export const buildCalendarModel = ({
   const tasks: CalendarTask[] = [
     ...items
       .filter((item) => !casesById.get(item.caseId)?.archived)
-      .map((item) =>
-        toCalendarTask(item, casesById.get(item.caseId), requestedIndex.get(item.id) ?? null, {
-          delaiDays: delaiOverrides[item.id] ?? null,
-        })
-      ),
+      .map((item) => toCalendarTask(item, casesById.get(item.caseId), requestedIndex.get(item.id) ?? null)),
     ...floatingTasks.map(floatingToTask),
   ];
 
