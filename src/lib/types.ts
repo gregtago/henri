@@ -34,6 +34,7 @@ export type Item = {
   reminderRepeat?: boolean | null;   // relancer tant que la tâche n'est pas traitée (null = préférence globale)
   reminderCount?: number | null;     // nombre de notifications déjà envoyées pour ce rappel
   lastReminderSentAt?: string | null; // ISO timestamp — dernière notification effectivement envoyée
+  delaiDays?: number | null;         // délai de retour retenu, en jours (null = estimé d'après le libellé)
   progressLevel?: number | null;
   lastProgressAt?: string | import("firebase/firestore").Timestamp | null;
   createdAt: string;
@@ -86,12 +87,29 @@ export type RecurringTemplate = {
   updatedAt: string;
 };
 
+/**
+ * Un mémo : une chose légère qu'on coche.
+ *
+ * C'est le pendant de la tâche de dossier, et la différence tient en un mot :
+ * une tâche se **traite** (cycle Créé → Demandé → Reçu → Traité), un mémo se
+ * **réalise** (une case à cocher, rien d'autre).
+ *
+ * Un mémo peut être rattaché à un dossier (`caseId`) ou libre. Rattaché, il
+ * s'affiche dans la colonne Tâches du dossier ; libre, il ne vit que dans
+ * Ma journée. Le rattachement se fait et se défait à volonté — c'est le même
+ * objet dans les deux cas.
+ *
+ * Cocher un mémo ne le supprime jamais : `doneAt` marque le moment où il a été
+ * fait, et le mémo reste consultable. On doit pouvoir voir ce qu'on a fait.
+ */
 export type FloatingTask = {
   id: string;
   dateKey: string;
+  caseId?: string | null;   // dossier de rattachement — null = mémo libre
+  doneAt?: string | null;   // ISO — quand il a été coché. null = à faire.
   title: string;
-  status: Status;
-  starred?: boolean;  // tâche volante prioritaire (⭐)
+  status: Status;           // hérité : un mémo ne suit plus de cycle de statut
+  starred?: boolean;  // mémo prioritaire (⭐)
   dueDate?: string | null;
   recurrence?: Recurrence | null;
   recurringTemplateId?: string | null; // référence au template d'origine

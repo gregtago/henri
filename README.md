@@ -48,6 +48,29 @@ npm run dev
 - Les suggestions "À reproposer" listent les tâches vues dans Ma journée sur les 7 derniers jours (hors aujourd'hui), sans évolution de statut sur la période (`lastProgressAt` <= maintenant - 7 jours), non traitées et absentes d'aujourd'hui.
 - L'historique (timeline) des événements d'une tâche est masqué par défaut et accessible via “Afficher la timeline”.
 - Toutes les dates affichées dans l'UI utilisent le format JJ/MM/AAAA (helper `formatDateFR`).
+- Raccourcis de création : une lettre par nature — `D` dossier · `T` tâche · `⇧T` sous-tâche ·
+  `M` mémo. Remplace l'ancien `N` contextuel (qui créait un dossier, une tâche ou un mémo
+  selon la colonne active) et l'ancien `⇧N`.
+- Deux natures d'objets, et deux seulement :
+  - une **tâche** (`items`) se *traite* — cycle Créé → Demandé → Reçu → Traité ;
+  - un **mémo** (`floatingTasks`) se *réalise* — une case à cocher, rien d'autre.
+- Un mémo peut être rattaché à un dossier (`floatingTasks.caseId`) ou libre : c'est le même
+  objet, on le rattache et on le détache à volonté. Rattaché, il s'affiche sous les tâches
+  du dossier ; libre, il ne vit que dans Ma journée. Il ne compte jamais dans l'avancement.
+- Sur desktop, un mémo se crée par une **fenêtre de saisie** (`M`, ou le bouton ☑ de la
+  colonne Tâches) : titre, dossier, échéance, rappel, étoile, répétition et observations
+  en un seul geste. Entrée crée, Échap annule. Un mémo avec une échéance future part
+  directement au bon jour plutôt que dans la journée en cours.
+- **Cocher un mémo ne le supprime pas** : `floatingTasks.doneAt` marque le moment où il a été
+  fait, la ligne reste barrée en bas de Ma journée, et se décoche d'un clic.
+- La vue Calendrier (`/calendrier`) affiche trois bandes, dans l'ordre du cycle d'une tâche :
+  « à faire » (ce qu'on réalise ce jour-là), « j'attends » (les demandes sans réponse, en barres
+  de durée), « échéances » (ce qui tombe). Une tâche « Traité » quitte les trois bandes et
+  réapparaît, sur le jour où elle a été traitée, dans « à faire » des jours passés.
+  Elle lit les mêmes collections ; elle n'ajoute qu'un champ,
+  `items.delaiDays` (délai de retour d'une pièce, en jours). Nul = Henri l'estime d'après
+  le libellé via le barème de `src/lib/delais.ts`. Le raisonnement de la vue est dans
+  `CALENDRIER.md`.
 
 ## Rappels et relances (Cloud Functions)
 

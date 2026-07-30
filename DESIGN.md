@@ -17,6 +17,27 @@ Henri vise un look de **logiciel de bureau natif** plutôt qu'une application we
 
 ---
 
+## Deux natures d'objets
+
+Tout Henri repose sur une distinction, et elle se lit dans l'interface avant de se lire dans le code :
+
+| | Se distingue par | Porte |
+|---|---|---|
+| **Tâche** | on la **traite** | statut Créé → Demandé → Reçu → Traité, échéance, délai de retour, poids dans l'avancement du dossier |
+| **Mémo** | on le **réalise** | une case à cocher, rien d'autre |
+
+Un mémo peut être rattaché à un dossier ou libre — c'est le même objet, seul son dossier change. Rattaché, il s'affiche sous les tâches du dossier ; libre, il ne vit que dans Ma journée.
+
+Conséquences visuelles, appliquées partout :
+
+- une tâche porte un **badge de statut**, un mémo porte une **case à cocher** ;
+- le **filet coloré** de statut est réservé aux tâches ; les mémos n'en ont jamais ;
+- un mémo ne compte **jamais** dans les compteurs d'avancement ni dans le tri « charge restante ».
+
+N'inventer ni troisième nature ni statut intermédiaire : si un objet ne rentre dans aucune des deux cases, c'est la définition qu'il faut revoir, pas le modèle qu'il faut étendre.
+
+---
+
 ## Tokens
 
 Tous les tokens sont des CSS variables définies dans `app/globals.css`, exposées à Tailwind via `tailwind.config.js`.
@@ -140,6 +161,24 @@ La vue principale est un **Miller column browser** : trois colonnes glissantes (
 - La colonne **active** (focus clavier) a ses lignes en bleu vif (`#dbeafe` fond, `#2f6eff` filet gauche 3 px, texte 600).
 - Les colonnes **parentes** (qui portent la sélection menant à la colonne active) ont leurs lignes en gris discret (`--bg-subtle`, `--border-strong` filet, opacity 0.75). Le contraste hiérarchique est clé pour comprendre la navigation.
 
+### Desktop — vue Calendrier
+
+Pas de grille horaire : Henri n'a pas de rendez-vous, et une grille serait vide à 95 %. L'axe du temps est horizontal et porte trois bandes, nommées dans le vocabulaire du cycle d'une tâche (*je la crée, je la réalise, j'attends le retour, elle est traitée*) :
+
+| Bande | Contenu |
+|---|---|
+| **À faire** | ce qu'on réalise ce jour-là. En tête, parce que c'est ce qu'on regarde le matin |
+| **J'attends** | les demandes parties sans réponse, dessinées comme des **durées** et non des points |
+| **Échéances** | ce qui tombe ce jour-là |
+
+Plus une colonne fixe **En retard** à gauche, hors du flux : dans un calendrier, le retard n'a pas de jour.
+
+Règles propres à cette vue :
+
+- les libellés parlent la langue de l'utilisateur, jamais la métaphore du concepteur — pas de « rive », pas de « flux entrant » ;
+- Henri **explique toujours son calcul** au survol (« Échéance 30/09 − 60 j de délai → à faire le 31/07 ») : une déduction automatique qu'on ne peut pas auditer est une déduction qu'on ne suivra pas ;
+- le rail horaire de la vue Jour ne porte **que les rappels** — le seul objet réellement horodaté du modèle. Ne rien y inventer d'autre.
+
 ### Mobile
 
 Layout vertical empilé. Pas de colonnes. Un seul écran à la fois (Ma journée / Mémos / Dossiers en onglets bas). Les éléments tactiles font ≥ 30 px de côté, les chips de date sont en pill 20 px de rayon.
@@ -173,10 +212,12 @@ Chaque bouton porte une icône-glyphe ASCII/Unicode en préfixe (`☀`, `⇄`, `
 
 Carré arrondi 20 px (desktop) / 30 px (mobile), border 2 px `#9ca3af` (`d1d5db` sur mobile), fond blanc. Au clic :
 1. Animation immédiate : fond vert `#16a34a`, coche blanche SVG, scale 1.1.
-2. La ligne entière passe à `opacity: 0.5` (transition 300 ms).
-3. Après 350 ms, suppression effective.
+2. La ligne passe à `opacity: 0.45`, le titre est barré.
+3. Le mémo **reste** — `doneAt` enregistre la date, et un second clic décoche.
 
 C'est l'un des rares endroits où on s'autorise une animation un peu marquée — la complétion d'un mémo doit *récompenser*.
+
+Cocher ne supprime rien. On doit pouvoir revoir ce qu'on a fait dans la journée, et se déjuger d'un clic si on a coché trop vite. Un mémo coché descend simplement en bas de Ma journée.
 
 ### Repère « Dans Ma journée »
 
@@ -218,12 +259,24 @@ Aucune confirmation modale pour les actions destructives standard. L'undo est su
 
 ### Raccourcis clavier
 
+**Créer — une lettre par nature.** Chaque touche nomme ce qu'elle crée et le pose au bon endroit, sans qu'on ait à savoir quelle colonne est active :
+
+- `D` — dossier
+- `T` — tâche · `⇧T` — sous-tâche
+- `M` — mémo (ouvre sa fenêtre de saisie)
+
+**Agir :**
+
 - `A` — ajouter à Ma journée
 - `R` — rattacher la tâche sélectionnée à un autre parent
-- `Espace` — basculer le panneau de détail
-- `N` — créer une nouvelle entrée dans la colonne active
+- `I` — ouvrir / fermer le panneau de détail
+- `Espace` — renommer l'élément sélectionné
+- `1` à `4` — changer le statut
+- `S` — rechercher un dossier
 - `⌘/Ctrl + Click` — sélection multiple
 - `Shift + Click` — sélection en plage
+
+La vue Calendrier a son propre jeu, volontairement distinct : `S` semaine, `J` jour, `T` aujourd'hui, `←/→` période.
 
 Toujours désactivés quand le focus est dans un input éditable.
 
@@ -238,6 +291,8 @@ Ordre fixe (desktop et mobile) :
 
 À bucket et date égales : **tâches de dossier avant mémos**, puis tri alphabétique.
 
+Un mémo coché sort de ce classement : il descend **tout en bas**, quels que soient son étoile et son échéance. Visible, mais plus dans le chemin.
+
 ---
 
 ## Mobile : conventions spécifiques
@@ -251,7 +306,12 @@ Ordre fixe (desktop et mobile) :
 
 ## Anti-patterns à éviter
 
-- **Ne pas ajouter de modales**. Les actions se font inline ou via le panneau détail. Une modale = un point de friction. Seule exception possible : confirmation d'une action vraiment irréversible et non-undoable (suppression de compte, par exemple — qui n'existe pas encore).
+- **Ne pas ajouter de modales pour une action simple**. Les actions se font inline ou via le panneau détail. Une modale = un point de friction. Trois exceptions admises, et elles ont un point commun — la modale y apporte quelque chose qu'aucune ligne inline ne peut donner :
+  - une **création qui a besoin de ses paramètres d'emblée** (fenêtre de saisie d'un mémo : titre, dossier, échéance, rappel en un seul geste — les régler après coup supposerait de retrouver ce qu'on vient de créer) ;
+  - un **choix dans une liste** (modèles de dossier) ;
+  - une **aide consultable** (raccourcis clavier).
+
+  Jamais pour une confirmation banale : l'undo par toast reste la règle.
 - **Ne pas ajouter d'icônes SVG décoratives**. Les glyphes Unicode (`☀`, `⇄`, `✕`, `⭐`, `🔁`) suffisent et restent cohérents.
 - **Ne pas afficher le statut « Créé »** en badge ou en texte explicite dans les listes. C'est le défaut, ça n'apporte rien.
 - **Ne pas mettre de filet coloré sur les mémos**. Le filet est réservé aux items de dossier qui portent un statut métier.
@@ -270,4 +330,4 @@ Ordre fixe (desktop et mobile) :
 
 ---
 
-*Dernière mise à jour : mai 2026.*
+*Dernière mise à jour : juillet 2026.*
