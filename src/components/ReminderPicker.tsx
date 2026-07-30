@@ -7,6 +7,13 @@ type Props = {
   value: string | null | undefined;  // ISO timestamp ou null
   onChange: (iso: string | null) => void;
   themeColor?: string;               // optionnel : couleur d'accent (post-it = #92400e)
+  /** Relance pour CE rappel : true/false explicite, null = suivre la préférence globale. */
+  repeat?: boolean | null;
+  onRepeatChange?: (repeat: boolean) => void;
+  /** Préférence globale (Préférences → Rappels), utilisée quand repeat vaut null. */
+  defaultRepeat?: boolean;
+  /** Cadence des relances, pour le libellé (« toutes les 3 h, 3 fois maximum »). */
+  repeatLabel?: string;
 };
 
 /**
@@ -18,9 +25,23 @@ type Props = {
  * Le mode personnalisé propose un date+time.
  *
  * Si value === null, rien n'est armé.
+ *
+ * Quand la relance est active, Henri renotifie tant que la tâche n'est pas
+ * passée « Traité » — une notification évacuée n'est donc pas une notification
+ * perdue.
  */
-export function ReminderPicker({ value, onChange, themeColor = "#374151" }: Props) {
+export function ReminderPicker({
+  value,
+  onChange,
+  themeColor = "#374151",
+  repeat,
+  onRepeatChange,
+  defaultRepeat = true,
+  repeatLabel,
+}: Props) {
   const [customOpen, setCustomOpen] = useState(false);
+  const repeatOn = repeat === null || repeat === undefined ? defaultRepeat : repeat;
+  const isPostIt = themeColor === "#92400e";
 
   const presets = useMemo(() => {
     const now = new Date();
@@ -112,6 +133,47 @@ export function ReminderPicker({ value, onChange, themeColor = "#374151" }: Prop
           Personnalisé…
         </button>
       </div>
+
+      {onRepeatChange && value && (
+        <button
+          onClick={() => onRepeatChange(!repeatOn)}
+          title={repeatOn
+            ? "Henri renotifie tant que la tâche n'est pas traitée"
+            : "Une seule notification, à l'heure du rappel"}
+          style={{
+            marginTop: "10px", width: "100%", display: "flex", alignItems: "center", gap: "8px",
+            padding: "8px 10px", borderRadius: "8px", cursor: "pointer", textAlign: "left",
+            border: `1px solid ${isPostIt ? "#fde68a" : "#e5e7eb"}`,
+            background: repeatOn
+              ? (isPostIt ? "rgba(255,255,255,0.7)" : "#f9fafb")
+              : "transparent",
+            fontFamily: "inherit",
+          }}
+        >
+          <span
+            style={{
+              position: "relative", width: 32, height: 18, borderRadius: 9, flexShrink: 0,
+              background: repeatOn ? (isPostIt ? "#92400e" : "#374151") : "#d1d5db",
+              transition: "background 0.15s",
+            }}
+          >
+            <span style={{
+              position: "absolute", top: 3, left: repeatOn ? 17 : 3, width: 12, height: 12,
+              background: "white", borderRadius: "50%", transition: "left 0.15s", display: "block",
+            }} />
+          </span>
+          <span style={{ minWidth: 0 }}>
+            <span style={{ display: "block", fontSize: "12px", color: isPostIt ? "#451a03" : "#374151" }}>
+              Relancer tant que ce n'est pas fait
+            </span>
+            <span style={{ display: "block", fontSize: "10.5px", color: isPostIt ? "#92400e" : "#9ca3af", marginTop: "1px" }}>
+              {repeatOn
+                ? `Nouvelle notification ${repeatLabel ?? "toutes les 3 h"}`
+                : "Une seule notification"}
+            </span>
+          </span>
+        </button>
+      )}
 
       {customOpen && (
         <div style={{ marginTop: "10px", display: "flex", gap: "8px", alignItems: "center" }}>

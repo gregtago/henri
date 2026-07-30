@@ -23,15 +23,23 @@ messaging.onBackgroundMessage((payload) => {
   const title = (payload.notification && payload.notification.title)
     || (payload.data && payload.data.title)
     || "Henri";
+  const tag = (payload.data && payload.data.tag) || undefined;
+  // sticky = "1" pour les relances et les récapitulatifs : la notification
+  // reste affichée tant qu'on ne s'en occupe pas, et « resonne » même si une
+  // notification du même tag était déjà là (sinon elle serait remplacée en
+  // silence — exactement ce qu'on cherche à éviter avec les relances).
+  const sticky = !!(payload.data && payload.data.sticky === "1");
   const options = {
     body: (payload.notification && payload.notification.body)
       || (payload.data && payload.data.body)
       || "",
     icon: "/web-app-manifest-192x192.png",
     badge: "/favicon-32x32.png",
-    tag: (payload.data && payload.data.tag) || undefined,
+    tag: tag,
     data: payload.data || {},
-    requireInteraction: false,
+    requireInteraction: sticky,
+    renotify: sticky && !!tag,
+    vibrate: sticky ? [200, 100, 200] : undefined,
   };
   self.registration.showNotification(title, options);
 });

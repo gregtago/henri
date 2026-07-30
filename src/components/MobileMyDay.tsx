@@ -24,6 +24,7 @@ import { addDoc, collection } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Icon } from "./Icon";
 import { ReminderPicker } from "./ReminderPicker";
+import { useReminderPolicy, describeRepeat } from "@/lib/reminderPolicy";
 
 const STATUSES: Status[] = ["Créé", "Demandé", "Reçu", "Traité"];
 const STATUS_COLORS: Record<string, string> = {
@@ -47,6 +48,8 @@ type SelectionEntry = {
 };
 
 export default function MobileMyDay({ user }: { user: User }) {
+  // Réglages de relance (Préférences → Rappels), pour l'interrupteur des rappels.
+  const reminderPolicy = useReminderPolicy(user.uid);
   const todayKey = getTodayKey();
 
   // Data
@@ -65,6 +68,7 @@ export default function MobileMyDay({ user }: { user: User }) {
   const [memoText, setMemoText] = useState("");
   const [memoDue, setMemoDue] = useState("");
   const [memoReminder, setMemoReminder] = useState("");
+  const [memoRepeat, setMemoRepeat] = useState<boolean | null>(null);
   const [memoCaseId, setMemoCaseId] = useState("");
   const [memoCaseSearch, setMemoCaseSearch] = useState("");
   const [pendingRemovalIds, setPendingRemovalIds] = useState<Set<string>>(new Set());
@@ -222,7 +226,7 @@ export default function MobileMyDay({ user }: { user: User }) {
   const handleCreateMemo = async () => {
     const text = memoText.trim();
     if (!text) return;
-    setMemoText(""); setMemoDue(""); setMemoReminder(""); setMemoCaseId(""); setMemoCaseSearch(""); setMemoOpen(false);
+    setMemoText(""); setMemoDue(""); setMemoReminder(""); setMemoRepeat(null); setMemoCaseId(""); setMemoCaseSearch(""); setMemoOpen(false);
 
     if (memoCaseId) {
       // Rattaché à un dossier → créer une tâche item et l'ajouter à Ma journée
@@ -236,6 +240,8 @@ export default function MobileMyDay({ user }: { user: User }) {
         dueDate: memoDue ? new Date(memoDue + "T12:00:00").toISOString() : null,
         reminderAt: memoReminder || null,
         reminderSentAt: null,
+        reminderRepeat: memoRepeat,
+        reminderCount: 0,
       });
       // L'ajouter immédiatement à Ma journée pour éviter le doublon en suggestion
       if (newItemId) await addMyDaySelection(user.uid, {
@@ -255,6 +261,8 @@ export default function MobileMyDay({ user }: { user: User }) {
         dueDate: memoDue ? new Date(memoDue + "T12:00:00").toISOString() : null,
         reminderAt: memoReminder || null,
         reminderSentAt: null,
+        reminderRepeat: memoRepeat,
+        reminderCount: 0,
         starred: false,
         status: "Créé",
       });
@@ -634,7 +642,14 @@ export default function MobileMyDay({ user }: { user: User }) {
 
             {/* Rappel */}
             <div>
-              <ReminderPicker value={memoReminder || null} onChange={iso => setMemoReminder(iso ?? "")} />
+              <ReminderPicker
+                value={memoReminder || null}
+                onChange={iso => setMemoReminder(iso ?? "")}
+                repeat={memoRepeat}
+                onRepeatChange={setMemoRepeat}
+                defaultRepeat={reminderPolicy.repeatEnabled}
+                repeatLabel={describeRepeat(reminderPolicy)}
+              />
             </div>
 
             {/* Rattachement dossier */}
@@ -861,10 +876,17 @@ export default function MobileMyDay({ user }: { user: User }) {
                     <ReminderPicker
                       value={detailEntry.floating.reminderAt}
                       onChange={(iso) => {
-                        updateFloatingTask(user.uid, detailEntry.floating!.id, { reminderAt: iso, reminderSentAt: null });
-                        setDetailEntry(prev => prev ? { ...prev, floating: { ...prev.floating!, reminderAt: iso, reminderSentAt: null } } : prev);
+                        updateFloatingTask(user.uid, detailEntry.floating!.id, { reminderAt: iso, reminderSentAt: null, reminderCount: 0 });
+                        setDetailEntry(prev => prev ? { ...prev, floating: { ...prev.floating!, reminderAt: iso, reminderSentAt: null, reminderCount: 0 } } : prev);
                       }}
                       themeColor="#92400e"
+                      repeat={detailEntry.floating.reminderRepeat}
+                      onRepeatChange={(v) => {
+                        updateFloatingTask(user.uid, detailEntry.floating!.id, { reminderRepeat: v });
+                        setDetailEntry(prev => prev ? { ...prev, floating: { ...prev.floating!, reminderRepeat: v } } : prev);
+                      }}
+                      defaultRepeat={reminderPolicy.repeatEnabled}
+                      repeatLabel={describeRepeat(reminderPolicy)}
                     />
                   </div>
                   <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "18px" }}>
@@ -1071,9 +1093,16 @@ export default function MobileMyDay({ user }: { user: User }) {
                     <ReminderPicker
                       value={detailEntry.item.reminderAt}
                       onChange={(iso) => {
-                        updateItem(user.uid, detailEntry.item!.id, { reminderAt: iso, reminderSentAt: null });
-                        setDetailEntry(prev => prev?.item ? { ...prev, item: { ...prev.item, reminderAt: iso, reminderSentAt: null } } : prev);
+                        updateItem(user.uid, detailEntry.item!.id, { reminderAt: iso, reminderSentAt: null, reminderCount: 0 });
+                        setDetailEntry(prev => prev?.item ? { ...prev, item: { ...prev.item, reminderAt: iso, reminderSentAt: null, reminderCount: 0 } } : prev);
                       }}
+                      repeat={detailEntry.item.reminderRepeat}
+                      onRepeatChange={(v) => {
+                        updateItem(user.uid, detailEntry.item!.id, { reminderRepeat: v });
+                        setDetailEntry(prev => prev?.item ? { ...prev, item: { ...prev.item, reminderRepeat: v } } : prev);
+                      }}
+                      defaultRepeat={reminderPolicy.repeatEnabled}
+                      repeatLabel={describeRepeat(reminderPolicy)}
                     />
                   )}
 

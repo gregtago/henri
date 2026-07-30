@@ -31,6 +31,9 @@ export type Item = {
   lastReminderAt?: string | null;
   reminderAt?: string | null;        // ISO timestamp — quand notifier l'utilisateur
   reminderSentAt?: string | null;    // ISO timestamp — quand la notif a été envoyée (anti-doublon)
+  reminderRepeat?: boolean | null;   // relancer tant que la tâche n'est pas traitée (null = préférence globale)
+  reminderCount?: number | null;     // nombre de notifications déjà envoyées pour ce rappel
+  lastReminderSentAt?: string | null; // ISO timestamp — dernière notification effectivement envoyée
   progressLevel?: number | null;
   lastProgressAt?: string | import("firebase/firestore").Timestamp | null;
   createdAt: string;
@@ -95,6 +98,9 @@ export type FloatingTask = {
   note?: string | null;
   reminderAt?: string | null;
   reminderSentAt?: string | null;
+  reminderRepeat?: boolean | null;
+  reminderCount?: number | null;
+  lastReminderSentAt?: string | null;
   createdAt: string;
   updatedAt: string;
 };
