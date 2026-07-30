@@ -79,11 +79,11 @@ const TOUR_STEPS: TourStep[] = [
   { selector: '[data-tour="nav"]', title: "Deux espaces", body: "« Dossiers » regroupe tous vos dossiers et leurs tâches. « Ma journée » est votre plan de travail du jour, où vous extrayez les tâches à faire aujourd'hui." },
   { selector: '[data-tour="cases-actions"]', title: "Trier vos dossiers", body: "Le menu déroulant trie vos dossiers — par nom, échéance, ou « Charge restante » (qui remonte ceux où il reste le plus à faire)." },
   { selector: '[data-tour="cases-list"]', title: "Avancement en un coup d'œil", body: "Chaque dossier affiche 4 petits nombres colorés : le nombre de tâches et sous-tâches par statut — Créé, Demandé, Reçu, Traité." },
-  { title: "Tâches & sous-tâches", body: "Sélectionnez un dossier pour afficher ses Tâches (niveau 2), puis une tâche pour ses Sous-tâches (niveau 3). Créez avec N, une sous-tâche avec Maj+N, et faites avancer le statut avec les touches 1 à 4." },
+  { title: "Tâches & sous-tâches", body: "Sélectionnez un dossier pour afficher ses Tâches (niveau 2), puis une tâche pour ses Sous-tâches (niveau 3). Créez une tâche avec T, une sous-tâche avec Maj+T, une note avec N, et faites avancer le statut avec les touches 1 à 4." },
   { selector: '[data-tour="new-case"]', title: "Créer un dossier", body: "Le bouton + propose un dossier vierge ou un modèle. Un modèle d'exemple « Vente immobilière » est déjà intégré. Depuis un dossier, « Enregistrer comme modèle » crée le vôtre." },
   { selector: '[data-tour="import"]', title: "Import & export", body: "Depuis le détail d'un dossier, « Exporter » télécharge un fichier JSON ; « Importer » (ici) recrée un dossier depuis un fichier. Pratique pour dupliquer ou partager une trame." },
   { selector: '[data-tour="reminders"]', title: "Rappels & notifications", body: "Activez les notifications ici, puis posez un rappel sur une tâche ou un mémo. Vous gérez vos appareils dans Préférences → Appareils." },
-  { title: "Raccourcis clavier", body: "N : nouveau · Maj+N : sous-tâche · A : ajouter à Ma journée · 1 à 4 : changer le statut · ← → : naviguer entre colonnes · Suppr : supprimer. La liste complète est dans l'Aide." },
+  { title: "Raccourcis clavier", body: "Une lettre par nature : D dossier · T tâche · Maj+T sous-tâche · N note · M mémo. Puis A : ajouter à Ma journée · 1 à 4 : changer le statut · ← → : naviguer entre colonnes · Suppr : supprimer. La liste complète est dans l'Aide." },
   { selector: '[data-tour="prefs"]', title: "Réglages & aide", body: "Dans Préférences : apparence, aide détaillée, gestion des appareils et notes de version." },
   { title: "C'est parti ! 🎯", body: "Vous êtes prêt. Bonne organisation ! Relancez cette visite quand vous voulez depuis Préférences → Aide." },
 ];
@@ -359,7 +359,7 @@ export default function AppShell() {
     { title: "Pas à pas — Tâches & sous-tâches", body: "On va créer une tâche, une sous-tâche, puis tout supprimer, dans un dossier « 🎓 Entraînement » (retiré à la fin). Cliquez « Suivant » pour dérouler." },
     {
       selector: '[data-tour="cases-list"]', title: "1. Un dossier d'entraînement",
-      body: "On ouvre un dossier d'entraînement. Pour de vrai, un dossier se crée avec le bouton + « Nouveau dossier » (ou la touche N).",
+      body: "On ouvre un dossier d'entraînement. Pour de vrai, un dossier se crée avec le bouton + « Nouveau dossier » (ou la touche D).",
       action: async () => {
         if (!user) return;
         if (!demoCaseIdRef.current) {
@@ -376,7 +376,7 @@ export default function AppShell() {
     },
     {
       selector: '[data-tour="new-item"]', title: "2. Créer une tâche",
-      body: "Une tâche se crée avec ce bouton + (colonne Tâches) ou la touche N. On en ajoute une : « Exemple : appeler le client ».",
+      body: "Une tâche se crée avec ce bouton + (colonne Tâches) ou la touche T. On en ajoute une : « Exemple : appeler le client ».",
       action: async () => {
         if (!user || !demoCaseIdRef.current) return;
         if (!demoTaskIdRef.current) {
@@ -391,7 +391,7 @@ export default function AppShell() {
     },
     {
       selector: '[data-tour="new-subitem"]', title: "3. Créer une sous-tâche",
-      body: "Sélectionnez une tâche, puis ce bouton + (colonne Sous-tâches) ou Maj+N. On décompose : « Retrouver le numéro ».",
+      body: "Sélectionnez une tâche, puis ce bouton + (colonne Sous-tâches) ou Maj+T. On décompose : « Retrouver le numéro ».",
       action: async () => {
         if (!user || !demoCaseIdRef.current || !demoTaskIdRef.current) return;
         await createItem(user.uid, { caseId: demoCaseIdRef.current, parentItemId: demoTaskIdRef.current, level: 3, title: "Retrouver le numéro", status: "Créé" });
@@ -1357,6 +1357,85 @@ export default function AppShell() {
     setTimeout(attempt, 50);
   };
 
+  /** M — un mémo, où qu'on soit. C'est le seul objet qui n'appartient à rien. */
+  const handleCreateMemo = useCallback(async () => {
+    if (!user) return;
+    await createFloatingTask(user.uid, {
+      dateKey: todayKey,
+      title: "Nouveau mémo",
+      status: "Créé"
+    });
+    if (!isMyDay) showToast("Mémo créé — il vous attend dans Ma journée.");
+  }, [user, todayKey, isMyDay]);
+
+  /** D — un dossier. */
+  const handleCreateCase = useCallback(async () => {
+    if (!user) return;
+    if (isMyDay) {
+      showToast("Les dossiers se créent depuis la vue Dossiers.");
+      return;
+    }
+    const id = await createCase(user.uid, { title: "Nouveau dossier", legalDueDate: null, caseNote: "" });
+    setSelectedCaseId(id);
+    setSelectedCaseIds([id]);
+    setSelectedItemId(null);
+    setSelectedSubItemId(null);
+    setSelectedItemIds([]);
+    setSelectedSubItemIds([]);
+    setActiveColumn("cases");
+    setDetailTarget({ type: "case", id });
+    focusWhenReady(detailTitleRef);
+  }, [isMyDay, user]);
+
+  /**
+   * T — une tâche dans le dossier courant. Depuis la colonne Sous-tâches, elle
+   * se pose au même niveau que la sous-tâche sélectionnée (⇧T pour descendre
+   * d'un cran, via handleCreateChildTask).
+   */
+  const handleCreateTask = useCallback(async () => {
+    if (!user) return;
+    if (isMyDay) {
+      showToast("Les tâches se créent depuis un dossier.");
+      return;
+    }
+    if (resolvedActiveColumn === "subitems" && selectedItemId) {
+      const parentCaseId = selectedItem?.caseId ?? selectedCaseId;
+      if (!parentCaseId) { showToast("Sélectionnez un dossier d'abord."); return; }
+      const id = await createItem(user.uid, {
+        caseId: parentCaseId,
+        parentItemId: selectedItemId,
+        level: 3,
+        title: "Nouvelle sous-tâche",
+        status: "Créé"
+      });
+      setSelectedSubItemId(id);
+      setSelectedSubItemIds([id]);
+      setActiveColumn("subitems");
+      setDetailTarget({ type: "item", id });
+      focusWhenReady(detailTitleRef);
+      return;
+    }
+    if (!selectedCaseId) {
+      showToast("Sélectionnez un dossier d'abord.");
+      return;
+    }
+    const id = await createItem(user.uid, {
+      caseId: selectedCaseId,
+      level: 2,
+      title: "Nouvelle tâche",
+      status: "Créé",
+      parentItemId: null
+    });
+    setSelectedItemId(id);
+    setSelectedItemIds([id]);
+    setSelectedSubItemId(null);
+    setSelectedSubItemIds([]);
+    setActiveColumn("items");
+    setDetailTarget({ type: "item", id });
+    focusWhenReady(detailTitleRef);
+  }, [isMyDay, resolvedActiveColumn, selectedCaseId, selectedItem?.caseId, selectedItemId, user]);
+
+  // Conservé : les boutons « + » des en-têtes de colonne s'appuient dessus.
   const handleCreateInActiveColumn = useCallback(async () => {
     if (!user) return;
     if (isMyDay) {
@@ -1421,6 +1500,52 @@ export default function AppShell() {
     setDetailTarget({ type: "item", id });
     focusWhenReady(detailTitleRef);
   }, [isMyDay, resolvedActiveColumn, selectedCaseId, selectedItem?.caseId, selectedItemId, user, todayKey]);
+
+  /**
+   * T — créer une note dans la colonne active.
+   *
+   * Une note se pose là où la tâche se poserait : au niveau du dossier depuis
+   * la colonne Tâches, en sous-note depuis la colonne Sous-tâches. Depuis la
+   * colonne Dossiers, elle va dans le dossier sélectionné — c'est le geste
+   * naturel quand on lit un dossier et qu'on veut y accrocher une information.
+   */
+  const handleCreateNote = useCallback(async () => {
+    if (!user) return;
+    if (isMyDay) {
+      showToast("Les notes se créent depuis un dossier.");
+      return;
+    }
+
+    const inSubItems = resolvedActiveColumn === "subitems" && selectedItemId;
+    const parentCaseId = inSubItems ? (selectedItem?.caseId ?? selectedCaseId) : selectedCaseId;
+    if (!parentCaseId) {
+      showToast("Sélectionnez un dossier d'abord.");
+      return;
+    }
+
+    const id = await createItem(user.uid, {
+      caseId: parentCaseId,
+      parentItemId: inSubItems ? selectedItemId : null,
+      level: inSubItems ? 3 : 2,
+      kind: "note",
+      title: "Nouvelle note",
+      status: "Créé",
+    });
+
+    if (inSubItems) {
+      setSelectedSubItemId(id);
+      setSelectedSubItemIds([id]);
+      setActiveColumn("subitems");
+    } else {
+      setSelectedItemId(id);
+      setSelectedItemIds([id]);
+      setSelectedSubItemId(null);
+      setSelectedSubItemIds([]);
+      setActiveColumn("items");
+    }
+    setDetailTarget({ type: "item", id });
+    focusWhenReady(detailTitleRef);
+  }, [isMyDay, resolvedActiveColumn, selectedCaseId, selectedItem?.caseId, selectedItemId, user]);
 
   const handleCreateChildTask = useCallback(async () => {
     if (!user) return;
@@ -1780,12 +1905,33 @@ export default function AppShell() {
         setDetailTarget(null);
         return;
       }
+      // ── Famille de création : une lettre = une nature ──────────────────
+      // D dossier · T tâche · ⇧T sous-tâche · N note · M mémo.
+      // On a abandonné le « N générique » qui créait un dossier, une tâche ou
+      // un mémo selon la colonne active : il obligeait à savoir où on était.
+      // Ici chaque lettre nomme ce qu'elle crée, et le fait au bon endroit.
       if (event.key.toLowerCase() === "n") {
+        event.preventDefault();
+        await handleCreateNote();
+        return;
+      }
+      if (event.key.toLowerCase() === "t") {
+        event.preventDefault();
         if (event.shiftKey) {
           await handleCreateChildTask();
         } else {
-          await handleCreateInActiveColumn();
+          await handleCreateTask();
         }
+        return;
+      }
+      if (event.key.toLowerCase() === "d") {
+        event.preventDefault();
+        await handleCreateCase();
+        return;
+      }
+      if (event.key.toLowerCase() === "m") {
+        event.preventDefault();
+        await handleCreateMemo();
         return;
       }
       if (event.key === " " && (detailTarget || myDayDetailId)) {
@@ -1863,8 +2009,12 @@ export default function AppShell() {
       isReparentOpen,
       handleAddToMyDay,
       handleDelete,
+      handleCreateCase,
       handleCreateChildTask,
       handleCreateInActiveColumn,
+      handleCreateMemo,
+      handleCreateNote,
+      handleCreateTask,
       handleOpenReparent,
       handleStatusChange,
       casesListRef,
@@ -3082,10 +3232,10 @@ export default function AppShell() {
                     title="Mode sélection multiple"
                     onClick={() => { setSelectionModeItems(p => !p); setSelectedItemIds([]); }}
                   >Sélection</button>
-                  <button className={iconBtn} title="Nouvelle note — une information, sans statut ni échéance" onClick={async () => { setActiveColumn("items"); if (!user || !selectedCaseId) { showToast("Sélectionnez un dossier d'abord."); return; } const id = await createItem(user.uid, { caseId: selectedCaseId, level: 2, kind: "note", title: "Nouvelle note", status: "Créé", parentItemId: null }); setSelectedItemId(id); setSelectedItemIds([id]); setDetailTarget({ type: "item", id }); focusWhenReady(detailTitleRef); }}>
+                  <button className={iconBtn} title="Nouvelle note (N) — une information, sans statut ni échéance" onClick={async () => { setActiveColumn("items"); if (!user || !selectedCaseId) { showToast("Sélectionnez un dossier d'abord."); return; } const id = await createItem(user.uid, { caseId: selectedCaseId, level: 2, kind: "note", title: "Nouvelle note", status: "Créé", parentItemId: null }); setSelectedItemId(id); setSelectedItemIds([id]); setDetailTarget({ type: "item", id }); focusWhenReady(detailTitleRef); }}>
                     <span className="text-[13px] leading-none">✎</span>
                   </button>
-                  <button data-tour="new-item" className={iconBtn} title="Nouvelle tâche (N)" onClick={async () => { setActiveColumn("items"); if (!user || !selectedCaseId) { showToast("Sélectionnez un dossier d'abord."); return; } const id = await createItem(user.uid, { caseId: selectedCaseId, level: 2, title: "Nouvelle tâche", status: "Créé", parentItemId: null }); setSelectedItemId(id); setSelectedItemIds([id]); setDetailTarget({ type: "item", id }); focusWhenReady(detailTitleRef); }}>
+                  <button data-tour="new-item" className={iconBtn} title="Nouvelle tâche (T)" onClick={async () => { setActiveColumn("items"); if (!user || !selectedCaseId) { showToast("Sélectionnez un dossier d'abord."); return; } const id = await createItem(user.uid, { caseId: selectedCaseId, level: 2, title: "Nouvelle tâche", status: "Créé", parentItemId: null }); setSelectedItemId(id); setSelectedItemIds([id]); setDetailTarget({ type: "item", id }); focusWhenReady(detailTitleRef); }}>
                     <span className="text-[18px] leading-none">+</span>
                   </button>
                 </div>
@@ -3187,7 +3337,7 @@ export default function AppShell() {
                     title="Mode sélection multiple"
                     onClick={() => { setSelectionModeSubItems(p => !p); setSelectedSubItemIds([]); }}
                   >Sélection</button>
-                  <button data-tour="new-subitem" className={iconBtn} title="Nouvelle sous-tâche (⇧N)" onClick={async () => { setActiveColumn("subitems"); if (!user || !selectedItemId) { showToast("Sélectionnez une tâche d'abord."); return; } const parentCaseId = selectedItem?.caseId ?? selectedCaseId; if (!parentCaseId) return; const id = await createItem(user.uid, { caseId: parentCaseId, parentItemId: selectedItemId, level: 3, title: "Nouvelle sous-tâche", status: "Créé" }); setSelectedSubItemId(id); setSelectedSubItemIds([id]); setActiveColumn("subitems"); setDetailTarget({ type: "item", id }); focusWhenReady(detailTitleRef); }}>
+                  <button data-tour="new-subitem" className={iconBtn} title="Nouvelle sous-tâche (⇧T)" onClick={async () => { setActiveColumn("subitems"); if (!user || !selectedItemId) { showToast("Sélectionnez une tâche d'abord."); return; } const parentCaseId = selectedItem?.caseId ?? selectedCaseId; if (!parentCaseId) return; const id = await createItem(user.uid, { caseId: parentCaseId, parentItemId: selectedItemId, level: 3, title: "Nouvelle sous-tâche", status: "Créé" }); setSelectedSubItemId(id); setSelectedSubItemIds([id]); setActiveColumn("subitems"); setDetailTarget({ type: "item", id }); focusWhenReady(detailTitleRef); }}>
                     <span className="text-[18px] leading-none">+</span>
                   </button>
                 </div>
@@ -3818,8 +3968,11 @@ export default function AppShell() {
                 </div>
                 <div className="space-y-2">
                   {[
-                    ["N", "Nouveau au niveau courant"],
-                    ["⇧N", "Créer une sous-tâche"],
+                    ["D", "Nouveau dossier"],
+                    ["T", "Nouvelle tâche"],
+                    ["⇧T", "Nouvelle sous-tâche"],
+                    ["N", "Nouvelle note"],
+                    ["M", "Nouveau mémo"],
                     ["Espace", "Renommer"],
                     ["Entrée", "Valider le nom"],
                     ["A", "Ajouter à Ma journée"],

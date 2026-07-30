@@ -48,6 +48,9 @@ npm run dev
 - Les suggestions "À reproposer" listent les tâches vues dans Ma journée sur les 7 derniers jours (hors aujourd'hui), sans évolution de statut sur la période (`lastProgressAt` <= maintenant - 7 jours), non traitées et absentes d'aujourd'hui.
 - L'historique (timeline) des événements d'une tâche est masqué par défaut et accessible via “Afficher la timeline”.
 - Toutes les dates affichées dans l'UI utilisent le format JJ/MM/AAAA (helper `formatDateFR`).
+- Raccourcis de création : une lettre par nature — `D` dossier · `T` tâche · `⇧T` sous-tâche ·
+  `N` note · `M` mémo. Remplace l'ancien `N` contextuel (qui créait un dossier, une tâche ou
+  un mémo selon la colonne active) et l'ancien `⇧N`.
 - `items.kind` distingue les tâches (`undefined` ou `"tache"`) des **notes** (`"note"`) :
   une note est une information rattachée à un dossier, sans statut ni échéance, exclue des
   compteurs d'avancement, du tri « charge restante », du bandeau d'échéances et des rives du
