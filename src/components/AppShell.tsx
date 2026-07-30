@@ -2552,8 +2552,7 @@ export default function AppShell() {
                 })()}
               </div>
 
-              {/* Rappel push — valable aussi pour une note : un rappel notifie,
-                * il ne présume aucun achèvement. */}
+              {/* Rappel push */}
               <div>
                 <ReminderPicker
                   value={detailItem.reminderAt}

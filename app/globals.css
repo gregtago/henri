@@ -475,24 +475,6 @@ kbd {
   border-color: #f87171;
 }
 
-/* ── NOTE DE DOSSIER ──────────────────────────────────────────────────────
- * Une note est une information rattachée à un dossier, pas une tâche : ni
- * statut, ni échéance, ni poids dans l'avancement. Elle porte donc l'étiquette
- * la plus discrète possible — pas de couleur, juste un mot. */
-.item-note-tag {
-  display: inline-flex;
-  align-items: center;
-  flex-shrink: 0;
-  font-size: 10.5px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-3);
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  padding: 1px 6px;
-}
-
 /* ── CALENDRIER ───────────────────────────────────────────────────────────
  * Pas de grille horaire : Henri n'a pas de rendez-vous, il a des demandes qui
  * partent et des retours qu'on attend. L'axe du temps est horizontal et porte
