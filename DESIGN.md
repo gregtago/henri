@@ -46,6 +46,16 @@ Deux conditions, toutes les deux nécessaires — et c'est ce qui rend la règle
 
 Un mémo récurrent est également épargné — il est appelé à revenir. La règle vit dans `src/lib/memos.ts` et rien d'autre ne doit la réimplémenter.
 
+### Échéance d'une tâche
+
+Une échéance dit **quand une tâche est attendue**. Une tâche passée en « Traité » n'est plus attendue nulle part : son échéance tombe avec elle, automatiquement.
+
+C'est ce qui évite qu'une tâche accomplie continue de réclamer quelque chose — de s'afficher « en retard » en rouge, de remonter dans « à échéance aujourd'hui », d'occuper une case de la bande « échéances » du calendrier. Le statut porte l'information ; la date n'a plus rien à dire.
+
+La règle vit dans `updateItemProgress` (`src/lib/firestore.ts`), le seul chemin par lequel une tâche change de statut — détail, raccourcis 1–4, Ma journée, calendrier. Aucune vue ne doit la refaire de son côté. Rouvrir une tâche traitée ne rend pas l'échéance : on la repose si elle a encore un sens.
+
+Un mémo, lui, garde son échéance quand on le coche : il reste consultable tel qu'on l'a laissé, et disparaîtra de lui-même.
+
 N'inventer ni troisième nature ni statut intermédiaire : si un objet ne rentre dans aucune des deux cases, c'est la définition qu'il faut revoir, pas le modèle qu'il faut étendre.
 
 ---

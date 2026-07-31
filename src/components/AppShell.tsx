@@ -1726,12 +1726,9 @@ export default function AppShell() {
       }
     }
     playDone();
+    // L'échéance tombe avec le passage en « Traité » (updateItemProgress).
     await updateItemProgress(user.uid, item.id, "Traité");
     await logStatusEvent(user.uid, item.id, item.status, "Traité");
-    // Supprimer l'échéance si la tâche est marquée traitée
-    if (item.dueDate) {
-      await updateItem(user.uid, item.id, { dueDate: null });
-    }
     if (selectionId) {
       await deleteMyDaySelection(user.uid, selectionId);
       setLegacyMyDaySelections(prev => prev.filter(s => s.id !== selectionId));
