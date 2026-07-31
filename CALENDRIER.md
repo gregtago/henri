@@ -307,12 +307,12 @@ n'apparaît que le jour de son échéance ou de son rappel.
 
 **Cocher un mémo ne le supprime pas** sur le coup : `doneAt` marque le moment
 où il a été fait, et il reste consultable — barré dans son dossier, derrière le
-lien « réalisés » dans Ma journée sur mobile. On doit pouvoir voir ce qu'on a
-fait, et se déjuger d'un clic si on a coché trop vite.
+lien « réalisés » dans Ma journée. On doit pouvoir voir ce qu'on a fait, et se
+déjuger d'un clic si on a coché trop vite.
 
-En revanche, un mémo **non rattaché** s'efface définitivement au bout de
-7 jours (`src/lib/memos.ts`). Un mémo est un pense-bête, pas une archive ; le
-calendrier n'a donc jamais à afficher de mémo libre plus vieux qu'une semaine.
+En revanche, un mémo **réalisé** et **non rattaché** s'efface définitivement
+7 jours après avoir été coché (`src/lib/memos.ts`). Un mémo est un pense-bête,
+pas une archive. Un mémo non coché, lui, ne disparaît jamais tout seul.
 
 ---
 

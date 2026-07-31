@@ -737,7 +737,7 @@ export default function MobileMyDay({ user }: { user: User }) {
                 </div>
               )}
               <p style={{ fontSize: "11.5px", color: "#9ca3af", textAlign: "center", marginTop: "16px", lineHeight: 1.5 }}>
-                Un mémo sans dossier s'efface définitivement {MEMO_TTL_DAYS} jours<br />après avoir été fait — ou créé, s'il ne l'a jamais été.
+                Un mémo sans dossier s'efface définitivement<br />{MEMO_TTL_DAYS} jours après avoir été réalisé.
               </p>
             </div>
           </div>

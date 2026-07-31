@@ -64,14 +64,16 @@ npm run dev
   directement au bon jour plutôt que dans la journée en cours.
 - Sur mobile, le **même écran** (`MemoSheet`) sert à créer et à modifier un mémo : mêmes
   champs, seuls le titre et le bouton changent.
-- **Cocher un mémo** inscrit `floatingTasks.doneAt`. Sur desktop la ligne reste, barrée, en bas
-  de Ma journée. Sur mobile elle quitte la journée et se retrouve derrière le lien
-  « n mémos réalisés » en bas de liste, d'où on peut la décocher.
+- **Cocher un mémo** inscrit `floatingTasks.doneAt` et le fait quitter Ma journée — desktop et
+  mobile. On le retrouve derrière le lien « n mémos réalisés » en bas de la colonne, d'où on
+  peut le rouvrir ou le décocher. Dans son dossier, en revanche, il reste affiché, barré.
 - **Cocher une tâche dans Ma journée (mobile)** ouvre une question — « Où en est cette tâche ? »,
   les quatre statuts — puis la tâche quitte la journée et reste dans son dossier.
-- **Un mémo non rattaché s'efface au bout de 7 jours** (`src/lib/memos.ts`), comptés depuis sa
-  réalisation s'il a été coché, depuis sa création sinon. Jamais un mémo rattaché à un dossier,
-  jamais un mémo récurrent, jamais un mémo programmé ou dont l'échéance est encore devant.
+- **Un mémo réalisé et non rattaché s'efface au bout de 7 jours** (`src/lib/memos.ts`), comptés
+  depuis sa réalisation. Un mémo **non coché ne disparaît jamais**, quel que soit son âge ; un
+  mémo rattaché à un dossier ni un mémo récurrent non plus.
+- Le détail d'un mémo est le même partout (`MemoDetail` sur desktop) : on l'ouvre en cliquant
+  son texte, depuis Ma journée comme depuis la colonne Tâches de son dossier.
 - La vue Calendrier (`/calendrier`) affiche trois bandes, dans l'ordre du cycle d'une tâche :
   « à faire » (ce qu'on réalise ce jour-là), « j'attends » (les demandes sans réponse, en barres
   de durée), « échéances » (ce qui tombe). Une tâche « Traité » quitte les trois bandes et

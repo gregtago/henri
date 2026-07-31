@@ -275,7 +275,7 @@ export default function MemoSheet({
                 </div>
               )}
               <p style={{ fontSize: "11.5px", color: "#9ca3af", marginTop: "6px", lineHeight: 1.4 }}>
-                Sans dossier, un mémo s'efface tout seul au bout de 7 jours.
+                Sans dossier, un mémo s'efface 7 jours après avoir été réalisé.
               </p>
             </>
           )}
