@@ -11,7 +11,7 @@
 // l'appelant place dans sa colonne.
 
 import { useState } from "react";
-import type { Case, FloatingTask } from "@/lib/types";
+import type { Case, FloatingTask, Item } from "@/lib/types";
 import { formatDateFR } from "@/lib/dates";
 import { Icon } from "./Icon";
 import { EditableInput } from "./EditableField";
@@ -21,12 +21,16 @@ import { RecurrencePicker } from "./RecurrencePicker";
 type Props = {
   task: FloatingTask;
   cases: Case[];
+  /** Toutes les tâches : de quoi poser le mémo sous l'une d'elles. */
+  items?: Item[];
   /** Écriture Firestore : `updateFloatingTask(uid, task.id, patch)`. */
   onPatch: (patch: Partial<FloatingTask>) => void;
   /** Échéance : ajuste aussi le `dateKey` (futur = pas dans la journée en cours). */
   onDueDate: (date: Date | null) => void;
   /** Rattacher / détacher : aucune conversion, le mémo reste un mémo. */
   onAttach: (caseId: string | null) => void;
+  /** Poser le mémo sous une tâche du dossier, ou le remonter au niveau du dossier. */
+  onAttachToItem?: (itemId: string | null) => void;
   /** Cocher / décocher. */
   onToggleDone: () => void;
   onDelete: () => void;
@@ -38,9 +42,11 @@ type Props = {
 export default function MemoDetail({
   task,
   cases,
+  items = [],
   onPatch,
   onDueDate,
   onAttach,
+  onAttachToItem,
   onToggleDone,
   onDelete,
   defaultRepeat = true,
@@ -50,6 +56,11 @@ export default function MemoDetail({
   const [caseSearch, setCaseSearch] = useState("");
   const done = !!task.doneAt;
   const attachedCase = task.caseId ? cases.find((entry) => entry.id === task.caseId) ?? null : null;
+  const parentItem = task.parentItemId ? items.find((entry) => entry.id === task.parentItemId) ?? null : null;
+  // Les tâches de premier niveau du dossier : un mémo descend d'un cran, pas de deux.
+  const caseTasks = task.caseId
+    ? items.filter((entry) => entry.caseId === task.caseId && !entry.parentItemId)
+    : [];
   const matches = caseSearch.trim()
     ? cases.filter((entry) => entry.title.toLowerCase().includes(caseSearch.toLowerCase()))
     : [];
@@ -231,6 +242,39 @@ export default function MemoDetail({
               )}
             </div>
           </div>
+
+          {/* Sous quelle tâche — le mémo peut descendre d'un cran et se ranger
+            * à côté des sous-tâches. Il compte alors dans son avancement. */}
+          {onAttachToItem && task.caseId && caseTasks.length > 0 && (
+            <div>
+              <div className="flex items-baseline gap-2 mb-1.5">
+                <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest">Sous la tâche</p>
+                {parentItem && (
+                  <button
+                    onClick={() => onAttachToItem(null)}
+                    className="ml-auto text-[10px] font-[inherit] bg-transparent border-none text-tx-3 cursor-pointer hover:text-tx transition-colors"
+                  >Remonter au dossier</button>
+                )}
+              </div>
+              <select
+                value={task.parentItemId ?? ""}
+                onChange={e => onAttachToItem(e.target.value || null)}
+                className="font-[inherit] text-[13px] text-tx bg-white border border-border-strong rounded-lg px-3 py-1.5 outline-none w-full focus:border-tx-2 transition-colors"
+                aria-label="Sous quelle tâche"
+              >
+                <option value="">Au niveau du dossier</option>
+                {caseTasks.map(entry => (
+                  <option key={entry.id} value={entry.id}>{entry.title}</option>
+                ))}
+              </select>
+              {parentItem && (
+                <p className="text-[11px] text-tx-3 leading-snug mt-1.5">
+                  Ce mémo compte dans l'avancement de « {parentItem.title} » : quand tout ce
+                  qu'elle porte est fait, elle se termine.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Commentaires */}
           <div>

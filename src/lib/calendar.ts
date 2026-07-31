@@ -15,6 +15,7 @@
 
 import type { Case, FloatingTask, Item, MyDaySelection, Event as HenriEvent } from "./types";
 import { getDateKey, toDate } from "./dates";
+import { getContainerIds } from "./completion";
 import { addDays, expectedReturnDate, inferDelai, isWeekend, latestLaunchDate, resolveDelai, type DelaiInfo } from "./delais";
 
 export type TaskKind = "item" | "floating" | "case";
@@ -217,9 +218,17 @@ export const buildCalendarModel = ({
   const progressIndex = buildProgressIndex(events);
   const itemsById = new Map(items.map((i) => [i.id, i]));
 
+  // Un contenant — une tâche qui porte des sous-tâches ou des mémos — n'entre
+  // pas dans le calendrier. Le calendrier répond à « qu'est-ce que je fais ce
+  // jour-là ? » : on ne fait pas un contenant, on fait ce qu'il contient. L'y
+  // laisser, c'était afficher deux fois le même travail — la chose et son
+  // rangement — et occuper une ligne que rien ne permet de cocher.
+  const containerIds = getContainerIds(items, floatingTasks);
+
   const tasks: CalendarTask[] = [
     ...items
       .filter((item) => !casesById.get(item.caseId)?.archived)
+      .filter((item) => !containerIds.has(item.id))
       .map((item) => toCalendarTask(item, casesById.get(item.caseId), requestedIndex.get(item.id) ?? null)),
     ...floatingTasks.map(floatingToTask),
   ];

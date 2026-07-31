@@ -26,14 +26,34 @@ Tout Henri repose sur une distinction, et elle se lit dans l'interface avant de 
 | **Tâche** | on la **traite** | statut Créé → Demandé → Reçu → Traité, échéance, délai de retour, poids dans l'avancement du dossier |
 | **Mémo** | on le **réalise** | une case à cocher, rien d'autre |
 
-Un mémo peut être rattaché à un dossier ou libre — c'est le même objet, seul son dossier change. Rattaché, il s'affiche sous les tâches du dossier ; libre, il ne vit que dans Ma journée. Le rattacher ne le transforme pas en tâche : il garde sa case à cocher.
+Un mémo peut être rattaché à un dossier, **posé sous une tâche** de ce dossier, ou libre — c'est le même objet, seul l'endroit change. Rattaché, il s'affiche sous les tâches du dossier ; posé sous une tâche, dans la colonne Sous-tâches, à côté des sous-tâches ; libre, il ne vit que dans Ma journée. Le rattacher ne le transforme jamais en tâche : il garde sa case à cocher, et il n'a jamais de statut.
+
+Un mémo descend d'un cran, jamais de deux : il se pose sous une tâche, pas sous une sous-tâche, et ne porte rien lui-même.
 
 Conséquences visuelles, appliquées partout :
 
 - une tâche porte un **badge de statut** (colonnes Tâches/Sous-tâches) ou un **filet coloré** (Ma journée), un mémo n'a ni l'un ni l'autre — c'est ce qui les distingue dans le dossier ;
 - les deux portent la **même case à cocher**, mais elle ne veut pas dire la même chose : un mémo se réalise d'un geste, une tâche demande d'abord où elle en est ;
 - une tâche affichée dans Ma journée porte en plus une **croix** pour l'en retirer sans rien changer à son dossier ; un mémo n'en a pas — il n'existe pas ailleurs ;
-- un mémo ne compte **jamais** dans les compteurs d'avancement ni dans le tri « charge restante ».
+- un mémo ne compte **jamais** dans les compteurs d'avancement du dossier ni dans le tri « charge restante » — il compte en revanche dans l'avancement de la tâche sous laquelle il est posé, où il pèse ce que pèse une sous-tâche.
+
+### Une tâche qui contient n'est plus une tâche
+
+Dès qu'une tâche porte quelque chose — une sous-tâche ou un mémo —, ce n'est plus une tâche : c'est un **contenant**. Le travail réel est descendu d'un cran ; elle, elle ne fait plus que le rassembler.
+
+Ce n'est pas une troisième nature, c'est une situation : une tâche devient un contenant quand on lui pose un enfant, et redevient une tâche ordinaire quand on les enlève tous. Rien à cocher nulle part, rien de nouveau à stocker (`src/lib/completion.ts`).
+
+Ce qu'un contenant cesse d'avoir :
+
+- **pas de statut à régler à la main.** Les quatre statuts disparaissent de son détail et les raccourcis 1–4 ne s'y appliquent plus. Son état se déduit de ce qu'il porte, et s'affiche à sa place : « 2/5 » dans les colonnes, « 2/5 terminés » dans le détail ;
+- **pas de place dans le calendrier.** Le calendrier répond à « qu'est-ce que je fais ce jour-là ? » : on ne fait pas un contenant, on fait ce qu'il contient. L'y laisser affichait deux fois le même travail — la chose et son rangement ;
+- **pas de poids dans les compteurs du dossier.** Les quatre nombres colorés et le tri « charge restante » ignorent les contenants, pour la même raison : leur statut n'est que le résumé de celui de leurs enfants.
+
+Ce qu'un contenant garde : son titre, son étoile, ses commentaires, son échéance et son rappel. Une date-butoir posée sur l'ensemble reste utile — elle s'affiche dans le dossier et dans Ma journée, mais plus dans le calendrier.
+
+**Une tâche dont tout est fait est faite.** Quand le dernier enfant se ferme — dernière sous-tâche traitée ou dernier mémo coché —, le contenant passe « Traité » de lui-même, avec l'événement correspondant dans sa timeline. La règle inverse existait déjà (on ne peut pas déclarer traité ce qui porte encore quelque chose d'ouvert) : il ne restait que la conclusion, et la demander revenait à faire confirmer ce qu'on venait de faire.
+
+Le sens de lecture importe : une tâche **sans** enfant ne conclut jamais rien toute seule — sinon toute tâche naîtrait traitée. La règle vit dans `src/lib/firestore.ts` (`completeParentIfAllChildrenDone`), branchée sur les deux seuls gestes qui ferment un enfant : `updateItemProgress` et `updateFloatingTask`. Elle relit l'état au serveur plutôt que de croire la vue appelante — deux enfants fermés coup sur coup depuis deux écrans donnent quand même la bonne conclusion.
 
 ### Durée de vie d'un mémo
 
@@ -42,7 +62,7 @@ Un mémo est un pense-bête, pas une archive. Un mémo **coché** et **non ratta
 Deux conditions, toutes les deux nécessaires — et c'est ce qui rend la règle sûre :
 
 - **un mémo non coché ne disparaît jamais**, quel que soit son âge. Effacer ce qui n'a pas été fait, ce serait perdre du travail sans l'avoir demandé ;
-- un mémo **rattaché** n'expire pas non plus : il appartient au dossier, il vit et meurt avec lui.
+- un mémo **rattaché** n'expire pas non plus — ni à un dossier, ni à une tâche : il appartient à ce qui le porte, il vit et meurt avec lui.
 
 Un mémo récurrent est également épargné — il est appelé à revenir. La règle vit dans `src/lib/memos.ts` et rien d'autre ne doit la réimplémenter.
 
@@ -56,7 +76,7 @@ La règle vit dans `updateItemProgress` (`src/lib/firestore.ts`), le seul chemin
 
 Un mémo, lui, garde son échéance quand on le coche : il reste consultable tel qu'on l'a laissé, et disparaîtra de lui-même.
 
-N'inventer ni troisième nature ni statut intermédiaire : si un objet ne rentre dans aucune des deux cases, c'est la définition qu'il faut revoir, pas le modèle qu'il faut étendre.
+N'inventer ni troisième nature ni statut intermédiaire : si un objet ne rentre dans aucune des deux cases, c'est la définition qu'il faut revoir, pas le modèle qu'il faut étendre. Le contenant n'en est pas une : c'est une tâche dans une certaine situation, et rien n'est stocké pour lui.
 
 ---
 

@@ -12,7 +12,7 @@
 // Pendant desktop de `MemoComposer` (qui, lui, ne sert qu'à la création).
 
 import { useEffect, useMemo, useState } from "react";
-import type { Case, Recurrence } from "@/lib/types";
+import type { Case, Item, Recurrence } from "@/lib/types";
 import { Icon } from "./Icon";
 import { ReminderPicker } from "./ReminderPicker";
 import { RecurrencePicker } from "./RecurrencePicker";
@@ -21,6 +21,8 @@ export type MemoDraft = {
   title: string;
   starred: boolean;
   caseId: string | null;
+  /** Tâche sous laquelle le mémo est posé — null = au niveau du dossier. */
+  parentItemId: string | null;
   /** ISO, midi local — null si pas d'échéance. */
   dueDate: string | null;
   reminderAt: string | null;
@@ -33,6 +35,7 @@ export const emptyMemoDraft = (): MemoDraft => ({
   title: "",
   starred: false,
   caseId: null,
+  parentItemId: null,
   dueDate: null,
   reminderAt: null,
   reminderRepeat: null,
@@ -44,6 +47,8 @@ type Props = {
   mode: "create" | "edit";
   initial: MemoDraft;
   cases: Case[];
+  /** Toutes les tâches : de quoi poser le mémo sous l'une d'elles. */
+  items?: Item[];
   onSubmit: (draft: MemoDraft) => void | Promise<void>;
   onClose: () => void;
   /** Modification seulement : supprimer le mémo. */
@@ -102,6 +107,7 @@ export default function MemoSheet({
   mode,
   initial,
   cases,
+  items = [],
   onSubmit,
   onClose,
   onDelete,
@@ -124,6 +130,12 @@ export default function MemoSheet({
   const patch = (next: Partial<MemoDraft>) => setDraft((current) => ({ ...current, ...next }));
 
   const selectedCase = draft.caseId ? cases.find((entry) => entry.id === draft.caseId) ?? null : null;
+  const parentItem = draft.parentItemId ? items.find((entry) => entry.id === draft.parentItemId) ?? null : null;
+  // Les tâches de premier niveau du dossier : un mémo descend d'un cran, pas de deux.
+  const caseTasks = useMemo(
+    () => (draft.caseId ? items.filter((entry) => entry.caseId === draft.caseId && !entry.parentItemId) : []),
+    [draft.caseId, items]
+  );
 
   const caseMatches = useMemo(() => {
     const needle = caseSearch.trim().toLowerCase();
@@ -248,7 +260,7 @@ export default function MemoSheet({
               <span style={{ flex: 1, minWidth: 0, fontSize: "14px", color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {selectedCase.title}
               </span>
-              <button onClick={() => { patch({ caseId: null }); setCaseSearch(""); }}
+              <button onClick={() => { patch({ caseId: null, parentItemId: null }); setCaseSearch(""); }}
                 style={{ flexShrink: 0, fontSize: "12px", color: "#ef4444", background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit" }}>
                 Détacher
               </button>
@@ -264,7 +276,7 @@ export default function MemoSheet({
               {caseSearch.trim() && (
                 <div style={{ border: "1px solid #e5e7eb", borderRadius: "12px", overflow: "hidden", maxHeight: "180px", overflowY: "auto", marginTop: "8px" }}>
                   {caseMatches.map((entry) => (
-                    <button key={entry.id} onClick={() => { patch({ caseId: entry.id }); setCaseSearch(""); }}
+                    <button key={entry.id} onClick={() => { patch({ caseId: entry.id, parentItemId: null }); setCaseSearch(""); }}
                       style={{ width: "100%", padding: "12px 16px", textAlign: "left", background: "white", border: "none", borderBottom: "1px solid #f3f4f6", fontSize: "14px", color: "#111827", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: "8px" }}>
                       <Icon name="folder" size={14} /> {entry.title}
                     </button>
@@ -280,6 +292,32 @@ export default function MemoSheet({
             </>
           )}
         </div>
+
+        {/* Sous quelle tâche — le mémo descend d'un cran et se range à côté des
+          * sous-tâches, où il compte dans l'avancement de la tâche. */}
+        {selectedCase && caseTasks.length > 0 && (
+          <div>
+            <p style={LABEL}>
+              Sous la tâche <span style={{ fontWeight: 400, textTransform: "none", fontSize: "11px" }}>(optionnel)</span>
+            </p>
+            <select
+              value={draft.parentItemId ?? ""}
+              onChange={(event) => patch({ parentItemId: event.target.value || null })}
+              style={FIELD}
+              aria-label="Sous quelle tâche"
+            >
+              <option value="">Au niveau du dossier</option>
+              {caseTasks.map((entry) => (
+                <option key={entry.id} value={entry.id}>{entry.title}</option>
+              ))}
+            </select>
+            {parentItem && (
+              <p style={{ fontSize: "11.5px", color: "#9ca3af", marginTop: "6px", lineHeight: 1.4 }}>
+                Ce mémo compte dans l'avancement de « {parentItem.title} ».
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Le reste est replié : neuf mémos sur dix n'en ont pas besoin. */}
         {!showMore ? (

@@ -57,6 +57,13 @@ import {
   toDate
 } from "@/lib/dates";
 import { getProgressLevel, getProgressStageLabel } from "@/lib/progress";
+import {
+  describeOpenChildren,
+  getCaseLevelMemos,
+  getCompletion,
+  getContainerIds,
+  getItemMemos
+} from "@/lib/completion";
 import { listRecentlyDoneMemos, purgeExpiredMemos } from "@/lib/memos";
 import { resolveDelai, latestLaunchDate } from "@/lib/delais";
 import type { Case, CaseTemplate, Comment, Event, FloatingTask, Item, MyDaySelection, Status } from "@/lib/types";
@@ -195,7 +202,7 @@ export default function AppShell() {
   const [caseActionMenu, setCaseActionMenu] = useState<"io" | "template" | null>(null);
   // Fenêtre de saisie d'un mémo. Contient le dossier pré-sélectionné, ou null
   // pour un mémo libre. `false` = fermée.
-  const [memoComposer, setMemoComposer] = useState<{ caseId: string | null } | null>(null);
+  const [memoComposer, setMemoComposer] = useState<{ caseId: string | null; parentItemId?: string | null } | null>(null);
   const [groupMyDay, setGroupMyDay] = useState(false);
   const [activeTour, setActiveTour] = useState<TourStep[] | null>(null);
   const [tourIsWalkthrough, setTourIsWalkthrough] = useState(false);
@@ -520,18 +527,25 @@ export default function AppShell() {
   const activeCases = useMemo(() => cases.filter(c => !c.archived), [cases]);
   const archivedCases = useMemo(() => cases.filter(c => c.archived), [cases]);
 
+  // Les tâches qui portent quelque chose : sous-tâches ou mémos. Ce sont des
+  // contenants, pas des tâches — voir src/lib/completion.ts.
+  const containerIds = useMemo(() => getContainerIds(items, floatingTasks), [items, floatingTasks]);
+
   // Décompte des tâches ET sous-tâches par statut, pour le mini-récap sur chaque
-  // dossier et le tri par charge restante.
+  // dossier et le tri par charge restante. Les contenants en sont exclus : leur
+  // statut n'est que le résumé de ce qu'ils portent, et le compter reviendrait à
+  // compter deux fois le même travail.
   const taskCountsByCase = useMemo(() => {
     const map = new Map<string, number[]>();
     for (const it of items) {
       let arr = map.get(it.caseId);
       if (!arr) { arr = [0, 0, 0, 0]; map.set(it.caseId, arr); }
+      if (containerIds.has(it.id)) continue;
       const idx = STATUSES.indexOf(it.status);
       if (idx >= 0) arr[idx]++;
     }
     return map;
-  }, [items]);
+  }, [items, containerIds]);
 
   // Score de « charge restante » d'un dossier : Créé=2, Demandé=1, Reçu=0,5, Traité=0.
   // Plus le score est élevé, plus il reste de travail.
@@ -584,12 +598,16 @@ export default function AppShell() {
       : [];
   const itemsColumnItems = caseItems.length > 0 ? caseItems : fallbackItems;
   // Les mémos rattachés au dossier : même colonne que les tâches, mais après
-  // elles et avec une case à cocher au lieu d'un statut.
+  // elles et avec une case à cocher au lieu d'un statut. Ceux qui sont posés
+  // sous une tâche descendent d'une colonne (voir `itemMemos`).
   const caseMemos = selectedCase
-    ? sortByCreatedAt(floatingTasks.filter(t => t.caseId === selectedCase.id))
+    ? sortByCreatedAt(getCaseLevelMemos(floatingTasks, selectedCase.id, items))
     : [];
   const selectedItem = items.find((entry) => entry.id === selectedItemId) || null;
   const subItems = selectedItem ? sortByCreatedAt(getSubItems(items, selectedItem.id)) : [];
+  // Les mémos posés sous la tâche sélectionnée : colonne Sous-tâches, après les
+  // sous-tâches. Sous une tâche, un mémo pèse ce que pèse une sous-tâche.
+  const itemMemos = selectedItem ? sortByCreatedAt(getItemMemos(floatingTasks, selectedItem.id)) : [];
   const selectedSubItem = items.find((entry) => entry.id === selectedSubItemId) || null;
 
   const detailItem = detailTarget?.type === "item" ? items.find((entry) => entry.id === detailTarget.id) ?? null : null;
@@ -1478,8 +1496,11 @@ export default function AppShell() {
    * à le retrouver ensuite pour lui donner une échéance ou un rappel.
    */
   const handleOpenMemoComposer = useCallback(() => {
-    setMemoComposer({ caseId: isMyDay ? null : selectedCaseId });
-  }, [isMyDay, selectedCaseId]);
+    // Le mémo naît là où on regarde : depuis la colonne Sous-tâches, il se pose
+    // sous la tâche sélectionnée ; ailleurs, au niveau du dossier.
+    const underItem = !isMyDay && resolvedActiveColumn === "subitems" ? selectedItemId : null;
+    setMemoComposer({ caseId: isMyDay ? null : selectedCaseId, parentItemId: underItem });
+  }, [isMyDay, resolvedActiveColumn, selectedCaseId, selectedItemId]);
 
   // Conservé : les boutons « + » des en-têtes de colonne s'appuient dessus.
   const handleCreateInActiveColumn = useCallback(async () => {
@@ -1550,9 +1571,14 @@ export default function AppShell() {
     // Une échéance future sort le mémo de la journée du jour : il réapparaîtra
     // le bon jour, comme les tâches à venir.
     const dateKey = draft.dueDate ? getDateKeyFromValue(draft.dueDate) ?? todayKey : todayKey;
+    // Un mémo posé sous une tâche appartient forcément au dossier de cette
+    // tâche : le rattachement au dossier suit, sans quoi le mémo serait posé
+    // quelque part sans être nulle part.
+    const parentItem = draft.parentItemId ? items.find(i => i.id === draft.parentItemId) ?? null : null;
     await createFloatingTask(user.uid, {
       dateKey: dateKey > todayKey ? dateKey : todayKey,
-      caseId: draft.caseId,
+      caseId: parentItem?.caseId ?? draft.caseId,
+      parentItemId: parentItem?.id ?? null,
       title: draft.title,
       status: "Créé",
       starred: draft.starred,
@@ -1562,8 +1588,12 @@ export default function AppShell() {
       note: draft.note,
     });
     setMemoComposer(null);
-    showToast(draft.caseId ? "Mémo ajouté au dossier." : "Mémo créé.");
-  }, [todayKey, user]);
+    showToast(
+      parentItem ? `Mémo ajouté sous « ${parentItem.title} ».`
+        : draft.caseId ? "Mémo ajouté au dossier."
+        : "Mémo créé."
+    );
+  }, [items, todayKey, user]);
 
   const handleCreateChildTask = useCallback(async () => {
     if (!user) return;
@@ -1692,13 +1722,14 @@ export default function AppShell() {
 
   const handleStatusChange = async (status: Status) => {
     if (!user || !detailItem) return;
-    if (status === "Traité" && detailItem.level === 2) {
-      const subItems = items.filter(i => i.parentItemId === detailItem.id);
-      const unfinished = subItems.filter(i => i.status !== "Traité");
-      if (unfinished.length > 0) {
-        showToast(`${unfinished.length} sous-tâche${unfinished.length > 1 ? "s" : ""} non traitée${unfinished.length > 1 ? "s" : ""} — terminez-les d'abord.`);
-        return;
-      }
+    // Un contenant n'a pas de statut à régler : il suit ce qu'il porte. Et ce
+    // qu'il porte est la seule chose utile à dire ici.
+    if (containerIds.has(detailItem.id)) {
+      const blocking = describeOpenChildren(detailItem.id, items, floatingTasks);
+      showToast(blocking
+        ? `Son état suit ce qu'elle contient : ${blocking}`
+        : "Son état suit ce qu'elle contient — et tout y est fait.");
+      return;
     }
     await updateItemProgress(user.uid, detailItem.id, status);
     await logStatusEvent(user.uid, detailItem.id, detailItem.status, status);
@@ -1717,13 +1748,10 @@ export default function AppShell() {
 
   const handleMarkMyDayItemDone = async (item: Item, selectionId?: string) => {
     if (!user) return;
-    if (item.level === 2) {
-      const subItems = items.filter(i => i.parentItemId === item.id);
-      const unfinished = subItems.filter(i => i.status !== "Traité");
-      if (unfinished.length > 0) {
-        showToast(`${unfinished.length} sous-tâche${unfinished.length > 1 ? "s" : ""} non traitée${unfinished.length > 1 ? "s" : ""} — terminez-les d'abord.`);
-        return;
-      }
+    const blocking = describeOpenChildren(item.id, items, floatingTasks);
+    if (blocking) {
+      showToast(blocking);
+      return;
     }
     playDone();
     // L'échéance tombe avec le passage en « Traité » (updateItemProgress).
@@ -2198,9 +2226,8 @@ export default function AppShell() {
    */
   const handleConvertToMemo = async (item: Item) => {
     if (!user) return;
-    const children = items.filter(i => i.parentItemId === item.id);
-    if (children.length > 0) {
-      showToast("Cette tâche a des sous-tâches : un mémo n'en a pas.");
+    if (containerIds.has(item.id)) {
+      showToast("Cette tâche porte des sous-tâches ou des mémos : un mémo, lui, ne porte rien.");
       return;
     }
     const body = comments
@@ -2227,11 +2254,31 @@ export default function AppShell() {
    * Rattacher / détacher un mémo. Aucune conversion : c'est le même objet,
    * il gagne ou perd son dossier. Rattaché, il apparaît dans la colonne
    * Tâches du dossier ; libre, il ne vit que dans Ma journée.
+   *
+   * Changer de dossier repose forcément le mémo au niveau du dossier : la tâche
+   * sous laquelle il était posé appartient à l'ancien dossier, l'y laisser
+   * accroché n'aurait plus de sens.
    */
   const handleAttachFloating = async (task: FloatingTask, caseId: string | null) => {
     if (!user) return;
-    await updateFloatingTask(user.uid, task.id, { caseId });
+    await updateFloatingTask(user.uid, task.id, { caseId, parentItemId: null });
     showToast(caseId ? "Mémo rattaché au dossier." : "Mémo détaché.");
+  };
+
+  /**
+   * Poser un mémo sous une tâche, ou le remonter au niveau du dossier.
+   * Le mémo suit le dossier de la tâche : on ne peut pas être sous une tâche
+   * d'un dossier et rattaché à un autre.
+   */
+  const handleAttachFloatingToItem = async (task: FloatingTask, itemId: string | null) => {
+    if (!user) return;
+    const parent = itemId ? items.find(i => i.id === itemId) ?? null : null;
+    if (itemId && !parent) return;
+    await updateFloatingTask(user.uid, task.id, {
+      parentItemId: parent?.id ?? null,
+      ...(parent ? { caseId: parent.caseId } : {}),
+    });
+    showToast(parent ? `Mémo posé sous « ${parent.title} ».` : "Mémo remonté au dossier.");
   };
 
   const handleReparentKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -2283,9 +2330,11 @@ export default function AppShell() {
       <MemoDetail
         task={detailMemo}
         cases={cases}
+        items={items}
         onPatch={patch => user && updateFloatingTask(user.uid, detailMemo.id, patch)}
         onDueDate={date => handleFloatingDueDate(detailMemo.id, date)}
         onAttach={caseId => handleAttachFloating(detailMemo, caseId)}
+        onAttachToItem={itemId => handleAttachFloatingToItem(detailMemo, itemId)}
         onToggleDone={() => handleToggleFloatingDone(detailMemo)}
         onDelete={() => {
           if (user) deleteFloatingTasks(user.uid, [detailMemo.id]);
@@ -2296,6 +2345,72 @@ export default function AppShell() {
       />
     </section>
   ) : null;
+
+  /**
+   * Une ligne de mémo dans une colonne — celle du dossier comme celle des
+   * sous-tâches. Un seul rendu, parce que c'est un seul objet : où qu'il soit
+   * posé, un mémo se coche de la même façon et s'ouvre dans le même détail.
+   */
+  const renderMemoRow = (memo: FloatingTask, column: "items" | "subitems") => {
+    const done = !!memo.doneAt;
+    return (
+      <div
+        key={memo.id}
+        className="finder-row"
+        data-active={detailTarget?.type === "memo" && detailTarget.id === memo.id ? "true" : undefined}
+        style={{ opacity: done ? 0.45 : 1 }}
+        onClick={() => { setActiveColumn(column); setDetailTarget({ type: "memo", id: memo.id }); }}
+      >
+        <button
+          className="shrink-0 cursor-pointer flex items-center justify-center transition-all duration-200"
+          onClick={e => { e.stopPropagation(); handleToggleFloatingDone(memo); }}
+          title={done ? `Fait le ${formatDateFR(memo.doneAt)} — cliquer pour décocher` : "Marquer réalisé"}
+          style={{
+            width: "20px", height: "20px", borderRadius: "6px",
+            border: done ? "none" : "2px solid #9ca3af",
+            background: done ? "#16a34a" : "white",
+          }}
+        >
+          {done && <Icon name="check" size={13} className="text-white" strokeWidth={2.5} />}
+        </button>
+        <div className="flex-1 min-w-0">
+          <p
+            className="text-[15px] text-tx truncate leading-snug"
+            style={done ? { textDecoration: "line-through" } : undefined}
+          >{memo.title}</p>
+          <p className="text-[12.5px] text-tx-3 mt-0.5 truncate min-h-[1.25rem]">
+            {done ? `Fait le ${formatDateFR(memo.doneAt)}` : memo.dueDate ? `Éch. ${formatDateFR(memo.dueDate)}` : ""}
+          </p>
+        </div>
+      </div>
+    );
+  };
+
+  /**
+   * Ce qu'affiche une tâche à droite de son titre : son statut si c'en est une,
+   * son avancement (« 2/5 ») si c'est un contenant. Un contenant n'a pas de
+   * statut à lui — il a ce qu'il reste à faire dedans.
+   */
+  const renderItemBadge = (item: Item) => {
+    if (!containerIds.has(item.id)) {
+      return <span className={statusClass(item.status)}>{item.status}</span>;
+    }
+    const { done, total } = getCompletion(item.id, items, floatingTasks);
+    const finished = done === total;
+    return (
+      <span
+        className="shrink-0 text-[11.5px] font-medium tabular-nums px-2 py-0.5 rounded-full border"
+        style={finished
+          ? { background: "#dcfce7", borderColor: "#86efac", color: "#166534" }
+          : { background: "var(--bg-subtle)", borderColor: "var(--border)", color: "var(--tx-3)" }}
+        title={finished
+          ? "Tout ce que porte cette tâche est fait."
+          : `${done} sur ${total} terminé${done > 1 ? "s" : ""} — sous-tâches et mémos`}
+      >
+        {done}/{total}
+      </span>
+    );
+  };
 
   const detailPanel = showDetailColumn && (detailItem || detailCase) ? (
     <section className="finder-detail" style={{boxShadow: "-3px 0 12px rgba(0,0,0,0.06)"}}>
@@ -2435,9 +2550,28 @@ export default function AppShell() {
             </div>
 
             <div className="space-y-4">
-              {/* Statuts + retirer de Ma journée */}
+              {/* Statuts + retirer de Ma journée — un contenant n'a pas de
+                * cycle : il affiche ce qu'il reste à faire dedans. */}
               <div className="flex flex-wrap gap-1.5 items-center">
-                {STATUSES.map(s => (
+                {containerIds.has(detailItem.id) ? (() => {
+                  const { done, total } = getCompletion(detailItem.id, items, floatingTasks);
+                  const finished = done === total;
+                  return (
+                    <div className="flex items-baseline gap-2 min-w-0">
+                      <span
+                        className="text-[13px] font-medium tabular-nums px-4 py-1.5 rounded-full border"
+                        style={finished
+                          ? { background: "#dcfce7", borderColor: "#86efac", color: "#166534" }
+                          : { background: "var(--bg-subtle)", borderColor: "var(--border)", color: "var(--tx-2)" }}
+                      >
+                        {finished ? `Terminé · ${done}/${total}` : `${done}/${total} terminé${done > 1 ? "s" : ""}`}
+                      </span>
+                      <span className="text-[11.5px] text-tx-3 leading-snug">
+                        Cette tâche contient ; son état suit ce qu'elle porte.
+                      </span>
+                    </div>
+                  );
+                })() : STATUSES.map(s => (
                   <button key={s} onClick={() => handleStatusChange(s)}
                     className={`${statusClass(s)} cursor-pointer border-none transition-all text-[13px] px-4 py-1.5 rounded-full ${detailItem.status === s ? "opacity-100" : "opacity-25 hover:opacity-60"}`}>
                     {s}
@@ -3267,13 +3401,19 @@ export default function AppShell() {
                         {entry.dueDate ? (
                           <>Éch. <span className={new Date(entry.dueDate) < new Date() ? "text-red-500" : ""}>{formatDateFR(entry.dueDate)}</span></>
                         ) : (
-                          getSubItems(items, entry.id).length > 0
-                            ? `${getSubItems(items, entry.id).length} sous-tâche${getSubItems(items, entry.id).length > 1 ? "s" : ""}`
-                            : null
+                          (() => {
+                            const subCount = getSubItems(items, entry.id).length;
+                            const memoCount = getItemMemos(floatingTasks, entry.id).length;
+                            const parts = [
+                              subCount > 0 ? `${subCount} sous-tâche${subCount > 1 ? "s" : ""}` : null,
+                              memoCount > 0 ? `${memoCount} mémo${memoCount > 1 ? "s" : ""}` : null,
+                            ].filter(Boolean);
+                            return parts.length > 0 ? parts.join(" · ") : null;
+                          })()
                         )}
                       </p>
                     </div>
-                    <span className={statusClass(entry.status)}>{entry.status}</span>
+                    {renderItemBadge(entry)}
                   </div>
                   );
                 })}
@@ -3283,40 +3423,7 @@ export default function AppShell() {
                     <div className="px-[14px] pt-3 pb-1 text-[10px] font-medium text-tx-3 uppercase tracking-widest">
                       Mémos
                     </div>
-                    {caseMemos.map((memo) => {
-                      const done = !!memo.doneAt;
-                      return (
-                        <div
-                          key={memo.id}
-                          className="finder-row"
-                          data-active={detailTarget?.type === "memo" && detailTarget.id === memo.id ? "true" : undefined}
-                          style={{ opacity: done ? 0.45 : 1 }}
-                          onClick={() => { setActiveColumn("items"); setDetailTarget({ type: "memo", id: memo.id }); }}
-                        >
-                          <button
-                            className="shrink-0 cursor-pointer flex items-center justify-center transition-all duration-200"
-                            onClick={e => { e.stopPropagation(); handleToggleFloatingDone(memo); }}
-                            title={done ? `Fait le ${formatDateFR(memo.doneAt)} — cliquer pour décocher` : "Marquer réalisé"}
-                            style={{
-                              width: "20px", height: "20px", borderRadius: "6px",
-                              border: done ? "none" : "2px solid #9ca3af",
-                              background: done ? "#16a34a" : "white",
-                            }}
-                          >
-                            {done && <Icon name="check" size={13} className="text-white" strokeWidth={2.5} />}
-                          </button>
-                          <div className="flex-1 min-w-0">
-                            <p
-                              className="text-[15px] text-tx truncate leading-snug"
-                              style={done ? { textDecoration: "line-through" } : undefined}
-                            >{memo.title}</p>
-                            <p className="text-[12.5px] text-tx-3 mt-0.5 truncate min-h-[1.25rem]">
-                              {done ? `Fait le ${formatDateFR(memo.doneAt)}` : memo.dueDate ? `Éch. ${formatDateFR(memo.dueDate)}` : ""}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })}
+                    {caseMemos.map((memo) => renderMemoRow(memo, "items"))}
                   </>
                 )}
               </div>
@@ -3338,6 +3445,9 @@ export default function AppShell() {
                     title="Mode sélection multiple"
                     onClick={() => { setSelectionModeSubItems(p => !p); setSelectedSubItemIds([]); }}
                   >Sélection</button>
+                  <button className={iconBtn} title="Nouveau mémo sous cette tâche (M) — une chose à cocher" onClick={() => { setActiveColumn("subitems"); if (!selectedItemId) { showToast("Sélectionnez une tâche d'abord."); return; } setMemoComposer({ caseId: selectedItem?.caseId ?? selectedCaseId, parentItemId: selectedItemId }); }}>
+                    <span className="text-[13px] leading-none">☑</span>
+                  </button>
                   <button data-tour="new-subitem" className={iconBtn} title="Nouvelle sous-tâche (⇧T)" onClick={async () => { setActiveColumn("subitems"); if (!user || !selectedItemId) { showToast("Sélectionnez une tâche d'abord."); return; } const parentCaseId = selectedItem?.caseId ?? selectedCaseId; if (!parentCaseId) return; const id = await createItem(user.uid, { caseId: parentCaseId, parentItemId: selectedItemId, level: 3, title: "Nouvelle sous-tâche", status: "Créé" }); setSelectedSubItemId(id); setSelectedSubItemIds([id]); setActiveColumn("subitems"); setDetailTarget({ type: "item", id }); focusWhenReady(detailTitleRef); }}>
                     <span className="text-[18px] leading-none">+</span>
                   </button>
@@ -3404,6 +3514,17 @@ export default function AppShell() {
                     <span className={statusClass(entry.status)}>{entry.status}</span>
                   </div>
                 ))}
+
+                {/* Les mémos posés sous la tâche : mêmes voisins que les
+                  * sous-tâches, parce qu'ils pèsent la même chose. */}
+                {itemMemos.length > 0 && (
+                  <>
+                    <div className="px-[14px] pt-3 pb-1 text-[10px] font-medium text-tx-3 uppercase tracking-widest">
+                      Mémos
+                    </div>
+                    {itemMemos.map((memo) => renderMemoRow(memo, "subitems"))}
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -3985,7 +4106,9 @@ export default function AppShell() {
       {memoComposer && (
         <MemoComposer
           cases={cases}
+          items={items}
           defaultCaseId={memoComposer.caseId}
+          defaultParentItemId={memoComposer.parentItemId ?? null}
           onCreate={handleCreateMemoFromDraft}
           onClose={() => setMemoComposer(null)}
           defaultRepeat={reminderPolicy.repeatEnabled}

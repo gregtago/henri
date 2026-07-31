@@ -62,6 +62,12 @@ Une tâche traitée quitte les trois bandes : c'est bien le statut « Traité »
 la fait disparaître. Elle ne se perd pas pour autant — elle réapparaît sur le
 jour où elle a été traitée, dans la bande « à faire » des jours passés.
 
+Une tâche qui porte des sous-tâches ou des mémos n'y entre jamais : c'est un
+**contenant**, et on ne fait pas un contenant, on fait ce qu'il contient. Ses
+enfants, eux, sont là — les afficher tous les deux, c'était montrer deux fois le
+même travail et occuper une ligne que rien ne permet de cocher. Le filtre est
+posé à la construction du modèle (`getContainerIds`, `src/lib/completion.ts`).
+
 ### Idée 2 — Les attentes sont des durées, pas des points
 
 Une tâche au statut « Demandé » n'est pas un événement, c'est un **segment** :

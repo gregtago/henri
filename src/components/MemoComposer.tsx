@@ -11,7 +11,7 @@
 // crée, Échap annule. Elle ne bloque rien d'irréversible.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Case, Recurrence } from "@/lib/types";
+import type { Case, Item, Recurrence } from "@/lib/types";
 import { Icon } from "./Icon";
 import { RecurrencePicker } from "./RecurrencePicker";
 import { ReminderPicker } from "./ReminderPicker";
@@ -20,6 +20,8 @@ import { formatDateFR } from "@/lib/dates";
 export type MemoDraft = {
   title: string;
   caseId: string | null;
+  /** Tâche sous laquelle poser le mémo — null = au niveau du dossier. */
+  parentItemId: string | null;
   dueDate: string | null;
   reminderAt: string | null;
   recurrence: Recurrence | null;
@@ -29,8 +31,12 @@ export type MemoDraft = {
 
 type Props = {
   cases: Case[];
+  /** Toutes les tâches : de quoi choisir sous laquelle poser le mémo. */
+  items?: Item[];
   /** Dossier pré-sélectionné — celui qu'on regardait en appuyant sur M. */
   defaultCaseId?: string | null;
+  /** Tâche pré-sélectionnée — celle qu'on regardait depuis la colonne Sous-tâches. */
+  defaultParentItemId?: string | null;
   onCreate: (draft: MemoDraft) => void | Promise<void>;
   onClose: () => void;
   /** Préférence globale de relance, pour le libellé du rappel. */
@@ -52,7 +58,9 @@ const inDays = (days: number) => {
 
 export default function MemoComposer({
   cases,
+  items = [],
   defaultCaseId = null,
+  defaultParentItemId = null,
   onCreate,
   onClose,
   defaultRepeat = true,
@@ -60,6 +68,7 @@ export default function MemoComposer({
 }: Props) {
   const [title, setTitle] = useState("");
   const [caseId, setCaseId] = useState<string | null>(defaultCaseId);
+  const [parentItemId, setParentItemId] = useState<string | null>(defaultParentItemId);
   const [dueDate, setDueDate] = useState<string | null>(null);
   const [reminderAt, setReminderAt] = useState<string | null>(null);
   const [recurrence, setRecurrence] = useState<Recurrence | null>(null);
@@ -73,6 +82,15 @@ export default function MemoComposer({
   useEffect(() => { titleRef.current?.focus(); }, []);
 
   const selectedCase = caseId ? cases.find((entry) => entry.id === caseId) ?? null : null;
+  const parentItem = parentItemId ? items.find((entry) => entry.id === parentItemId) ?? null : null;
+
+  // Les tâches du dossier retenu sous lesquelles on peut poser le mémo : les
+  // tâches de premier niveau, jamais les sous-tâches — un mémo descend d'un
+  // cran, pas de deux.
+  const caseTasks = useMemo(
+    () => (caseId ? items.filter((entry) => entry.caseId === caseId && !entry.parentItemId) : []),
+    [caseId, items]
+  );
 
   const caseMatches = useMemo(() => {
     const needle = caseSearch.trim().toLowerCase();
@@ -91,6 +109,7 @@ export default function MemoComposer({
       await onCreate({
         title: title.trim(),
         caseId,
+        parentItemId,
         dueDate,
         reminderAt,
         recurrence,
@@ -175,7 +194,7 @@ export default function MemoComposer({
               <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest">Dossier</p>
               {selectedCase && (
                 <button
-                  onClick={() => { setCaseId(null); setCaseSearch(""); }}
+                  onClick={() => { setCaseId(null); setParentItemId(null); setCaseSearch(""); }}
                   className="ml-auto text-[10px] font-[inherit] bg-transparent border-none text-tx-3 cursor-pointer hover:text-tx transition-colors"
                 >Détacher</button>
               )}
@@ -195,7 +214,7 @@ export default function MemoComposer({
                     {caseMatches.map((entry) => (
                       <button
                         key={entry.id}
-                        onClick={() => { setCaseId(entry.id); setCaseSearch(""); }}
+                        onClick={() => { setCaseId(entry.id); setParentItemId(null); setCaseSearch(""); }}
                         className="w-full text-left font-[inherit] text-[13px] text-tx px-3 py-2 bg-transparent border-none cursor-pointer hover:bg-bg-subtle transition-colors border-b border-border last:border-0"
                       >{entry.title}</button>
                     ))}
@@ -204,6 +223,37 @@ export default function MemoComposer({
               </>
             )}
           </div>
+
+          {/* Sous quelle tâche — un mémo peut descendre d'un cran et se poser
+            * sous une tâche du dossier, à côté de ses sous-tâches. */}
+          {selectedCase && caseTasks.length > 0 && (
+            <div style={{ marginBottom: "16px" }}>
+              <div className="flex items-baseline gap-2 mb-1.5">
+                <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest">Sous la tâche</p>
+                {parentItem && (
+                  <button
+                    onClick={() => setParentItemId(null)}
+                    className="ml-auto text-[10px] font-[inherit] bg-transparent border-none text-tx-3 cursor-pointer hover:text-tx transition-colors"
+                  >Remonter au dossier</button>
+                )}
+              </div>
+              {parentItem ? (
+                <p className="text-[13.5px] text-tx">{parentItem.title}</p>
+              ) : (
+                <select
+                  value=""
+                  onChange={(event) => setParentItemId(event.target.value || null)}
+                  className="w-full font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-1.5 outline-none focus:border-border-strong transition-colors"
+                  aria-label="Sous quelle tâche"
+                >
+                  <option value="">Au niveau du dossier</option>
+                  {caseTasks.map((entry) => (
+                    <option key={entry.id} value={entry.id}>{entry.title}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
 
           {/* Échéance */}
           <div style={{ marginBottom: "16px" }}>

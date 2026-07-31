@@ -20,6 +20,7 @@ import {
 import type { Item, Case, FloatingTask, MyDaySelection, Status } from "@/lib/types";
 import { getTodayKey, getDateKeyFromValue, formatDateFR } from "@/lib/dates";
 import { getProgressLevel } from "@/lib/progress";
+import { countOpenChildren, describeOpenChildren, getCompletion, isContainer } from "@/lib/completion";
 import { MEMO_TTL_DAYS, listRecentlyDoneMemos, purgeExpiredMemos } from "@/lib/memos";
 import { Icon } from "./Icon";
 import { ReminderPicker } from "./ReminderPicker";
@@ -59,6 +60,7 @@ const draftOf = (memo: FloatingTask): MemoDraft => ({
   title: memo.title,
   starred: Boolean(memo.starred),
   caseId: memo.caseId ?? null,
+  parentItemId: memo.parentItemId ?? null,
   dueDate: memo.dueDate ?? null,
   reminderAt: memo.reminderAt ?? null,
   reminderRepeat: memo.reminderRepeat ?? null,
@@ -285,6 +287,7 @@ export default function MobileMyDay({ user }: { user: User }) {
       await createFloatingTask(user.uid, {
         dateKey,
         caseId: draft.caseId,
+        parentItemId: draft.parentItemId,
         title: draft.title,
         status: "Créé",
         starred: draft.starred,
@@ -305,6 +308,7 @@ export default function MobileMyDay({ user }: { user: User }) {
       await updateFloatingTask(user.uid, memo.id, {
         dateKey,
         caseId: draft.caseId,
+        parentItemId: draft.parentItemId,
         title: draft.title,
         starred: draft.starred,
         dueDate: draft.dueDate,
@@ -344,8 +348,9 @@ export default function MobileMyDay({ user }: { user: User }) {
    */
   const handleStatusChange = async (entry: SelectionEntry, status: Status) => {
     if (entry.type !== "item" || !entry.item) return;
-    const unfinished = items.filter(i => i.parentItemId === entry.item!.id && i.status !== "Traité");
-    if (status === "Traité" && unfinished.length > 0) return; // bloqué
+    // Un contenant n'a pas de statut à régler : il suit ce qu'il porte.
+    if (isContainer(entry.item.id, items, floatingTasks)) return;
+    if (status === "Traité" && countOpenChildren(entry.item.id, items, floatingTasks) > 0) return; // bloqué
     if (status !== entry.item.status) {
       await updateItemProgress(user.uid, entry.item.id, status);
       await logStatusEvent(user.uid, entry.item.id, entry.item.status, status);
@@ -560,6 +565,13 @@ export default function MobileMyDay({ user }: { user: User }) {
                     onClick={e => {
                       e.stopPropagation();
                       if (entry.floating) { void completeMemo(entry.floating); return; }
+                      // Un contenant n'a pas de statut à choisir : il n'y a rien
+                      // à demander, il quitte simplement la journée.
+                      if (entry.item && isContainer(entry.item.id, items, floatingTasks)) {
+                        playDone();
+                        void removeEntry(entry);
+                        return;
+                      }
                       setStatusPrompt(entry);
                     }}
                     aria-label={entry.floating ? "Marquer réalisé" : "Faire évoluer le statut"}
@@ -675,6 +687,7 @@ export default function MobileMyDay({ user }: { user: User }) {
           mode={memoSheet.mode}
           initial={memoSheet.draft}
           cases={cases}
+          items={items}
           onSubmit={handleSubmitMemo}
           onClose={() => setMemoSheet(null)}
           done={memoSheet.mode === "edit" ? !!memoSheet.memo.doneAt : false}
@@ -751,7 +764,7 @@ export default function MobileMyDay({ user }: { user: User }) {
       {/* ── OÙ EN EST CETTE TÂCHE ? ── */}
       {statusPrompt?.item && (() => {
         const task = statusPrompt.item;
-        const unfinishedSubs = items.filter(i => i.parentItemId === task.id && i.status !== "Traité").length;
+        const unfinishedSubs = countOpenChildren(task.id, items, floatingTasks);
         return (
           <div style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}
             onClick={() => setStatusPrompt(null)}>
@@ -777,7 +790,7 @@ export default function MobileMyDay({ user }: { user: User }) {
 
               {unfinishedSubs > 0 && (
                 <p style={{ fontSize: "11.5px", color: "#f59e0b", marginTop: "10px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                  <Icon name="warning" size={11} /> {unfinishedSubs} sous-tâche{unfinishedSubs > 1 ? "s" : ""} non traitée{unfinishedSubs > 1 ? "s" : ""}
+                  <Icon name="warning" size={11} /> {describeOpenChildren(task.id, items, floatingTasks)}
                 </p>
               )}
 
@@ -915,16 +928,32 @@ export default function MobileMyDay({ user }: { user: User }) {
                     />
                   </div>
 
-                  {/* Statuts */}
+                  {/* Statut — sauf pour un contenant, qui n'en a pas : il
+                      affiche ce qu'il reste à faire dedans. */}
                   {detailEntry.item && (() => {
-                    const unfinishedSubs = items.filter(i => i.parentItemId === detailEntry.item!.id && i.status !== "Traité").length;
+                    const target = detailEntry.item;
+                    const openCount = countOpenChildren(target.id, items, floatingTasks);
+                    if (isContainer(target.id, items, floatingTasks)) {
+                      const { done, total } = getCompletion(target.id, items, floatingTasks);
+                      return (
+                        <div>
+                          <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Avancement</p>
+                          <div style={{ padding: "13px", borderRadius: "10px", border: "1px solid #e5e7eb", background: done === total ? "#dcfce7" : "#f9fafb", color: done === total ? "#166534" : "#374151", fontSize: "14px", fontWeight: 600 }}>
+                            {done}/{total} terminé{done > 1 ? "s" : ""}
+                          </div>
+                          <p style={{ fontSize: "11.5px", color: "#9ca3af", marginTop: "8px", lineHeight: 1.45 }}>
+                            Cette tâche contient ; son état suit ce qu'elle porte.
+                          </p>
+                        </div>
+                      );
+                    }
                     return (
                       <div>
                         <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Statut</p>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
                           {STATUSES.map(s => {
                             const isActive = detailEntry.item?.status === s;
-                            const blocked = s === "Traité" && unfinishedSubs > 0;
+                            const blocked = s === "Traité" && openCount > 0;
                             return (
                               <button key={s} onClick={() => { if (!blocked) handleStatusChange(detailEntry, s); }}
                                 style={{ padding: "11px", borderRadius: "10px", border: isActive ? "2px solid #111827" : "1px solid #e5e7eb", background: isActive ? STATUS_COLORS[s] : "white", color: isActive ? STATUS_TEXT[s] : blocked ? "#d1d5db" : "#374151", fontSize: "13px", fontWeight: isActive ? 700 : 400, cursor: blocked ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: blocked ? 0.5 : 1 }}>
@@ -933,11 +962,6 @@ export default function MobileMyDay({ user }: { user: User }) {
                             );
                           })}
                         </div>
-                        {unfinishedSubs > 0 && (
-                          <p style={{ fontSize: "11px", color: "#f59e0b", marginTop: "8px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                            <Icon name="warning" size={11} /> {unfinishedSubs} sous-tâche{unfinishedSubs > 1 ? "s" : ""} non traitée{unfinishedSubs > 1 ? "s" : ""}
-                          </p>
-                        )}
                       </div>
                     );
                   })()}

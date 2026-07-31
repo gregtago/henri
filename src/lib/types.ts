@@ -94,10 +94,12 @@ export type RecurringTemplate = {
  * une tâche se **traite** (cycle Créé → Demandé → Reçu → Traité), un mémo se
  * **réalise** (une case à cocher, rien d'autre).
  *
- * Un mémo peut être rattaché à un dossier (`caseId`) ou libre. Rattaché, il
- * s'affiche dans la colonne Tâches du dossier ; libre, il ne vit que dans
- * Ma journée. Le rattachement se fait et se défait à volonté — c'est le même
- * objet dans les deux cas.
+ * Un mémo peut être rattaché à un dossier (`caseId`), posé sous une tâche de ce
+ * dossier (`parentItemId`), ou libre. Rattaché, il s'affiche dans la colonne
+ * Tâches du dossier ; sous une tâche, dans la colonne Sous-tâches, à côté des
+ * sous-tâches ; libre, il ne vit que dans Ma journée. Le rattachement se fait
+ * et se défait à volonté — c'est le même objet dans les trois cas, et il garde
+ * partout sa case à cocher.
  *
  * Cocher un mémo ne le supprime jamais : `doneAt` marque le moment où il a été
  * fait, et le mémo reste consultable. On doit pouvoir voir ce qu'on a fait.
@@ -106,6 +108,7 @@ export type FloatingTask = {
   id: string;
   dateKey: string;
   caseId?: string | null;   // dossier de rattachement — null = mémo libre
+  parentItemId?: string | null; // tâche sous laquelle il est posé — null = au niveau du dossier
   doneAt?: string | null;   // ISO — quand il a été coché. null = à faire.
   title: string;
   status: Status;           // hérité : un mémo ne suit plus de cycle de statut
