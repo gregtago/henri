@@ -57,6 +57,7 @@ import {
   toDate
 } from "@/lib/dates";
 import { getProgressLevel, getProgressStageLabel } from "@/lib/progress";
+import { purgeExpiredMemos } from "@/lib/memos";
 import { resolveDelai, latestLaunchDate } from "@/lib/delais";
 import type { Case, CaseTemplate, Comment, Event, FloatingTask, Item, MyDaySelection, Status } from "@/lib/types";
 import { STATUSES } from "@/lib/types";
@@ -342,6 +343,19 @@ export default function AppShell() {
       unsubTemplates();
     };
   }, [user, startOfWindow]);
+
+  // Un mémo libre s'efface au bout de 7 jours (voir src/lib/memos.ts). La règle
+  // est celle du modèle, pas celle d'un écran : on balaie ici aussi.
+  const memosLoaded = floatingTasks.length > 0;
+  useEffect(() => {
+    if (!user || !memosLoaded) return;
+    purgeExpiredMemos(user.uid, floatingTasks).catch(err =>
+      console.warn("[AppShell] purge des mémos échouée", err)
+    );
+    // Au montage seulement : rejouer à chaque snapshot relancerait la
+    // suppression en boucle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, memosLoaded]);
 
   // ── Visite guidée & pas à pas ──
   const cleanupDemoCase = useCallback(async () => {

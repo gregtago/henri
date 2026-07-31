@@ -305,8 +305,14 @@ Pourquoi ça concerne le calendrier : un mémo n'a rien à envoyer et rien à
 attendre. Il n'entre donc jamais dans « à faire » ni dans « j'attends », et
 n'apparaît que le jour de son échéance ou de son rappel.
 
-**Cocher un mémo ne le supprime pas.** Il reste consultable, barré : on doit
-pouvoir voir ce qu'on a fait, et se déjuger d'un clic si on a coché trop vite.
+**Cocher un mémo ne le supprime pas** sur le coup : `doneAt` marque le moment
+où il a été fait, et il reste consultable — barré dans son dossier, derrière le
+lien « réalisés » dans Ma journée sur mobile. On doit pouvoir voir ce qu'on a
+fait, et se déjuger d'un clic si on a coché trop vite.
+
+En revanche, un mémo **non rattaché** s'efface définitivement au bout de
+7 jours (`src/lib/memos.ts`). Un mémo est un pense-bête, pas une archive ; le
+calendrier n'a donc jamais à afficher de mémo libre plus vieux qu'une semaine.
 
 ---
 

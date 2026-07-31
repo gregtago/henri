@@ -26,13 +26,20 @@ Tout Henri repose sur une distinction, et elle se lit dans l'interface avant de 
 | **Tâche** | on la **traite** | statut Créé → Demandé → Reçu → Traité, échéance, délai de retour, poids dans l'avancement du dossier |
 | **Mémo** | on le **réalise** | une case à cocher, rien d'autre |
 
-Un mémo peut être rattaché à un dossier ou libre — c'est le même objet, seul son dossier change. Rattaché, il s'affiche sous les tâches du dossier ; libre, il ne vit que dans Ma journée.
+Un mémo peut être rattaché à un dossier ou libre — c'est le même objet, seul son dossier change. Rattaché, il s'affiche sous les tâches du dossier ; libre, il ne vit que dans Ma journée. Le rattacher ne le transforme pas en tâche : il garde sa case à cocher.
 
 Conséquences visuelles, appliquées partout :
 
-- une tâche porte un **badge de statut**, un mémo porte une **case à cocher** ;
-- le **filet coloré** de statut est réservé aux tâches ; les mémos n'en ont jamais ;
+- une tâche porte un **badge de statut** (colonnes Tâches/Sous-tâches) ou un **filet coloré** (Ma journée), un mémo n'a ni l'un ni l'autre — c'est ce qui les distingue dans le dossier ;
+- les deux portent la **même case à cocher**, mais elle ne veut pas dire la même chose : un mémo se réalise d'un geste, une tâche demande d'abord où elle en est ;
+- une tâche affichée dans Ma journée porte en plus une **croix** pour l'en retirer sans rien changer à son dossier ; un mémo n'en a pas — il n'existe pas ailleurs ;
 - un mémo ne compte **jamais** dans les compteurs d'avancement ni dans le tri « charge restante ».
+
+### Durée de vie d'un mémo
+
+Un mémo est un pense-bête, pas une archive. Un mémo **non rattaché** disparaît définitivement au bout de **7 jours** — comptés depuis sa réalisation s'il a été coché, depuis sa création sinon. Rattaché à un dossier, il n'expire jamais : il vit et meurt avec le dossier.
+
+Trois garde-fous, parce qu'une suppression ne se rattrape pas : un mémo programmé pour un jour à venir, un mémo dont l'échéance est encore devant nous et un mémo récurrent ne sont jamais effacés. La règle vit dans `src/lib/memos.ts` et rien d'autre ne doit la réimplémenter.
 
 N'inventer ni troisième nature ni statut intermédiaire : si un objet ne rentre dans aucune des deux cases, c'est la définition qu'il faut revoir, pas le modèle qu'il faut étendre.
 
@@ -210,14 +217,20 @@ Chaque bouton porte une icône-glyphe ASCII/Unicode en préfixe (`☀`, `⇄`, `
 
 ### Cases à cocher des mémos
 
-Carré arrondi 20 px (desktop) / 30 px (mobile), border 2 px `#9ca3af` (`d1d5db` sur mobile), fond blanc. Au clic :
+Carré arrondi 20 px (desktop) / 26 px (mobile), border 2 px `#9ca3af` (`d1d5db` sur mobile), fond blanc. Au clic :
 1. Animation immédiate : fond vert `#16a34a`, coche blanche SVG, scale 1.1.
 2. La ligne passe à `opacity: 0.45`, le titre est barré.
-3. Le mémo **reste** — `doneAt` enregistre la date, et un second clic décoche.
+3. `doneAt` enregistre la date.
 
 C'est l'un des rares endroits où on s'autorise une animation un peu marquée — la complétion d'un mémo doit *récompenser*.
 
-Cocher ne supprime rien. On doit pouvoir revoir ce qu'on a fait dans la journée, et se déjuger d'un clic si on a coché trop vite. Un mémo coché descend simplement en bas de Ma journée.
+Ce qui suit dépend de la vue :
+
+- **Ma journée (mobile)** : le mémo réalisé **quitte la liste** au terme de l'animation. Ce qui est fait n'a plus à occuper la journée. On le retrouve par un petit lien discret en bas de la liste — « n mémos réalisés » — d'où on peut le rouvrir, le décocher (il revient dans la journée) ou le supprimer.
+- **Ma journée (desktop)** : le mémo coché reste en place, barré, et descend tout en bas.
+- **Colonne Tâches d'un dossier** : le mémo reste, barré. Le dossier est sa maison, pas un fil du jour.
+
+Cocher ne supprime jamais rien tout de suite ; c'est le temps qui s'en charge (voir « Durée de vie d'un mémo »).
 
 ### Repère « Dans Ma journée »
 
@@ -291,7 +304,7 @@ Ordre fixe (desktop et mobile) :
 
 À bucket et date égales : **tâches de dossier avant mémos**, puis tri alphabétique.
 
-Un mémo coché sort de ce classement : il descend **tout en bas**, quels que soient son étoile et son échéance. Visible, mais plus dans le chemin.
+Un mémo coché sort de ce classement : sur desktop il descend **tout en bas**, quels que soient son étoile et son échéance ; sur mobile il quitte la liste et rejoint le lien « réalisés » du bas. Dans les deux cas : plus dans le chemin.
 
 ---
 
@@ -300,7 +313,10 @@ Un mémo coché sort de ce classement : il descend **tout en bas**, quels que so
 - Le style mobile utilise **du `style={{…}}` inline** plus que Tailwind. Historique : le composant `MobileMyDay` a été écrit pour fonctionner en dehors du contexte Tailwind initial. Pas de migration prévue.
 - Les boutons d'action sont en **pill** (radius 20 px) plutôt qu'en rounded-md.
 - Les chips de date pré-remplie sont volontairement plus grandes (padding 8×14 px) que sur desktop pour rester tactiles.
-- L'interaction « Réalisé » d'un mémo a la même séquence d'animation que sur desktop, mais avec des dimensions plus généreuses (30 px au lieu de 20 px).
+- L'interaction « Réalisé » d'un mémo a la même séquence d'animation que sur desktop, mais avec des dimensions plus généreuses (26 px au lieu de 20 px) — et la ligne quitte ensuite la liste.
+- **Une ligne de Ma journée a une seule forme**, mémo ou tâche : case à cocher à gauche, titre, puis la croix « retirer » à droite pour les seules tâches. La nature se lit au filet coloré (tâche) ou à son absence (mémo), jamais à la disposition.
+- **Cocher une tâche ouvre une modale** « Où en est cette tâche ? » : les quatre statuts, puis la tâche quitte la journée et reste dans son dossier. C'est l'une des rares modales admises — une tâche ne se « réalise » pas, elle avance, et il faut bien dire jusqu'où.
+- **Un mémo se crée et se modifie dans le même écran** (`MemoSheet`) : même champs, même disposition, seuls le titre et le bouton changent. Deux formulaires pour un même objet, c'était une chance sur deux de tomber sur celui qui ne sait pas faire ce qu'on veut.
 
 ---
 

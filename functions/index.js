@@ -396,8 +396,9 @@ exports.sendDueReminders = onSchedule(
       const ftSnap = await db.collection(`users/${uid}/floatingTasks`)
         .where("reminderAt", "<=", nowIso)
         .get();
+      // Un mémo réalisé (doneAt) n'a plus rien à rappeler : cocher, c'est fini.
       const dueFloating = ftSnap.docs
-        .filter(d => !d.data().reminderSentAt && d.data().status !== "Traité");
+        .filter(d => !d.data().reminderSentAt && d.data().status !== "Traité" && !d.data().doneAt);
 
       const targets = [
         ...dueItems.map(d => ({ doc: d, collection: "items", data: d.data() })),
@@ -569,7 +570,8 @@ async function collectOpenTitles(db, uid, dateKey) {
     .get();
   for (const d of ftSnap.docs) {
     const data = d.data();
-    if (data.status !== "Traité") titles.push(data.title || "Sans titre");
+    // `doneAt` = mémo réalisé : il ne fait plus partie de ce qui reste ouvert.
+    if (data.status !== "Traité" && !data.doneAt) titles.push(data.title || "Sans titre");
   }
 
   const selSnap = await db.collection(`users/${uid}/myDaySelections`)
