@@ -54,10 +54,23 @@ npm run dev
 - Deux natures d'objets, et deux seulement :
   - une **tâche** (`items`) se *traite* — cycle Créé → Demandé → Reçu → Traité ;
   - un **mémo** (`floatingTasks`) se *réalise* — une case à cocher, rien d'autre.
-- Un mémo peut être rattaché à un dossier (`floatingTasks.caseId`) ou libre : c'est le même
-  objet, on le rattache et on le détache à volonté. Rattaché, il s'affiche sous les tâches
-  du dossier — toujours avec sa case à cocher, jamais converti en tâche ; libre, il ne vit
-  que dans Ma journée. Il ne compte jamais dans l'avancement.
+- Un mémo peut être rattaché à un dossier (`floatingTasks.caseId`), posé sous une tâche de
+  ce dossier (`floatingTasks.parentItemId`) ou libre : c'est le même objet, on le déplace à
+  volonté. Rattaché, il s'affiche sous les tâches du dossier ; posé sous une tâche, dans la
+  colonne Sous-tâches à côté des sous-tâches ; libre, il ne vit que dans Ma journée —
+  toujours avec sa case à cocher, jamais converti en tâche. Il descend d'un cran, jamais de
+  deux (pas de mémo sous une sous-tâche). Un mémo dont la tâche a été supprimée remonte au
+  niveau du dossier plutôt que de disparaître.
+- **Une tâche qui porte quelque chose est un contenant, plus une tâche** (`src/lib/completion.ts`).
+  Dès qu'elle a une sous-tâche ou un mémo : plus de statut à régler à la main (les quatre
+  statuts et les raccourcis 1–4 ne s'y appliquent plus), plus de présence dans le calendrier,
+  plus de poids dans les compteurs du dossier ni dans le tri « charge restante ». Elle affiche
+  à la place son avancement — « 2/5 ». Elle garde titre, étoile, commentaires, échéance et
+  rappel ; cette échéance ne s'affiche donc plus dans le calendrier.
+- **Une tâche dont tout est fait est faite** : quand la dernière sous-tâche est traitée ou le
+  dernier mémo coché, la tâche mère passe « Traité » d'elle-même, avec l'événement dans sa
+  timeline (`completeParentIfAllChildrenDone`, branché sur `updateItemProgress` et
+  `updateFloatingTask`). Une tâche **sans** enfant ne conclut jamais rien toute seule.
 - Sur desktop, un mémo se crée par une **fenêtre de saisie** (`M`, ou le bouton ☑ de la
   colonne Tâches) : titre, dossier, échéance, rappel, étoile, répétition et observations
   en un seul geste. Entrée crée, Échap annule. Un mémo avec une échéance future part
@@ -78,13 +91,14 @@ npm run dev
   l'échéance. Un mémo coché, lui, garde la sienne.
 - **Un mémo réalisé et non rattaché s'efface au bout de 7 jours** (`src/lib/memos.ts`), comptés
   depuis sa réalisation. Un mémo **non coché ne disparaît jamais**, quel que soit son âge ; un
-  mémo rattaché à un dossier ni un mémo récurrent non plus.
+  mémo rattaché — à un dossier comme à une tâche — ni un mémo récurrent non plus.
 - Le détail d'un mémo est le même partout (`MemoDetail` sur desktop) : on l'ouvre en cliquant
   son texte, depuis Ma journée comme depuis la colonne Tâches de son dossier.
 - La vue Calendrier (`/calendrier`) affiche trois bandes, dans l'ordre du cycle d'une tâche :
   « à faire » (ce qu'on réalise ce jour-là), « j'attends » (les demandes sans réponse, en barres
   de durée), « échéances » (ce qui tombe). Une tâche « Traité » quitte les trois bandes et
-  réapparaît, sur le jour où elle a été traitée, dans « à faire » des jours passés.
+  réapparaît, sur le jour où elle a été traitée, dans « à faire » des jours passés. Un
+  contenant n'y entre jamais : on ne fait pas un contenant, on fait ce qu'il contient.
   Elle lit les mêmes collections ; elle n'ajoute qu'un champ,
   `items.delaiDays` (délai de retour d'une pièce, en jours). Nul = Henri l'estime d'après
   le libellé via le barème de `src/lib/delais.ts`. Le raisonnement de la vue est dans

@@ -8,8 +8,8 @@
 // Deux conditions, toutes les deux nécessaires :
 // - le mémo est **coché**. Un mémo qu'on n'a pas fait ne disparaît jamais tout
 //   seul : ce serait perdre du travail sans l'avoir demandé ;
-// - le mémo est **non rattaché**. Rattaché à un dossier, un mémo appartient au
-//   dossier : il vit et meurt avec lui.
+// - le mémo est **non rattaché** — ni à un dossier, ni à une tâche. Rattaché, un
+//   mémo appartient à ce qui le porte : il vit et meurt avec lui.
 
 import type { FloatingTask } from "./types";
 import { deleteFloatingTasks } from "./firestore";
@@ -37,7 +37,7 @@ const parse = (value?: string | null): number | null => {
  * - un mémo récurrent non plus (il est appelé à revenir).
  */
 export const isExpiredMemo = (memo: FloatingTask, now: Date = new Date()): boolean => {
-  if (memo.caseId) return false;
+  if (memo.caseId || memo.parentItemId) return false;
   if (memo.recurrence) return false;
   const done = parse(memo.doneAt);
   if (done === null) return false; // pas coché (ou date illisible) : on n'y touche pas

@@ -3,6 +3,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   onSnapshot,
   query,
@@ -30,6 +31,7 @@ import type {
 } from "./types";
 import { dateKeyToDate, getYesterdayKey as getYesterdayKeyUtil, getTodayKey as getTodayKeyUtil } from "./dates";
 import { getProgressLevel } from "./progress";
+import { areAllChildrenDone } from "./completion";
 
 const nowIso = () => new Date().toISOString();
 
@@ -121,14 +123,61 @@ export const updateItem = (uid: string, id: string, payload: Partial<Item>) =>
  * appelant ait à y penser. Rouvrir la tâche ne rend pas l'échéance — on la
  * repose si elle a encore un sens.
  */
-export const updateItemProgress = (uid: string, id: string, status: Status) =>
-  updateDoc(doc(db, `users/${uid}/items/${id}`), {
+export const updateItemProgress = async (uid: string, id: string, status: Status) => {
+  const ref = doc(db, `users/${uid}/items/${id}`);
+  await updateDoc(ref, {
     status,
     progressLevel: getProgressLevel(status),
     lastProgressAt: serverTimestamp(),
     ...(status === "Traité" ? { dueDate: null } : {}),
     updatedAt: nowIso()
   });
+  if (status !== "Traité") return;
+  const snap = await getDoc(ref);
+  const parentItemId = (snap.data()?.parentItemId as string | null | undefined) ?? null;
+  if (parentItemId) await completeParentIfAllChildrenDone(uid, parentItemId);
+};
+
+/**
+ * Une tâche dont tout est fait est faite.
+ *
+ * Quand le dernier enfant d'une tâche se ferme — dernière sous-tâche traitée ou
+ * dernier mémo coché —, la tâche mère passe « Traité » d'elle-même. L'interface
+ * interdit déjà de la déclarer traitée tant qu'il reste quelque chose d'ouvert :
+ * la conclusion inverse était donc la seule qui restait à la charge de
+ * l'utilisateur, et c'était lui demander de confirmer ce qu'il venait de faire.
+ *
+ * Trois garde-fous :
+ * - une tâche **sans enfant** ne conclut rien : c'est à l'utilisateur de dire où
+ *   elle en est, sinon toute tâche naîtrait traitée ;
+ * - une tâche **déjà traitée** n'est pas retouchée (pas d'événement en double) ;
+ * - la lecture se fait au **serveur** (`items` et `floatingTasks` du parent), et
+ *   non sur ce que la vue appelante croit savoir : deux enfants fermés coup sur
+ *   coup depuis deux écrans donnent quand même la bonne conclusion.
+ *
+ * L'échec de ce prolongement (hors ligne, règle Firestore) ne doit jamais
+ * invalider le geste demandé : on le signale en console et on s'arrête là.
+ */
+const completeParentIfAllChildrenDone = async (uid: string, parentItemId: string) => {
+  try {
+    const parentRef = doc(db, `users/${uid}/items/${parentItemId}`);
+    const [parentSnap, subSnap, memoSnap] = await Promise.all([
+      getDoc(parentRef),
+      getDocs(query(userCollection(uid, "items"), where("parentItemId", "==", parentItemId))),
+      getDocs(query(userCollection(uid, "floatingTasks"), where("parentItemId", "==", parentItemId)))
+    ]);
+    if (!parentSnap.exists()) return;
+    const parent = { id: parentSnap.id, ...parentSnap.data() } as Item;
+    if (parent.status === "Traité") return;
+    const subItems = subSnap.docs.map((d) => ({ id: d.id, ...d.data() })) as Item[];
+    const memos = memoSnap.docs.map((d) => ({ id: d.id, ...d.data() })) as FloatingTask[];
+    if (!areAllChildrenDone(parentItemId, subItems, memos)) return;
+    await updateItemProgress(uid, parent.id, "Traité");
+    await logStatusEvent(uid, parent.id, parent.status, "Traité");
+  } catch (err) {
+    console.warn("[completeParentIfAllChildrenDone]", err);
+  }
+};
 
 export const updateComment = async (uid: string, commentId: string, payload: Partial<Comment>) => {
   const ref = doc(userCollection(uid, "comments"), commentId);
@@ -163,8 +212,23 @@ export const createFloatingTask = async (
   return ref.id;
 };
 
-export const updateFloatingTask = (uid: string, id: string, payload: Partial<FloatingTask>) =>
-  updateDoc(doc(db, `users/${uid}/floatingTasks/${id}`), { ...payload, updatedAt: nowIso() });
+/**
+ * Écrire un mémo.
+ *
+ * Cocher un mémo posé sous une tâche est un geste qui peut en conclure un
+ * autre : si c'était la dernière chose ouverte sous cette tâche, la tâche se
+ * termine (voir `completeParentIfAllChildrenDone`). Sous une tâche, un mémo
+ * pèse exactement ce que pèse une sous-tâche.
+ */
+export const updateFloatingTask = async (uid: string, id: string, payload: Partial<FloatingTask>) => {
+  const ref = doc(db, `users/${uid}/floatingTasks/${id}`);
+  await updateDoc(ref, { ...payload, updatedAt: nowIso() });
+  if (!payload.doneAt) return;
+  const parentItemId = payload.parentItemId !== undefined
+    ? payload.parentItemId
+    : ((await getDoc(ref)).data()?.parentItemId as string | null | undefined) ?? null;
+  if (parentItemId) await completeParentIfAllChildrenDone(uid, parentItemId);
+};
 
 // ── Tokens push (appareils recevant les rappels) ──
 export type PushTokenInfo = {
