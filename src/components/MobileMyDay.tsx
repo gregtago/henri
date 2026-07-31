@@ -18,13 +18,13 @@ import {
   logStatusEvent,
 } from "@/lib/firestore";
 import type { Item, Case, FloatingTask, MyDaySelection, Status } from "@/lib/types";
-import { getTodayKey } from "@/lib/dates";
+import { getTodayKey, getDateKeyFromValue, formatDateFR } from "@/lib/dates";
 import { getProgressLevel } from "@/lib/progress";
-import { addDoc, collection } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { MEMO_TTL_DAYS, listRecentlyDoneMemos, purgeExpiredMemos } from "@/lib/memos";
 import { Icon } from "./Icon";
 import { ReminderPicker } from "./ReminderPicker";
 import { useReminderPolicy, describeRepeat } from "@/lib/reminderPolicy";
+import MemoSheet, { emptyMemoDraft, type MemoDraft } from "./MemoSheet";
 
 const STATUSES: Status[] = ["Créé", "Demandé", "Reçu", "Traité"];
 const STATUS_COLORS: Record<string, string> = {
@@ -47,6 +47,25 @@ type SelectionEntry = {
   floating?: FloatingTask;
 };
 
+/**
+ * Le formulaire du mémo, à la création comme à la modification : c'est le même
+ * écran, seul le mode change. `memo` porte l'objet en cours d'édition.
+ */
+type MemoSheetState =
+  | { mode: "create"; memo: null; draft: MemoDraft }
+  | { mode: "edit"; memo: FloatingTask; draft: MemoDraft };
+
+const draftOf = (memo: FloatingTask): MemoDraft => ({
+  title: memo.title,
+  starred: Boolean(memo.starred),
+  caseId: memo.caseId ?? null,
+  dueDate: memo.dueDate ?? null,
+  reminderAt: memo.reminderAt ?? null,
+  reminderRepeat: memo.reminderRepeat ?? null,
+  recurrence: memo.recurrence ?? null,
+  note: memo.note ?? null,
+});
+
 export default function MobileMyDay({ user }: { user: User }) {
   // Réglages de relance (Préférences → Rappels), pour l'interrupteur des rappels.
   const reminderPolicy = useReminderPolicy(user.uid);
@@ -64,13 +83,10 @@ export default function MobileMyDay({ user }: { user: User }) {
   const [groupMyDay, setGroupMyDay] = useState(false);
   useEffect(() => { try { setGroupMyDay(localStorage.getItem("henri:mydayGroup") === "1"); } catch {} }, []);
   const toggleGroupMyDay = () => setGroupMyDay(g => { const v = !g; try { localStorage.setItem("henri:mydayGroup", v ? "1" : "0"); } catch {} return v; });
-  const [memoOpen, setMemoOpen] = useState(false);
+  const [memoSheet, setMemoSheet] = useState<MemoSheetState | null>(null);
   const [memoText, setMemoText] = useState("");
-  const [memoDue, setMemoDue] = useState("");
-  const [memoReminder, setMemoReminder] = useState("");
-  const [memoRepeat, setMemoRepeat] = useState<boolean | null>(null);
-  const [memoCaseId, setMemoCaseId] = useState("");
-  const [memoCaseSearch, setMemoCaseSearch] = useState("");
+  const [doneOpen, setDoneOpen] = useState(false);
+  const [statusPrompt, setStatusPrompt] = useState<SelectionEntry | null>(null);
   const [pendingRemovalIds, setPendingRemovalIds] = useState<Set<string>>(new Set());
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
@@ -134,7 +150,14 @@ export default function MobileMyDay({ user }: { user: User }) {
       const item = items.find(i => i.id === s.refId);
       if (item) entries.push({ selectionId: s.id, type: "item", item });
     }
-    const todayFloating = floatingTasks.filter(t => t.status !== "Traité" && t.dateKey != null && t.dateKey <= todayKey);
+    // Un mémo réalisé quitte la journée. Il reste visible le temps de
+    // l'animation de complétion (`completingIds`), puis s'efface de la liste :
+    // on le retrouve par le lien « réalisés » en bas.
+    const todayFloating = floatingTasks.filter(t =>
+      t.status !== "Traité" &&
+      t.dateKey != null && t.dateKey <= todayKey &&
+      (!t.doneAt || completingIds.has(t.id))
+    );
     for (const f of todayFloating) {
       entries.push({ selectionId: f.id, type: "floating", floating: f });
     }
@@ -173,7 +196,23 @@ export default function MobileMyDay({ user }: { user: User }) {
       if (a.type !== b.type) return a.type === "item" ? -1 : 1;
       return ma.title.localeCompare(mb.title);
     });
-  }, [myDaySelections, items, floatingTasks, todayKey, pendingRemovalIds]);
+  }, [myDaySelections, items, floatingTasks, todayKey, pendingRemovalIds, completingIds]);
+
+  // Les mémos réalisés récemment — ce que cache le petit lien du bas.
+  const doneMemos = useMemo(() => listRecentlyDoneMemos(floatingTasks), [floatingTasks]);
+
+  // Un mémo libre passé les 7 jours s'efface pour de bon. On balaie à chaque
+  // arrivée sur la vue : c'est le seul endroit qui regarde les mémos assez
+  // souvent pour que la règle se voie.
+  useEffect(() => {
+    if (floatingTasks.length === 0) return;
+    purgeExpiredMemos(user.uid, floatingTasks).catch(err =>
+      console.warn("[MobileMyDay] purge des mémos échouée", err)
+    );
+    // Volontairement au montage seulement : balayer à chaque snapshot
+    // relancerait la suppression en boucle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user.uid, floatingTasks.length > 0]);
 
   // Suggestions
   const suggestions = useMemo(() => {
@@ -223,61 +262,102 @@ export default function MobileMyDay({ user }: { user: User }) {
     if (detailEntry?.selectionId === entry.selectionId) setDetailEntry(null);
   };
 
-  const handleCreateMemo = async () => {
-    const text = memoText.trim();
-    if (!text) return;
-    setMemoText(""); setMemoDue(""); setMemoReminder(""); setMemoRepeat(null); setMemoCaseId(""); setMemoCaseSearch(""); setMemoOpen(false);
+  // ── MÉMOS ──
+  const openNewMemo = () =>
+    setMemoSheet({ mode: "create", memo: null, draft: { ...emptyMemoDraft(), title: memoText.trim() } });
 
-    if (memoCaseId) {
-      // Rattaché à un dossier → créer une tâche item et l'ajouter à Ma journée
-      const { createItem, addMyDaySelection } = await import("@/lib/firestore");
-      const newItemId = await createItem(user.uid, {
-        caseId: memoCaseId,
-        level: 2,
-        title: text,
-        status: "Créé",
-        parentItemId: null,
-        dueDate: memoDue ? new Date(memoDue + "T12:00:00").toISOString() : null,
-        reminderAt: memoReminder || null,
-        reminderSentAt: null,
-        reminderRepeat: memoRepeat,
-        reminderCount: 0,
-      });
-      // L'ajouter immédiatement à Ma journée pour éviter le doublon en suggestion
-      if (newItemId) await addMyDaySelection(user.uid, {
-        refType: "item",
-        refId: newItemId,
-        dateKey: todayKey,
-        selectionDate: null,
-        dateTs: null,
-      }).catch(() => {});
-    } else {
-      // Mémo libre — si échéance future, ne pas mettre dans Ma journée aujourd'hui
-      const isFuture = memoDue && memoDue > todayKey;
+  const openMemo = (memo: FloatingTask) =>
+    setMemoSheet({ mode: "edit", memo, draft: draftOf(memo) });
+
+  /**
+   * Enregistrer le mémo — création et modification passent par ici, puisque
+   * c'est le même formulaire. Rattacher à un dossier ne transforme rien : le
+   * mémo garde sa case à cocher, il gagne seulement un dossier.
+   */
+  const handleSubmitMemo = async (draft: MemoDraft) => {
+    if (!memoSheet) return;
+    // Une échéance à venir programme le mémo pour le bon jour plutôt que
+    // d'encombrer la journée en cours.
+    const dueKey = draft.dueDate ? getDateKeyFromValue(draft.dueDate) : null;
+    const dateKey = dueKey && dueKey > todayKey ? dueKey : todayKey;
+
+    if (memoSheet.mode === "create") {
       await createFloatingTask(user.uid, {
-        title: text,
-        dateKey: isFuture ? memoDue : todayKey, // apparaîtra le bon jour
-        note: null,
-        dueDate: memoDue ? new Date(memoDue + "T12:00:00").toISOString() : null,
-        reminderAt: memoReminder || null,
-        reminderSentAt: null,
-        reminderRepeat: memoRepeat,
-        reminderCount: 0,
-        starred: false,
+        dateKey,
+        caseId: draft.caseId,
+        title: draft.title,
         status: "Créé",
+        starred: draft.starred,
+        dueDate: draft.dueDate,
+        reminderAt: draft.reminderAt,
+        reminderSentAt: null,
+        reminderRepeat: draft.reminderRepeat,
+        reminderCount: 0,
+        recurrence: draft.recurrence,
+        note: draft.note,
+        doneAt: null,
+      });
+      setMemoText("");
+    } else {
+      const memo = memoSheet.memo;
+      // Un rappel déplacé doit pouvoir sonner à nouveau.
+      const reminderMoved = (memo.reminderAt ?? null) !== draft.reminderAt;
+      await updateFloatingTask(user.uid, memo.id, {
+        dateKey,
+        caseId: draft.caseId,
+        title: draft.title,
+        starred: draft.starred,
+        dueDate: draft.dueDate,
+        reminderAt: draft.reminderAt,
+        reminderRepeat: draft.reminderRepeat,
+        recurrence: draft.recurrence,
+        note: draft.note,
+        ...(reminderMoved ? { reminderSentAt: null, reminderCount: 0 } : {}),
       });
     }
+    setMemoSheet(null);
   };
 
+  /**
+   * Cocher un mémo : il est réalisé, il quitte la journée. On le garde à
+   * l'écran le temps de l'animation — la complétion doit se voir.
+   */
+  const completeMemo = async (memo: FloatingTask) => {
+    if (completingIds.has(memo.id)) return;
+    setCompletingIds(prev => new Set(prev).add(memo.id));
+    playDone();
+    await updateFloatingTask(user.uid, memo.id, { doneAt: new Date().toISOString() });
+    setTimeout(() => {
+      setCompletingIds(prev => { const s = new Set(prev); s.delete(memo.id); return s; });
+    }, 420);
+  };
+
+  /** Décocher un mémo réalisé : il revient dans la journée. */
+  const uncompleteMemo = async (memo: FloatingTask) => {
+    await updateFloatingTask(user.uid, memo.id, { doneAt: null, dateKey: todayKey });
+  };
+
+  /**
+   * Cocher une tâche dans Ma journée : elle ne se « réalise » pas, elle
+   * avance. On demande donc où elle en est, puis elle sort de la journée —
+   * en restant, bien sûr, dans son dossier.
+   */
   const handleStatusChange = async (entry: SelectionEntry, status: Status) => {
-    if (entry.type === "item" && entry.item) {
-      const subItems = items.filter(i => i.parentItemId === entry.item!.id);
-      const unfinished = subItems.filter(i => i.status !== "Traité");
-      if (status === "Traité" && unfinished.length > 0) return; // bloqué
+    if (entry.type !== "item" || !entry.item) return;
+    const unfinished = items.filter(i => i.parentItemId === entry.item!.id && i.status !== "Traité");
+    if (status === "Traité" && unfinished.length > 0) return; // bloqué
+    if (status !== entry.item.status) {
       await updateItemProgress(user.uid, entry.item.id, status);
       await logStatusEvent(user.uid, entry.item.id, entry.item.status, status);
-      setDetailEntry(prev => prev ? { ...prev, item: { ...prev.item!, status } } : prev);
     }
+    setDetailEntry(prev => prev?.item?.id === entry.item!.id ? { ...prev, item: { ...prev.item!, status } } : prev);
+  };
+
+  const handleStatusPromptChoice = async (entry: SelectionEntry, status: Status) => {
+    setStatusPrompt(null);
+    playDone();
+    await handleStatusChange(entry, status);
+    await removeEntry(entry);
   };
 
   const formatDate = (iso: string) => new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
@@ -445,6 +525,10 @@ export default function MobileMyDay({ user }: { user: User }) {
                 ? "none"
                 : `inset 3px 0 0 ${statusColors[status ?? "Créé"] ?? "#d1d5db"}`;
 
+              // Coche verte pendant l'animation de complétion, juste avant que
+              // la ligne quitte la liste.
+              const checking = !!entry.floating && completingIds.has(entry.floating.id);
+
               return (
                 <Fragment key={entry.selectionId}>
                 {header && (
@@ -453,7 +537,7 @@ export default function MobileMyDay({ user }: { user: User }) {
                   </p>
                 )}
                 <div
-                  onClick={() => setDetailEntry(entry)}
+                  onClick={() => entry.floating ? openMemo(entry.floating) : setDetailEntry(entry)}
                   style={{
                     background: starred ? "rgba(251,191,36,0.10)" : "white",
                     border: "1px solid #e5e7eb",
@@ -465,51 +549,27 @@ export default function MobileMyDay({ user }: { user: User }) {
                     cursor: "pointer",
                     boxShadow: filet,
                   }}>
-                  {/* Élément de gauche : rond complétion (mémo) ou croix retirer (tâche) */}
-                  {entry.type === "floating" ? (
-                    <button
-                      onClick={async e => {
-                        e.stopPropagation();
-                        const id = entry.selectionId;
-                        if (completingIds.has(id)) return;
-                        setCompletingIds(prev => new Set(prev).add(id));
-                        playDone();
-                        // Cocher ne fait pas disparaître le mémo : on marque la
-                        // date, la ligne reste barrée et se décoche d'un clic.
-                        if (entry.floating) {
-                          const wasDone = !!entry.floating.doneAt;
-                          await updateFloatingTask(user.uid, entry.floating.id, {
-                            doneAt: wasDone ? null : new Date().toISOString(),
-                          });
-                        }
-                        setTimeout(() => {
-                          setCompletingIds(prev => { const s = new Set(prev); s.delete(id); return s; });
-                        }, 350);
-                      }}
-                      style={{
-                        width: "26px", height: "26px", borderRadius: "7px", flexShrink: 0, marginTop: "1px",
-                        border: (completingIds.has(entry.selectionId) || entry.floating?.doneAt) ? "none" : "2px solid #9ca3af",
-                        background: (completingIds.has(entry.selectionId) || entry.floating?.doneAt) ? "#16a34a" : "white",
-                        cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-                        transition: "all 0.2s ease",
-                      }}>
-                      {(completingIds.has(entry.selectionId) || entry.floating?.doneAt) && (
-                        <Icon name="check" size={16} strokeWidth={2.5} style={{ color: "white" }} />
-                      )}
-                    </button>
-                  ) : (
-                    <button
-                      onClick={e => { e.stopPropagation(); removeEntry(entry); }}
-                      style={{
-                        width: "26px", height: "26px", borderRadius: "7px", border: "2px solid transparent",
-                        background: "transparent", color: "#9ca3af", cursor: "pointer",
-                        display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: "1px",
-                      }}>
-                      <Icon name="close" size={16} strokeWidth={1.75} />
-                    </button>
-                  )}
+                  {/* Même case à cocher pour tout le monde. Ce qu'elle déclenche
+                      diffère : un mémo se réalise d'un geste, une tâche demande
+                      d'abord où elle en est. */}
+                  <button
+                    onClick={e => {
+                      e.stopPropagation();
+                      if (entry.floating) { void completeMemo(entry.floating); return; }
+                      setStatusPrompt(entry);
+                    }}
+                    aria-label={entry.floating ? "Marquer réalisé" : "Faire évoluer le statut"}
+                    style={{
+                      width: "26px", height: "26px", borderRadius: "7px", flexShrink: 0, marginTop: "1px",
+                      border: checking ? "none" : "2px solid #9ca3af",
+                      background: checking ? "#16a34a" : "white",
+                      cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                      transition: "all 0.2s ease",
+                    }}>
+                    {checking && <Icon name="check" size={16} strokeWidth={2.5} style={{ color: "white" }} />}
+                  </button>
 
-                  <div style={{ flex: 1, minWidth: 0, opacity: (completingIds.has(entry.selectionId) || entry.floating?.doneAt) ? 0.45 : 1, transition: "opacity 0.3s" }}>
+                  <div style={{ flex: 1, minWidth: 0, opacity: checking ? 0.45 : 1, transition: "opacity 0.3s" }}>
                     <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
                       <p style={{ fontSize: "15px", fontWeight: starred ? 600 : 500, color: "#111827", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.35 }}>
                         {title}
@@ -535,10 +595,37 @@ export default function MobileMyDay({ user }: { user: User }) {
                       )}
                     </div>
                   </div>
+
+                  {/* Une tâche se retire de la journée sans rien changer à son
+                      dossier — c'est la seule chose qu'un mémo n'a pas. */}
+                  {entry.item && (
+                    <button
+                      onClick={e => { e.stopPropagation(); removeEntry(entry); }}
+                      aria-label="Retirer de Ma journée"
+                      title="Retirer de Ma journée"
+                      style={{
+                        width: "26px", height: "26px", borderRadius: "7px", border: "none",
+                        background: "transparent", color: "#d1d5db", cursor: "pointer",
+                        display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: "1px",
+                      }}>
+                      <Icon name="close" size={16} strokeWidth={1.75} />
+                    </button>
+                  )}
                 </div>
                 </Fragment>
               );
             })}
+          </div>
+        )}
+
+        {/* Ce qui est fait ne reste pas dans le chemin, mais reste consultable. */}
+        {doneMemos.length > 0 && (
+          <div style={{ display: "flex", justifyContent: "center", marginTop: "18px" }}>
+            <button onClick={() => setDoneOpen(true)}
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12.5px", fontFamily: "inherit", background: "none", border: "none", color: "#9ca3af", cursor: "pointer", padding: "6px 10px" }}>
+              <Icon name="check" size={13} strokeWidth={2} />
+              {doneMemos.length} mémo{doneMemos.length > 1 ? "s" : ""} réalisé{doneMemos.length > 1 ? "s" : ""}
+            </button>
           </div>
         )}
       </div>
@@ -564,140 +651,143 @@ export default function MobileMyDay({ user }: { user: User }) {
                 dueDate: null,
                 starred: false,
                 status: "Créé",
+                doneAt: null,
               });
             }
           }}
           placeholder="Nouveau mémo…"
           style={{ flex: 1, height: "44px", borderRadius: "12px", border: "1px solid #e5e7eb", background: "#f9fafb", fontSize: "15px", padding: "0 14px", outline: "none", fontFamily: "inherit", color: "#111827" }}
         />
-        <button onClick={() => setMemoOpen(true)}
+        <button onClick={openNewMemo}
           style={{ width: "44px", height: "44px", borderRadius: "12px", background: "#111827", color: "white", border: "none", fontSize: "22px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           +
         </button>
       </div>
 
-      {/* ── POPUP NOUVEAU MÉMO ── */}
-      {memoOpen && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 50, background: "white" }}>
-          <div style={{ width: "100%", height: "100%", background: "white", padding: "calc(env(safe-area-inset-top) + 16px) 20px calc(env(safe-area-inset-bottom) + 24px)", display: "flex", flexDirection: "column", gap: "16px", overflowY: "auto", boxSizing: "border-box" }}>
+      {/* ── FORMULAIRE DU MÉMO (création ET modification) ── */}
+      {memoSheet && (
+        <MemoSheet
+          key={memoSheet.mode === "edit" ? memoSheet.memo.id : "new"}
+          mode={memoSheet.mode}
+          initial={memoSheet.draft}
+          cases={cases}
+          onSubmit={handleSubmitMemo}
+          onClose={() => setMemoSheet(null)}
+          done={memoSheet.mode === "edit" ? !!memoSheet.memo.doneAt : false}
+          onToggleDone={memoSheet.mode === "edit" ? async () => {
+            const memo = memoSheet.memo;
+            setMemoSheet(null);
+            if (memo.doneAt) await uncompleteMemo(memo);
+            else await completeMemo(memo);
+          } : undefined}
+          onDelete={memoSheet.mode === "edit" ? async () => {
+            const memo = memoSheet.memo;
+            setMemoSheet(null);
+            await deleteFloatingTasks(user.uid, [memo.id]);
+          } : undefined}
+          defaultRepeat={reminderPolicy.repeatEnabled}
+          repeatLabel={describeRepeat(reminderPolicy)}
+        />
+      )}
 
-            {/* Header popup */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <p style={{ fontSize: "17px", fontWeight: 700, color: "#111827" }}>Nouveau mémo</p>
-              <button onClick={() => setMemoOpen(false)}
-                style={{ width: "32px", height: "32px", border: "1px solid #e5e7eb", borderRadius: "8px", background: "#f9fafb", fontSize: "18px", cursor: "pointer", color: "#6b7280", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+      {/* ── MÉMOS RÉALISÉS ── */}
+      {doneOpen && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 55, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "flex-end" }}
+          onClick={() => setDoneOpen(false)}>
+          <div style={{ width: "100%", maxHeight: "80dvh", background: "white", borderRadius: "18px 18px 0 0", display: "flex", flexDirection: "column", paddingBottom: "env(safe-area-inset-bottom)" }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ padding: "16px 20px 12px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <p style={{ fontSize: "15px", fontWeight: 600, color: "#111827" }}>Mémos réalisés</p>
+              <button onClick={() => setDoneOpen(false)} aria-label="Fermer"
+                style={{ width: "30px", height: "30px", border: "1px solid #e5e7eb", borderRadius: "8px", background: "#f9fafb", cursor: "pointer", color: "#6b7280", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Icon name="close" size={16} />
+              </button>
             </div>
-
-            {/* Titre */}
-            <div>
-              <p style={{ fontSize: "11px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Intitulé</p>
-              <input
-                autoFocus
-                value={memoText}
-                onChange={e => setMemoText(e.target.value)}
-                placeholder="Que faut-il faire ?"
-                style={{ width: "100%", fontSize: "16px", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "13px 16px", outline: "none", fontFamily: "inherit", background: "#f9fafb", color: "#111827", boxSizing: "border-box" }}
-              />
-            </div>
-
-            {/* Échéance */}
-            <div>
-              <p style={{ fontSize: "11px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Échéance</p>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                {(() => {
-                  const mk = (n: number) => { const d = new Date(); d.setDate(d.getDate() + n); d.setHours(12, 0, 0, 0); return d.toISOString().slice(0, 10); };
-                  const mondayIso = () => { const d = new Date(); const add = ((1 - d.getDay()) + 7) % 7 || 7; d.setDate(d.getDate() + add); d.setHours(12, 0, 0, 0); return d.toISOString().slice(0, 10); };
-                  const chips = [
-                    { label: "Aujourd'hui", iso: mk(0) },
-                    { label: "Demain", iso: mk(1) },
-                    { label: "Dans 2 j.", iso: mk(2) },
-                    { label: "Lundi proch.", iso: mondayIso() },
-                    { label: "Dans 1 sem.", iso: mk(7) },
-                    { label: "Dans 1 mois", iso: mk(30) },
-                  ];
-                  const isCustom = !!memoDue && !chips.some(c => c.iso === memoDue);
-                  const customLabel = isCustom ? new Date(memoDue + "T12:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "Autre…";
-                  return (
-                    <>
-                      {chips.map(({ label, iso }) => {
-                        const isSelected = memoDue === iso;
-                        return (
-                          <button key={label} onClick={() => setMemoDue(isSelected ? "" : iso)}
-                            style={{ padding: "8px 14px", borderRadius: "20px", border: isSelected ? "2px solid #111827" : "1px solid #e5e7eb", background: isSelected ? "#111827" : "white", color: isSelected ? "white" : "#374151", fontSize: "13px", fontWeight: isSelected ? 600 : 400, cursor: "pointer", fontFamily: "inherit" }}>
-                            {label}
-                          </button>
-                        );
-                      })}
-                      {/* Puce "Autre date" : ouvre le sélecteur natif et affiche la date choisie si hors présets */}
-                      <label style={{ position: "relative", padding: "8px 14px", borderRadius: "20px", border: isCustom ? "2px solid #111827" : "1px solid #e5e7eb", background: isCustom ? "#111827" : "white", color: isCustom ? "white" : "#374151", fontSize: "13px", fontWeight: isCustom ? 600 : 400, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: "5px" }}>
-                        📅 {customLabel}
-                        <input type="date" value={memoDue} onChange={e => setMemoDue(e.target.value)}
-                          style={{ position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", cursor: "pointer" }} />
-                      </label>
-                      {memoDue && (
-                        <button onClick={() => setMemoDue("")} aria-label="Retirer l'échéance"
-                          style={{ padding: "8px 12px", borderRadius: "20px", border: "1px solid #fee2e2", background: "white", color: "#ef4444", fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>
-                          ✕
-                        </button>
-                      )}
-                    </>
-                  );
-                })()}
-              </div>
-            </div>
-
-            {/* Rappel */}
-            <div>
-              <ReminderPicker
-                value={memoReminder || null}
-                onChange={iso => setMemoReminder(iso ?? "")}
-                repeat={memoRepeat}
-                onRepeatChange={setMemoRepeat}
-                defaultRepeat={reminderPolicy.repeatEnabled}
-                repeatLabel={describeRepeat(reminderPolicy)}
-              />
-            </div>
-
-            {/* Rattachement dossier */}
-            <div>
-              <p style={{ fontSize: "11px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Rattacher à un dossier <span style={{ fontWeight: 400, textTransform: "none", fontSize: "11px" }}>(optionnel)</span></p>
-              <input
-                value={memoCaseSearch}
-                onChange={e => setMemoCaseSearch(e.target.value)}
-                placeholder="Rechercher un dossier…"
-                style={{ width: "100%", fontSize: "15px", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "11px 16px", outline: "none", fontFamily: "inherit", background: "#f9fafb", color: "#374151", boxSizing: "border-box", marginBottom: "8px" }}
-              />
-              {memoCaseSearch.trim() && (
-                <div style={{ border: "1px solid #e5e7eb", borderRadius: "12px", overflow: "hidden", maxHeight: "180px", overflowY: "auto" }}>
-                  {cases.filter(c => c.title.toLowerCase().includes(memoCaseSearch.toLowerCase())).slice(0, 8).map(c => (
-                    <button key={c.id} onClick={() => { setMemoCaseId(c.id); setMemoCaseSearch(c.title); }}
-                      style={{ width: "100%", padding: "12px 16px", textAlign: "left", background: memoCaseId === c.id ? "#f0fdf4" : "white", border: "none", borderBottom: "1px solid #f3f4f6", fontSize: "14px", color: "#111827", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: "8px" }}>
-                      <span>📁</span> {c.title}
-                    </button>
+            <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
+              {doneMemos.length === 0 ? (
+                <p style={{ textAlign: "center", color: "#9ca3af", fontSize: "14px", padding: "24px 0" }}>Rien de réalisé ces derniers jours.</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  {doneMemos.map(memo => (
+                    <div key={memo.id}
+                      style={{ display: "flex", alignItems: "flex-start", gap: "10px", padding: "12px 14px", background: "white", border: "1px solid #e5e7eb", borderRadius: "12px" }}>
+                      <button onClick={() => uncompleteMemo(memo)}
+                        aria-label="Remettre à faire"
+                        title="Remettre à faire"
+                        style={{ width: "24px", height: "24px", borderRadius: "7px", border: "none", background: "#16a34a", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: "1px" }}>
+                        <Icon name="check" size={15} strokeWidth={2.5} style={{ color: "white" }} />
+                      </button>
+                      <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }}
+                        onClick={() => { setDoneOpen(false); openMemo(memo); }}>
+                        <p style={{ fontSize: "14.5px", color: "#6b7280", textDecoration: "line-through", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {memo.title}
+                        </p>
+                        <p style={{ fontSize: "11.5px", color: "#9ca3af", marginTop: "3px" }}>
+                          Fait le {formatDateFR(memo.doneAt)}
+                          {memo.caseId ? ` · ${cases.find(c => c.id === memo.caseId)?.title ?? ""}` : ""}
+                        </p>
+                      </div>
+                      <button onClick={() => deleteFloatingTasks(user.uid, [memo.id])}
+                        aria-label="Supprimer"
+                        style={{ width: "24px", height: "24px", border: "none", background: "transparent", color: "#d1d5db", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: "1px" }}>
+                        <Icon name="delete" size={15} />
+                      </button>
+                    </div>
                   ))}
-                  {cases.filter(c => c.title.toLowerCase().includes(memoCaseSearch.toLowerCase())).length === 0 && (
-                    <p style={{ padding: "12px 16px", fontSize: "13px", color: "#9ca3af" }}>Aucun dossier trouvé</p>
-                  )}
                 </div>
               )}
-              {memoCaseId && (
-                <button onClick={() => { setMemoCaseId(""); setMemoCaseSearch(""); }}
-                  style={{ marginTop: "6px", fontSize: "12px", color: "#ef4444", background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit" }}>
-                  ✕ Retirer le rattachement
-                </button>
-              )}
+              <p style={{ fontSize: "11.5px", color: "#9ca3af", textAlign: "center", marginTop: "16px", lineHeight: 1.5 }}>
+                Un mémo sans dossier s'efface définitivement<br />{MEMO_TTL_DAYS} jours après avoir été réalisé.
+              </p>
             </div>
-
-            {/* Bouton créer */}
-            <button
-              disabled={!memoText.trim()}
-              onClick={handleCreateMemo}
-              style={{ width: "100%", padding: "16px", borderRadius: "14px", border: "none", background: memoText.trim() ? "#111827" : "#e5e7eb", color: memoText.trim() ? "white" : "#9ca3af", fontSize: "16px", fontWeight: 700, cursor: memoText.trim() ? "pointer" : "not-allowed", fontFamily: "inherit", marginTop: "auto" }}>
-              Ajouter à Ma journée
-            </button>
           </div>
         </div>
       )}
+
+      {/* ── OÙ EN EST CETTE TÂCHE ? ── */}
+      {statusPrompt?.item && (() => {
+        const task = statusPrompt.item;
+        const unfinishedSubs = items.filter(i => i.parentItemId === task.id && i.status !== "Traité").length;
+        return (
+          <div style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}
+            onClick={() => setStatusPrompt(null)}>
+            <div style={{ background: "white", borderRadius: "16px", width: "100%", maxWidth: "360px", padding: "20px", boxShadow: "0 20px 60px rgba(0,0,0,0.28)" }}
+              onClick={e => e.stopPropagation()}>
+              <p style={{ fontSize: "11px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em" }}>Où en est cette tâche ?</p>
+              <p style={{ fontSize: "15px", fontWeight: 600, color: "#111827", margin: "6px 0 4px", lineHeight: 1.35 }}>{task.title}</p>
+              <p style={{ fontSize: "12px", color: "#9ca3af", marginBottom: "16px" }}>{caseOf(task)}</p>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                {STATUSES.map(s => {
+                  const isCurrent = task.status === s;
+                  const blocked = s === "Traité" && unfinishedSubs > 0;
+                  return (
+                    <button key={s} disabled={blocked}
+                      onClick={() => { if (!blocked) void handleStatusPromptChoice(statusPrompt, s); }}
+                      style={{ padding: "13px", borderRadius: "10px", border: isCurrent ? "2px solid #111827" : "1px solid #e5e7eb", background: isCurrent ? STATUS_COLORS[s] : "white", color: isCurrent ? STATUS_TEXT[s] : blocked ? "#d1d5db" : "#374151", fontSize: "14px", fontWeight: isCurrent ? 700 : 500, cursor: blocked ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: blocked ? 0.5 : 1 }}>
+                      {s}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {unfinishedSubs > 0 && (
+                <p style={{ fontSize: "11.5px", color: "#f59e0b", marginTop: "10px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                  <Icon name="warning" size={11} /> {unfinishedSubs} sous-tâche{unfinishedSubs > 1 ? "s" : ""} non traitée{unfinishedSubs > 1 ? "s" : ""}
+                </p>
+              )}
+
+              <p style={{ fontSize: "12px", color: "#9ca3af", marginTop: "14px", lineHeight: 1.45 }}>
+                La tâche quitte Ma journée et reste dans son dossier.
+              </p>
+              <button onClick={() => setStatusPrompt(null)}
+                style={{ width: "100%", marginTop: "12px", padding: "11px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "white", color: "#6b7280", fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>
+                Annuler
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── PANNEAU SUGGESTIONS (gauche) ── */}
       {suggestionsOpen && (
@@ -748,7 +838,7 @@ export default function MobileMyDay({ user }: { user: User }) {
               {/* Mémos à venir */}
               {(() => {
                 const upcoming = floatingTasks
-                  .filter(t => t.status !== "Traité" && t.dateKey && t.dateKey > todayKey)
+                  .filter(t => t.status !== "Traité" && !t.doneAt && t.dateKey && t.dateKey > todayKey)
                   .sort((a, b) => (a.dateKey ?? "").localeCompare(b.dateKey ?? ""));
                 if (upcoming.length === 0) return null;
                 const dayLabel = (dateKey: string) => {
@@ -761,7 +851,7 @@ export default function MobileMyDay({ user }: { user: User }) {
                     <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                       {upcoming.map(t => (
                         <div key={t.id}
-                          onClick={() => { setSuggestionsOpen(false); setDetailEntry({ selectionId: `f-${t.id}`, type: "floating", floating: t }); }}
+                          onClick={() => { setSuggestionsOpen(false); openMemo(t); }}
                           style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px 14px", background: "white", border: "1px solid #e5e7eb", borderRadius: "10px", cursor: "pointer" }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <p style={{ fontSize: "14px", fontWeight: 500, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.title}</p>
@@ -784,188 +874,8 @@ export default function MobileMyDay({ user }: { user: User }) {
           <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: "92vw", maxWidth: "420px", background: "white", boxShadow: "-4px 0 24px rgba(0,0,0,0.12)", display: "flex", flexDirection: "column" }}
             onClick={e => e.stopPropagation()}>
 
-            {detailEntry.floating ? (
-              /* ─── DÉTAIL MÉMO (post-it) ─── */
-              <>
-                {/* Header jaune */}
-                <div style={{ padding: "14px 16px", borderBottom: "1px solid #fde68a", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#fef9c3" }}>
-                  <p style={{ fontSize: "12px", fontWeight: 600, color: "#92400e", textTransform: "uppercase", letterSpacing: "0.08em" }}>Mémo</p>
-                  <button onClick={() => setDetailEntry(null)}
-                    style={{ width: "30px", height: "30px", border: "1px solid #fde68a", borderRadius: "8px", background: "rgba(255,255,255,0.7)", cursor: "pointer", color: "#92400e", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Icon name="close" size={16} />
-                  </button>
-                </div>
-
-                <div style={{ flex: 1, overflowY: "auto" }}>
-                  {/* Zone post-it haute : titre (avec étoile) + échéance */}
-                  <div style={{ background: "#fef9c3", borderBottom: "1px solid #fde68a", padding: "16px", display: "flex", flexDirection: "column", gap: "16px" }}>
-                    {/* Titre avec étoile à gauche */}
-                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                      <button onClick={() => {
-                        const newVal = !detailEntry.floating!.starred;
-                        updateFloatingTask(user.uid, detailEntry.floating!.id, { starred: newVal });
-                        setDetailEntry(prev => prev ? { ...prev, floating: { ...prev.floating!, starred: newVal } } : prev);
-                      }}
-                        style={{ flexShrink: 0, border: "none", background: "transparent", cursor: "pointer", padding: 0, lineHeight: 0, color: detailEntry.floating.starred ? "#f59e0b" : "#d6a96b" }}
-                        title={detailEntry.floating.starred ? "Retirer l'étoile" : "Marquer important"}>
-                        <Icon name="star" size={24} filled={!!detailEntry.floating.starred} strokeWidth={1.75} />
-                      </button>
-                      <input
-                        defaultValue={detailEntry.floating.title}
-                        onBlur={e => {
-                          const val = e.target.value.trim();
-                          if (!val) return;
-                          updateFloatingTask(user.uid, detailEntry.floating!.id, { title: val });
-                        }}
-                        placeholder="Sans titre"
-                        style={{
-                          flex: 1, minWidth: 0,
-                          fontSize: "18px", fontWeight: 600, color: "#451a03",
-                          background: "rgba(255,255,255,0.45)", border: "1px solid #fde68a", borderRadius: "8px",
-                          padding: "8px 12px", outline: "none", fontFamily: "inherit",
-                          lineHeight: 1.3,
-                        }}
-                      />
-                    </div>
-
-                    {/* Échéance avec calendrier à gauche */}
-                    <div>
-                      <p style={{ fontSize: "10px", fontWeight: 700, color: "#92400e", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Échéance</p>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "10px" }}>
-                        {[
-                          { label: "Auj.", days: 0 },
-                          { label: "Demain", days: 1 },
-                          { label: "2 j.", days: 2 },
-                          { label: "1 sem.", days: 7 },
-                          { label: "1 mois", days: 30 },
-                        ].map(({ label, days }) => {
-                          const d = new Date(); d.setDate(d.getDate() + days); d.setHours(12, 0, 0, 0);
-                          return (
-                            <button key={label} onClick={() => {
-                              const dk = d.toISOString().slice(0, 10) <= todayKey ? todayKey : d.toISOString().slice(0, 10);
-                              updateFloatingTask(user.uid, detailEntry.floating!.id, { dueDate: d.toISOString(), dateKey: dk });
-                              setDetailEntry(prev => prev ? { ...prev, floating: { ...prev.floating!, dueDate: d.toISOString(), dateKey: dk } } : prev);
-                            }}
-                              style={{ padding: "6px 12px", borderRadius: "20px", border: "1px solid #fde68a", background: "rgba(255,255,255,0.7)", color: "#92400e", fontSize: "12px", cursor: "pointer", fontFamily: "inherit" }}>
-                              {label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                        <button
-                          type="button"
-                          onClick={e => { const inp = (e.currentTarget.parentElement?.querySelector("input[type=date]") as any); if (inp?.showPicker) inp.showPicker(); else inp?.focus(); }}
-                          style={{ flexShrink: 0, border: "none", background: "transparent", cursor: "pointer", padding: 0, lineHeight: 0, color: "#92400e" }}
-                          title="Ouvrir le calendrier">
-                          <Icon name="calendar" size={20} />
-                        </button>
-                        <input type="date"
-                          value={detailEntry.floating?.dueDate?.slice(0, 10) ?? ""}
-                          onChange={e => {
-                            if (!e.target.value) {
-                              updateFloatingTask(user.uid, detailEntry.floating!.id, { dueDate: null });
-                              setDetailEntry(prev => prev ? { ...prev, floating: { ...prev.floating!, dueDate: null } } : prev);
-                              return;
-                            }
-                            const iso = new Date(e.target.value + "T12:00:00").toISOString();
-                            const dk = e.target.value <= todayKey ? todayKey : e.target.value;
-                            updateFloatingTask(user.uid, detailEntry.floating!.id, { dueDate: iso, dateKey: dk });
-                            setDetailEntry(prev => prev ? { ...prev, floating: { ...prev.floating!, dueDate: iso, dateKey: dk } } : prev);
-                          }}
-                          style={{ flex: 1, fontSize: "14px", border: "1px solid #fde68a", borderRadius: "8px", padding: "8px 12px", outline: "none", fontFamily: "inherit", background: "rgba(255,255,255,0.85)", color: "#451a03", boxSizing: "border-box" }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Rappel push */}
-                    <ReminderPicker
-                      value={detailEntry.floating.reminderAt}
-                      onChange={(iso) => {
-                        updateFloatingTask(user.uid, detailEntry.floating!.id, { reminderAt: iso, reminderSentAt: null, reminderCount: 0 });
-                        setDetailEntry(prev => prev ? { ...prev, floating: { ...prev.floating!, reminderAt: iso, reminderSentAt: null, reminderCount: 0 } } : prev);
-                      }}
-                      themeColor="#92400e"
-                      repeat={detailEntry.floating.reminderRepeat}
-                      onRepeatChange={(v) => {
-                        updateFloatingTask(user.uid, detailEntry.floating!.id, { reminderRepeat: v });
-                        setDetailEntry(prev => prev ? { ...prev, floating: { ...prev.floating!, reminderRepeat: v } } : prev);
-                      }}
-                      defaultRepeat={reminderPolicy.repeatEnabled}
-                      repeatLabel={describeRepeat(reminderPolicy)}
-                    />
-                  </div>
-                  <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "18px" }}>
-                    <div>
-                      <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Commentaires</p>
-                      <textarea
-                        defaultValue={detailEntry.floating.note ?? ""}
-                        onBlur={e => updateFloatingTask(user.uid, detailEntry.floating!.id, { note: e.target.value })}
-                        placeholder="Ajouter un commentaire…"
-                        rows={3}
-                        style={{ width: "100%", fontSize: "14px", border: "1.5px solid #d1d5db", borderRadius: "10px", padding: "10px 12px", resize: "none", outline: "none", fontFamily: "inherit", background: "white", color: "#374151", boxSizing: "border-box" }}
-                      />
-                    </div>
-
-                    <div>
-                      <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Rattacher à un dossier</p>
-                      <input
-                        value={memoCaseSearch}
-                        onChange={e => setMemoCaseSearch(e.target.value)}
-                        placeholder="Rechercher un dossier…"
-                        style={{ width: "100%", fontSize: "14px", border: "1.5px solid #d1d5db", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "white", color: "#374151", boxSizing: "border-box", marginBottom: "6px" }}
-                      />
-                      {memoCaseSearch.trim() && (
-                        <div style={{ border: "1px solid #e5e7eb", borderRadius: "10px", overflow: "hidden", maxHeight: "160px", overflowY: "auto" }}>
-                          {cases.filter(c => c.title.toLowerCase().includes(memoCaseSearch.toLowerCase())).slice(0, 6).map(c => (
-                            <button key={c.id} onClick={async () => {
-                              if (!detailEntry.floating) return;
-                              const floating = detailEntry.floating;
-                              setDetailEntry(null);
-                              setMemoCaseSearch("");
-                              const { createItem, addMyDaySelection, deleteFloatingTasks, createComment } = await import("@/lib/firestore");
-                              const newItemId = await createItem(user.uid, {
-                                caseId: c.id, level: 2, title: floating.title,
-                                status: floating.status ?? "Créé",
-                                starred: floating.starred ?? false,
-                                parentItemId: null, dueDate: floating.dueDate ?? null,
-                              });
-                              if (floating.note && floating.note.trim().length > 0) {
-                                try { await createComment(user.uid, { itemId: newItemId, body: floating.note, author: user.email ?? null }); }
-                                catch (err) { console.warn("[Mobile attach] copie commentaire échouée", err); }
-                              }
-                              const memoDateKey = floating.dateKey && floating.dateKey > todayKey ? floating.dateKey : todayKey;
-                              try {
-                                const newSelectionId = await addMyDaySelection(user.uid, { refType: "item", refId: newItemId, dateKey: memoDateKey, selectionDate: null, dateTs: null });
-                                setMyDaySelections(prev => [...prev, { id: newSelectionId, refType: "item", refId: newItemId, dateKey: memoDateKey }]);
-                              } catch (err) { console.error("[Mobile attach] addMyDaySelection a échoué", err); }
-                              await deleteFloatingTasks(user.uid, [floating.id]);
-                            }}
-                              style={{ width: "100%", padding: "10px 14px", textAlign: "left", background: "white", border: "none", borderBottom: "1px solid #f3f4f6", fontSize: "13px", color: "#111827", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: "8px" }}>
-                              <Icon name="folder" size={14} />
-                              {c.title}
-                            </button>
-                          ))}
-                          {cases.filter(c => c.title.toLowerCase().includes(memoCaseSearch.toLowerCase())).length === 0 && (
-                            <p style={{ padding: "10px 14px", fontSize: "13px", color: "#9ca3af" }}>Aucun dossier trouvé</p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Barre actions bas — fond blanc */}
-                <div style={{ borderTop: "1px solid #e5e7eb", padding: "12px 16px", display: "flex", gap: "8px", background: "white" }}>
-                  <button onClick={() => { removeEntry(detailEntry); setDetailEntry(null); }}
-                    style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid #fca5a5", background: "#fff1f2", color: "#dc2626", fontSize: "13px", fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
-                    <Icon name="delete" size={14} /> Supprimer le mémo
-                  </button>
-                </div>
-              </>
-            ) : (
-              /* ─── DÉTAIL TÂCHE ─── */
-              <>
+            {/* ─── DÉTAIL TÂCHE ─── (un mémo, lui, passe par MemoSheet) */}
+            <>
                 {/* Header */}
                 <div style={{ padding: "14px 16px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <p style={{ fontSize: "12px", fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em" }}>Tâche</p>
@@ -1122,8 +1032,7 @@ export default function MobileMyDay({ user }: { user: User }) {
                     Retirer de Ma journée
                   </button>
                 </div>
-              </>
-            )}
+            </>
           </div>
         </div>
       )}

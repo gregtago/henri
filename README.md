@@ -56,13 +56,24 @@ npm run dev
   - un **mémo** (`floatingTasks`) se *réalise* — une case à cocher, rien d'autre.
 - Un mémo peut être rattaché à un dossier (`floatingTasks.caseId`) ou libre : c'est le même
   objet, on le rattache et on le détache à volonté. Rattaché, il s'affiche sous les tâches
-  du dossier ; libre, il ne vit que dans Ma journée. Il ne compte jamais dans l'avancement.
+  du dossier — toujours avec sa case à cocher, jamais converti en tâche ; libre, il ne vit
+  que dans Ma journée. Il ne compte jamais dans l'avancement.
 - Sur desktop, un mémo se crée par une **fenêtre de saisie** (`M`, ou le bouton ☑ de la
   colonne Tâches) : titre, dossier, échéance, rappel, étoile, répétition et observations
   en un seul geste. Entrée crée, Échap annule. Un mémo avec une échéance future part
   directement au bon jour plutôt que dans la journée en cours.
-- **Cocher un mémo ne le supprime pas** : `floatingTasks.doneAt` marque le moment où il a été
-  fait, la ligne reste barrée en bas de Ma journée, et se décoche d'un clic.
+- Sur mobile, le **même écran** (`MemoSheet`) sert à créer et à modifier un mémo : mêmes
+  champs, seuls le titre et le bouton changent.
+- **Cocher un mémo** inscrit `floatingTasks.doneAt` et le fait quitter Ma journée — desktop et
+  mobile. On le retrouve derrière le lien « n mémos réalisés » en bas de la colonne, d'où on
+  peut le rouvrir ou le décocher. Dans son dossier, en revanche, il reste affiché, barré.
+- **Cocher une tâche dans Ma journée (mobile)** ouvre une question — « Où en est cette tâche ? »,
+  les quatre statuts — puis la tâche quitte la journée et reste dans son dossier.
+- **Un mémo réalisé et non rattaché s'efface au bout de 7 jours** (`src/lib/memos.ts`), comptés
+  depuis sa réalisation. Un mémo **non coché ne disparaît jamais**, quel que soit son âge ; un
+  mémo rattaché à un dossier ni un mémo récurrent non plus.
+- Le détail d'un mémo est le même partout (`MemoDetail` sur desktop) : on l'ouvre en cliquant
+  son texte, depuis Ma journée comme depuis la colonne Tâches de son dossier.
 - La vue Calendrier (`/calendrier`) affiche trois bandes, dans l'ordre du cycle d'une tâche :
   « à faire » (ce qu'on réalise ce jour-là), « j'attends » (les demandes sans réponse, en barres
   de durée), « échéances » (ce qui tombe). Une tâche « Traité » quitte les trois bandes et

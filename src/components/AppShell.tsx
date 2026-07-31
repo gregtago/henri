@@ -57,10 +57,12 @@ import {
   toDate
 } from "@/lib/dates";
 import { getProgressLevel, getProgressStageLabel } from "@/lib/progress";
+import { listRecentlyDoneMemos, purgeExpiredMemos } from "@/lib/memos";
 import { resolveDelai, latestLaunchDate } from "@/lib/delais";
 import type { Case, CaseTemplate, Comment, Event, FloatingTask, Item, MyDaySelection, Status } from "@/lib/types";
 import { STATUSES } from "@/lib/types";
 import { RecurrencePicker } from "./RecurrencePicker";
+import MemoDetail from "./MemoDetail";
 import { Icon } from "./Icon";
 import InstallButton from "./InstallButton";
 import CaseTemplatesModal from "./CaseTemplatesModal";
@@ -114,6 +116,11 @@ type DetailTarget =
       type: "item";
       id: string;
     }
+  | {
+      // Un mémo rattaché, ouvert depuis la colonne Tâches de son dossier.
+      type: "memo";
+      id: string;
+    }
   | null;
 
 type ParentOption = {
@@ -138,6 +145,7 @@ export default function AppShell() {
   const [pendingRemovalIds, setPendingRemovalIds] = useState<Set<string>>(new Set());
   const [completingFloatingIds, setCompletingFloatingIds] = useState<Set<string>>(new Set());
   const [upcomingExpanded, setUpcomingExpanded] = useState(false);
+  const [doneMemosExpanded, setDoneMemosExpanded] = useState(false);
   const [notifStatus, setNotifStatus] = useState<"unknown" | "granted" | "denied" | "default" | "unsupported">("unknown");
 
   // Vérifier l'état des notifs au montage + rafraîchir le token si déjà accordé
@@ -342,6 +350,19 @@ export default function AppShell() {
       unsubTemplates();
     };
   }, [user, startOfWindow]);
+
+  // Un mémo libre s'efface au bout de 7 jours (voir src/lib/memos.ts). La règle
+  // est celle du modèle, pas celle d'un écran : on balaie ici aussi.
+  const memosLoaded = floatingTasks.length > 0;
+  useEffect(() => {
+    if (!user || !memosLoaded) return;
+    purgeExpiredMemos(user.uid, floatingTasks).catch(err =>
+      console.warn("[AppShell] purge des mémos échouée", err)
+    );
+    // Au montage seulement : rejouer à chaque snapshot relancerait la
+    // suppression en boucle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, memosLoaded]);
 
   // ── Visite guidée & pas à pas ──
   const cleanupDemoCase = useCallback(async () => {
@@ -573,6 +594,7 @@ export default function AppShell() {
 
   const detailItem = detailTarget?.type === "item" ? items.find((entry) => entry.id === detailTarget.id) ?? null : null;
   const detailCase = detailTarget?.type === "case" ? cases.find((entry) => entry.id === detailTarget.id) ?? null : null;
+  const detailMemo = detailTarget?.type === "memo" ? floatingTasks.find((entry) => entry.id === detailTarget.id) ?? null : null;
   const detailComments = detailItem ? comments.filter((comment) => comment.itemId === detailItem.id).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) : [];
   const detailEvents = detailItem ? events.filter((event) => event.itemId === detailItem.id) : [];
   const reparentTarget = reparentTargetId ? items.find((entry) => entry.id === reparentTargetId) ?? null : null;
@@ -635,7 +657,7 @@ export default function AppShell() {
     const reminderKey = getDateKeyFromValue(item.lastReminderAt);
     return reminderKey !== todayKey;
   });
-  const showDetailColumn = Boolean(detailTarget && (detailCase || detailItem));
+  const showDetailColumn = Boolean(detailTarget && (detailCase || detailItem || detailMemo));
   const showCasesColumn = true;
   const showItemsColumn = Boolean(selectedCase);
   // Colonne sous-tâches visible dès qu'une tâche N2 est sélectionnée (même sans enfants)
@@ -657,8 +679,13 @@ export default function AppShell() {
 
   // Sync myDayDetailId → detailTarget pour le panneau détail dossier/tâche
   useEffect(() => {
+    // `myDayDetailId` n'a de sens que dans Ma journée. Ailleurs (colonne
+    // Tâches d'un dossier), la sélection appartient au finder — sans ce
+    // garde-fou, un `myDayDetailId` resté d'une visite précédente écraserait
+    // le détail ouvert au premier snapshot Firestore venu.
+    if (!isMyDay) return;
     if (!myDayDetailId || myDayDetailId.startsWith("f-")) {
-      if (isMyDay) setDetailTarget(null);
+      setDetailTarget(null);
       return;
     }
     // 1) Essayer comme selectionId (cas courant : sélection Ma journée)
@@ -752,7 +779,17 @@ export default function AppShell() {
   };
 
   // ── TÂCHES DU JOUR — tri priorité ─────────────────────────────────────────
-  const todayFloating = floatingTasks.filter(t => t.status !== "Traité" && t.dateKey != null && t.dateKey <= todayKey);
+  // Un mémo réalisé quitte la journée : ce qui est fait n'a plus à l'occuper.
+  // Il reste affiché le temps de l'animation de complétion, puis se retrouve
+  // derrière le lien « réalisés » en bas de la colonne.
+  const todayFloating = floatingTasks.filter(t =>
+    t.status !== "Traité" &&
+    t.dateKey != null && t.dateKey <= todayKey &&
+    (!t.doneAt || completingFloatingIds.has(t.id))
+  );
+
+  // Les mémos réalisés récemment — ceux que le lien du bas rouvre.
+  const doneMemos = useMemo(() => listRecentlyDoneMemos(floatingTasks), [floatingTasks]);
 
   // Construire la liste unifiée triée pour Ma journée (tâches de dossier + mémos flottants)
   const myDayCombined = useMemo(() => {
@@ -774,7 +811,7 @@ export default function AppShell() {
       removeBtn: React.ReactNode | null;
       floatingId?: string;
       selectionId?: string;
-      done: boolean;   // mémo coché : reste affiché, mais en fin de liste
+      done: boolean;   // mémo coché — vrai le temps de l'animation, puis la ligne sort
     };
 
     const startOfToday = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); })();
@@ -874,7 +911,7 @@ export default function AppShell() {
 
     const all = [...itemEntries, ...floatingEntries];
     all.sort((a, b) => {
-      // Ce qui est fait passe en dernier — visible, mais plus dans le chemin.
+      // Ce qui vient d'être coché descend, le temps de disparaître.
       if (a.done !== b.done) return a.done ? 1 : -1;
       const ba = bucket(a), bb = bucket(b);
       if (ba !== bb) return ba - bb;
@@ -918,7 +955,7 @@ export default function AppShell() {
 
   const upcoming = useMemo<UpcomingEntry[]>(() => {
     const upcomingFloating: UpcomingEntry[] = floatingTasks
-      .filter(t => t.status !== "Traité" && t.dateKey && t.dateKey > todayKey)
+      .filter(t => t.status !== "Traité" && !t.doneAt && t.dateKey && t.dateKey > todayKey)
       .map(t => ({ kind: "floating", id: t.id, title: t.title, dateKey: t.dateKey! }));
 
     const todaySelectionRefIds = new Set(
@@ -2242,6 +2279,27 @@ export default function AppShell() {
 
   // ── DETAIL PANEL ─────────────────────────────────────────────────────────
 
+  // Un mémo ouvert depuis la colonne Tâches de son dossier : même détail que
+  // dans Ma journée, puisque c'est le même objet.
+  const memoDetailPanel = showDetailColumn && detailMemo ? (
+    <section className="finder-detail" style={{ boxShadow: "-3px 0 12px rgba(0,0,0,0.06)" }}>
+      <MemoDetail
+        task={detailMemo}
+        cases={cases}
+        onPatch={patch => user && updateFloatingTask(user.uid, detailMemo.id, patch)}
+        onDueDate={date => handleFloatingDueDate(detailMemo.id, date)}
+        onAttach={caseId => handleAttachFloating(detailMemo, caseId)}
+        onToggleDone={() => handleToggleFloatingDone(detailMemo)}
+        onDelete={() => {
+          if (user) deleteFloatingTasks(user.uid, [detailMemo.id]);
+          setDetailTarget(null);
+        }}
+        defaultRepeat={reminderPolicy.repeatEnabled}
+        repeatLabel={describeRepeat(reminderPolicy)}
+      />
+    </section>
+  ) : null;
+
   const detailPanel = showDetailColumn && (detailItem || detailCase) ? (
     <section className="finder-detail" style={{boxShadow: "-3px 0 12px rgba(0,0,0,0.06)"}}>
       <div className="finder-header">
@@ -3234,8 +3292,9 @@ export default function AppShell() {
                         <div
                           key={memo.id}
                           className="finder-row"
+                          data-active={detailTarget?.type === "memo" && detailTarget.id === memo.id ? "true" : undefined}
                           style={{ opacity: done ? 0.45 : 1 }}
-                          onClick={() => setMyDayDetailId(memo.id)}
+                          onClick={() => { setActiveColumn("items"); setDetailTarget({ type: "memo", id: memo.id }); }}
                         >
                           <button
                             className="shrink-0 cursor-pointer flex items-center justify-center transition-all duration-200"
@@ -3352,8 +3411,8 @@ export default function AppShell() {
             </div>
           )}
 
-          {/* ── PANNEAU DÉTAIL ── */}
-          {detailPanel}
+          {/* ── PANNEAU DÉTAIL ── (tâche, dossier… ou mémo) */}
+          {memoDetailPanel ?? detailPanel}
 
           {/* Spacer pour coller la bande à droite si pas de détail (desktop) */}
           {!showDetailColumn && <div className="flex-1 hidden md:block" />}
@@ -3689,6 +3748,61 @@ export default function AppShell() {
               )}
             </div>
 
+            {/* ── Mémos réalisés ── Ce qui est fait sort de la liste, mais
+                 doit rester à portée de clic : on doit pouvoir revoir sa
+                 journée, et se déjuger si on a coché trop vite. */}
+            {doneMemos.length > 0 && (
+              <div className="border-t border-border bg-bg px-3 py-2 relative">
+                <button
+                  onClick={() => setDoneMemosExpanded(p => !p)}
+                  className="inline-flex items-center gap-1.5 text-[12px] font-[inherit] bg-transparent border-none text-tx-3 cursor-pointer hover:text-tx transition-colors p-0"
+                >
+                  <Icon name="check" size={13} strokeWidth={2} />
+                  {doneMemos.length} mémo{doneMemos.length > 1 ? "s" : ""} réalisé{doneMemos.length > 1 ? "s" : ""}
+                </button>
+
+                {doneMemosExpanded && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setDoneMemosExpanded(false)} />
+                    <div
+                      className="absolute left-2 right-2 bottom-full mb-1 max-h-[360px] overflow-y-auto bg-white border border-border-strong rounded-lg z-20"
+                      style={{ boxShadow: "0 -8px 24px rgba(0,0,0,0.12)" }}
+                    >
+                      <div className="px-3 py-2 border-b border-border flex items-center justify-between">
+                        <span className="text-[10px] font-medium text-tx-3 uppercase tracking-wide">Réalisés · {doneMemos.length}</span>
+                        <button
+                          onClick={() => setDoneMemosExpanded(false)}
+                          className="border-none bg-transparent cursor-pointer text-tx-3 hover:text-tx p-0 leading-none"
+                          title="Fermer"
+                        ><Icon name="close" size={14} /></button>
+                      </div>
+                      <div className="px-2 py-1">
+                        {doneMemos.map(memo => (
+                          <div key={memo.id}
+                            className="flex items-center gap-3 py-2 px-2.5 rounded hover:bg-bg-subtle cursor-pointer"
+                            onClick={() => { setMyDayDetailId(`f-${memo.id}`); setDoneMemosExpanded(false); }}>
+                            <button
+                              className="shrink-0 cursor-pointer flex items-center justify-center"
+                              onClick={e => { e.stopPropagation(); handleToggleFloatingDone(memo); }}
+                              title="Remettre à faire"
+                              style={{ width: "18px", height: "18px", borderRadius: "5px", border: "none", background: "#16a34a" }}
+                            ><Icon name="check" size={12} className="text-white" strokeWidth={2.5} /></button>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[14px] text-tx-3 truncate leading-snug line-through">{memo.title}</p>
+                            </div>
+                            <span className="text-[12px] text-tx-3 shrink-0">{formatDateFR(memo.doneAt)}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="px-3 py-2 text-[11px] text-tx-3 border-t border-border leading-snug">
+                        Un mémo sans dossier s'efface définitivement 7 jours après avoir été réalisé.
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
             {/* ── Saisie mémo en bas ── */}
             <div className="border-t border-border bg-bg p-3">
               <div className="flex items-center gap-2 bg-white border border-border-strong rounded-lg px-3 py-2 transition-colors focus-within:border-tx-2">
@@ -3721,179 +3835,18 @@ export default function AppShell() {
                   const task = floatingTasks.find(t => t.id === targetId);
                   if (!task) return null;
                   return (
-                    <>
-                      {/* Header — fond post-it jaune */}
-                      <div className="finder-header" style={{ background: "#fef9c3", borderBottom: "1px solid #fde68a" }}>
-                        <span className="text-[11px] font-medium uppercase tracking-widest" style={{ color: "#92400e" }}>Mémo</span>
-                      </div>
-
-                      <div className="flex-1 overflow-y-auto" style={{ scrollbarColor: "#fde68a transparent" }}>
-                        {/* Zone post-it : titre + échéance */}
-                        <div style={{ background: "#fef9c3", borderBottom: "1px solid #fde68a" }} className="px-5 pt-5 pb-4 space-y-4">
-                          {/* Titre avec étoile à gauche */}
-                          <div className="flex items-center gap-3">
-                            <button
-                              onClick={() => updateFloatingTask(user.uid, task.id, { starred: !task.starred })}
-                              className="shrink-0 border-none bg-transparent cursor-pointer p-0 leading-none transition-all hover:scale-110"
-                              style={{ color: task.starred ? "#f59e0b" : "#d6a96b" }}
-                              title={task.starred ? "Retirer l'étoile" : "Marquer important"}
-                            >
-                              <Icon name="star" size={26} filled={task.starred} strokeWidth={1.75} />
-                            </button>
-                            <EditableInput
-                              key={task.id}
-                              ref={myDayTitleRef}
-                              className="block flex-1 min-w-0 font-[inherit] text-[20px] font-semibold text-[#451a03] placeholder:text-[#a16207] outline-none transition-all"
-                              style={{
-                                lineHeight: 1.3,
-                                background: "rgba(255,255,255,0.45)",
-                                border: "1px solid #fde68a",
-                                borderRadius: "6px",
-                                padding: "6px 10px",
-                              }}
-                              onFocus={e => {
-                                e.currentTarget.style.background = "white";
-                                e.currentTarget.style.borderColor = "#f59e0b";
-                                e.currentTarget.style.boxShadow = "0 1px 4px rgba(245,158,11,0.15)";
-                              }}
-                              onBlurCapture={e => {
-                                e.currentTarget.style.background = "rgba(255,255,255,0.45)";
-                                e.currentTarget.style.borderColor = "#fde68a";
-                                e.currentTarget.style.boxShadow = "none";
-                              }}
-                              placeholder="Sans titre"
-                              value={task.title}
-                              onCommit={next => updateFloatingTask(user.uid, task.id, { title: next })}
-                              onKeyDown={e => {
-                                if (e.key === "Enter") { e.stopPropagation(); (e.target as HTMLInputElement).blur(); }
-                              }}
-                            />
-                          </div>
-
-                          {/* Échéance */}
-                          <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: "#92400e" }}>Échéance</p>
-                            <div className="flex flex-wrap gap-1.5 mb-2">
-                              {(() => {
-                                const today = new Date(); today.setHours(12,0,0,0);
-                                const nextMon = (() => { const d = new Date(today); const dow = d.getDay(); const diff = (1-dow+7)%7||7; d.setDate(d.getDate()+diff); return d; })();
-                                const nextMonLabel = "Lun. " + nextMon.getDate() + "/" + (nextMon.getMonth()+1);
-                                return [
-                                  { label: "Aujourd'hui", date: new Date(today) },
-                                  { label: "Demain", date: new Date(today.getTime() + 86400000) },
-                                  { label: "Dans 2 j.", date: new Date(today.getTime() + 2*86400000) },
-                                  { label: nextMonLabel, date: nextMon },
-                                  { label: "Dans 1 sem.", date: new Date(today.getTime() + 7*86400000) },
-                                  { label: "Dans 1 mois", date: new Date(today.getFullYear(), today.getMonth()+1, today.getDate(), 12) },
-                                ].map(({ label, date }) => (
-                                  <button key={label} onClick={() => handleFloatingDueDate(task.id, date)}
-                                    className="text-[11px] font-[inherit] px-2 py-1 rounded border cursor-pointer transition-colors"
-                                    style={{ background: "rgba(255,255,255,0.7)", borderColor: "#fde68a", color: "#92400e" }}>
-                                    {label}
-                                  </button>
-                                ));
-                              })()}
-                              {task.dueDate && (
-                                <button onClick={() => updateFloatingTask(user.uid, task.id, { dueDate: null })}
-                                  className="text-[11px] font-[inherit] px-2 py-1 rounded border cursor-pointer transition-colors"
-                                  style={{ background: "rgba(255,255,255,0.7)", borderColor: "#fca5a5", color: "#dc2626" }}>
-                                  ✕ Retirer
-                                </button>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={e => { const inp = (e.currentTarget.parentElement?.querySelector("input[type=date]") as any); if (inp?.showPicker) inp.showPicker(); else inp?.focus(); }}
-                                className="shrink-0 border-none bg-transparent cursor-pointer p-0 leading-none transition-opacity hover:opacity-70"
-                                style={{ color: "#92400e" }}
-                                title="Ouvrir le calendrier"
-                              ><Icon name="calendar" size={20} /></button>
-                              <input key={task.id + "-due"} type="date"
-                                className="font-[inherit] text-[13px] rounded-lg px-3 py-1.5 outline-none flex-1 border"
-                                style={{ background: "rgba(255,255,255,0.85)", borderColor: "#fde68a", color: "#451a03" }}
-                                defaultValue={task.dueDate?.slice(0,10) ?? ""}
-                                onBlur={e => { if (!e.target.value) { updateFloatingTask(user.uid, task.id, { dueDate: null, dateKey: todayKey }); return; } const [y,m,d] = e.target.value.split("-").map(Number); if (y < 1900 || y > 2100) return; handleFloatingDueDate(task.id, new Date(y,m-1,d,12)); }} />
-                            </div>
-                          </div>
-
-                          {/* Rappel push */}
-                          <ReminderPicker
-                            value={task.reminderAt}
-                            onChange={iso => updateFloatingTask(user.uid, task.id, { reminderAt: iso, reminderSentAt: null, reminderCount: 0 })}
-                            themeColor="#92400e"
-                            repeat={task.reminderRepeat}
-                            onRepeatChange={v => updateFloatingTask(user.uid, task.id, { reminderRepeat: v })}
-                            defaultRepeat={reminderPolicy.repeatEnabled}
-                            repeatLabel={describeRepeat(reminderPolicy)}
-                          />
-                        </div>
-
-                        {/* Zone blanche : récurrence, rattacher, commentaires */}
-                        <div className="px-5 py-5 space-y-4">
-                          {/* Récurrence — hauteur min pour éviter que la section suivante bouge à l'activation */}
-                          <div style={{ minHeight: "120px" }}>
-                            <RecurrencePicker value={task.recurrence ?? null} onChange={r => updateFloatingTask(user.uid, task.id, { recurrence: r ?? null })} />
-                          </div>
-
-                          {/* Rattachement — le mémo est le même objet, avec ou
-                            * sans dossier. On le pose, on le retire. */}
-                          <div>
-                            <div className="flex items-baseline gap-2 mb-1.5">
-                              <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest">Dossier</p>
-                              {task.caseId && (
-                                <button
-                                  onClick={() => handleAttachFloating(task, null)}
-                                  className="ml-auto text-[10px] font-[inherit] bg-transparent border-none text-tx-3 cursor-pointer hover:text-tx transition-colors"
-                                >Détacher</button>
-                              )}
-                            </div>
-                            {task.caseId && (
-                              <p className="text-[13px] text-tx mb-2">
-                                {cases.find(c => c.id === task.caseId)?.title ?? "Dossier introuvable"}
-                              </p>
-                            )}
-                            <div className="space-y-1.5">
-                              <input type="text" placeholder="Rechercher un dossier…"
-                                value={dossierSearch} onChange={e => setDossierSearch(e.target.value)}
-                                className="font-[inherit] text-[13px] text-tx bg-white border border-border-strong rounded-lg px-3 py-1.5 outline-none w-full focus:border-tx-2 transition-colors placeholder:text-tx-3"
-                              />
-                              {dossierSearch && (
-                                <div className="border border-border rounded-lg overflow-hidden max-h-[160px] overflow-y-auto">
-                                  {cases.filter(c => c.title.toLowerCase().includes(dossierSearch.toLowerCase())).length === 0
-                                    ? <p className="text-[12px] text-tx-3 px-3 py-2">Aucun dossier trouvé</p>
-                                    : cases.filter(c => c.title.toLowerCase().includes(dossierSearch.toLowerCase())).map(c => (
-                                      <button key={c.id}
-                                        className="w-full text-left font-[inherit] text-[13px] text-tx px-3 py-2 bg-transparent border-none cursor-pointer hover:bg-bg-subtle transition-colors border-b border-border last:border-0"
-                                        onClick={() => { handleAttachFloating(task, c.id); setDossierSearch(""); }}>
-                                        {c.title}
-                                      </button>
-                                    ))}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Commentaires */}
-                          <div>
-                            <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1.5">Commentaires</p>
-                            <textarea
-                              className="font-[inherit] text-[13px] text-tx bg-white border border-border-strong rounded-lg px-3 py-2 outline-none w-full resize-none focus:border-tx-2 transition-colors"
-                              rows={4} placeholder="Ajouter un commentaire…"
-                              defaultValue={task.note ?? ""}
-                              onBlur={e => updateFloatingTask(user.uid, task.id, { note: e.target.value || null })}
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Barre actions bas — fond blanc pour cohérence avec la zone blanche du détail mémo */}
-                      <div className="detail-actions-bar" style={{ background: "white" }}>
-                        <button className="detail-action-btn detail-action-danger" onClick={() => { deleteFloatingTasks(user.uid, [task.id]); setMyDayDetailId(null); }}>
-                          <Icon name="delete" size={14} /> Supprimer
-                        </button>
-                      </div>
-                    </>
+                    <MemoDetail
+                      task={task}
+                      cases={cases}
+                      titleRef={myDayTitleRef}
+                      onPatch={patch => updateFloatingTask(user.uid, task.id, patch)}
+                      onDueDate={date => handleFloatingDueDate(task.id, date)}
+                      onAttach={caseId => handleAttachFloating(task, caseId)}
+                      onToggleDone={() => handleToggleFloatingDone(task)}
+                      onDelete={() => { deleteFloatingTasks(user.uid, [task.id]); setMyDayDetailId(null); }}
+                      defaultRepeat={reminderPolicy.repeatEnabled}
+                      repeatLabel={describeRepeat(reminderPolicy)}
+                    />
                   );
                 }
                                 /* Détail tâche de dossier */
