@@ -14,6 +14,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { Case, Item, Recurrence } from "@/lib/types";
+import { atDueHour, getDueSuggestions } from "@/lib/dates";
 import { Icon } from "./Icon";
 import { ReminderPicker } from "./ReminderPicker";
 import { RecurrencePicker } from "./RecurrencePicker";
@@ -24,7 +25,7 @@ export type MemoDraft = {
   caseId: string | null;
   /** Tâche sous laquelle le mémo est posé — null = au niveau du dossier. */
   parentItemId: string | null;
-  /** ISO, midi local — null si pas d'échéance. */
+  /** ISO, à l'heure des échéances — null si pas d'échéance. */
   dueDate: string | null;
   reminderAt: string | null;
   reminderRepeat: boolean | null;
@@ -75,26 +76,11 @@ const dayKeyOf = (iso: string | null) => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 };
 
-/** Une clé de date (AAAA-MM-JJ) → ISO à midi, pour ne jamais glisser d'un jour. */
+/** Une clé de date (AAAA-MM-JJ) → ISO à l'heure des échéances (voir src/lib/dates.ts). */
 const noonOf = (dayKey: string) => {
   const [year, month, day] = dayKey.split("-").map(Number);
   if (!year || !month || !day) return null;
-  return new Date(year, month - 1, day, 12, 0, 0, 0).toISOString();
-};
-
-const inDays = (days: number) => {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  date.setHours(12, 0, 0, 0);
-  return date;
-};
-
-const nextMonday = () => {
-  const date = new Date();
-  const add = ((1 - date.getDay()) + 7) % 7 || 7;
-  date.setDate(date.getDate() + add);
-  date.setHours(12, 0, 0, 0);
-  return date;
+  return atDueHour(new Date(year, month - 1, day)).toISOString();
 };
 
 export default function MemoSheet({
@@ -146,14 +132,7 @@ export default function MemoSheet({
   };
 
   const dueDayKey = dayKeyOf(draft.dueDate);
-  const chips = [
-    { label: "Aujourd'hui", date: inDays(0) },
-    { label: "Demain", date: inDays(1) },
-    { label: "Dans 2 j.", date: inDays(2) },
-    { label: "Lundi proch.", date: nextMonday() },
-    { label: "Dans 1 sem.", date: inDays(7) },
-    { label: "Dans 1 mois", date: inDays(30) },
-  ].map((chip) => ({ ...chip, key: dayKeyOf(chip.date.toISOString()) }));
+  const chips = getDueSuggestions().map((chip) => ({ ...chip, key: dayKeyOf(chip.date.toISOString()) }));
   const isCustomDue = !!dueDayKey && !chips.some((chip) => chip.key === dueDayKey);
 
   return (

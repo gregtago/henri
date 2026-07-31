@@ -20,7 +20,7 @@ import {
   logStatusEvent,
 } from "@/lib/firestore";
 import type { Item, Case, FloatingTask, MyDaySelection, Recurrence, Status } from "@/lib/types";
-import { getTodayKey, getDateKeyFromValue, formatDateFR } from "@/lib/dates";
+import { getTodayKey, getDateKeyFromValue, formatDateFR, atDueHour, getDueSuggestions } from "@/lib/dates";
 import { getProgressLevel } from "@/lib/progress";
 import { countOpenChildren, describeOpenChildren, getCompletion, isContainer } from "@/lib/completion";
 import { MEMO_TTL_DAYS, listRecentlyDoneMemos, purgeExpiredMemos } from "@/lib/memos";
@@ -1107,21 +1107,12 @@ export default function MobileMyDay({ user }: { user: User }) {
                   <div>
                     <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Échéance</p>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "10px" }}>
-                      {[
-                        { label: "Auj.", days: 0 },
-                        { label: "Demain", days: 1 },
-                        { label: "2 j.", days: 2 },
-                        { label: "1 sem.", days: 7 },
-                        { label: "1 mois", days: 30 },
-                      ].map(({ label, days }) => {
-                        const d = new Date(); d.setDate(d.getDate() + days); d.setHours(12, 0, 0, 0);
-                        return (
-                          <button key={label} onClick={() => patchDue(d.toISOString())}
-                            style={{ padding: "6px 12px", borderRadius: "20px", border: "1px solid #e5e7eb", background: "white", color: "#374151", fontSize: "12px", cursor: "pointer", fontFamily: "inherit" }}>
-                            {label}
-                          </button>
-                        );
-                      })}
+                      {getDueSuggestions().map(({ label, date }) => (
+                        <button key={label} onClick={() => patchDue(date.toISOString())}
+                          style={{ padding: "6px 12px", borderRadius: "20px", border: "1px solid #e5e7eb", background: "white", color: "#374151", fontSize: "12px", cursor: "pointer", fontFamily: "inherit" }}>
+                          {label}
+                        </button>
+                      ))}
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                       <button
@@ -1135,7 +1126,7 @@ export default function MobileMyDay({ user }: { user: User }) {
                         value={(dueDate ?? "").slice(0, 10)}
                         onChange={e => {
                           if (!e.target.value) { patchDue(null); return; }
-                          patchDue(new Date(e.target.value + "T12:00:00").toISOString());
+                          patchDue(atDueHour(new Date(e.target.value + "T00:00:00")).toISOString());
                         }}
                         style={{ flex: 1, fontSize: "14px", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "#f9fafb", color: "#374151", boxSizing: "border-box" }}
                       />

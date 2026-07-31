@@ -101,6 +101,12 @@ La règle vit dans `updateItemProgress` (`src/lib/firestore.ts`), le seul chemin
 
 Un mémo, lui, garde son échéance quand on le coche : il reste consultable tel qu'on l'a laissé, et disparaîtra de lui-même.
 
+#### Les propositions d'échéance
+
+Les mêmes six propositions partout où l'on pose une échéance — détail d'une tâche, détail d'un mémo, fenêtre de création, mobile : **Aujourd'hui · Demain · Dans 2 j. · Lundi 9 h · Dans 1 sem. · Dans 1 mois** (le dossier, dont l'échéance légale se compte en mois, y ajoute 3 et 6 mois). Elles vivent dans `getDueSuggestions` (`src/lib/dates.ts`), et nulle part ailleurs : recopiées dans cinq écrans, elles avaient fini par diverger, et « lundi prochain » manquait là où on en avait le plus besoin.
+
+**Toutes tombent à 9 h**, l'heure à laquelle on ouvre le dossier — y compris la date saisie à la main. Une échéance n'est pas un rendez-vous : ce qui compte est le jour, mais l'heure doit être tôt et la même partout, sinon deux échéances du même jour ne se comparent pas. Corollaire : « en retard » se compte en **jours**, jamais en heures — une échéance posée pour aujourd'hui ne vire pas au rouge à 9 h 01.
+
 N'inventer ni troisième nature ni statut intermédiaire : si un objet ne rentre dans aucune des deux cases, c'est la définition qu'il faut revoir, pas le modèle qu'il faut étendre. Le contenant n'en est pas une : c'est une tâche dans une certaine situation, et rien n'est stocké pour lui.
 
 ---
