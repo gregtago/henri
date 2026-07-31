@@ -74,6 +74,7 @@ import { Icon } from "./Icon";
 import InstallButton from "./InstallButton";
 import CaseTemplatesModal from "./CaseTemplatesModal";
 import MemoComposer, { type MemoDraft } from "./MemoComposer";
+import MemoSwitch from "./MemoSwitch";
 import GuidedTour, { type TourStep } from "./GuidedTour";
 import { EditableInput, EditableTextarea } from "./EditableField";
 import { ReminderPicker } from "./ReminderPicker";
@@ -89,7 +90,7 @@ const TOUR_STEPS: TourStep[] = [
   { selector: '[data-tour="nav"]', title: "Deux espaces", body: "« Dossiers » regroupe tous vos dossiers et leurs tâches. « Ma journée » est votre plan de travail du jour, où vous extrayez les tâches à faire aujourd'hui." },
   { selector: '[data-tour="cases-actions"]', title: "Trier vos dossiers", body: "Le menu déroulant trie vos dossiers — par nom, échéance, ou « Charge restante » (qui remonte ceux où il reste le plus à faire)." },
   { selector: '[data-tour="cases-list"]', title: "Avancement en un coup d'œil", body: "Chaque dossier affiche 4 petits nombres colorés : le nombre de tâches et sous-tâches par statut — Créé, Demandé, Reçu, Traité." },
-  { title: "Tâches & sous-tâches", body: "Sélectionnez un dossier pour afficher ses Tâches (niveau 2), puis une tâche pour ses Sous-tâches (niveau 3). Créez une tâche avec T, une sous-tâche avec Maj+T, un mémo avec M, et faites avancer le statut avec les touches 1 à 4." },
+  { title: "Tâches & sous-tâches", body: "Sélectionnez un dossier pour afficher ses Tâches (niveau 2), puis une tâche pour ses Sous-tâches (niveau 3). Créez une tâche avec T, une sous-tâche avec Maj+T, un mémo avec M, un mémo sous la tâche sélectionnée avec Maj+M, et faites avancer le statut avec les touches 1 à 4." },
   { selector: '[data-tour="new-case"]', title: "Créer un dossier", body: "Le bouton + propose un dossier vierge ou un modèle. Un modèle d'exemple « Vente immobilière » est déjà intégré. Depuis un dossier, « Enregistrer comme modèle » crée le vôtre." },
   { selector: '[data-tour="import"]', title: "Import & export", body: "Depuis le détail d'un dossier, « Exporter » télécharge un fichier JSON ; « Importer » (ici) recrée un dossier depuis un fichier. Pratique pour dupliquer ou partager une trame." },
   { selector: '[data-tour="reminders"]', title: "Rappels & notifications", body: "Activez les notifications ici, puis posez un rappel sur une tâche ou un mémo. Vous gérez vos appareils dans Préférences → Appareils." },
@@ -1502,6 +1503,21 @@ export default function AppShell() {
     setMemoComposer({ caseId: isMyDay ? null : selectedCaseId, parentItemId: underItem });
   }, [isMyDay, resolvedActiveColumn, selectedCaseId, selectedItemId]);
 
+  /**
+   * ⇧M — un mémo sous la tâche sélectionnée, d'où qu'on le demande. Même
+   * grammaire que ⇧T (la sous-tâche) : la majuscule descend d'un cran.
+   */
+  const handleOpenMemoComposerUnderItem = useCallback(() => {
+    if (!selectedItemId) {
+      showToast("Sélectionnez une tâche d'abord — ⇧M pose un mémo dessous.");
+      return;
+    }
+    setMemoComposer({
+      caseId: selectedItem?.caseId ?? selectedCaseId,
+      parentItemId: selectedItemId,
+    });
+  }, [selectedCaseId, selectedItem?.caseId, selectedItemId]);
+
   // Conservé : les boutons « + » des en-têtes de colonne s'appuient dessus.
   const handleCreateInActiveColumn = useCallback(async () => {
     if (!user) return;
@@ -1970,7 +1986,11 @@ export default function AppShell() {
       }
       if (event.key.toLowerCase() === "m") {
         event.preventDefault();
-        handleOpenMemoComposer();
+        if (event.shiftKey) {
+          handleOpenMemoComposerUnderItem();
+        } else {
+          handleOpenMemoComposer();
+        }
         return;
       }
       if (event.key === " " && (detailTarget || myDayDetailId)) {
@@ -2052,6 +2072,7 @@ export default function AppShell() {
       handleCreateChildTask,
       handleCreateInActiveColumn,
       handleOpenMemoComposer,
+      handleOpenMemoComposerUnderItem,
       handleCreateTask,
       handleOpenReparent,
       handleStatusChange,
@@ -2221,8 +2242,9 @@ export default function AppShell() {
 
   /**
    * Transformer une tâche en mémo. La tâche perd son cycle de statut et gagne
-   * une case à cocher ; elle reste dans son dossier (on la détache ensuite si
-   * on veut). Ses commentaires sont recopiés dans la note du mémo.
+   * une case à cocher ; elle ne bouge pas pour autant — même dossier, et même
+   * tâche parente si c'était une sous-tâche. Ses commentaires sont recopiés
+   * dans la note du mémo.
    */
   const handleConvertToMemo = async (item: Item) => {
     if (!user) return;
@@ -2237,6 +2259,7 @@ export default function AppShell() {
     const id = await createFloatingTask(user.uid, {
       dateKey: todayKey,
       caseId: item.caseId,
+      parentItemId: item.parentItemId ?? null,
       title: item.title,
       status: "Créé",
       starred: !!item.starred,
@@ -2245,9 +2268,54 @@ export default function AppShell() {
       note: body || null,
     });
     await deleteItemsCascade(user.uid, [item.id], items);
-    setDetailTarget(null);
-    setMyDayDetailId(id);
-    showToast("Devenue un mémo.");
+    // Le mémo tout juste né reste ouvert sous les yeux — dans Ma journée, le
+    // détail se pilote par `myDayDetailId` (préfixe « f- » pour un mémo) ;
+    // ailleurs, par `detailTarget`.
+    if (isMyDay) setMyDayDetailId(`f-${id}`);
+    else { setMyDayDetailId(null); setDetailTarget({ type: "memo", id }); }
+    showToast("Devenue un mémo — elle se coche, elle ne se traite plus.");
+  };
+
+  /**
+   * L'inverse : un mémo redevient une tâche, avec ses quatre statuts. Il
+   * reprend sa place — le dossier, et la tâche sous laquelle il était posé
+   * (il en devient alors une sous-tâche). Sa note redevient un commentaire.
+   *
+   * Un mémo libre ne peut pas devenir une tâche : une tâche appartient à un
+   * dossier, c'est ce qui la distingue d'un pense-bête.
+   */
+  const handleConvertToTask = async (memo: FloatingTask) => {
+    if (!user) return;
+    if (!memo.caseId) {
+      showToast("Ce mémo n'a pas de dossier : rattachez-le d'abord, une tâche appartient à un dossier.");
+      return;
+    }
+    const parent = memo.parentItemId ? items.find(i => i.id === memo.parentItemId) ?? null : null;
+    const id = await createItem(user.uid, {
+      caseId: memo.caseId,
+      parentItemId: parent?.id ?? null,
+      level: parent ? 3 : 2,
+      title: memo.title,
+      status: "Créé",
+      starred: !!memo.starred,
+      dueDate: memo.dueDate ?? null,
+      reminderAt: memo.reminderAt ?? null,
+    });
+    if (memo.note) {
+      await createComment(user.uid, { itemId: id, body: memo.note });
+    }
+    await deleteFloatingTasks(user.uid, [memo.id]);
+    if (parent) {
+      setSelectedItemId(parent.id);
+      setSelectedSubItemId(id);
+    } else {
+      setSelectedItemId(id);
+    }
+    // Même raison que pour la bascule inverse : le détail de la tâche née se
+    // pilote par `myDayDetailId` dans Ma journée, par `detailTarget` ailleurs.
+    if (isMyDay) setMyDayDetailId(id);
+    else setDetailTarget({ type: "item", id });
+    showToast("Redevenue une tâche — elle se traite, elle ne se coche plus.");
   };
 
   /**
@@ -2335,6 +2403,7 @@ export default function AppShell() {
         onDueDate={date => handleFloatingDueDate(detailMemo.id, date)}
         onAttach={caseId => handleAttachFloating(detailMemo, caseId)}
         onAttachToItem={itemId => handleAttachFloatingToItem(detailMemo, itemId)}
+        onConvertToTask={() => handleConvertToTask(detailMemo)}
         onToggleDone={() => handleToggleFloatingDone(detailMemo)}
         onDelete={() => {
           if (user) deleteFloatingTasks(user.uid, [detailMemo.id]);
@@ -2571,12 +2640,20 @@ export default function AppShell() {
                       </span>
                     </div>
                   );
-                })() : STATUSES.map(s => (
-                  <button key={s} onClick={() => handleStatusChange(s)}
-                    className={`${statusClass(s)} cursor-pointer border-none transition-all text-[13px] px-4 py-1.5 rounded-full ${detailItem.status === s ? "opacity-100" : "opacity-25 hover:opacity-60"}`}>
-                    {s}
-                  </button>
-                ))}
+                })() : (
+                  <>
+                    {STATUSES.map(s => (
+                      <button key={s} onClick={() => handleStatusChange(s)}
+                        className={`${statusClass(s)} cursor-pointer border-none transition-all text-[13px] px-4 py-1.5 rounded-full ${detailItem.status === s ? "opacity-100" : "opacity-25 hover:opacity-60"}`}>
+                        {s}
+                      </button>
+                    ))}
+                    {/* La nature se décide ici, à côté des statuts : allumer
+                      * l'interrupteur les fait disparaître, et la tâche devient
+                      * un mémo qu'on coche. */}
+                    <MemoSwitch on={false} onChange={() => handleConvertToMemo(detailItem)} />
+                  </>
+                )}
                 {myDayMarkerItemIds.has(detailItem.id) && (
                   <button
                     onClick={() => {
@@ -2918,13 +2995,8 @@ export default function AppShell() {
                 <span>⇄</span> Rattacher
               </button>
             )}
-            <button
-              className="detail-action-btn mobile-hide"
-              title="Un mémo se coche au lieu de suivre un cycle de statut"
-              onClick={() => handleConvertToMemo(detailItem)}
-            >
-              <span>☑</span> En faire un mémo
-            </button>
+            {/* Devenir un mémo n'est plus un bouton perdu ici : c'est
+              * l'interrupteur « Mémo », à côté des statuts. */}
             <button className="detail-action-btn detail-action-danger" onClick={handleDelete}>
               <span>✕</span> Supprimer
             </button>
@@ -4008,6 +4080,7 @@ export default function AppShell() {
                     ["T", "Nouvelle tâche"],
                     ["⇧T", "Nouvelle sous-tâche"],
                     ["M", "Nouveau mémo"],
+                    ["⇧M", "Nouveau mémo sous la tâche"],
                     ["Espace", "Renommer"],
                     ["Entrée", "Valider le nom"],
                     ["A", "Ajouter à Ma journée"],

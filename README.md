@@ -49,8 +49,17 @@ npm run dev
 - L'historique (timeline) des événements d'une tâche est masqué par défaut et accessible via “Afficher la timeline”.
 - Toutes les dates affichées dans l'UI utilisent le format JJ/MM/AAAA (helper `formatDateFR`).
 - Raccourcis de création : une lettre par nature — `D` dossier · `T` tâche · `⇧T` sous-tâche ·
-  `M` mémo. Remplace l'ancien `N` contextuel (qui créait un dossier, une tâche ou un mémo
-  selon la colonne active) et l'ancien `⇧N`.
+  `M` mémo · `⇧M` mémo sous la tâche sélectionnée. La majuscule descend d'un cran, pour la
+  tâche comme pour le mémo. Remplace l'ancien `N` contextuel (qui créait un dossier, une
+  tâche ou un mémo selon la colonne active) et l'ancien `⇧N`.
+- **La nature d'un objet se règle avec l'interrupteur « Mémo »**, posé à côté des quatre
+  statuts dans le panneau de détail (`MemoSwitch`) : éteint, les statuts sont là et c'est une
+  tâche ; allumé, ils disparaissent et c'est un mémo. La bascule marche dans les deux sens et
+  conserve titre, étoile, échéance et rappel — les commentaires d'une tâche deviennent la note
+  du mémo, et réciproquement. L'objet ne bouge pas de place : même dossier, et même tâche
+  parente s'il en avait une. Une tâche qui porte des sous-tâches ou des mémos ne peut pas
+  devenir un mémo (un mémo ne porte rien) ; un mémo sans dossier ne peut pas devenir une tâche
+  (une tâche appartient à un dossier).
 - Deux natures d'objets, et deux seulement :
   - une **tâche** (`items`) se *traite* — cycle Créé → Demandé → Reçu → Traité ;
   - un **mémo** (`floatingTasks`) se *réalise* — une case à cocher, rien d'autre.

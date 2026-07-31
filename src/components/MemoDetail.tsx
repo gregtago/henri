@@ -17,6 +17,7 @@ import { Icon } from "./Icon";
 import { EditableInput } from "./EditableField";
 import { ReminderPicker } from "./ReminderPicker";
 import { RecurrencePicker } from "./RecurrencePicker";
+import MemoSwitch from "./MemoSwitch";
 
 type Props = {
   task: FloatingTask;
@@ -31,6 +32,8 @@ type Props = {
   onAttach: (caseId: string | null) => void;
   /** Poser le mémo sous une tâche du dossier, ou le remonter au niveau du dossier. */
   onAttachToItem?: (itemId: string | null) => void;
+  /** Éteindre l'interrupteur « Mémo » : l'objet redevient une tâche à statuts. */
+  onConvertToTask?: () => void;
   /** Cocher / décocher. */
   onToggleDone: () => void;
   onDelete: () => void;
@@ -47,6 +50,7 @@ export default function MemoDetail({
   onDueDate,
   onAttach,
   onAttachToItem,
+  onConvertToTask,
   onToggleDone,
   onDelete,
   defaultRepeat = true,
@@ -130,6 +134,28 @@ export default function MemoDetail({
               }}
             />
           </div>
+
+          {/* La nature, au même endroit que les statuts d'une tâche : ici
+            * l'interrupteur est allumé, donc pas de statuts. L'éteindre rend
+            * l'objet à son cycle Créé → Demandé → Reçu → Traité. */}
+          {onConvertToTask && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <MemoSwitch
+                on
+                postIt
+                disabled={!task.caseId}
+                title={task.caseId
+                  ? "Éteindre : ce mémo redevient une tâche, avec ses quatre statuts"
+                  : "Un mémo sans dossier ne peut pas devenir une tâche : rattachez-le d'abord."}
+                onChange={() => onConvertToTask()}
+              />
+              <span className="text-[11px]" style={{ color: "#92400e" }}>
+                {task.caseId
+                  ? "Un mémo se coche ; éteignez pour le rendre aux statuts."
+                  : "Sans dossier, il ne peut pas redevenir une tâche."}
+              </span>
+            </div>
+          )}
 
           {/* Échéance */}
           <div>
