@@ -30,6 +30,16 @@ Un mémo peut être rattaché à un dossier, **posé sous une tâche** de ce dos
 
 Un mémo descend d'un cran, jamais de deux : il se pose sous une tâche, pas sous une sous-tâche, et ne porte rien lui-même.
 
+### La nature se règle là où se règlent les statuts
+
+« De quelle nature est cette chose ? » et « où en est-elle ? » sont la même question posée au même moment. L'interrupteur **« Mémo »** est donc posé à côté des quatre statuts, dans le panneau de détail, et se lit dans les deux sens : **éteint**, les statuts sont là — c'est une tâche ; **allumé**, ils disparaissent — c'est un mémo, qui se coche.
+
+C'est un seul interrupteur vu de ses deux côtés (`MemoSwitch`), le même composant dans le détail d'une tâche et dans celui d'un mémo. Il remplace le bouton « En faire un mémo », qui était rangé en bas du panneau à côté de « Supprimer » : une bascule de nature n'est pas une action de fin de course, et personne ne va la chercher là.
+
+La bascule ne déplace rien et ne perd rien : même dossier, même tâche parente s'il y en avait une (une sous-tâche devient un mémo posé sous la même tâche), et titre, étoile, échéance et rappel suivent. Les commentaires d'une tâche deviennent la note du mémo, la note du mémo redevient un commentaire.
+
+Deux refus, qui découlent des définitions : une tâche qui **porte** quelque chose ne peut pas devenir un mémo (un mémo ne porte rien), et un mémo **sans dossier** ne peut pas devenir une tâche (une tâche appartient à un dossier).
+
 Conséquences visuelles, appliquées partout :
 
 - une tâche porte un **badge de statut** (colonnes Tâches/Sous-tâches) ou un **filet coloré** (Ma journée), un mémo n'a ni l'un ni l'autre — c'est ce qui les distingue dans le dossier ;
