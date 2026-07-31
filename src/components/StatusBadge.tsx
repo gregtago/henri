@@ -7,6 +7,9 @@ const CLASS_MAP: Record<Status, string> = {
   "Traité":   "status-badge status-badge-3",
 };
 
+/** La classe d'un badge de statut, pour qui a besoin de la poser lui-même. */
+export const statusBadgeClass = (status: Status) => CLASS_MAP[status] ?? CLASS_MAP["Créé"];
+
 export default function StatusBadge({ status }: { status: Status }) {
   return <span className={CLASS_MAP[status]}>{status}</span>;
 }

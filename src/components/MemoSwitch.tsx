@@ -22,15 +22,9 @@ type Props = {
   disabled?: boolean;
   /** Ce que dit l'infobulle. */
   title?: string;
-  /** Sur fond post-it (détail d'un mémo), les couleurs suivent le jaune. */
-  postIt?: boolean;
 };
 
-export default function MemoSwitch({ on, onChange, disabled = false, title, postIt = false }: Props) {
-  const border = postIt ? "#fde68a" : "var(--border)";
-  const text = postIt ? "#451a03" : "var(--tx-2)";
-  const knobOn = postIt ? "#92400e" : "#374151";
-
+export default function MemoSwitch({ on, onChange, disabled = false, title }: Props) {
   return (
     <button
       type="button"
@@ -45,8 +39,8 @@ export default function MemoSwitch({ on, onChange, disabled = false, title, post
       style={{
         display: "inline-flex", alignItems: "center", gap: "7px",
         padding: "5px 10px 5px 8px", borderRadius: "999px",
-        border: `1px solid ${border}`,
-        background: on ? (postIt ? "rgba(255,255,255,0.7)" : "var(--bg-subtle)") : "transparent",
+        border: "1px solid var(--border)",
+        background: on ? "var(--bg-subtle)" : "transparent",
         cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? 0.4 : 1,
         fontFamily: "inherit",
@@ -55,7 +49,7 @@ export default function MemoSwitch({ on, onChange, disabled = false, title, post
       <span
         style={{
           position: "relative", width: 30, height: 17, borderRadius: 9, flexShrink: 0,
-          background: on ? knobOn : "#d1d5db",
+          background: on ? "#374151" : "#d1d5db",
           transition: "background 0.15s",
         }}
       >
@@ -64,7 +58,7 @@ export default function MemoSwitch({ on, onChange, disabled = false, title, post
           background: "white", borderRadius: "50%", transition: "left 0.15s", display: "block",
         }} />
       </span>
-      <span style={{ fontSize: "12.5px", color: text, whiteSpace: "nowrap" }}>Mémo</span>
+      <span style={{ fontSize: "12.5px", color: "var(--tx-2)", whiteSpace: "nowrap" }}>Mémo</span>
     </button>
   );
 }

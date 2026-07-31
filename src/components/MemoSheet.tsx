@@ -1,15 +1,16 @@
 "use client";
 
-// Le formulaire d'un mémo, sur mobile — le même à la création et à la
-// modification.
+// Le formulaire de **création** d'un mémo, sur mobile.
 //
-// Il n'y avait pas de raison qu'un mémo se crée dans un écran et se modifie
-// dans un autre : c'est le même objet, avec les mêmes champs. Deux formulaires,
-// c'était deux fois les réglages à retrouver, et une chance sur deux de tomber
-// sur celui qui ne sait pas faire ce qu'on veut. Un seul écran, donc, et deux
-// mots qui changent : le titre et le bouton.
+// Un mémo naît avec ses paramètres — échéance, rappel, dossier, tâche,
+// répétition — parce que les régler après coup suppose de retrouver ce qu'on
+// vient de créer.
 //
-// Pendant desktop de `MemoComposer` (qui, lui, ne sert qu'à la création).
+// Il ne sert qu'à la création : un mémo qui existe s'ouvre dans le panneau de
+// détail, celui-là même qui ouvre une tâche. C'est le même objet à un
+// interrupteur près, il n'y a pas de raison qu'il change d'écran.
+//
+// Pendant mobile de `MemoComposer` (desktop).
 
 import { useEffect, useMemo, useState } from "react";
 import type { Case, Item, Recurrence } from "@/lib/types";
@@ -44,19 +45,12 @@ export const emptyMemoDraft = (): MemoDraft => ({
 });
 
 type Props = {
-  mode: "create" | "edit";
   initial: MemoDraft;
   cases: Case[];
   /** Toutes les tâches : de quoi poser le mémo sous l'une d'elles. */
   items?: Item[];
   onSubmit: (draft: MemoDraft) => void | Promise<void>;
   onClose: () => void;
-  /** Modification seulement : supprimer le mémo. */
-  onDelete?: () => void;
-  /** Modification seulement : le mémo est-il déjà réalisé ? */
-  done?: boolean;
-  /** Modification seulement : cocher / décocher depuis le formulaire. */
-  onToggleDone?: () => void;
   defaultRepeat?: boolean;
   repeatLabel?: string;
 };
@@ -104,15 +98,11 @@ const nextMonday = () => {
 };
 
 export default function MemoSheet({
-  mode,
   initial,
   cases,
   items = [],
   onSubmit,
   onClose,
-  onDelete,
-  done = false,
-  onToggleDone,
   defaultRepeat = true,
   repeatLabel,
 }: Props) {
@@ -177,7 +167,7 @@ export default function MemoSheet({
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <p style={{ fontSize: "17px", fontWeight: 700, color: "#111827" }}>
-            {mode === "create" ? "Nouveau mémo" : "Mémo"}
+            Nouveau mémo
           </p>
           <button onClick={onClose} aria-label="Fermer"
             style={{ width: "32px", height: "32px", border: "1px solid #e5e7eb", borderRadius: "8px", background: "#f9fafb", cursor: "pointer", color: "#6b7280", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -197,7 +187,7 @@ export default function MemoSheet({
               <Icon name="star" size={26} filled={draft.starred} strokeWidth={1.75} />
             </button>
             <input
-              autoFocus={mode === "create"}
+              autoFocus
               value={draft.title}
               onChange={(event) => patch({ title: event.target.value })}
               placeholder="Que faut-il faire ?"
@@ -346,25 +336,12 @@ export default function MemoSheet({
 
         {/* Actions */}
         <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: "10px", paddingTop: "8px" }}>
-          {mode === "edit" && onToggleDone && (
-            <button onClick={onToggleDone}
-              style={{ width: "100%", padding: "13px", borderRadius: "12px", border: "1px solid #e5e7eb", background: "white", color: done ? "#374151" : "#166534", fontSize: "14px", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
-              <Icon name="check" size={15} strokeWidth={2.5} />
-              {done ? "Marquer à faire" : "Marquer réalisé"}
-            </button>
-          )}
           <button
             disabled={!canSubmit}
             onClick={() => void submit()}
             style={{ width: "100%", padding: "16px", borderRadius: "14px", border: "none", background: canSubmit ? "#111827" : "#e5e7eb", color: canSubmit ? "white" : "#9ca3af", fontSize: "16px", fontWeight: 700, cursor: canSubmit ? "pointer" : "not-allowed", fontFamily: "inherit" }}>
-            {mode === "create" ? "Créer le mémo" : "Enregistrer"}
+            Créer le mémo
           </button>
-          {mode === "edit" && onDelete && (
-            <button onClick={onDelete}
-              style={{ width: "100%", padding: "12px", borderRadius: "12px", border: "1px solid #fca5a5", background: "#fff1f2", color: "#dc2626", fontSize: "13px", fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
-              <Icon name="delete" size={14} /> Supprimer le mémo
-            </button>
-          )}
         </div>
       </div>
     </div>

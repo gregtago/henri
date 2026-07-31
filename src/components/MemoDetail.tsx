@@ -4,20 +4,33 @@
 //
 // Un seul composant, parce qu'il n'y a qu'un mémo : celui qu'on ouvre depuis
 // Ma journée et celui qu'on ouvre depuis la colonne Tâches d'un dossier sont
-// le même objet, et doivent donc offrir exactement les mêmes gestes. Ce fichier
-// est le pendant desktop de `MemoSheet` (mobile).
+// le même objet, et doivent donc offrir exactement les mêmes gestes.
 //
-// Il rend un fragment — en-tête, corps défilant, barre d'actions — que
-// l'appelant place dans sa colonne.
+// **C'est aussi le même panneau que celui d'une tâche.** Basculer l'interrupteur
+// « Mémo » ne doit pas donner l'impression de changer d'application : même
+// en-tête, même titre, même ordre de sections, mêmes couleurs. Ce qui change
+// tient en trois choses, et c'est précisément ce qu'on veut faire comprendre :
+//
+// - le mot en haut, « Mémo » au lieu de « Tâche » ;
+// - la **case à cocher** est active et les **statuts** sont grisés (sur une
+//   tâche, c'est l'inverse) : un mémo s'accomplit d'un geste, une tâche avance
+//   par étapes. Les statuts restent affichés, sans quoi on ne verrait pas ce
+//   qu'on récupère en éteignant l'interrupteur ;
+// - la **récurrence**, qui n'a de sens que pour un mémo.
+//
+// Tout le reste — échéance, rappel, dossier, tâche parente, commentaires — est
+// commun, au même endroit.
 
 import { useState } from "react";
 import type { Case, FloatingTask, Item } from "@/lib/types";
+import { STATUSES } from "@/lib/types";
 import { formatDateFR } from "@/lib/dates";
 import { Icon } from "./Icon";
 import { EditableInput } from "./EditableField";
 import { ReminderPicker } from "./ReminderPicker";
 import { RecurrencePicker } from "./RecurrencePicker";
 import MemoSwitch from "./MemoSwitch";
+import { statusBadgeClass } from "./StatusBadge";
 
 type Props = {
   task: FloatingTask;
@@ -71,95 +84,81 @@ export default function MemoDetail({
 
   return (
     <>
-      {/* Header — fond post-it jaune */}
-      <div className="finder-header" style={{ background: "#fef9c3", borderBottom: "1px solid #fde68a" }}>
-        <span className="text-[11px] font-medium uppercase tracking-widest" style={{ color: "#92400e" }}>Mémo</span>
-        {done && (
-          <span className="text-[11px]" style={{ color: "#92400e" }}>Réalisé le {formatDateFR(task.doneAt)}</span>
-        )}
+      {/* En-tête — même bandeau que celui d'une tâche, un mot près. */}
+      <div className="finder-header">
+        <span className="text-[11px] font-medium text-tx-3 uppercase tracking-widest">Mémo</span>
+        {done && <span className="text-[11px] text-tx-3">Réalisé le {formatDateFR(task.doneAt)}</span>}
       </div>
 
-      <div className="flex-1 overflow-y-auto" style={{ scrollbarColor: "#fde68a transparent" }}>
-        {/* Zone post-it : titre + échéance */}
-        <div style={{ background: "#fef9c3", borderBottom: "1px solid #fde68a" }} className="px-5 pt-5 pb-4 space-y-4">
-          {/* Case à cocher, étoile, titre */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onToggleDone}
-              className="shrink-0 cursor-pointer flex items-center justify-center transition-all duration-200"
-              title={done ? "Marquer à faire" : "Marquer réalisé"}
-              style={{
-                width: "22px", height: "22px", borderRadius: "6px",
-                border: done ? "none" : "2px solid #d6a96b",
-                background: done ? "#16a34a" : "rgba(255,255,255,0.7)",
-              }}
-            >
-              {done && <Icon name="check" size={14} className="text-white" strokeWidth={2.5} />}
-            </button>
-            <button
-              onClick={() => onPatch({ starred: !task.starred })}
-              className="shrink-0 border-none bg-transparent cursor-pointer p-0 leading-none transition-all hover:scale-110"
-              style={{ color: task.starred ? "#f59e0b" : "#d6a96b" }}
-              title={task.starred ? "Retirer l'étoile" : "Marquer important"}
-            >
-              <Icon name="star" size={26} filled={task.starred} strokeWidth={1.75} />
-            </button>
-            <EditableInput
-              key={task.id}
-              ref={titleRef}
-              className="block flex-1 min-w-0 font-[inherit] text-[20px] font-semibold text-[#451a03] placeholder:text-[#a16207] outline-none transition-all"
-              style={{
-                lineHeight: 1.3,
-                background: "rgba(255,255,255,0.45)",
-                border: "1px solid #fde68a",
-                borderRadius: "6px",
-                padding: "6px 10px",
-                textDecoration: done ? "line-through" : undefined,
-              }}
-              onFocus={e => {
-                e.currentTarget.style.background = "white";
-                e.currentTarget.style.borderColor = "#f59e0b";
-                e.currentTarget.style.boxShadow = "0 1px 4px rgba(245,158,11,0.15)";
-              }}
-              onBlurCapture={e => {
-                e.currentTarget.style.background = "rgba(255,255,255,0.45)";
-                e.currentTarget.style.borderColor = "#fde68a";
-                e.currentTarget.style.boxShadow = "none";
-              }}
-              placeholder="Sans titre"
-              value={task.title}
-              onCommit={next => onPatch({ title: next })}
-              onKeyDown={e => {
-                if (e.key === "Enter") { e.stopPropagation(); (e.target as HTMLInputElement).blur(); }
-              }}
-            />
-          </div>
+      <div className="flex-1 overflow-y-auto px-5 py-5 space-y-0">
+        {/* Case à cocher, étoile, titre — la case est ici active : c'est le
+          * geste d'un mémo. Sur une tâche, elle est grisée au même endroit. */}
+        <div className="flex items-center gap-3 mb-5">
+          <button
+            onClick={onToggleDone}
+            className="shrink-0 cursor-pointer flex items-center justify-center transition-all duration-200"
+            title={done ? "Marquer à faire" : "Marquer réalisé"}
+            style={{
+              width: "22px", height: "22px", borderRadius: "6px",
+              border: done ? "none" : "2px solid #9ca3af",
+              background: done ? "#16a34a" : "white",
+            }}
+          >
+            {done && <Icon name="check" size={14} className="text-white" strokeWidth={2.5} />}
+          </button>
+          <button
+            onClick={() => onPatch({ starred: !task.starred })}
+            className="shrink-0 border-none bg-transparent cursor-pointer p-0 leading-none transition-all hover:scale-110"
+            style={{ color: task.starred ? "#f59e0b" : "#d1d5db" }}
+            title={task.starred ? "Retirer l'étoile" : "Marquer important"}
+          >
+            <Icon name="star" size={26} filled={task.starred} strokeWidth={1.75} />
+          </button>
+          <EditableInput
+            key={task.id}
+            ref={titleRef}
+            className="detail-title-input"
+            style={{ marginBottom: 0, flex: 1, minWidth: 0, textDecoration: done ? "line-through" : undefined }}
+            placeholder="Sans titre"
+            value={task.title}
+            onCommit={next => onPatch({ title: next })}
+            onKeyDown={e => {
+              if (e.key === "Enter") { e.stopPropagation(); (e.target as HTMLInputElement).blur(); }
+            }}
+          />
+        </div>
 
-          {/* La nature, au même endroit que les statuts d'une tâche : ici
-            * l'interrupteur est allumé, donc pas de statuts. L'éteindre rend
-            * l'objet à son cycle Créé → Demandé → Reçu → Traité. */}
-          {onConvertToTask && (
-            <div className="flex items-center gap-2 flex-wrap">
+        <div className="space-y-4">
+          {/* Statuts — grisés, mais là. C'est ce qu'on récupère en éteignant
+            * l'interrupteur : un mémo s'accomplit, une tâche avance. */}
+          <div className="flex flex-wrap gap-1.5 items-center">
+            {STATUSES.map(s => (
+              <span
+                key={s}
+                className={`${statusBadgeClass(s)} text-[13px] px-4 py-1.5 rounded-full`}
+                style={{ opacity: 0.25, filter: "grayscale(1)", cursor: "default" }}
+                title="Un mémo se coche ; éteignez « Mémo » pour lui rendre ses statuts."
+              >
+                {s}
+              </span>
+            ))}
+            {onConvertToTask && (
               <MemoSwitch
                 on
-                postIt
                 disabled={!task.caseId}
                 title={task.caseId
                   ? "Éteindre : ce mémo redevient une tâche, avec ses quatre statuts"
                   : "Un mémo sans dossier ne peut pas devenir une tâche : rattachez-le d'abord."}
                 onChange={() => onConvertToTask()}
               />
-              <span className="text-[11px]" style={{ color: "#92400e" }}>
-                {task.caseId
-                  ? "Un mémo se coche ; éteignez pour le rendre aux statuts."
-                  : "Sans dossier, il ne peut pas redevenir une tâche."}
-              </span>
-            </div>
-          )}
+            )}
+          </div>
+
+          <div className="border-t border-border" />
 
           {/* Échéance */}
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: "#92400e" }}>Échéance</p>
+            <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-2">Échéance</p>
             <div className="flex flex-wrap gap-1.5 mb-2">
               {(() => {
                 const today = new Date(); today.setHours(12, 0, 0, 0);
@@ -174,16 +173,14 @@ export default function MemoDetail({
                   { label: "Dans 1 mois", date: new Date(today.getFullYear(), today.getMonth() + 1, today.getDate(), 12) },
                 ].map(({ label, date }) => (
                   <button key={label} onClick={() => onDueDate(date)}
-                    className="text-[11px] font-[inherit] px-2 py-1 rounded border cursor-pointer transition-colors"
-                    style={{ background: "rgba(255,255,255,0.7)", borderColor: "#fde68a", color: "#92400e" }}>
+                    className="text-[11px] font-[inherit] px-2 py-1 rounded border border-border bg-bg-subtle text-tx-2 cursor-pointer hover:border-border-strong hover:text-tx transition-colors">
                     {label}
                   </button>
                 ));
               })()}
               {task.dueDate && (
                 <button onClick={() => onPatch({ dueDate: null })}
-                  className="text-[11px] font-[inherit] px-2 py-1 rounded border cursor-pointer transition-colors"
-                  style={{ background: "rgba(255,255,255,0.7)", borderColor: "#fca5a5", color: "#dc2626" }}>
+                  className="text-[11px] font-[inherit] px-2 py-1 rounded border border-border bg-bg-subtle text-red-400 cursor-pointer hover:border-red-300 transition-colors">
                   ✕ Retirer
                 </button>
               )}
@@ -192,13 +189,11 @@ export default function MemoDetail({
               <button
                 type="button"
                 onClick={e => { const inp = (e.currentTarget.parentElement?.querySelector("input[type=date]") as any); if (inp?.showPicker) inp.showPicker(); else inp?.focus(); }}
-                className="shrink-0 border-none bg-transparent cursor-pointer p-0 leading-none transition-opacity hover:opacity-70"
-                style={{ color: "#92400e" }}
+                className="shrink-0 border-none bg-transparent cursor-pointer p-0 leading-none text-tx-3 transition-opacity hover:opacity-70"
                 title="Ouvrir le calendrier"
               ><Icon name="calendar" size={20} /></button>
               <input key={task.id + "-due"} type="date"
-                className="font-[inherit] text-[13px] rounded-lg px-3 py-1.5 outline-none flex-1 border"
-                style={{ background: "rgba(255,255,255,0.85)", borderColor: "#fde68a", color: "#451a03" }}
+                className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-1.5 outline-none flex-1 focus:border-border-strong transition-colors"
                 defaultValue={task.dueDate?.slice(0, 10) ?? ""}
                 onBlur={e => {
                   if (!e.target.value) { onDueDate(null); return; }
@@ -213,22 +208,15 @@ export default function MemoDetail({
           <ReminderPicker
             value={task.reminderAt}
             onChange={iso => onPatch({ reminderAt: iso, reminderSentAt: null, reminderCount: 0 })}
-            themeColor="#92400e"
             repeat={task.reminderRepeat}
             onRepeatChange={v => onPatch({ reminderRepeat: v })}
             defaultRepeat={defaultRepeat}
             repeatLabel={repeatLabel}
           />
-        </div>
 
-        {/* Zone blanche : récurrence, rattacher, commentaires */}
-        <div className="px-5 py-5 space-y-4">
-          {/* Récurrence — hauteur min pour éviter que la section suivante bouge à l'activation */}
-          <div style={{ minHeight: "120px" }}>
-            <RecurrencePicker value={task.recurrence ?? null} onChange={r => onPatch({ recurrence: r ?? null })} />
-          </div>
+          <div className="border-t border-border" />
 
-          {/* Rattachement — le mémo est le même objet, avec ou sans dossier.
+          {/* Dossier — le mémo est le même objet, avec ou sans dossier.
             * On le pose, on le retire. */}
           <div>
             <div className="flex items-baseline gap-2 mb-1.5">
@@ -246,7 +234,7 @@ export default function MemoDetail({
             <div className="space-y-1.5">
               <input type="text" placeholder="Rechercher un dossier…"
                 value={caseSearch} onChange={e => setCaseSearch(e.target.value)}
-                className="font-[inherit] text-[13px] text-tx bg-white border border-border-strong rounded-lg px-3 py-1.5 outline-none w-full focus:border-tx-2 transition-colors placeholder:text-tx-3"
+                className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-1.5 outline-none w-full focus:border-border-strong transition-colors placeholder:text-tx-3"
               />
               {caseSearch && (
                 <div className="border border-border rounded-lg overflow-hidden max-h-[160px] overflow-y-auto">
@@ -269,8 +257,8 @@ export default function MemoDetail({
             </div>
           </div>
 
-          {/* Sous quelle tâche — le mémo peut descendre d'un cran et se ranger
-            * à côté des sous-tâches. Il compte alors dans son avancement. */}
+          {/* Sous quelle tâche — le mémo descend d'un cran et se range à côté
+            * des sous-tâches. Il compte alors dans son avancement. */}
           {onAttachToItem && task.caseId && caseTasks.length > 0 && (
             <div>
               <div className="flex items-baseline gap-2 mb-1.5">
@@ -285,7 +273,7 @@ export default function MemoDetail({
               <select
                 value={task.parentItemId ?? ""}
                 onChange={e => onAttachToItem(e.target.value || null)}
-                className="font-[inherit] text-[13px] text-tx bg-white border border-border-strong rounded-lg px-3 py-1.5 outline-none w-full focus:border-tx-2 transition-colors"
+                className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-1.5 outline-none w-full focus:border-border-strong transition-colors"
                 aria-label="Sous quelle tâche"
               >
                 <option value="">Au niveau du dossier</option>
@@ -302,12 +290,22 @@ export default function MemoDetail({
             </div>
           )}
 
+          <div className="border-t border-border" />
+
+          {/* Répétition — la seule section qu'une tâche n'a pas : elle ne
+            * revient pas toute seule, elle se traite une fois. */}
+          <div>
+            <RecurrencePicker value={task.recurrence ?? null} onChange={r => onPatch({ recurrence: r ?? null })} />
+          </div>
+
+          <div className="border-t border-border" />
+
           {/* Commentaires */}
           <div>
             <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1.5">Commentaires</p>
             <textarea
               key={task.id + "-note"}
-              className="font-[inherit] text-[13px] text-tx bg-white border border-border-strong rounded-lg px-3 py-2 outline-none w-full resize-none focus:border-tx-2 transition-colors"
+              className="font-[inherit] text-[13px] text-tx bg-bg-subtle border border-border rounded-lg px-3 py-2 outline-none w-full resize-none focus:border-border-strong transition-colors"
               rows={4} placeholder="Ajouter un commentaire…"
               defaultValue={task.note ?? ""}
               onBlur={e => onPatch({ note: e.target.value || null })}
@@ -316,8 +314,8 @@ export default function MemoDetail({
         </div>
       </div>
 
-      {/* Barre actions bas — fond blanc pour cohérence avec la zone blanche du détail */}
-      <div className="detail-actions-bar" style={{ background: "white" }}>
+      {/* Barre d'actions bas — même bandeau que celui d'une tâche. */}
+      <div className="detail-actions-bar">
         <button className="detail-action-btn" onClick={onToggleDone}>
           <Icon name="check" size={14} /> {done ? "Marquer à faire" : "Marquer réalisé"}
         </button>

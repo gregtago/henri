@@ -36,6 +36,19 @@ Un mémo descend d'un cran, jamais de deux : il se pose sous une tâche, pas sou
 
 C'est un seul interrupteur vu de ses deux côtés (`MemoSwitch`), le même composant dans le détail d'une tâche et dans celui d'un mémo. Il remplace le bouton « En faire un mémo », qui était rangé en bas du panneau à côté de « Supprimer » : une bascule de nature n'est pas une action de fin de course, et personne ne va la chercher là.
 
+**Le panneau, lui, ne change pas.** Basculer l'interrupteur ne doit pas donner l'impression de changer d'application : même en-tête, même titre, mêmes sections dans le même ordre, mêmes couleurs — le fond post-it jaune du détail d'un mémo a disparu pour cette raison. Trois choses seulement diffèrent, et ce sont exactement celles qu'on veut faire comprendre :
+
+| | Tâche | Mémo |
+|---|---|---|
+| le mot en haut | « Tâche » | « Mémo » |
+| la **case à cocher** (à gauche du titre) | grisée — une tâche ne s'accomplit pas d'un geste | active |
+| les **quatre statuts** | actifs | grisés, mais **affichés** |
+| la **répétition** | absente — une tâche ne revient pas toute seule | présente |
+
+Les statuts restent visibles sur un mémo, et la case à cocher reste visible sur une tâche : c'est ce qui rend l'échange lisible avant de le faire. On voit ce qu'on perd et ce qu'on gagne — accomplir d'un côté, faire avancer de l'autre.
+
+Conséquence : un mémo qui existe s'ouvre dans le **panneau de détail**, jamais dans un formulaire à part. `MemoSheet` (mobile) et `MemoComposer` (desktop) ne servent plus qu'à la **création**, où l'objet n'existe pas encore et où tous ses réglages doivent tenir en un geste.
+
 La bascule ne déplace rien et ne perd rien : même dossier, même tâche parente s'il y en avait une (une sous-tâche devient un mémo posé sous la même tâche), et titre, étoile, échéance et rappel suivent. Les commentaires d'une tâche deviennent la note du mémo, la note du mémo redevient un commentaire.
 
 Deux refus, qui découlent des définitions : une tâche qui **porte** quelque chose ne peut pas devenir un mémo (un mémo ne porte rien), et un mémo **sans dossier** ne peut pas devenir une tâche (une tâche appartient à un dossier).
