@@ -9,6 +9,8 @@ import { Timestamp, addDoc, collection } from "firebase/firestore";
 import {
   addMyDaySelection,
   createCase,
+  convertItemToMemo,
+  convertMemoToTask,
   createComment,
   createFloatingTask,
   createItem,
@@ -2248,31 +2250,13 @@ export default function AppShell() {
    */
   const handleConvertToMemo = async (item: Item) => {
     if (!user) return;
-    if (containerIds.has(item.id)) {
-      showToast("Cette tâche porte des sous-tâches ou des mémos : un mémo, lui, ne porte rien.");
-      return;
-    }
-    const body = comments
-      .filter(c => c.itemId === item.id)
-      .map(c => c.body)
-      .join("\n\n");
-    const id = await createFloatingTask(user.uid, {
-      dateKey: todayKey,
-      caseId: item.caseId,
-      parentItemId: item.parentItemId ?? null,
-      title: item.title,
-      status: "Créé",
-      starred: !!item.starred,
-      dueDate: item.dueDate ?? null,
-      reminderAt: item.reminderAt ?? null,
-      note: body || null,
-    });
-    await deleteItemsCascade(user.uid, [item.id], items);
+    const result = await convertItemToMemo(user.uid, item);
+    if (!result.ok) { showToast(result.reason); return; }
     // Le mémo tout juste né reste ouvert sous les yeux — dans Ma journée, le
     // détail se pilote par `myDayDetailId` (préfixe « f- » pour un mémo) ;
     // ailleurs, par `detailTarget`.
-    if (isMyDay) setMyDayDetailId(`f-${id}`);
-    else { setMyDayDetailId(null); setDetailTarget({ type: "memo", id }); }
+    if (isMyDay) setMyDayDetailId(`f-${result.id}`);
+    else { setMyDayDetailId(null); setDetailTarget({ type: "memo", id: result.id }); }
     showToast("Devenue un mémo — elle se coche, elle ne se traite plus.");
   };
 
@@ -2286,35 +2270,18 @@ export default function AppShell() {
    */
   const handleConvertToTask = async (memo: FloatingTask) => {
     if (!user) return;
-    if (!memo.caseId) {
-      showToast("Ce mémo n'a pas de dossier : rattachez-le d'abord, une tâche appartient à un dossier.");
-      return;
-    }
-    const parent = memo.parentItemId ? items.find(i => i.id === memo.parentItemId) ?? null : null;
-    const id = await createItem(user.uid, {
-      caseId: memo.caseId,
-      parentItemId: parent?.id ?? null,
-      level: parent ? 3 : 2,
-      title: memo.title,
-      status: "Créé",
-      starred: !!memo.starred,
-      dueDate: memo.dueDate ?? null,
-      reminderAt: memo.reminderAt ?? null,
-    });
-    if (memo.note) {
-      await createComment(user.uid, { itemId: id, body: memo.note });
-    }
-    await deleteFloatingTasks(user.uid, [memo.id]);
-    if (parent) {
-      setSelectedItemId(parent.id);
-      setSelectedSubItemId(id);
+    const result = await convertMemoToTask(user.uid, memo);
+    if (!result.ok) { showToast(result.reason); return; }
+    if (memo.parentItemId) {
+      setSelectedItemId(memo.parentItemId);
+      setSelectedSubItemId(result.id);
     } else {
-      setSelectedItemId(id);
+      setSelectedItemId(result.id);
     }
     // Même raison que pour la bascule inverse : le détail de la tâche née se
     // pilote par `myDayDetailId` dans Ma journée, par `detailTarget` ailleurs.
-    if (isMyDay) setMyDayDetailId(id);
-    else setDetailTarget({ type: "item", id });
+    if (isMyDay) setMyDayDetailId(result.id);
+    else setDetailTarget({ type: "item", id: result.id });
     showToast("Redevenue une tâche — elle se traite, elle ne se coche plus.");
   };
 

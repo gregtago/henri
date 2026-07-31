@@ -54,7 +54,11 @@ npm run dev
   tâche ou un mémo selon la colonne active) et l'ancien `⇧N`.
 - **La nature d'un objet se règle avec l'interrupteur « Mémo »**, posé à côté des quatre
   statuts dans le panneau de détail (`MemoSwitch`) : éteint, les statuts sont actifs et c'est
-  une tâche ; allumé, ils passent en grisé et c'est un mémo.
+  une tâche ; allumé, ils passent en grisé et c'est un mémo. Présent sur desktop **et sur
+  mobile** (Mes dossiers comme Ma journée). La bascule est une seule fonction pour tous les
+  écrans — `convertItemToMemo` / `convertMemoToTask` (`src/lib/firestore.ts`) —, refus
+  compris. Dans Ma journée, l'objet transformé y reste : le mémo devenu tâche garde sa place
+  dans la journée, et le panneau reste ouvert sur lui.
 - **Le panneau de détail est le même pour une tâche et pour un mémo** — même en-tête, mêmes
   sections dans le même ordre, mêmes couleurs (le fond post-it jaune du détail d'un mémo a
   disparu). Quatre différences seulement : le mot du haut (« Tâche » / « Mémo »), la case à
