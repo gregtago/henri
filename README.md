@@ -69,6 +69,13 @@ npm run dev
   peut le rouvrir ou le décocher. Dans son dossier, en revanche, il reste affiché, barré.
 - **Cocher une tâche dans Ma journée (mobile)** ouvre une question — « Où en est cette tâche ? »,
   les quatre statuts — puis la tâche quitte la journée et reste dans son dossier.
+- **Passer une tâche en « Traité » supprime son échéance** (`items.dueDate` remis à `null`).
+  Une échéance dit quand une tâche est attendue ; traitée, elle ne l'est plus. Elle sort donc
+  des listes « en retard » et « à échéance aujourd'hui », de la bande « échéances » du calendrier
+  et de la contrainte d'échéance de sa tâche parente. La règle est portée par
+  `updateItemProgress` (`src/lib/firestore.ts`), seul chemin de changement de statut, et vaut
+  donc partout : détail, raccourcis 1–4, Ma journée, calendrier. Rouvrir la tâche ne rend pas
+  l'échéance. Un mémo coché, lui, garde la sienne.
 - **Un mémo réalisé et non rattaché s'efface au bout de 7 jours** (`src/lib/memos.ts`), comptés
   depuis sa réalisation. Un mémo **non coché ne disparaît jamais**, quel que soit son âge ; un
   mémo rattaché à un dossier ni un mémo récurrent non plus.

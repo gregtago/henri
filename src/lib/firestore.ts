@@ -106,11 +106,27 @@ export const createItem = async (uid: string, payload: Omit<Item, "id" | "create
 export const updateItem = (uid: string, id: string, payload: Partial<Item>) =>
   updateDoc(doc(db, `users/${uid}/items/${id}`), { ...payload, updatedAt: nowIso() });
 
+/**
+ * Faire avancer une tâche d'un statut.
+ *
+ * Passer une tâche en « Traité » lui retire son échéance. Une échéance dit
+ * quand une tâche est attendue ; une tâche traitée n'est plus attendue nulle
+ * part. La garder, c'était laisser la tâche revenir en retard, s'annoncer
+ * « à échéance aujourd'hui » et occuper une case du calendrier alors qu'il
+ * n'y a plus rien à y faire. Le statut porte désormais l'information ; la date
+ * ne veut plus rien dire.
+ *
+ * C'est le seul chemin par lequel une tâche change de statut (détail, raccourcis
+ * 1–4, Ma journée, calendrier) : la règle vaut donc partout, sans que chaque
+ * appelant ait à y penser. Rouvrir la tâche ne rend pas l'échéance — on la
+ * repose si elle a encore un sens.
+ */
 export const updateItemProgress = (uid: string, id: string, status: Status) =>
   updateDoc(doc(db, `users/${uid}/items/${id}`), {
     status,
     progressLevel: getProgressLevel(status),
     lastProgressAt: serverTimestamp(),
+    ...(status === "Traité" ? { dueDate: null } : {}),
     updatedAt: nowIso()
   });
 

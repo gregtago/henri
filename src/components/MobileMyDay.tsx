@@ -350,7 +350,11 @@ export default function MobileMyDay({ user }: { user: User }) {
       await updateItemProgress(user.uid, entry.item.id, status);
       await logStatusEvent(user.uid, entry.item.id, entry.item.status, status);
     }
-    setDetailEntry(prev => prev?.item?.id === entry.item!.id ? { ...prev, item: { ...prev.item!, status } } : prev);
+    // Le détail garde sa propre copie de la tâche : on y répercute le statut, et
+    // la disparition de l'échéance qui l'accompagne quand la tâche est traitée.
+    setDetailEntry(prev => prev?.item?.id === entry.item!.id
+      ? { ...prev, item: { ...prev.item!, status, ...(status === "Traité" ? { dueDate: null } : {}) } }
+      : prev);
   };
 
   const handleStatusPromptChoice = async (entry: SelectionEntry, status: Status) => {
