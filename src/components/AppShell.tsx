@@ -2588,8 +2588,20 @@ export default function AppShell() {
         {/* ── DÉTAIL TÂCHE ── */}
         {detailItem ? (
           <>
-            {/* Titre avec étoile à gauche */}
+            {/* Case à cocher, étoile, titre — la case est grisée : une tâche ne
+              * s'accomplit pas d'un geste, elle avance par statuts. Elle est là
+              * quand même, à la place exacte qu'elle occupe sur un mémo, pour
+              * qu'on voie ce que l'interrupteur « Mémo » échange. */}
             <div className="flex items-center gap-3 mb-5">
+              <span
+                title="Une tâche ne se coche pas : elle avance par statuts. Allumez « Mémo » pour la cocher."
+                className="shrink-0 block"
+                style={{
+                  width: "22px", height: "22px", borderRadius: "6px",
+                  border: "2px solid #e5e7eb", background: "var(--bg-subtle)",
+                  cursor: "default",
+                }}
+              />
               <button
                 title={detailItem.starred ? "Retirer l'étoile" : "Marquer importante"}
                 onClick={() => updateItem(user.uid, detailItem.id, { starred: !detailItem.starred })}

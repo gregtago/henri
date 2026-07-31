@@ -53,8 +53,16 @@ npm run dev
   tâche comme pour le mémo. Remplace l'ancien `N` contextuel (qui créait un dossier, une
   tâche ou un mémo selon la colonne active) et l'ancien `⇧N`.
 - **La nature d'un objet se règle avec l'interrupteur « Mémo »**, posé à côté des quatre
-  statuts dans le panneau de détail (`MemoSwitch`) : éteint, les statuts sont là et c'est une
-  tâche ; allumé, ils disparaissent et c'est un mémo. La bascule marche dans les deux sens et
+  statuts dans le panneau de détail (`MemoSwitch`) : éteint, les statuts sont actifs et c'est
+  une tâche ; allumé, ils passent en grisé et c'est un mémo.
+- **Le panneau de détail est le même pour une tâche et pour un mémo** — même en-tête, mêmes
+  sections dans le même ordre, mêmes couleurs (le fond post-it jaune du détail d'un mémo a
+  disparu). Quatre différences seulement : le mot du haut (« Tâche » / « Mémo »), la case à
+  cocher active pour un mémo et grisée pour une tâche, les quatre statuts actifs pour une
+  tâche et grisés pour un mémo, et la répétition qui n'existe que pour un mémo. Les deux
+  restent affichés dans les deux cas : c'est ce qui rend lisible ce que l'interrupteur
+  échange. Un mémo qui existe s'ouvre donc dans ce panneau, desktop (`MemoDetail`) comme
+  mobile ; `MemoComposer` et `MemoSheet` ne servent plus qu'à la **création**. La bascule marche dans les deux sens et
   conserve titre, étoile, échéance et rappel — les commentaires d'une tâche deviennent la note
   du mémo, et réciproquement. L'objet ne bouge pas de place : même dossier, et même tâche
   parente s'il en avait une. Une tâche qui porte des sous-tâches ou des mémos ne peut pas
@@ -101,8 +109,9 @@ npm run dev
 - **Un mémo réalisé et non rattaché s'efface au bout de 7 jours** (`src/lib/memos.ts`), comptés
   depuis sa réalisation. Un mémo **non coché ne disparaît jamais**, quel que soit son âge ; un
   mémo rattaché — à un dossier comme à une tâche — ni un mémo récurrent non plus.
-- Le détail d'un mémo est le même partout (`MemoDetail` sur desktop) : on l'ouvre en cliquant
-  son texte, depuis Ma journée comme depuis la colonne Tâches de son dossier.
+- Le détail d'un mémo est le même partout (`MemoDetail` sur desktop, le panneau de détail de
+  `MobileMyDay` sur mobile) : on l'ouvre en cliquant son texte, depuis Ma journée comme depuis
+  la colonne Tâches de son dossier — et c'est le même panneau que celui d'une tâche.
 - La vue Calendrier (`/calendrier`) affiche trois bandes, dans l'ordre du cycle d'une tâche :
   « à faire » (ce qu'on réalise ce jour-là), « j'attends » (les demandes sans réponse, en barres
   de durée), « échéances » (ce qui tombe). Une tâche « Traité » quitte les trois bandes et

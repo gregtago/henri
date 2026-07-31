@@ -17,13 +17,14 @@ import {
   deleteFloatingTasks,
   logStatusEvent,
 } from "@/lib/firestore";
-import type { Item, Case, FloatingTask, MyDaySelection, Status } from "@/lib/types";
+import type { Item, Case, FloatingTask, MyDaySelection, Recurrence, Status } from "@/lib/types";
 import { getTodayKey, getDateKeyFromValue, formatDateFR } from "@/lib/dates";
 import { getProgressLevel } from "@/lib/progress";
 import { countOpenChildren, describeOpenChildren, getCompletion, isContainer } from "@/lib/completion";
 import { MEMO_TTL_DAYS, listRecentlyDoneMemos, purgeExpiredMemos } from "@/lib/memos";
 import { Icon } from "./Icon";
 import { ReminderPicker } from "./ReminderPicker";
+import { RecurrencePicker } from "./RecurrencePicker";
 import { useReminderPolicy, describeRepeat } from "@/lib/reminderPolicy";
 import MemoSheet, { emptyMemoDraft, type MemoDraft } from "./MemoSheet";
 
@@ -49,24 +50,12 @@ type SelectionEntry = {
 };
 
 /**
- * Le formulaire du mémo, à la création comme à la modification : c'est le même
- * écran, seul le mode change. `memo` porte l'objet en cours d'édition.
+ * Le formulaire du mémo ne sert plus qu'à sa **création** : un mémo qui existe
+ * s'ouvre dans le panneau de détail, celui-là même qui ouvre une tâche. Deux
+ * écrans pour un même objet, c'était donner l'impression de changer
+ * d'application en basculant l'interrupteur « Mémo ».
  */
-type MemoSheetState =
-  | { mode: "create"; memo: null; draft: MemoDraft }
-  | { mode: "edit"; memo: FloatingTask; draft: MemoDraft };
-
-const draftOf = (memo: FloatingTask): MemoDraft => ({
-  title: memo.title,
-  starred: Boolean(memo.starred),
-  caseId: memo.caseId ?? null,
-  parentItemId: memo.parentItemId ?? null,
-  dueDate: memo.dueDate ?? null,
-  reminderAt: memo.reminderAt ?? null,
-  reminderRepeat: memo.reminderRepeat ?? null,
-  recurrence: memo.recurrence ?? null,
-  note: memo.note ?? null,
-});
+type MemoSheetState = { draft: MemoDraft };
 
 export default function MobileMyDay({ user }: { user: User }) {
   // Réglages de relance (Préférences → Rappels), pour l'interrupteur des rappels.
@@ -266,10 +255,11 @@ export default function MobileMyDay({ user }: { user: User }) {
 
   // ── MÉMOS ──
   const openNewMemo = () =>
-    setMemoSheet({ mode: "create", memo: null, draft: { ...emptyMemoDraft(), title: memoText.trim() } });
+    setMemoSheet({ draft: { ...emptyMemoDraft(), title: memoText.trim() } });
 
+  /** Ouvrir un mémo : le même panneau qu'une tâche, pas un formulaire à part. */
   const openMemo = (memo: FloatingTask) =>
-    setMemoSheet({ mode: "edit", memo, draft: draftOf(memo) });
+    setDetailEntry({ selectionId: memo.id, type: "floating", floating: memo });
 
   /**
    * Enregistrer le mémo — création et modification passent par ici, puisque
@@ -277,48 +267,27 @@ export default function MobileMyDay({ user }: { user: User }) {
    * mémo garde sa case à cocher, il gagne seulement un dossier.
    */
   const handleSubmitMemo = async (draft: MemoDraft) => {
-    if (!memoSheet) return;
     // Une échéance à venir programme le mémo pour le bon jour plutôt que
     // d'encombrer la journée en cours.
     const dueKey = draft.dueDate ? getDateKeyFromValue(draft.dueDate) : null;
     const dateKey = dueKey && dueKey > todayKey ? dueKey : todayKey;
-
-    if (memoSheet.mode === "create") {
-      await createFloatingTask(user.uid, {
-        dateKey,
-        caseId: draft.caseId,
-        parentItemId: draft.parentItemId,
-        title: draft.title,
-        status: "Créé",
-        starred: draft.starred,
-        dueDate: draft.dueDate,
-        reminderAt: draft.reminderAt,
-        reminderSentAt: null,
-        reminderRepeat: draft.reminderRepeat,
-        reminderCount: 0,
-        recurrence: draft.recurrence,
-        note: draft.note,
-        doneAt: null,
-      });
-      setMemoText("");
-    } else {
-      const memo = memoSheet.memo;
-      // Un rappel déplacé doit pouvoir sonner à nouveau.
-      const reminderMoved = (memo.reminderAt ?? null) !== draft.reminderAt;
-      await updateFloatingTask(user.uid, memo.id, {
-        dateKey,
-        caseId: draft.caseId,
-        parentItemId: draft.parentItemId,
-        title: draft.title,
-        starred: draft.starred,
-        dueDate: draft.dueDate,
-        reminderAt: draft.reminderAt,
-        reminderRepeat: draft.reminderRepeat,
-        recurrence: draft.recurrence,
-        note: draft.note,
-        ...(reminderMoved ? { reminderSentAt: null, reminderCount: 0 } : {}),
-      });
-    }
+    await createFloatingTask(user.uid, {
+      dateKey,
+      caseId: draft.caseId,
+      parentItemId: draft.parentItemId,
+      title: draft.title,
+      status: "Créé",
+      starred: draft.starred,
+      dueDate: draft.dueDate,
+      reminderAt: draft.reminderAt,
+      reminderSentAt: null,
+      reminderRepeat: draft.reminderRepeat,
+      reminderCount: 0,
+      recurrence: draft.recurrence,
+      note: draft.note,
+      doneAt: null,
+    });
+    setMemoText("");
     setMemoSheet(null);
   };
 
@@ -546,7 +515,7 @@ export default function MobileMyDay({ user }: { user: User }) {
                   </p>
                 )}
                 <div
-                  onClick={() => entry.floating ? openMemo(entry.floating) : setDetailEntry(entry)}
+                  onClick={() => setDetailEntry(entry)}
                   style={{
                     background: starred ? "rgba(251,191,36,0.10)" : "white",
                     border: "1px solid #e5e7eb",
@@ -680,28 +649,17 @@ export default function MobileMyDay({ user }: { user: User }) {
         </button>
       </div>
 
-      {/* ── FORMULAIRE DU MÉMO (création ET modification) ── */}
+      {/* ── FORMULAIRE DU MÉMO (création) ──
+        * Un mémo déjà créé se modifie dans le panneau de détail, comme une
+        * tâche. */}
       {memoSheet && (
         <MemoSheet
-          key={memoSheet.mode === "edit" ? memoSheet.memo.id : "new"}
-          mode={memoSheet.mode}
+          key="new"
           initial={memoSheet.draft}
           cases={cases}
           items={items}
           onSubmit={handleSubmitMemo}
           onClose={() => setMemoSheet(null)}
-          done={memoSheet.mode === "edit" ? !!memoSheet.memo.doneAt : false}
-          onToggleDone={memoSheet.mode === "edit" ? async () => {
-            const memo = memoSheet.memo;
-            setMemoSheet(null);
-            if (memo.doneAt) await uncompleteMemo(memo);
-            else await completeMemo(memo);
-          } : undefined}
-          onDelete={memoSheet.mode === "edit" ? async () => {
-            const memo = memoSheet.memo;
-            setMemoSheet(null);
-            await deleteFloatingTasks(user.uid, [memo.id]);
-          } : undefined}
           defaultRepeat={reminderPolicy.repeatEnabled}
           repeatLabel={describeRepeat(reminderPolicy)}
         />
@@ -885,61 +843,120 @@ export default function MobileMyDay({ user }: { user: User }) {
         </div>
       )}
 
-      {/* ── PANNEAU DÉTAIL (droite) ── */}
-      {detailEntry && (
+      {/* ── PANNEAU DÉTAIL (droite) ──
+        * Le même panneau pour une tâche et pour un mémo. Basculer de l'un à
+        * l'autre ne doit pas donner l'impression de changer d'écran : même
+        * en-tête, même titre, mêmes sections, dans le même ordre. Ce qui change
+        * tient au mot du haut, à ce qui est actif — la case à cocher pour un
+        * mémo, les statuts pour une tâche, l'autre restant affiché en grisé —
+        * et à la répétition, qui n'a de sens que pour un mémo. */}
+      {detailEntry && (() => {
+        // On relit l'objet dans sa collection : le panneau suit les
+        // modifications au lieu de vivre sur une copie prise à l'ouverture.
+        const liveItem = detailEntry.item ? items.find(i => i.id === detailEntry.item!.id) ?? detailEntry.item : null;
+        const liveMemo = detailEntry.floating ? floatingTasks.find(f => f.id === detailEntry.floating!.id) ?? detailEntry.floating : null;
+        const isMemo = !!liveMemo;
+        if (!isMemo && !liveItem) return null;
+
+        const title = isMemo ? liveMemo!.title : liveItem!.title;
+        const starred = isMemo ? !!liveMemo!.starred : !!liveItem!.starred;
+        const dueDate = (isMemo ? liveMemo!.dueDate : liveItem!.dueDate) ?? null;
+        const reminderAt = (isMemo ? liveMemo!.reminderAt : liveItem!.reminderAt) ?? null;
+        const reminderRepeat = (isMemo ? liveMemo!.reminderRepeat : liveItem!.reminderRepeat) ?? null;
+        const done = isMemo && !!liveMemo!.doneAt;
+        const caseTitle = isMemo
+          ? (liveMemo!.caseId ? cases.find(c => c.id === liveMemo!.caseId)?.title ?? "" : "")
+          : caseOf(liveItem!);
+        const parentTitle = isMemo
+          ? (liveMemo!.parentItemId ? items.find(i => i.id === liveMemo!.parentItemId)?.title ?? "" : "")
+          : parentOf(liveItem!);
+
+        /** Écrire, du bon côté — c'est la seule chose que la nature change ici. */
+        const patch = (payload: Record<string, unknown>) => {
+          if (isMemo) void updateFloatingTask(user.uid, liveMemo!.id, payload);
+          else void updateItem(user.uid, liveItem!.id, payload);
+        };
+        /** L'échéance d'un mémo programme aussi son jour : posée au-delà
+          * d'aujourd'hui, elle le sort de la journée en cours. */
+        const patchDue = (iso: string | null) => {
+          if (!isMemo) { patch({ dueDate: iso }); return; }
+          const dueKey = iso ? getDateKeyFromValue(iso) : null;
+          void updateFloatingTask(user.uid, liveMemo!.id, {
+            dueDate: iso,
+            dateKey: dueKey && dueKey > todayKey ? dueKey : todayKey,
+          });
+        };
+
+        return (
         <div style={{ position: "fixed", inset: 0, zIndex: 40 }} onClick={() => setDetailEntry(null)}>
           <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: "92vw", maxWidth: "420px", background: "white", boxShadow: "-4px 0 24px rgba(0,0,0,0.12)", display: "flex", flexDirection: "column" }}
             onClick={e => e.stopPropagation()}>
 
-            {/* ─── DÉTAIL TÂCHE ─── (un mémo, lui, passe par MemoSheet) */}
-            <>
                 {/* Header */}
                 <div style={{ padding: "14px 16px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <p style={{ fontSize: "12px", fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em" }}>Tâche</p>
-                  <button onClick={() => setDetailEntry(null)}
-                    style={{ width: "30px", height: "30px", border: "1px solid #e5e7eb", borderRadius: "8px", background: "#f9fafb", cursor: "pointer", color: "#6b7280", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Icon name="close" size={16} />
-                  </button>
+                  <p style={{ fontSize: "12px", fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                    {isMemo ? "Mémo" : "Tâche"}
+                  </p>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    {done && <span style={{ fontSize: "11px", color: "#9ca3af" }}>Réalisé le {formatDateFR(liveMemo!.doneAt)}</span>}
+                    <button onClick={() => setDetailEntry(null)}
+                      style={{ width: "30px", height: "30px", border: "1px solid #e5e7eb", borderRadius: "8px", background: "#f9fafb", cursor: "pointer", color: "#6b7280", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <Icon name="close" size={16} />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Contenu scrollable */}
                 <div style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", flexDirection: "column", gap: "18px" }}>
 
-                  {/* Titre avec étoile à gauche */}
+                  {/* Case à cocher, étoile, titre. La case n'est active que pour
+                      un mémo : une tâche ne s'accomplit pas d'un geste, elle
+                      avance. Elle reste affichée pour qu'on voie l'échange. */}
                   <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <button onClick={() => {
-                      if (!detailEntry.item) return;
-                      const newVal = !detailEntry.item.starred;
-                      updateItem(user.uid, detailEntry.item.id, { starred: newVal });
-                      setDetailEntry(prev => prev?.item ? { ...prev, item: { ...prev.item, starred: newVal } } : prev);
-                    }}
-                      style={{ flexShrink: 0, border: "none", background: "transparent", cursor: "pointer", padding: 0, lineHeight: 0, color: detailEntry.item?.starred ? "#f59e0b" : "#d1d5db" }}
-                      title={detailEntry.item?.starred ? "Retirer l'étoile" : "Marquer importante"}>
-                      <Icon name="star" size={24} filled={!!detailEntry.item?.starred} strokeWidth={1.75} />
+                    <button
+                      onClick={() => { if (isMemo) { if (done) void uncompleteMemo(liveMemo!); else void completeMemo(liveMemo!); } }}
+                      disabled={!isMemo}
+                      title={isMemo
+                        ? (done ? "Marquer à faire" : "Marquer réalisé")
+                        : "Une tâche ne se coche pas : elle avance par statuts."}
+                      style={{
+                        width: "24px", height: "24px", borderRadius: "7px", flexShrink: 0,
+                        border: done ? "none" : `2px solid ${isMemo ? "#9ca3af" : "#e5e7eb"}`,
+                        background: done ? "#16a34a" : isMemo ? "white" : "#f9fafb",
+                        cursor: isMemo ? "pointer" : "default",
+                        display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
+                      }}>
+                      {done && <Icon name="check" size={15} strokeWidth={2.5} style={{ color: "white" }} />}
+                    </button>
+                    <button onClick={() => patch({ starred: !starred })}
+                      style={{ flexShrink: 0, border: "none", background: "transparent", cursor: "pointer", padding: 0, lineHeight: 0, color: starred ? "#f59e0b" : "#d1d5db" }}
+                      title={starred ? "Retirer l'étoile" : "Marquer importante"}>
+                      <Icon name="star" size={24} filled={starred} strokeWidth={1.75} />
                     </button>
                     <input
-                      defaultValue={detailEntry.item?.title ?? ""}
+                      key={(isMemo ? "f-" : "i-") + (isMemo ? liveMemo!.id : liveItem!.id)}
+                      defaultValue={title}
                       onBlur={e => {
                         const val = e.target.value.trim();
-                        if (!val) return;
-                        if (detailEntry.item) updateItem(user.uid, detailEntry.item.id, { title: val });
+                        if (!val || val === title) return;
+                        patch({ title: val });
                       }}
-                      style={{ flex: 1, minWidth: 0, fontSize: "18px", fontWeight: 600, color: "#111827", border: "1.5px solid #e5e7eb", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "#f9fafb", boxSizing: "border-box", lineHeight: 1.3 }}
+                      style={{ flex: 1, minWidth: 0, fontSize: "18px", fontWeight: 600, color: "#111827", border: "1.5px solid #e5e7eb", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "#f9fafb", boxSizing: "border-box", lineHeight: 1.3, textDecoration: done ? "line-through" : undefined }}
                     />
                   </div>
 
-                  {/* Statut — sauf pour un contenant, qui n'en a pas : il
-                      affiche ce qu'il reste à faire dedans. */}
-                  {detailEntry.item && (() => {
-                    const target = detailEntry.item;
-                    const openCount = countOpenChildren(target.id, items, floatingTasks);
-                    if (isContainer(target.id, items, floatingTasks)) {
-                      const { done, total } = getCompletion(target.id, items, floatingTasks);
+                  {/* Statut — actif sur une tâche, grisé sur un mémo (mais
+                      affiché : c'est ce qu'on récupère en le rendant tâche).
+                      Un contenant, lui, n'a pas de statut : il affiche ce qu'il
+                      reste à faire dedans. */}
+                  {(() => {
+                    if (!isMemo && isContainer(liveItem!.id, items, floatingTasks)) {
+                      const { done: sub, total } = getCompletion(liveItem!.id, items, floatingTasks);
                       return (
                         <div>
                           <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Avancement</p>
-                          <div style={{ padding: "13px", borderRadius: "10px", border: "1px solid #e5e7eb", background: done === total ? "#dcfce7" : "#f9fafb", color: done === total ? "#166534" : "#374151", fontSize: "14px", fontWeight: 600 }}>
-                            {done}/{total} terminé{done > 1 ? "s" : ""}
+                          <div style={{ padding: "13px", borderRadius: "10px", border: "1px solid #e5e7eb", background: sub === total ? "#dcfce7" : "#f9fafb", color: sub === total ? "#166534" : "#374151", fontSize: "14px", fontWeight: 600 }}>
+                            {sub}/{total} terminé{sub > 1 ? "s" : ""}
                           </div>
                           <p style={{ fontSize: "11.5px", color: "#9ca3af", marginTop: "8px", lineHeight: 1.45 }}>
                             Cette tâche contient ; son état suit ce qu'elle porte.
@@ -947,32 +964,40 @@ export default function MobileMyDay({ user }: { user: User }) {
                         </div>
                       );
                     }
+                    const openCount = isMemo ? 0 : countOpenChildren(liveItem!.id, items, floatingTasks);
                     return (
                       <div>
                         <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Statut</p>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
                           {STATUSES.map(s => {
-                            const isActive = detailEntry.item?.status === s;
-                            const blocked = s === "Traité" && openCount > 0;
+                            const isActive = !isMemo && liveItem!.status === s;
+                            const blocked = !isMemo && s === "Traité" && openCount > 0;
                             return (
-                              <button key={s} onClick={() => { if (!blocked) handleStatusChange(detailEntry, s); }}
-                                style={{ padding: "11px", borderRadius: "10px", border: isActive ? "2px solid #111827" : "1px solid #e5e7eb", background: isActive ? STATUS_COLORS[s] : "white", color: isActive ? STATUS_TEXT[s] : blocked ? "#d1d5db" : "#374151", fontSize: "13px", fontWeight: isActive ? 700 : 400, cursor: blocked ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: blocked ? 0.5 : 1 }}>
+                              <button key={s} disabled={isMemo}
+                                onClick={() => { if (!isMemo && !blocked) handleStatusChange(detailEntry, s); }}
+                                title={isMemo ? "Un mémo se coche ; il n'avance pas par statuts." : undefined}
+                                style={{ padding: "11px", borderRadius: "10px", border: isActive ? "2px solid #111827" : "1px solid #e5e7eb", background: isActive ? STATUS_COLORS[s] : "white", color: isActive ? STATUS_TEXT[s] : blocked ? "#d1d5db" : "#374151", fontSize: "13px", fontWeight: isActive ? 700 : 400, cursor: isMemo || blocked ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: isMemo ? 0.35 : blocked ? 0.5 : 1 }}>
                                 {s}
                               </button>
                             );
                           })}
                         </div>
+                        {isMemo && (
+                          <p style={{ fontSize: "11.5px", color: "#9ca3af", marginTop: "8px", lineHeight: 1.45 }}>
+                            Un mémo s'accomplit d'un geste — la case en haut. Les statuts sont ceux d'une tâche.
+                          </p>
+                        )}
                       </div>
                     );
                   })()}
 
                   {/* Dossier */}
-                  {detailEntry.item && (
+                  {(caseTitle || !isMemo) && (
                     <div>
                       <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "6px" }}>Dossier</p>
                       <p style={{ fontSize: "14px", color: "#374151", display: "inline-flex", alignItems: "center", gap: "6px" }}>
                         <Icon name="folder" size={14} />
-                        {caseOf(detailEntry.item)}{parentOf(detailEntry.item) ? ` › ${parentOf(detailEntry.item)}` : ""}
+                        {caseTitle || "Sans dossier"}{parentTitle ? ` › ${parentTitle}` : ""}
                       </p>
                     </div>
                   )}
@@ -990,13 +1015,7 @@ export default function MobileMyDay({ user }: { user: User }) {
                       ].map(({ label, days }) => {
                         const d = new Date(); d.setDate(d.getDate() + days); d.setHours(12, 0, 0, 0);
                         return (
-                          <button key={label} onClick={() => {
-                            if (detailEntry.item) {
-                              const iso = d.toISOString();
-                              updateItem(user.uid, detailEntry.item.id, { dueDate: iso });
-                              setDetailEntry(prev => prev?.item ? { ...prev, item: { ...prev.item, dueDate: iso } } : prev);
-                            }
-                          }}
+                          <button key={label} onClick={() => patchDue(d.toISOString())}
                             style={{ padding: "6px 12px", borderRadius: "20px", border: "1px solid #e5e7eb", background: "white", color: "#374151", fontSize: "12px", cursor: "pointer", fontFamily: "inherit" }}>
                             {label}
                           </button>
@@ -1012,20 +1031,10 @@ export default function MobileMyDay({ user }: { user: User }) {
                         <Icon name="calendar" size={20} />
                       </button>
                       <input type="date"
-                        value={(detailEntry.item?.dueDate ?? "").slice(0, 10)}
+                        value={(dueDate ?? "").slice(0, 10)}
                         onChange={e => {
-                          if (!e.target.value) {
-                            if (detailEntry.item) {
-                              updateItem(user.uid, detailEntry.item.id, { dueDate: null });
-                              setDetailEntry(prev => prev?.item ? { ...prev, item: { ...prev.item, dueDate: null } } : prev);
-                            }
-                            return;
-                          }
-                          const iso = new Date(e.target.value + "T12:00:00").toISOString();
-                          if (detailEntry.item) {
-                            updateItem(user.uid, detailEntry.item.id, { dueDate: iso });
-                            setDetailEntry(prev => prev?.item ? { ...prev, item: { ...prev.item, dueDate: iso } } : prev);
-                          }
+                          if (!e.target.value) { patchDue(null); return; }
+                          patchDue(new Date(e.target.value + "T12:00:00").toISOString());
                         }}
                         style={{ flex: 1, fontSize: "14px", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "#f9fafb", color: "#374151", boxSizing: "border-box" }}
                       />
@@ -1033,37 +1042,51 @@ export default function MobileMyDay({ user }: { user: User }) {
                   </div>
 
                   {/* Rappel push */}
-                  {detailEntry.item && (
-                    <ReminderPicker
-                      value={detailEntry.item.reminderAt}
-                      onChange={(iso) => {
-                        updateItem(user.uid, detailEntry.item!.id, { reminderAt: iso, reminderSentAt: null, reminderCount: 0 });
-                        setDetailEntry(prev => prev?.item ? { ...prev, item: { ...prev.item, reminderAt: iso, reminderSentAt: null, reminderCount: 0 } } : prev);
-                      }}
-                      repeat={detailEntry.item.reminderRepeat}
-                      onRepeatChange={(v) => {
-                        updateItem(user.uid, detailEntry.item!.id, { reminderRepeat: v });
-                        setDetailEntry(prev => prev?.item ? { ...prev, item: { ...prev.item, reminderRepeat: v } } : prev);
-                      }}
-                      defaultRepeat={reminderPolicy.repeatEnabled}
-                      repeatLabel={describeRepeat(reminderPolicy)}
-                    />
+                  <ReminderPicker
+                    value={reminderAt}
+                    onChange={(iso) => patch({ reminderAt: iso, reminderSentAt: null, reminderCount: 0 })}
+                    repeat={reminderRepeat}
+                    onRepeatChange={(v) => patch({ reminderRepeat: v })}
+                    defaultRepeat={reminderPolicy.repeatEnabled}
+                    repeatLabel={describeRepeat(reminderPolicy)}
+                  />
+
+                  {/* Répétition et observations — la seule part qui n'existe que
+                      pour un mémo : une tâche ne revient pas toute seule. */}
+                  {isMemo && (
+                    <>
+                      <div>
+                        <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Répétition</p>
+                        <RecurrencePicker value={liveMemo!.recurrence ?? null} onChange={(r: Recurrence | null) => patch({ recurrence: r ?? null })} />
+                      </div>
+                      <div>
+                        <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Observations</p>
+                        <textarea
+                          key={liveMemo!.id + "-note"}
+                          defaultValue={liveMemo!.note ?? ""}
+                          onBlur={e => patch({ note: e.target.value.trim() || null })}
+                          rows={3}
+                          placeholder="Contexte, numéro de téléphone, précision…"
+                          style={{ width: "100%", fontSize: "14px", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "#f9fafb", color: "#374151", boxSizing: "border-box", resize: "none" }}
+                        />
+                      </div>
+                    </>
                   )}
 
                 </div>
 
                 {/* Barre d'actions bas */}
-                <div style={{ borderTop: "1px solid #e5e7eb", padding: "12px 16px", background: "white" }}>
-                  <button onClick={() => { removeEntry(detailEntry); setDetailEntry(null); }}
-                    style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "white", color: "#374151", fontSize: "13px", fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
-                    <Icon name="myday" size={14} />
-                    Retirer de Ma journée
+                <div style={{ borderTop: "1px solid #e5e7eb", padding: "12px 16px", background: "white", display: "flex", gap: "8px" }}>
+                  <button onClick={() => { void removeEntry(detailEntry); setDetailEntry(null); }}
+                    style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "white", color: isMemo ? "#dc2626" : "#374151", fontSize: "13px", fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+                    <Icon name={isMemo ? "delete" : "myday"} size={14} />
+                    {isMemo ? "Supprimer" : "Retirer de Ma journée"}
                   </button>
                 </div>
-            </>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* ── ANNONCE : « Mes dossiers » désormais sur mobile (affichée une seule fois) ── */}
       {showMobileAnnounce && (
