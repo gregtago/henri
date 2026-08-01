@@ -15,7 +15,8 @@ import type { Case, Item, Recurrence } from "@/lib/types";
 import { Icon } from "./Icon";
 import { RecurrencePicker } from "./RecurrencePicker";
 import { ReminderPicker } from "./ReminderPicker";
-import { atDueHour, formatDateFR, getDueSuggestions } from "@/lib/dates";
+import DueChips from "./DueChips";
+import { atDueHour, formatDateFR } from "@/lib/dates";
 
 export type MemoDraft = {
   title: string;
@@ -127,8 +128,6 @@ export default function MemoComposer({
       void submit();
     }
   };
-
-  const dueChips = getDueSuggestions().map(({ label, date }) => ({ label, value: date.toISOString() }));
 
   return (
     <div
@@ -246,20 +245,11 @@ export default function MemoComposer({
           <div style={{ marginBottom: "16px" }}>
             <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1.5">Échéance</p>
             <div className="flex flex-wrap gap-1.5 items-center">
-              {dueChips.map((chip) => {
-                const on = !!dueDate && !!chip.value && dueDate.slice(0, 10) === chip.value.slice(0, 10);
-                return (
-                  <button
-                    key={chip.label}
-                    onClick={() => setDueDate(on ? null : chip.value)}
-                    className={`text-[11px] font-[inherit] px-2 py-1 rounded border cursor-pointer transition-colors ${
-                      on
-                        ? "border-border-strong bg-bg-active text-tx"
-                        : "border-border bg-bg-subtle text-tx-2 hover:border-border-strong hover:text-tx"
-                    }`}
-                  >{chip.label}</button>
-                );
-              })}
+              <DueChips
+                value={dueDate}
+                onPick={(date) => setDueDate(date.toISOString())}
+                onClear={() => setDueDate(null)}
+              />
               <input
                 type="date"
                 value={dueDate ? dueDate.slice(0, 10) : ""}

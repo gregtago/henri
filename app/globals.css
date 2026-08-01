@@ -190,6 +190,73 @@ body {
 .status-badge-2 { background: var(--s2-bg); color: var(--s2-fg); }
 .status-badge-3 { background: var(--s3-bg); color: var(--s3-fg); }
 
+/* ── PUCES D'ÉCHÉANCE ──
+ * Les propositions de date (Aujourd'hui, Demain, Lundi prochain…). Deux choses
+ * qu'elles doivent dire, et que l'ancienne version taisait : **laquelle est
+ * posée** (l'état retenu, y compris quand on rouvre le détail) et **qu'on vient
+ * d'appuyer**. Sans retour au doigt, on tape deux fois en croyant avoir raté —
+ * or sur mobile il n'y a pas de survol pour rassurer.
+ * Un seul style pour tous les écrans : mêmes propositions, même réaction. */
+.due-chip {
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.2;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+  color: var(--text-2);
+  cursor: pointer;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease, transform 0.08s ease;
+}
+
+.due-chip:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+/* L'appui : la puce s'enfonce et se remplit, tout de suite — c'est le seul
+ * retour dont on dispose au doigt. */
+.due-chip:active {
+  transform: scale(0.94);
+  background: var(--bg-active);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+/* L'échéance posée : pleine, et elle le reste. */
+.due-chip[data-on="true"] {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+  font-weight: 600;
+}
+
+.due-chip[data-on="true"]:hover {
+  color: var(--bg);
+}
+
+/* Retirer l'échéance — même forme, couleur d'avertissement. */
+.due-chip-clear {
+  border-color: #fca5a5;
+  color: #dc2626;
+}
+
+.due-chip-clear:hover {
+  border-color: #f87171;
+  color: #dc2626;
+}
+
+/* Sur mobile, on vise avec le doigt : la cible grandit. */
+@media (hover: none) and (pointer: coarse) {
+  .due-chip {
+    font-size: 13px;
+    padding: 9px 14px;
+  }
+}
+
 /* ── KBD ── */
 kbd {
   font-family: inherit;

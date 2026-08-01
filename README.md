@@ -48,9 +48,13 @@ npm run dev
 - Les suggestions "À reproposer" listent les tâches vues dans Ma journée sur les 7 derniers jours (hors aujourd'hui), sans évolution de statut sur la période (`lastProgressAt` <= maintenant - 7 jours), non traitées et absentes d'aujourd'hui.
 - L'historique (timeline) des événements d'une tâche est masqué par défaut et accessible via “Afficher la timeline”.
 - Toutes les dates affichées dans l'UI utilisent le format JJ/MM/AAAA (helper `formatDateFR`).
+- **Vibration** (`src/lib/haptics.ts`) : `tapFeedback` (appui), `successFeedback` (accompli),
+  `refusedFeedback` (refus). Fonctionne sur Android ; **iOS n'expose pas l'API** à une page
+  web — c'est donc toujours un bonus, jamais le seul retour d'un geste.
 - **Les propositions d'échéance sont les mêmes partout** — Aujourd'hui · Demain · Dans 2 j. ·
-  Lundi 9 h · Dans 1 sem. · Dans 1 mois (+ 3 et 6 mois pour l'échéance légale d'un dossier) :
-  `getDueSuggestions` (`src/lib/dates.ts`), et nulle part ailleurs. Toute échéance posée par
+  Lundi prochain · Dans 1 sem. · Dans 1 mois (+ 3 et 6 mois pour l'échéance légale d'un
+  dossier) : la liste dans `getDueSuggestions` (`src/lib/dates.ts`), le rendu dans `DueChips`,
+  et nulle part ailleurs. La puce retenue est pleine, et l'appui l'enfonce (`.due-chip`). Toute échéance posée par
   Henri tombe à **9 h** (`DUE_HOUR`), saisie manuelle comprise. « En retard » se compare donc
   en jours et non en heures : une échéance posée pour aujourd'hui ne vire pas au rouge à 9 h 01.
 - Raccourcis de création : une lettre par nature — `D` dossier · `T` tâche · `⇧T` sous-tâche ·

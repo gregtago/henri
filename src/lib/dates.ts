@@ -126,7 +126,7 @@ export const getDueSuggestions = (options?: { long?: boolean }): DueSuggestion[]
     { label: "Aujourd'hui", date: inDaysAtDueHour(0) },
     { label: "Demain", date: inDaysAtDueHour(1) },
     { label: "Dans 2 j.", date: inDaysAtDueHour(2) },
-    { label: "Lundi 9 h", date: nextMonday() },
+    { label: "Lundi prochain", date: nextMonday() },
     { label: "Dans 1 sem.", date: inDaysAtDueHour(7) },
     { label: "Dans 1 mois", date: inDaysAtDueHour(30) },
   ];

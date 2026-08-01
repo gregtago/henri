@@ -16,6 +16,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Case, Item, Recurrence } from "@/lib/types";
 import { atDueHour, getDueSuggestions } from "@/lib/dates";
 import { Icon } from "./Icon";
+import DueChips from "./DueChips";
 import { ReminderPicker } from "./ReminderPicker";
 import { RecurrencePicker } from "./RecurrencePicker";
 
@@ -133,6 +134,7 @@ export default function MemoSheet({
 
   const dueDayKey = dayKeyOf(draft.dueDate);
   const chips = getDueSuggestions().map((chip) => ({ ...chip, key: dayKeyOf(chip.date.toISOString()) }));
+  // `chips` ne sert plus qu'à savoir si la date saisie sort des propositions.
   const isCustomDue = !!dueDayKey && !chips.some((chip) => chip.key === dueDayKey);
 
   return (
@@ -178,16 +180,12 @@ export default function MemoSheet({
         {/* Échéance */}
         <div>
           <p style={LABEL}>Échéance</p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-            {chips.map(({ label, date, key }) => {
-              const on = dueDayKey === key;
-              return (
-                <button key={label} onClick={() => patch({ dueDate: on ? null : date.toISOString() })}
-                  style={{ padding: "8px 14px", borderRadius: "20px", border: on ? "2px solid #111827" : "1px solid #e5e7eb", background: on ? "#111827" : "white", color: on ? "white" : "#374151", fontSize: "13px", fontWeight: on ? 600 : 400, cursor: "pointer", fontFamily: "inherit" }}>
-                  {label}
-                </button>
-              );
-            })}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center" }}>
+            <DueChips
+              value={draft.dueDate}
+              onPick={(date) => patch({ dueDate: date.toISOString() })}
+              onClear={() => patch({ dueDate: null })}
+            />
             <label style={{ position: "relative", padding: "8px 14px", borderRadius: "20px", border: isCustomDue ? "2px solid #111827" : "1px solid #e5e7eb", background: isCustomDue ? "#111827" : "white", color: isCustomDue ? "white" : "#374151", fontSize: "13px", fontWeight: isCustomDue ? 600 : 400, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: "5px" }}>
               <Icon name="calendar" size={14} />
               {isCustomDue && draft.dueDate

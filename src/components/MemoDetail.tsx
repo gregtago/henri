@@ -24,12 +24,13 @@
 import { useState } from "react";
 import type { Case, FloatingTask, Item } from "@/lib/types";
 import { STATUSES } from "@/lib/types";
-import { atDueHour, formatDateFR, getDueSuggestions } from "@/lib/dates";
+import { atDueHour, formatDateFR } from "@/lib/dates";
 import { Icon } from "./Icon";
 import { EditableInput } from "./EditableField";
 import { ReminderPicker } from "./ReminderPicker";
 import { RecurrencePicker } from "./RecurrencePicker";
 import MemoSwitch from "./MemoSwitch";
+import DueChips from "./DueChips";
 import { statusBadgeClass } from "./StatusBadge";
 
 type Props = {
@@ -159,19 +160,12 @@ export default function MemoDetail({
           {/* Échéance */}
           <div>
             <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-2">Échéance</p>
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              {getDueSuggestions().map(({ label, date }) => (
-                <button key={label} onClick={() => onDueDate(date)}
-                  className="text-[11px] font-[inherit] px-2 py-1 rounded border border-border bg-bg-subtle text-tx-2 cursor-pointer hover:border-border-strong hover:text-tx transition-colors">
-                  {label}
-                </button>
-              ))}
-              {task.dueDate && (
-                <button onClick={() => onPatch({ dueDate: null })}
-                  className="text-[11px] font-[inherit] px-2 py-1 rounded border border-border bg-bg-subtle text-red-400 cursor-pointer hover:border-red-300 transition-colors">
-                  ✕ Retirer
-                </button>
-              )}
+            <div className="mb-2">
+              <DueChips
+                value={task.dueDate ?? null}
+                onPick={date => onDueDate(date)}
+                onClear={() => onPatch({ dueDate: null })}
+              />
             </div>
             <div className="flex items-center gap-2">
               <button

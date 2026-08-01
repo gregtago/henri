@@ -79,6 +79,7 @@ import InstallButton from "./InstallButton";
 import CaseTemplatesModal from "./CaseTemplatesModal";
 import MemoComposer, { type MemoDraft } from "./MemoComposer";
 import MemoSwitch from "./MemoSwitch";
+import DueChips from "./DueChips";
 import GuidedTour, { type TourStep } from "./GuidedTour";
 import { EditableInput, EditableTextarea } from "./EditableField";
 import { ReminderPicker } from "./ReminderPicker";
@@ -2485,23 +2486,13 @@ export default function AppShell() {
               {/* Échéance */}
               <div>
                 <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-2">Échéance</p>
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {(() => {
-                    const shortcuts = getDueSuggestions({ long: true });
-                    return shortcuts.map(({ label, date }) => (
-                      <button key={label}
-                        onClick={() => updateCase(user.uid, detailCase.id, { legalDueDate: date.toISOString() })}
-                        className="text-[11px] font-[inherit] px-2 py-1 rounded border border-border bg-bg-subtle text-tx-2 cursor-pointer hover:border-border-strong hover:text-tx transition-colors">
-                        {label}
-                      </button>
-                    ));
-                  })()}
-                  {detailCase.legalDueDate && (
-                    <button onClick={() => updateCase(user.uid, detailCase.id, { legalDueDate: null })}
-                      className="text-[11px] font-[inherit] px-2 py-1 rounded border border-border bg-bg-subtle text-red-400 cursor-pointer hover:border-red-300 transition-colors">
-                      ✕ Retirer
-                    </button>
-                  )}
+                <div className="mb-2">
+                  <DueChips
+                    long
+                    value={detailCase.legalDueDate ?? null}
+                    onPick={date => updateCase(user.uid, detailCase.id, { legalDueDate: date.toISOString() })}
+                    onClear={() => updateCase(user.uid, detailCase.id, { legalDueDate: null })}
+                  />
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -2671,8 +2662,6 @@ export default function AppShell() {
                     updateItem(user.uid, detailItem.id, { dueDate: iso });
                   };
 
-                  const shortcuts = getDueSuggestions();
-
                   return (
                     <>
                       {latestSubDue && (
@@ -2680,20 +2669,12 @@ export default function AppShell() {
                           ⚠ Doit être au plus tôt le {new Date(latestSubDue).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })} (échéance de la sous-tâche la plus tardive)
                         </p>
                       )}
-                      <div className="flex flex-wrap gap-1.5 mb-2">
-                        {shortcuts.map(({ label, date }) => (
-                          <button key={label}
-                            onClick={() => handleSetDue(date.toISOString())}
-                            className="text-[11px] font-[inherit] px-2 py-1 rounded border border-border bg-bg-subtle text-tx-2 cursor-pointer hover:border-border-strong hover:text-tx transition-colors">
-                            {label}
-                          </button>
-                        ))}
-                        {detailItem.dueDate && (
-                          <button onClick={() => handleSetDue(null)}
-                            className="text-[11px] font-[inherit] px-2 py-1 rounded border border-border bg-bg-subtle text-red-400 cursor-pointer hover:border-red-300 transition-colors">
-                            ✕ Retirer
-                          </button>
-                        )}
+                      <div className="mb-2">
+                        <DueChips
+                          value={detailItem.dueDate ?? null}
+                          onPick={date => handleSetDue(date.toISOString())}
+                          onClear={() => handleSetDue(null)}
+                        />
                       </div>
                       <div className="flex items-center gap-2">
                         <button
