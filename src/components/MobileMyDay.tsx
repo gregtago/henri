@@ -20,9 +20,10 @@ import {
   logStatusEvent,
 } from "@/lib/firestore";
 import type { Item, Case, FloatingTask, MyDaySelection, Recurrence, Status } from "@/lib/types";
-import { getTodayKey, getDateKeyFromValue, formatDateFR, atDueHour, getDueSuggestions } from "@/lib/dates";
+import { getTodayKey, getDateKeyFromValue, formatDateFR, atDueHour } from "@/lib/dates";
 import { getProgressLevel } from "@/lib/progress";
 import { countOpenChildren, describeOpenChildren, getCompletion, isContainer } from "@/lib/completion";
+import { refusedFeedback, successFeedback, tapFeedback } from "@/lib/haptics";
 import { MEMO_TTL_DAYS, listRecentlyDoneMemos, purgeExpiredMemos } from "@/lib/memos";
 import { Icon } from "./Icon";
 import { ReminderPicker } from "./ReminderPicker";
@@ -30,6 +31,7 @@ import { RecurrencePicker } from "./RecurrencePicker";
 import { useReminderPolicy, describeRepeat } from "@/lib/reminderPolicy";
 import MemoSheet, { emptyMemoDraft, type MemoDraft } from "./MemoSheet";
 import MemoSwitch from "./MemoSwitch";
+import DueChips from "./DueChips";
 
 const STATUSES: Status[] = ["Créé", "Demandé", "Reçu", "Traité"];
 const STATUS_COLORS: Record<string, string> = {
@@ -115,6 +117,10 @@ export default function MobileMyDay({ user }: { user: User }) {
   }, [user.uid]);
 
   const playDone = () => {
+    // Le son se coupe (mode silencieux), la vibration passe quand même — et sur
+    // iPhone, où l'API n'existe pas, il reste l'animation. Trois retours, aucun
+    // obligatoire (voir src/lib/haptics.ts).
+    successFeedback();
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const o = ctx.createOscillator();
@@ -287,10 +293,11 @@ export default function MobileMyDay({ user }: { user: User }) {
    */
   const toggleNature = async (entry: SelectionEntry, item: Item | null, memo: FloatingTask | null) => {
     setNatureNotice(null);
+    tapFeedback();
     const stamp = new Date().toISOString();
     if (memo) {
       const result = await convertMemoToTask(user.uid, memo);
-      if (!result.ok) { setNatureNotice(result.reason); return; }
+      if (!result.ok) { refusedFeedback(); setNatureNotice(result.reason); return; }
       // Le mémo était dans la journée : la tâche y reste, avec sa sélection.
       const selectionId = await addMyDaySelection(user.uid, {
         dateKey: todayKey,
@@ -318,7 +325,7 @@ export default function MobileMyDay({ user }: { user: User }) {
     }
     if (!item) return;
     const result = await convertItemToMemo(user.uid, item);
-    if (!result.ok) { setNatureNotice(result.reason); return; }
+    if (!result.ok) { refusedFeedback(); setNatureNotice(result.reason); return; }
     // La tâche n'existe plus : sa sélection du jour n'a plus rien à désigner.
     if (entry.type === "item") {
       await deleteMyDaySelection(user.uid, entry.selectionId).catch(() => {});
@@ -1178,13 +1185,12 @@ export default function MobileMyDay({ user }: { user: User }) {
                   {/* Échéance avec calendrier à gauche */}
                   <div>
                     <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Échéance</p>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "10px" }}>
-                      {getDueSuggestions().map(({ label, date }) => (
-                        <button key={label} onClick={() => patchDue(date.toISOString())}
-                          style={{ padding: "6px 12px", borderRadius: "20px", border: "1px solid #e5e7eb", background: "white", color: "#374151", fontSize: "12px", cursor: "pointer", fontFamily: "inherit" }}>
-                          {label}
-                        </button>
-                      ))}
+                    <div style={{ marginBottom: "10px" }}>
+                      <DueChips
+                        value={dueDate}
+                        onPick={date => patchDue(date.toISOString())}
+                        onClear={() => patchDue(null)}
+                      />
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                       <button

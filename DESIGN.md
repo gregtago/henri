@@ -103,9 +103,17 @@ La règle vit dans `updateItemProgress` (`src/lib/firestore.ts`), le seul chemin
 
 Un mémo, lui, garde son échéance quand on le coche : il reste consultable tel qu'on l'a laissé, et disparaîtra de lui-même.
 
+#### Le retour au doigt
+
+Trois retours possibles à un geste, et **aucun n'est obligatoire** : le visuel (toujours), le son (`playDone`, coupé en mode silencieux), la vibration (`src/lib/haptics.ts`). La règle est que ce qu'il faut comprendre passe par l'écran ; le reste vient en plus.
+
+La vibration marche sur **Android** ; **iOS ne l'implémente pas** depuis une page web, quel que soit le navigateur — c'est donc un bonus, jamais un canal d'information. Trois intensités, pour trois sens : `tapFeedback` (un appui pris en compte), `successFeedback` (quelque chose d'accompli), `refusedFeedback` (le geste n'a rien fait).
+
 #### Les propositions d'échéance
 
-Les mêmes six propositions partout où l'on pose une échéance — détail d'une tâche, détail d'un mémo, fenêtre de création, mobile : **Aujourd'hui · Demain · Dans 2 j. · Lundi 9 h · Dans 1 sem. · Dans 1 mois** (le dossier, dont l'échéance légale se compte en mois, y ajoute 3 et 6 mois). Elles vivent dans `getDueSuggestions` (`src/lib/dates.ts`), et nulle part ailleurs : recopiées dans cinq écrans, elles avaient fini par diverger, et « lundi prochain » manquait là où on en avait le plus besoin.
+Les mêmes six propositions partout où l'on pose une échéance — détail d'une tâche, détail d'un mémo, fenêtre de création, mobile : **Aujourd'hui · Demain · Dans 2 j. · Lundi prochain · Dans 1 sem. · Dans 1 mois** (le dossier, dont l'échéance légale se compte en mois, y ajoute 3 et 6 mois). La liste vit dans `getDueSuggestions` (`src/lib/dates.ts`) et le rendu dans `DueChips` — ni l'une ni l'autre recopiés ailleurs : les cinq écrans avaient fini par diverger, et « lundi prochain » manquait là où on en avait le plus besoin.
+
+Une puce d'échéance doit dire deux choses, et les taisait toutes les deux : **laquelle est posée** (elle est pleine, et le reste quand on rouvre le détail) et **qu'on vient d'appuyer**. Sans retour au doigt, on tape deux fois en croyant avoir raté — sur mobile il n'y a pas de survol pour rassurer. L'appui enfonce donc la puce (`.due-chip:active`) et fait vibrer l'appareil quand il sait le faire.
 
 **Toutes tombent à 9 h**, l'heure à laquelle on ouvre le dossier — y compris la date saisie à la main. Une échéance n'est pas un rendez-vous : ce qui compte est le jour, mais l'heure doit être tôt et la même partout, sinon deux échéances du même jour ne se comparent pas. Corollaire : « en retard » se compte en **jours**, jamais en heures — une échéance posée pour aujourd'hui ne vire pas au rouge à 9 h 01.
 
