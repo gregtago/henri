@@ -83,6 +83,8 @@ export default function MobileMyDay({ user }: { user: User }) {
   const [statusPrompt, setStatusPrompt] = useState<SelectionEntry | null>(null);
   // Le refus d'une bascule de nature, dit sous l'interrupteur (pas de toast ici).
   const [natureNotice, setNatureNotice] = useState<string | null>(null);
+  // Recherche de dossier, pour rattacher un mémo depuis son détail.
+  const [detailCaseSearch, setDetailCaseSearch] = useState("");
   const [pendingRemovalIds, setPendingRemovalIds] = useState<Set<string>>(new Set());
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
@@ -264,7 +266,7 @@ export default function MobileMyDay({ user }: { user: User }) {
 
   // Un refus de bascule ne vaut que pour l'objet ouvert : changer de panneau
   // l'efface.
-  useEffect(() => { setNatureNotice(null); }, [detailEntry?.selectionId]);
+  useEffect(() => { setNatureNotice(null); setDetailCaseSearch(""); }, [detailEntry?.selectionId]);
 
   /** Ouvrir un mémo : le même panneau qu'une tâche, pas un formulaire à part. */
   const openMemo = (memo: FloatingTask) =>
@@ -1092,8 +1094,83 @@ export default function MobileMyDay({ user }: { user: User }) {
                     </div>
                   )}
 
-                  {/* Dossier */}
-                  {(caseTitle || !isMemo) && (
+                  {/* Dossier — sur un mémo, il se pose et se retire ici : c'est
+                      le geste qui décide s'il appartient à une affaire ou s'il
+                      s'effacera tout seul. Sur une tâche, le dossier est sa
+                      maison : on l'y déplace depuis Mes dossiers, pas ici. */}
+                  {isMemo ? (
+                    <div>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginBottom: "6px" }}>
+                        <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em" }}>Dossier</p>
+                        {liveMemo!.caseId && (
+                          <button
+                            onClick={() => { patch({ caseId: null, parentItemId: null }); setDetailCaseSearch(""); }}
+                            style={{ marginLeft: "auto", fontSize: "12px", color: "#ef4444", background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit" }}>
+                            Détacher
+                          </button>
+                        )}
+                      </div>
+                      {liveMemo!.caseId ? (
+                        <p style={{ fontSize: "14px", color: "#374151", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                          <Icon name="folder" size={14} />
+                          {caseTitle || "Dossier introuvable"}
+                        </p>
+                      ) : (
+                        <>
+                          <input
+                            value={detailCaseSearch}
+                            onChange={e => setDetailCaseSearch(e.target.value)}
+                            placeholder="Rechercher un dossier…"
+                            style={{ width: "100%", fontSize: "14px", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "#f9fafb", color: "#374151", boxSizing: "border-box" }}
+                          />
+                          {detailCaseSearch.trim() && (() => {
+                            const needle = detailCaseSearch.trim().toLowerCase();
+                            const found = cases
+                              .filter(c => !c.archived && c.title.toLowerCase().includes(needle))
+                              .slice(0, 8);
+                            return (
+                              <div style={{ border: "1px solid #e5e7eb", borderRadius: "10px", overflow: "hidden", maxHeight: "180px", overflowY: "auto", marginTop: "8px" }}>
+                                {found.length === 0
+                                  ? <p style={{ padding: "12px 14px", fontSize: "13px", color: "#9ca3af" }}>Aucun dossier trouvé</p>
+                                  : found.map(c => (
+                                    <button key={c.id}
+                                      onClick={() => { patch({ caseId: c.id, parentItemId: null }); setDetailCaseSearch(""); }}
+                                      style={{ width: "100%", padding: "12px 14px", textAlign: "left", background: "white", border: "none", borderBottom: "1px solid #f3f4f6", fontSize: "14px", color: "#111827", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: "8px" }}>
+                                      <Icon name="folder" size={14} /> {c.title}
+                                    </button>
+                                  ))}
+                              </div>
+                            );
+                          })()}
+                          <p style={{ fontSize: "11.5px", color: "#9ca3af", marginTop: "6px", lineHeight: 1.4 }}>
+                            Sans dossier, un mémo s'efface {MEMO_TTL_DAYS} jours après avoir été réalisé.
+                          </p>
+                        </>
+                      )}
+
+                      {/* Sous quelle tâche — le mémo descend d'un cran et compte
+                          alors dans l'avancement de cette tâche. */}
+                      {liveMemo!.caseId && (() => {
+                        const caseTasks = items.filter(i => i.caseId === liveMemo!.caseId && !i.parentItemId);
+                        if (caseTasks.length === 0) return null;
+                        return (
+                          <div style={{ marginTop: "12px" }}>
+                            <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "6px" }}>Sous la tâche</p>
+                            <select
+                              value={liveMemo!.parentItemId ?? ""}
+                              onChange={e => patch({ parentItemId: e.target.value || null })}
+                              aria-label="Sous quelle tâche"
+                              style={{ width: "100%", fontSize: "14px", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "#f9fafb", color: "#374151", boxSizing: "border-box" }}>
+                              <option value="">Au niveau du dossier</option>
+                              {caseTasks.map(t => (
+                                <option key={t.id} value={t.id}>{t.title}</option>
+                              ))}
+                            </select>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  ) : (
                     <div>
                       <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "6px" }}>Dossier</p>
                       <p style={{ fontSize: "14px", color: "#374151", display: "inline-flex", alignItems: "center", gap: "6px" }}>
