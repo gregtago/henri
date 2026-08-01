@@ -64,14 +64,15 @@ npm run dev
   écrans — `convertItemToMemo` / `convertMemoToTask` (`src/lib/firestore.ts`) —, refus
   compris. Dans Ma journée, l'objet transformé y reste : le mémo devenu tâche garde sa place
   dans la journée, et le panneau reste ouvert sur lui.
-- **Le panneau de détail est le même pour une tâche et pour un mémo** — même en-tête, mêmes
-  sections dans le même ordre, mêmes couleurs (le fond post-it jaune du détail d'un mémo a
-  disparu). Quatre différences seulement : le mot du haut (« Tâche » / « Mémo »), la case à
-  cocher active pour un mémo et grisée pour une tâche, les quatre statuts actifs pour une
-  tâche et grisés pour un mémo, et la répétition qui n'existe que pour un mémo. Les deux
-  restent affichés dans les deux cas : c'est ce qui rend lisible ce que l'interrupteur
-  échange. Un mémo qui existe s'ouvre donc dans ce panneau, desktop (`MemoDetail`) comme
-  mobile ; `MemoComposer` et `MemoSheet` ne servent plus qu'à la **création**. La bascule marche dans les deux sens et
+- **Le panneau de détail est le même pour une tâche et pour un mémo** — mêmes sections, dans
+  le même ordre, aux mêmes couleurs (le fond post-it jaune du détail d'un mémo a disparu).
+  Basculer l'interrupteur ne fait rien apparaître ni disparaître : seul l'actif change de
+  côté. La case à cocher est active sur un mémo et grisée sur une tâche ; les quatre statuts
+  et la répétition, l'inverse. Tout reste affiché des deux côtés — c'est ce qui rend lisible
+  ce que l'interrupteur échange. Aucun texte d'explication n'apparaît avec la bascule (ce
+  serait encore une page qui bouge) : seul un refus affiche un message. Un mémo qui existe
+  s'ouvre donc dans ce panneau, desktop (`MemoDetail`) comme mobile ; `MemoComposer` et
+  `MemoSheet` ne servent plus qu'à la **création**. La bascule marche dans les deux sens et
   conserve titre, étoile, échéance et rappel — les commentaires d'une tâche deviennent la note
   du mémo, et réciproquement. L'objet ne bouge pas de place : même dossier, et même tâche
   parente s'il en avait une. Une tâche qui porte des sous-tâches ou des mémos ne peut pas
@@ -101,8 +102,9 @@ npm run dev
   colonne Tâches) : titre, dossier, échéance, rappel, étoile, répétition et observations
   en un seul geste. Entrée crée, Échap annule. Un mémo avec une échéance future part
   directement au bon jour plutôt que dans la journée en cours.
-- Sur mobile, le **même écran** (`MemoSheet`) sert à créer et à modifier un mémo : mêmes
-  champs, seuls le titre et le bouton changent.
+- Sur mobile, `MemoSheet` ne sert plus qu'à **créer** un mémo (titre, dossier, tâche,
+  échéance, rappel, répétition, observations en un seul geste) : un mémo qui existe s'ouvre
+  dans le panneau de détail, comme une tâche.
 - **Cocher un mémo** inscrit `floatingTasks.doneAt` et le fait quitter Ma journée — desktop et
   mobile. On le retrouve derrière le lien « n mémos réalisés » en bas de la colonne, d'où on
   peut le rouvrir ou le décocher. Dans son dossier, en revanche, il reste affiché, barré.

@@ -2822,6 +2822,20 @@ export default function AppShell() {
 
               <div className="border-t border-border" />
 
+              {/* Répétition — grisée : une tâche ne revient pas toute seule,
+                * elle se traite une fois. Elle est là quand même, à la place
+                * qu'elle occupe sur un mémo, pour que l'interrupteur « Mémo »
+                * ne fasse apparaître ni disparaître aucune section. */}
+              <div
+                style={{ opacity: 0.4, pointerEvents: "none" }}
+                aria-disabled
+                title="Une tâche ne se répète pas : elle se traite une fois. Allumez « Mémo » pour la faire revenir."
+              >
+                <RecurrencePicker value={null} onChange={() => {}} />
+              </div>
+
+              <div className="border-t border-border" />
+
               {/* Commentaires */}
               <div>
                 <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-2">Commentaires</p>

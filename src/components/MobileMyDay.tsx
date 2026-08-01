@@ -1064,11 +1064,6 @@ export default function MobileMyDay({ user }: { user: User }) {
                             );
                           })}
                         </div>
-                        {isMemo && (
-                          <p style={{ fontSize: "11.5px", color: "#9ca3af", marginTop: "8px", lineHeight: 1.45 }}>
-                            Un mémo s'accomplit d'un geste — la case en haut. Les statuts sont ceux d'une tâche.
-                          </p>
-                        )}
                       </div>
                     );
                   })()}
@@ -1086,11 +1081,11 @@ export default function MobileMyDay({ user }: { user: User }) {
                           : undefined}
                         onChange={() => { void toggleNature(detailEntry, liveItem, liveMemo); }}
                       />
-                      <span style={{ fontSize: "11.5px", color: natureNotice ? "#dc2626" : "#9ca3af", lineHeight: 1.45, flex: 1, minWidth: "140px" }}>
-                        {natureNotice ?? (isMemo
-                          ? "Éteindre : il redevient une tâche, avec ses statuts."
-                          : "Allumer : elle devient un mémo, qu'on coche.")}
-                      </span>
+                      {natureNotice && (
+                        <span style={{ fontSize: "11.5px", color: "#dc2626", lineHeight: 1.45, flex: 1, minWidth: "140px" }}>
+                          {natureNotice}
+                        </span>
+                      )}
                     </div>
                   )}
 
@@ -1220,27 +1215,32 @@ export default function MobileMyDay({ user }: { user: User }) {
                     repeatLabel={describeRepeat(reminderPolicy)}
                   />
 
-                  {/* Répétition et observations — la seule part qui n'existe que
-                      pour un mémo : une tâche ne revient pas toute seule. */}
-                  {isMemo && (
-                    <>
-                      <div>
-                        <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Répétition</p>
-                        <RecurrencePicker value={liveMemo!.recurrence ?? null} onChange={(r: Recurrence | null) => patch({ recurrence: r ?? null })} />
-                      </div>
-                      <div>
-                        <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Observations</p>
-                        <textarea
-                          key={liveMemo!.id + "-note"}
-                          defaultValue={liveMemo!.note ?? ""}
-                          onBlur={e => patch({ note: e.target.value.trim() || null })}
-                          rows={3}
-                          placeholder="Contexte, numéro de téléphone, précision…"
-                          style={{ width: "100%", fontSize: "14px", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "#f9fafb", color: "#374151", boxSizing: "border-box", resize: "none" }}
-                        />
-                      </div>
-                    </>
-                  )}
+                  {/* Répétition et observations — affichées dans les deux cas,
+                      grisées sur une tâche : elle ne revient pas toute seule, et
+                      ses observations sont ses commentaires (dans Mes dossiers).
+                      Rien n'apparaît ni ne disparaît quand on bascule. */}
+                  <div style={isMemo ? undefined : { opacity: 0.4, pointerEvents: "none" }}
+                    aria-disabled={!isMemo}
+                    title={isMemo ? undefined : "Une tâche ne se répète pas : elle se traite une fois."}>
+                    <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Répétition</p>
+                    <RecurrencePicker
+                      value={isMemo ? liveMemo!.recurrence ?? null : null}
+                      onChange={(r: Recurrence | null) => { if (isMemo) patch({ recurrence: r ?? null }); }}
+                    />
+                  </div>
+                  <div style={isMemo ? undefined : { opacity: 0.4, pointerEvents: "none" }}
+                    aria-disabled={!isMemo}
+                    title={isMemo ? undefined : "Les observations d'une tâche sont ses commentaires, dans Mes dossiers."}>
+                    <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Observations</p>
+                    <textarea
+                      key={(isMemo ? liveMemo!.id : liveItem!.id) + "-note"}
+                      defaultValue={isMemo ? liveMemo!.note ?? "" : ""}
+                      onBlur={e => { if (isMemo) patch({ note: e.target.value.trim() || null }); }}
+                      rows={3}
+                      placeholder="Contexte, numéro de téléphone, précision…"
+                      style={{ width: "100%", fontSize: "14px", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "#f9fafb", color: "#374151", boxSizing: "border-box", resize: "none" }}
+                    />
+                  </div>
 
                 </div>
 

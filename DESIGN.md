@@ -32,22 +32,24 @@ Un mémo descend d'un cran, jamais de deux : il se pose sous une tâche, pas sou
 
 ### La nature se règle là où se règlent les statuts
 
-« De quelle nature est cette chose ? » et « où en est-elle ? » sont la même question posée au même moment. L'interrupteur **« Mémo »** est donc posé à côté des quatre statuts, dans le panneau de détail, et se lit dans les deux sens : **éteint**, les statuts sont là — c'est une tâche ; **allumé**, ils disparaissent — c'est un mémo, qui se coche.
+« De quelle nature est cette chose ? » et « où en est-elle ? » sont la même question posée au même moment. L'interrupteur **« Mémo »** est donc posé à côté des quatre statuts, dans le panneau de détail, et se lit dans les deux sens : **éteint**, les statuts sont actifs — c'est une tâche ; **allumé**, ils passent en grisé et la case à cocher prend la main — c'est un mémo.
 
 C'est un seul interrupteur vu de ses deux côtés (`MemoSwitch`), le même composant dans le détail d'une tâche et dans celui d'un mémo, **sur desktop comme sur mobile** — Mes dossiers et Ma journée. Il remplace le bouton « En faire un mémo », qui était rangé en bas du panneau à côté de « Supprimer », et que mobile n'affichait même pas : une bascule de nature n'est pas une action de fin de course, et personne ne va la chercher là.
 
 La bascule elle-même est une seule fonction (`convertItemToMemo` / `convertMemoToTask`, `src/lib/firestore.ts`), refus compris. Deux écrans qui la refont chacun à leur façon, c'est l'assurance que l'un des deux oubliera quelque chose — les commentaires, la tâche parente, un garde-fou.
 
-**Le panneau, lui, ne change pas.** Basculer l'interrupteur ne doit pas donner l'impression de changer d'application : même en-tête, même titre, mêmes sections dans le même ordre, mêmes couleurs — le fond post-it jaune du détail d'un mémo a disparu pour cette raison. Trois choses seulement diffèrent, et ce sont exactement celles qu'on veut faire comprendre :
+**Le panneau, lui, ne bouge pas.** Rien n'apparaît, rien ne disparaît, rien ne se déplace quand on bascule : mêmes sections, dans le même ordre, à la même place, aux mêmes couleurs — le fond post-it jaune du détail d'un mémo a disparu pour cette raison. **Seul l'actif change de côté**, et c'est toute la pédagogie :
 
 | | Tâche | Mémo |
 |---|---|---|
 | le mot en haut | « Tâche » | « Mémo » |
 | la **case à cocher** (à gauche du titre) | grisée — une tâche ne s'accomplit pas d'un geste | active |
-| les **quatre statuts** | actifs | grisés, mais **affichés** |
-| la **répétition** | absente — une tâche ne revient pas toute seule | présente |
+| les **quatre statuts** | actifs | grisés |
+| la **répétition** | grisée — une tâche ne revient pas toute seule | active |
 
-Les statuts restent visibles sur un mémo, et la case à cocher reste visible sur une tâche : c'est ce qui rend l'échange lisible avant de le faire. On voit ce qu'on perd et ce qu'on gagne — accomplir d'un côté, faire avancer de l'autre.
+Tout reste affiché des deux côtés : c'est ce qui rend l'échange lisible avant de le faire. On voit ce qu'on perd et ce qu'on gagne — accomplir d'un côté, faire avancer de l'autre — sans qu'une seule ligne se déplace sous le doigt.
+
+Aucun texte d'explication n'apparaît ou ne change avec l'interrupteur : ce serait, là encore, une page qui bouge. Ce qu'il faut comprendre est dit par le grisé, et par les infobulles. Seul un **refus** (un contenant, un mémo sans dossier) affiche un message, parce qu'il faut bien dire pourquoi rien ne s'est passé.
 
 Conséquence : un mémo qui existe s'ouvre dans le **panneau de détail**, jamais dans un formulaire à part. `MemoSheet` (mobile) et `MemoComposer` (desktop) ne servent plus qu'à la **création**, où l'objet n'existe pas encore et où tous ses réglages doivent tenir en un geste.
 
