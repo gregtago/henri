@@ -34,7 +34,9 @@ Un mémo descend d'un cran, jamais de deux : il se pose sous une tâche, pas sou
 
 « De quelle nature est cette chose ? » et « où en est-elle ? » sont la même question posée au même moment. L'interrupteur **« Mémo »** est donc posé à côté des quatre statuts, dans le panneau de détail, et se lit dans les deux sens : **éteint**, les statuts sont là — c'est une tâche ; **allumé**, ils disparaissent — c'est un mémo, qui se coche.
 
-C'est un seul interrupteur vu de ses deux côtés (`MemoSwitch`), le même composant dans le détail d'une tâche et dans celui d'un mémo. Il remplace le bouton « En faire un mémo », qui était rangé en bas du panneau à côté de « Supprimer » : une bascule de nature n'est pas une action de fin de course, et personne ne va la chercher là.
+C'est un seul interrupteur vu de ses deux côtés (`MemoSwitch`), le même composant dans le détail d'une tâche et dans celui d'un mémo, **sur desktop comme sur mobile** — Mes dossiers et Ma journée. Il remplace le bouton « En faire un mémo », qui était rangé en bas du panneau à côté de « Supprimer », et que mobile n'affichait même pas : une bascule de nature n'est pas une action de fin de course, et personne ne va la chercher là.
+
+La bascule elle-même est une seule fonction (`convertItemToMemo` / `convertMemoToTask`, `src/lib/firestore.ts`), refus compris. Deux écrans qui la refont chacun à leur façon, c'est l'assurance que l'un des deux oubliera quelque chose — les commentaires, la tâche parente, un garde-fou.
 
 **Le panneau, lui, ne change pas.** Basculer l'interrupteur ne doit pas donner l'impression de changer d'application : même en-tête, même titre, mêmes sections dans le même ordre, mêmes couleurs — le fond post-it jaune du détail d'un mémo a disparu pour cette raison. Trois choses seulement diffèrent, et ce sont exactement celles qu'on veut faire comprendre :
 
@@ -98,6 +100,12 @@ C'est ce qui évite qu'une tâche accomplie continue de réclamer quelque chose 
 La règle vit dans `updateItemProgress` (`src/lib/firestore.ts`), le seul chemin par lequel une tâche change de statut — détail, raccourcis 1–4, Ma journée, calendrier. Aucune vue ne doit la refaire de son côté. Rouvrir une tâche traitée ne rend pas l'échéance : on la repose si elle a encore un sens.
 
 Un mémo, lui, garde son échéance quand on le coche : il reste consultable tel qu'on l'a laissé, et disparaîtra de lui-même.
+
+#### Les propositions d'échéance
+
+Les mêmes six propositions partout où l'on pose une échéance — détail d'une tâche, détail d'un mémo, fenêtre de création, mobile : **Aujourd'hui · Demain · Dans 2 j. · Lundi 9 h · Dans 1 sem. · Dans 1 mois** (le dossier, dont l'échéance légale se compte en mois, y ajoute 3 et 6 mois). Elles vivent dans `getDueSuggestions` (`src/lib/dates.ts`), et nulle part ailleurs : recopiées dans cinq écrans, elles avaient fini par diverger, et « lundi prochain » manquait là où on en avait le plus besoin.
+
+**Toutes tombent à 9 h**, l'heure à laquelle on ouvre le dossier — y compris la date saisie à la main. Une échéance n'est pas un rendez-vous : ce qui compte est le jour, mais l'heure doit être tôt et la même partout, sinon deux échéances du même jour ne se comparent pas. Corollaire : « en retard » se compte en **jours**, jamais en heures — une échéance posée pour aujourd'hui ne vire pas au rouge à 9 h 01.
 
 N'inventer ni troisième nature ni statut intermédiaire : si un objet ne rentre dans aucune des deux cases, c'est la définition qu'il faut revoir, pas le modèle qu'il faut étendre. Le contenant n'en est pas une : c'est une tâche dans une certaine situation, et rien n'est stocké pour lui.
 

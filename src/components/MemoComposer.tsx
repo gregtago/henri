@@ -15,7 +15,7 @@ import type { Case, Item, Recurrence } from "@/lib/types";
 import { Icon } from "./Icon";
 import { RecurrencePicker } from "./RecurrencePicker";
 import { ReminderPicker } from "./ReminderPicker";
-import { formatDateFR } from "@/lib/dates";
+import { atDueHour, formatDateFR, getDueSuggestions } from "@/lib/dates";
 
 export type MemoDraft = {
   title: string;
@@ -44,17 +44,8 @@ type Props = {
   repeatLabel?: string;
 };
 
-const atNoon = (date: Date) => {
-  const next = new Date(date);
-  next.setHours(12, 0, 0, 0);
-  return next.toISOString();
-};
-
-const inDays = (days: number) => {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return atNoon(date);
-};
+/** Toute échéance posée ici tombe à l'heure commune (voir src/lib/dates.ts). */
+const atNoon = (date: Date) => atDueHour(date).toISOString();
 
 export default function MemoComposer({
   cases,
@@ -137,11 +128,7 @@ export default function MemoComposer({
     }
   };
 
-  const dueChips: { label: string; value: string | null }[] = [
-    { label: "Aujourd'hui", value: inDays(0) },
-    { label: "Demain", value: inDays(1) },
-    { label: "Dans 1 semaine", value: inDays(7) },
-  ];
+  const dueChips = getDueSuggestions().map(({ label, date }) => ({ label, value: date.toISOString() }));
 
   return (
     <div

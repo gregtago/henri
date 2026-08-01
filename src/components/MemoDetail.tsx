@@ -24,7 +24,7 @@
 import { useState } from "react";
 import type { Case, FloatingTask, Item } from "@/lib/types";
 import { STATUSES } from "@/lib/types";
-import { formatDateFR } from "@/lib/dates";
+import { atDueHour, formatDateFR, getDueSuggestions } from "@/lib/dates";
 import { Icon } from "./Icon";
 import { EditableInput } from "./EditableField";
 import { ReminderPicker } from "./ReminderPicker";
@@ -160,24 +160,12 @@ export default function MemoDetail({
           <div>
             <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-2">Échéance</p>
             <div className="flex flex-wrap gap-1.5 mb-2">
-              {(() => {
-                const today = new Date(); today.setHours(12, 0, 0, 0);
-                const nextMon = (() => { const d = new Date(today); const dow = d.getDay(); const diff = (1 - dow + 7) % 7 || 7; d.setDate(d.getDate() + diff); return d; })();
-                const nextMonLabel = "Lun. " + nextMon.getDate() + "/" + (nextMon.getMonth() + 1);
-                return [
-                  { label: "Aujourd'hui", date: new Date(today) },
-                  { label: "Demain", date: new Date(today.getTime() + 86400000) },
-                  { label: "Dans 2 j.", date: new Date(today.getTime() + 2 * 86400000) },
-                  { label: nextMonLabel, date: nextMon },
-                  { label: "Dans 1 sem.", date: new Date(today.getTime() + 7 * 86400000) },
-                  { label: "Dans 1 mois", date: new Date(today.getFullYear(), today.getMonth() + 1, today.getDate(), 12) },
-                ].map(({ label, date }) => (
-                  <button key={label} onClick={() => onDueDate(date)}
-                    className="text-[11px] font-[inherit] px-2 py-1 rounded border border-border bg-bg-subtle text-tx-2 cursor-pointer hover:border-border-strong hover:text-tx transition-colors">
-                    {label}
-                  </button>
-                ));
-              })()}
+              {getDueSuggestions().map(({ label, date }) => (
+                <button key={label} onClick={() => onDueDate(date)}
+                  className="text-[11px] font-[inherit] px-2 py-1 rounded border border-border bg-bg-subtle text-tx-2 cursor-pointer hover:border-border-strong hover:text-tx transition-colors">
+                  {label}
+                </button>
+              ))}
               {task.dueDate && (
                 <button onClick={() => onPatch({ dueDate: null })}
                   className="text-[11px] font-[inherit] px-2 py-1 rounded border border-border bg-bg-subtle text-red-400 cursor-pointer hover:border-red-300 transition-colors">
@@ -199,7 +187,7 @@ export default function MemoDetail({
                   if (!e.target.value) { onDueDate(null); return; }
                   const [y, m, d] = e.target.value.split("-").map(Number);
                   if (y < 1900 || y > 2100) return;
-                  onDueDate(new Date(y, m - 1, d, 12));
+                  onDueDate(atDueHour(new Date(y, m - 1, d)));
                 }} />
             </div>
           </div>

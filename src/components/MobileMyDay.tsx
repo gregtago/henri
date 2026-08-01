@@ -14,11 +14,13 @@ import {
   updateItemProgress,
   createFloatingTask,
   updateFloatingTask,
+  convertItemToMemo,
+  convertMemoToTask,
   deleteFloatingTasks,
   logStatusEvent,
 } from "@/lib/firestore";
 import type { Item, Case, FloatingTask, MyDaySelection, Recurrence, Status } from "@/lib/types";
-import { getTodayKey, getDateKeyFromValue, formatDateFR } from "@/lib/dates";
+import { getTodayKey, getDateKeyFromValue, formatDateFR, atDueHour, getDueSuggestions } from "@/lib/dates";
 import { getProgressLevel } from "@/lib/progress";
 import { countOpenChildren, describeOpenChildren, getCompletion, isContainer } from "@/lib/completion";
 import { MEMO_TTL_DAYS, listRecentlyDoneMemos, purgeExpiredMemos } from "@/lib/memos";
@@ -27,6 +29,7 @@ import { ReminderPicker } from "./ReminderPicker";
 import { RecurrencePicker } from "./RecurrencePicker";
 import { useReminderPolicy, describeRepeat } from "@/lib/reminderPolicy";
 import MemoSheet, { emptyMemoDraft, type MemoDraft } from "./MemoSheet";
+import MemoSwitch from "./MemoSwitch";
 
 const STATUSES: Status[] = ["Créé", "Demandé", "Reçu", "Traité"];
 const STATUS_COLORS: Record<string, string> = {
@@ -78,6 +81,8 @@ export default function MobileMyDay({ user }: { user: User }) {
   const [memoText, setMemoText] = useState("");
   const [doneOpen, setDoneOpen] = useState(false);
   const [statusPrompt, setStatusPrompt] = useState<SelectionEntry | null>(null);
+  // Le refus d'une bascule de nature, dit sous l'interrupteur (pas de toast ici).
+  const [natureNotice, setNatureNotice] = useState<string | null>(null);
   const [pendingRemovalIds, setPendingRemovalIds] = useState<Set<string>>(new Set());
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
@@ -257,9 +262,84 @@ export default function MobileMyDay({ user }: { user: User }) {
   const openNewMemo = () =>
     setMemoSheet({ draft: { ...emptyMemoDraft(), title: memoText.trim() } });
 
+  // Un refus de bascule ne vaut que pour l'objet ouvert : changer de panneau
+  // l'efface.
+  useEffect(() => { setNatureNotice(null); }, [detailEntry?.selectionId]);
+
   /** Ouvrir un mémo : le même panneau qu'une tâche, pas un formulaire à part. */
   const openMemo = (memo: FloatingTask) =>
     setDetailEntry({ selectionId: memo.id, type: "floating", floating: memo });
+
+  /**
+   * Basculer la nature depuis Ma journée — l'interrupteur « Mémo » du panneau.
+   *
+   * La bascule elle-même vit dans `src/lib/firestore.ts` : desktop et mobile
+   * font exactement la même chose, refus compris. Ici on ne s'occupe que de
+   * Ma journée — l'objet transformé y reste, et le panneau reste ouvert sur
+   * lui : c'est la même chose, d'une autre nature, la refermer donnerait
+   * l'impression d'un départ.
+   *
+   * Le panneau relisant son objet dans la collection, on lui passe en attendant
+   * une copie de ce qui vient d'être écrit : le temps que le snapshot arrive,
+   * il montre déjà le bon.
+   */
+  const toggleNature = async (entry: SelectionEntry, item: Item | null, memo: FloatingTask | null) => {
+    setNatureNotice(null);
+    const stamp = new Date().toISOString();
+    if (memo) {
+      const result = await convertMemoToTask(user.uid, memo);
+      if (!result.ok) { setNatureNotice(result.reason); return; }
+      // Le mémo était dans la journée : la tâche y reste, avec sa sélection.
+      const selectionId = await addMyDaySelection(user.uid, {
+        dateKey: todayKey,
+        refType: memo.parentItemId ? "subitem" : "item",
+        refId: result.id,
+      });
+      setDetailEntry({
+        selectionId,
+        type: "item",
+        item: {
+          id: result.id,
+          caseId: memo.caseId!,
+          parentItemId: memo.parentItemId ?? null,
+          level: memo.parentItemId ? 3 : 2,
+          title: memo.title,
+          status: "Créé",
+          starred: !!memo.starred,
+          dueDate: memo.dueDate ?? null,
+          reminderAt: memo.reminderAt ?? null,
+          createdAt: stamp,
+          updatedAt: stamp,
+        },
+      });
+      return;
+    }
+    if (!item) return;
+    const result = await convertItemToMemo(user.uid, item);
+    if (!result.ok) { setNatureNotice(result.reason); return; }
+    // La tâche n'existe plus : sa sélection du jour n'a plus rien à désigner.
+    if (entry.type === "item") {
+      await deleteMyDaySelection(user.uid, entry.selectionId).catch(() => {});
+    }
+    setDetailEntry({
+      selectionId: result.id,
+      type: "floating",
+      floating: {
+        id: result.id,
+        dateKey: todayKey,
+        caseId: item.caseId,
+        parentItemId: item.parentItemId ?? null,
+        title: item.title,
+        status: "Créé",
+        starred: !!item.starred,
+        dueDate: item.dueDate ?? null,
+        reminderAt: item.reminderAt ?? null,
+        doneAt: null,
+        createdAt: stamp,
+        updatedAt: stamp,
+      },
+    });
+  };
 
   /**
    * Enregistrer le mémo — création et modification passent par ici, puisque
@@ -991,6 +1071,27 @@ export default function MobileMyDay({ user }: { user: User }) {
                     );
                   })()}
 
+                  {/* La nature, au même endroit que sur desktop : sous les
+                      statuts, parce que c'est la même question qu'eux. Un
+                      contenant n'y a pas droit — un mémo ne porte rien. */}
+                  {(isMemo || !isContainer(liveItem!.id, items, floatingTasks)) && (
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                      <MemoSwitch
+                        on={isMemo}
+                        disabled={isMemo && !liveMemo!.caseId}
+                        title={isMemo && !liveMemo!.caseId
+                          ? "Un mémo sans dossier ne peut pas devenir une tâche : rattachez-le d'abord."
+                          : undefined}
+                        onChange={() => { void toggleNature(detailEntry, liveItem, liveMemo); }}
+                      />
+                      <span style={{ fontSize: "11.5px", color: natureNotice ? "#dc2626" : "#9ca3af", lineHeight: 1.45, flex: 1, minWidth: "140px" }}>
+                        {natureNotice ?? (isMemo
+                          ? "Éteindre : il redevient une tâche, avec ses statuts."
+                          : "Allumer : elle devient un mémo, qu'on coche.")}
+                      </span>
+                    </div>
+                  )}
+
                   {/* Dossier */}
                   {(caseTitle || !isMemo) && (
                     <div>
@@ -1006,21 +1107,12 @@ export default function MobileMyDay({ user }: { user: User }) {
                   <div>
                     <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Échéance</p>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "10px" }}>
-                      {[
-                        { label: "Auj.", days: 0 },
-                        { label: "Demain", days: 1 },
-                        { label: "2 j.", days: 2 },
-                        { label: "1 sem.", days: 7 },
-                        { label: "1 mois", days: 30 },
-                      ].map(({ label, days }) => {
-                        const d = new Date(); d.setDate(d.getDate() + days); d.setHours(12, 0, 0, 0);
-                        return (
-                          <button key={label} onClick={() => patchDue(d.toISOString())}
-                            style={{ padding: "6px 12px", borderRadius: "20px", border: "1px solid #e5e7eb", background: "white", color: "#374151", fontSize: "12px", cursor: "pointer", fontFamily: "inherit" }}>
-                            {label}
-                          </button>
-                        );
-                      })}
+                      {getDueSuggestions().map(({ label, date }) => (
+                        <button key={label} onClick={() => patchDue(date.toISOString())}
+                          style={{ padding: "6px 12px", borderRadius: "20px", border: "1px solid #e5e7eb", background: "white", color: "#374151", fontSize: "12px", cursor: "pointer", fontFamily: "inherit" }}>
+                          {label}
+                        </button>
+                      ))}
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                       <button
@@ -1034,7 +1126,7 @@ export default function MobileMyDay({ user }: { user: User }) {
                         value={(dueDate ?? "").slice(0, 10)}
                         onChange={e => {
                           if (!e.target.value) { patchDue(null); return; }
-                          patchDue(new Date(e.target.value + "T12:00:00").toISOString());
+                          patchDue(atDueHour(new Date(e.target.value + "T00:00:00")).toISOString());
                         }}
                         style={{ flex: 1, fontSize: "14px", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "#f9fafb", color: "#374151", boxSizing: "border-box" }}
                       />

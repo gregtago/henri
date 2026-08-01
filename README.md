@@ -48,13 +48,22 @@ npm run dev
 - Les suggestions "À reproposer" listent les tâches vues dans Ma journée sur les 7 derniers jours (hors aujourd'hui), sans évolution de statut sur la période (`lastProgressAt` <= maintenant - 7 jours), non traitées et absentes d'aujourd'hui.
 - L'historique (timeline) des événements d'une tâche est masqué par défaut et accessible via “Afficher la timeline”.
 - Toutes les dates affichées dans l'UI utilisent le format JJ/MM/AAAA (helper `formatDateFR`).
+- **Les propositions d'échéance sont les mêmes partout** — Aujourd'hui · Demain · Dans 2 j. ·
+  Lundi 9 h · Dans 1 sem. · Dans 1 mois (+ 3 et 6 mois pour l'échéance légale d'un dossier) :
+  `getDueSuggestions` (`src/lib/dates.ts`), et nulle part ailleurs. Toute échéance posée par
+  Henri tombe à **9 h** (`DUE_HOUR`), saisie manuelle comprise. « En retard » se compare donc
+  en jours et non en heures : une échéance posée pour aujourd'hui ne vire pas au rouge à 9 h 01.
 - Raccourcis de création : une lettre par nature — `D` dossier · `T` tâche · `⇧T` sous-tâche ·
   `M` mémo · `⇧M` mémo sous la tâche sélectionnée. La majuscule descend d'un cran, pour la
   tâche comme pour le mémo. Remplace l'ancien `N` contextuel (qui créait un dossier, une
   tâche ou un mémo selon la colonne active) et l'ancien `⇧N`.
 - **La nature d'un objet se règle avec l'interrupteur « Mémo »**, posé à côté des quatre
   statuts dans le panneau de détail (`MemoSwitch`) : éteint, les statuts sont actifs et c'est
-  une tâche ; allumé, ils passent en grisé et c'est un mémo.
+  une tâche ; allumé, ils passent en grisé et c'est un mémo. Présent sur desktop **et sur
+  mobile** (Mes dossiers comme Ma journée). La bascule est une seule fonction pour tous les
+  écrans — `convertItemToMemo` / `convertMemoToTask` (`src/lib/firestore.ts`) —, refus
+  compris. Dans Ma journée, l'objet transformé y reste : le mémo devenu tâche garde sa place
+  dans la journée, et le panneau reste ouvert sur lui.
 - **Le panneau de détail est le même pour une tâche et pour un mémo** — même en-tête, mêmes
   sections dans le même ordre, mêmes couleurs (le fond post-it jaune du détail d'un mémo a
   disparu). Quatre différences seulement : le mot du haut (« Tâche » / « Mémo »), la case à

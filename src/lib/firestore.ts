@@ -322,6 +322,95 @@ export const deleteFloatingTasks = async (uid: string, taskIds: string[]) => {
   await batch.commit();
 };
 
+// ── Bascule de nature (l'interrupteur « Mémo ») ──────────────────────────────
+//
+// Une tâche se traite, un mémo se coche. Passer de l'une à l'autre est un seul
+// geste — l'interrupteur du panneau de détail — et doit donc être une seule
+// fonction, sinon chaque écran refait la bascule à sa façon et l'un des deux
+// finit par oublier quelque chose (les commentaires, la tâche parente, un
+// garde-fou). Desktop et mobile passent tous les deux par ici.
+
+export type ConversionResult =
+  | { ok: true; id: string }
+  | { ok: false; reason: string };
+
+/**
+ * Une tâche devient un mémo.
+ *
+ * Elle ne bouge pas : même dossier, même tâche parente si c'était une
+ * sous-tâche. Ses commentaires sont recopiés dans la note du mémo — puis
+ * effacés, puisqu'ils n'ont plus de tâche à qui appartenir.
+ *
+ * Refus : une tâche qui porte des sous-tâches ou des mémos ne peut pas devenir
+ * un mémo, un mémo ne portant rien. La vérification se fait au serveur, pour ne
+ * pas dépendre de ce que la vue appelante a chargé.
+ */
+export const convertItemToMemo = async (uid: string, item: Item): Promise<ConversionResult> => {
+  const [subSnap, memoSnap, commentSnap] = await Promise.all([
+    getDocs(query(userCollection(uid, "items"), where("parentItemId", "==", item.id))),
+    getDocs(query(userCollection(uid, "floatingTasks"), where("parentItemId", "==", item.id))),
+    getDocs(query(userCollection(uid, "comments"), where("itemId", "==", item.id)))
+  ]);
+  if (!subSnap.empty || !memoSnap.empty) {
+    return { ok: false, reason: "Cette tâche porte des sous-tâches ou des mémos : un mémo, lui, ne porte rien." };
+  }
+  const body = commentSnap.docs
+    .map((d) => (d.data() as Comment).body)
+    .filter(Boolean)
+    .join("\n\n");
+  const id = await createFloatingTask(uid, {
+    dateKey: getTodayKeyUtil(),
+    caseId: item.caseId,
+    parentItemId: item.parentItemId ?? null,
+    title: item.title,
+    status: "Créé",
+    starred: !!item.starred,
+    dueDate: item.dueDate ?? null,
+    reminderAt: item.reminderAt ?? null,
+    note: body || null,
+    doneAt: null
+  });
+  const batch = writeBatch(db);
+  commentSnap.docs.forEach((d) => batch.delete(d.ref));
+  batch.delete(doc(db, `users/${uid}/items/${item.id}`));
+  await batch.commit();
+  return { ok: true, id };
+};
+
+/**
+ * Un mémo redevient une tâche, avec ses quatre statuts.
+ *
+ * Il reprend sa place — le dossier, et la tâche sous laquelle il était posé,
+ * dont il devient une sous-tâche. Sa note redevient un commentaire.
+ *
+ * Refus : un mémo sans dossier ne peut pas devenir une tâche, une tâche
+ * appartenant à un dossier. Si la tâche parente a disparu entre-temps, le mémo
+ * remonte au niveau du dossier plutôt que de devenir une sous-tâche orpheline.
+ */
+export const convertMemoToTask = async (uid: string, memo: FloatingTask): Promise<ConversionResult> => {
+  if (!memo.caseId) {
+    return { ok: false, reason: "Ce mémo n'a pas de dossier : rattachez-le d'abord, une tâche appartient à un dossier." };
+  }
+  let parentItemId = memo.parentItemId ?? null;
+  if (parentItemId) {
+    const parentSnap = await getDoc(doc(db, `users/${uid}/items/${parentItemId}`));
+    if (!parentSnap.exists()) parentItemId = null;
+  }
+  const id = await createItem(uid, {
+    caseId: memo.caseId,
+    parentItemId,
+    level: parentItemId ? 3 : 2,
+    title: memo.title,
+    status: "Créé",
+    starred: !!memo.starred,
+    dueDate: memo.dueDate ?? null,
+    reminderAt: memo.reminderAt ?? null
+  });
+  if (memo.note) await createComment(uid, { itemId: id, body: memo.note });
+  await deleteFloatingTasks(uid, [memo.id]);
+  return { ok: true, id };
+};
+
 // ── Recurring Templates ──────────────────────────────────────────────────────
 
 export const subscribeRecurringTemplates = (

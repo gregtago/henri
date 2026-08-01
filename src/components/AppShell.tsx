@@ -9,6 +9,8 @@ import { Timestamp, addDoc, collection } from "firebase/firestore";
 import {
   addMyDaySelection,
   createCase,
+  convertItemToMemo,
+  convertMemoToTask,
   createComment,
   createFloatingTask,
   createItem,
@@ -52,6 +54,8 @@ import {
   getDateKeyFromValue,
   getStartOfWindow,
   getTodayKey,
+  atDueHour,
+  getDueSuggestions,
   getWindowDateKeys,
   getYesterdayKey,
   toDate
@@ -2248,31 +2252,13 @@ export default function AppShell() {
    */
   const handleConvertToMemo = async (item: Item) => {
     if (!user) return;
-    if (containerIds.has(item.id)) {
-      showToast("Cette tâche porte des sous-tâches ou des mémos : un mémo, lui, ne porte rien.");
-      return;
-    }
-    const body = comments
-      .filter(c => c.itemId === item.id)
-      .map(c => c.body)
-      .join("\n\n");
-    const id = await createFloatingTask(user.uid, {
-      dateKey: todayKey,
-      caseId: item.caseId,
-      parentItemId: item.parentItemId ?? null,
-      title: item.title,
-      status: "Créé",
-      starred: !!item.starred,
-      dueDate: item.dueDate ?? null,
-      reminderAt: item.reminderAt ?? null,
-      note: body || null,
-    });
-    await deleteItemsCascade(user.uid, [item.id], items);
+    const result = await convertItemToMemo(user.uid, item);
+    if (!result.ok) { showToast(result.reason); return; }
     // Le mémo tout juste né reste ouvert sous les yeux — dans Ma journée, le
     // détail se pilote par `myDayDetailId` (préfixe « f- » pour un mémo) ;
     // ailleurs, par `detailTarget`.
-    if (isMyDay) setMyDayDetailId(`f-${id}`);
-    else { setMyDayDetailId(null); setDetailTarget({ type: "memo", id }); }
+    if (isMyDay) setMyDayDetailId(`f-${result.id}`);
+    else { setMyDayDetailId(null); setDetailTarget({ type: "memo", id: result.id }); }
     showToast("Devenue un mémo — elle se coche, elle ne se traite plus.");
   };
 
@@ -2286,35 +2272,18 @@ export default function AppShell() {
    */
   const handleConvertToTask = async (memo: FloatingTask) => {
     if (!user) return;
-    if (!memo.caseId) {
-      showToast("Ce mémo n'a pas de dossier : rattachez-le d'abord, une tâche appartient à un dossier.");
-      return;
-    }
-    const parent = memo.parentItemId ? items.find(i => i.id === memo.parentItemId) ?? null : null;
-    const id = await createItem(user.uid, {
-      caseId: memo.caseId,
-      parentItemId: parent?.id ?? null,
-      level: parent ? 3 : 2,
-      title: memo.title,
-      status: "Créé",
-      starred: !!memo.starred,
-      dueDate: memo.dueDate ?? null,
-      reminderAt: memo.reminderAt ?? null,
-    });
-    if (memo.note) {
-      await createComment(user.uid, { itemId: id, body: memo.note });
-    }
-    await deleteFloatingTasks(user.uid, [memo.id]);
-    if (parent) {
-      setSelectedItemId(parent.id);
-      setSelectedSubItemId(id);
+    const result = await convertMemoToTask(user.uid, memo);
+    if (!result.ok) { showToast(result.reason); return; }
+    if (memo.parentItemId) {
+      setSelectedItemId(memo.parentItemId);
+      setSelectedSubItemId(result.id);
     } else {
-      setSelectedItemId(id);
+      setSelectedItemId(result.id);
     }
     // Même raison que pour la bascule inverse : le détail de la tâche née se
     // pilote par `myDayDetailId` dans Ma journée, par `detailTarget` ailleurs.
-    if (isMyDay) setMyDayDetailId(id);
-    else setDetailTarget({ type: "item", id });
+    if (isMyDay) setMyDayDetailId(result.id);
+    else setDetailTarget({ type: "item", id: result.id });
     showToast("Redevenue une tâche — elle se traite, elle ne se coche plus.");
   };
 
@@ -2518,15 +2487,7 @@ export default function AppShell() {
                 <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-2">Échéance</p>
                 <div className="flex flex-wrap gap-1.5 mb-2">
                   {(() => {
-                    const today = new Date(); today.setHours(12,0,0,0);
-                    const shortcuts = [
-                      { label: "Aujourd'hui", date: new Date(today) },
-                      { label: "Demain", date: new Date(today.getTime() + 86400000) },
-                      { label: "Dans 1 sem.", date: new Date(today.getTime() + 7*86400000) },
-                      { label: "Dans 1 mois", date: new Date(today.getFullYear(), today.getMonth()+1, today.getDate(), 12) },
-                      { label: "Dans 3 mois", date: new Date(today.getFullYear(), today.getMonth()+3, today.getDate(), 12) },
-                      { label: "Dans 6 mois", date: new Date(today.getFullYear(), today.getMonth()+6, today.getDate(), 12) },
-                    ];
+                    const shortcuts = getDueSuggestions({ long: true });
                     return shortcuts.map(({ label, date }) => (
                       <button key={label}
                         onClick={() => updateCase(user.uid, detailCase.id, { legalDueDate: date.toISOString() })}
@@ -2558,7 +2519,7 @@ export default function AppShell() {
                       if (!e.target.value) { updateCase(user.uid, detailCase.id, { legalDueDate: null }); return; }
                       const [y, m, d] = e.target.value.split("-").map(Number);
                       if (y < 1900 || y > 2100) return;
-                      updateCase(user.uid, detailCase.id, { legalDueDate: new Date(y, m-1, d, 12).toISOString() });
+                      updateCase(user.uid, detailCase.id, { legalDueDate: atDueHour(new Date(y, m-1, d)).toISOString() });
                     }}
                   />
                 </div>
@@ -2710,15 +2671,7 @@ export default function AppShell() {
                     updateItem(user.uid, detailItem.id, { dueDate: iso });
                   };
 
-                  const today = new Date(); today.setHours(12,0,0,0);
-                  const shortcuts = [
-                    { label: "Aujourd'hui", date: new Date(today) },
-                    { label: "Demain", date: new Date(today.getTime() + 86400000) },
-                    { label: "Dans 2 j.", date: new Date(today.getTime() + 2*86400000) },
-                    { label: (() => { const d = new Date(today); const dow = d.getDay(); const diff = (1-dow+7)%7||7; d.setDate(d.getDate()+diff); return "Lun. "+d.getDate()+"/"+(d.getMonth()+1); })(), date: (() => { const d = new Date(today); const dow = d.getDay(); const diff = (1-dow+7)%7||7; d.setDate(d.getDate()+diff); return d; })() },
-                    { label: "Dans 1 sem.", date: new Date(today.getTime() + 7*86400000) },
-                    { label: "Dans 1 mois", date: new Date(today.getFullYear(), today.getMonth()+1, today.getDate(), 12) },
-                  ];
+                  const shortcuts = getDueSuggestions();
 
                   return (
                     <>
@@ -2756,7 +2709,7 @@ export default function AppShell() {
                             if (!e.target.value) { handleSetDue(null); return; }
                             const [y, m, d] = e.target.value.split("-").map(Number);
                             if (y < 1900 || y > 2100) return;
-                            handleSetDue(new Date(y, m-1, d, 12).toISOString());
+                            handleSetDue(atDueHour(new Date(y, m-1, d)).toISOString());
                           }}
                         />
                       </div>
@@ -3445,8 +3398,12 @@ export default function AppShell() {
 
               <div className="finder-list" ref={itemsListRef}>
                 {itemsColumnItems.map((entry) => {
-                  const isOverdue = !!entry.dueDate && new Date(entry.dueDate) < new Date() && getProgressLevel(entry.status) !== 3;
-                  const isDueToday = !!entry.dueDate && entry.dueDate.slice(0,10) === todayKey && !isOverdue;
+                  // « En retard » se compte en jours, pas en heures : une
+                  // échéance posée aujourd'hui (à 9 h) ne doit pas virer au
+                  // rouge à 9 h 01.
+                  const dueKey = getDateKeyFromValue(entry.dueDate);
+                  const isOverdue = !!dueKey && dueKey < todayKey && getProgressLevel(entry.status) !== 3;
+                  const isDueToday = dueKey === todayKey && !isOverdue;
                   const rowBg = entry.starred ? "rgba(251,191,36,0.12)" : isOverdue ? "rgba(239,68,68,0.08)" : isDueToday ? "rgba(34,197,94,0.08)" : undefined;
                   return (
                   <div
@@ -3483,7 +3440,7 @@ export default function AppShell() {
                       </div>
                       <p className="text-[12.5px] text-tx-3 mt-0.5 truncate min-h-[1.25rem]">
                         {entry.dueDate ? (
-                          <>Éch. <span className={new Date(entry.dueDate) < new Date() ? "text-red-500" : ""}>{formatDateFR(entry.dueDate)}</span></>
+                          <>Éch. <span className={dueKey && dueKey < todayKey ? "text-red-500" : ""}>{formatDateFR(entry.dueDate)}</span></>
                         ) : (
                           (() => {
                             const subCount = getSubItems(items, entry.id).length;
