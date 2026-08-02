@@ -55,6 +55,23 @@ type SelectionEntry = {
 };
 
 /**
+ * Le dossier d'une entrée de la journée.
+ *
+ * Une tâche appartient toujours à un dossier ; un mémo peut y être rattaché.
+ * Dans les deux cas c'est la même chose qu'on veut lire sous le titre : de quoi
+ * il s'agit. Seul le mémo libre n'a rien à dire ici — il renvoie `null`.
+ */
+function folderPathOf(entry: SelectionEntry, cases: Case[], items: Item[]) {
+  const caseId = entry.item?.caseId ?? entry.floating?.caseId ?? null;
+  if (!caseId) return null;
+  const caseTitle = cases.find(c => c.id === caseId)?.title ?? "";
+  if (!caseTitle) return null;
+  const parentItemId = entry.item?.parentItemId ?? entry.floating?.parentItemId ?? null;
+  const parentTitle = parentItemId ? items.find(i => i.id === parentItemId)?.title ?? null : null;
+  return { caseTitle, parentTitle };
+}
+
+/**
  * Le formulaire du mémo ne sert plus qu'à sa **création** : un mémo qui existe
  * s'ouvre dans le panneau de détail, celui-là même qui ouvre une tâche. Deux
  * écrans pour un même objet, c'était donner l'impression de changer
@@ -437,7 +454,8 @@ export default function MobileMyDay({ user }: { user: User }) {
     const MEMO = "Sans dossier";
     const groups = new Map<string, SelectionEntry[]>();
     for (const e of todayEntries) {
-      const label = e.item ? (cases.find(c => c.id === e.item!.caseId)?.title ?? MEMO) : MEMO;
+      // Un mémo rattaché à un dossier se range avec lui, comme une tâche.
+      const label = folderPathOf(e, cases, items)?.caseTitle ?? MEMO;
       const arr = groups.get(label) ?? [];
       arr.push(e);
       groups.set(label, arr);
@@ -452,7 +470,7 @@ export default function MobileMyDay({ user }: { user: User }) {
       groups.get(label)!.forEach((e, i) => out.push({ entry: e, header: i === 0 ? label : null }));
     }
     return out;
-  }, [groupMyDay, todayEntries, cases]);
+  }, [groupMyDay, todayEntries, cases, items]);
   const parentOf = (item: Item) => item.parentItemId ? items.find(i => i.id === item.parentItemId)?.title : null;
 
   // ── RENDU ──
@@ -574,6 +592,16 @@ export default function MobileMyDay({ user }: { user: User }) {
               const isOverdue = dueDate && dueDate.slice(0, 10) < todayKey;
               const recurrence = entry.floating?.recurrence ?? null;
 
+              // Le dossier, sous le titre — tâche comme mémo rattaché. Quand la
+              // liste est déjà regroupée par dossier, l'en-tête le dit : la
+              // ligne ne garde alors que la tâche parente, pour ne pas répéter.
+              const folder = folderPathOf(entry, cases, items);
+              const folderLabel = !folder
+                ? ""
+                : groupMyDay
+                  ? folder.parentTitle ?? ""
+                  : folder.caseTitle + (folder.parentTitle ? ` › ${folder.parentTitle}` : "");
+
               // Date relative compacte (style desktop)
               const relativeLabel = (() => {
                 if (!dueDate) return null;
@@ -656,12 +684,16 @@ export default function MobileMyDay({ user }: { user: User }) {
                       )}
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "3px", minHeight: "16px" }}>
-                      {entry.item && (
-                        <span style={{ fontSize: "11.5px", color: "#9ca3af", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {caseOf(entry.item)}{parentOf(entry.item) ? ` › ${parentOf(entry.item)}` : ""}
+                      {folderLabel ? (
+                        <span style={{ fontSize: "11.5px", color: "#6b7280", flex: 1, minWidth: 0, display: "inline-flex", alignItems: "center", gap: "4px", overflow: "hidden" }}>
+                          <Icon name="folder" size={11} style={{ flexShrink: 0, color: "#9ca3af" }} />
+                          <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {folderLabel}
+                          </span>
                         </span>
+                      ) : (
+                        <span style={{ flex: 1 }} />
                       )}
-                      {!entry.item && <span style={{ flex: 1 }} />}
                       {recurrence && (
                         <span style={{ color: "#9ca3af", flexShrink: 0, display: "inline-flex", alignItems: "center" }} title="Récurrent">
                           <Icon name="recurrence" size={11} />
