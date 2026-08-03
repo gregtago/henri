@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Icon } from "./Icon";
+import { dueDayReminderAt } from "@/lib/reminderPolicy";
 
 type Props = {
   value: string | null | undefined;  // ISO timestamp ou null
@@ -14,17 +15,25 @@ type Props = {
   defaultRepeat?: boolean;
   /** Cadence des relances, pour le libellé (« toutes les 3 h, 3 fois maximum »). */
   repeatLabel?: string;
+  /** L'échéance de l'objet : ajoute la puce « Jour de l'échéance ». */
+  dueDate?: string | null;
+  /** Heure du rappel d'échéance (Préférences → Rappels) ; -1 = proposition coupée. */
+  dueReminderHour?: number;
 };
 
 /**
  * Sélecteur de rappel : "Me rappeler à...".
  *
- * Présets : Dans 1h, Dans 3h, Demain matin (9h), Demain soir (18h),
- * Lundi prochain matin, Personnalisé.
+ * Présets : Jour de l'échéance, Dans 1h, Dans 3h, Demain matin (9h),
+ * Demain soir (18h), Lundi prochain matin, Personnalisé.
  *
  * Le mode personnalisé propose un date+time.
  *
  * Si value === null, rien n'est armé.
+ *
+ * La première puce n'apparaît que si l'objet a une échéance encore à venir :
+ * c'est la proposition qu'Henri arme déjà tout seul quand on pose l'échéance
+ * (voir `dueReminderPatch`), et la puce sert à la réarmer après l'avoir retirée.
  *
  * Quand la relance est active, Henri renotifie tant que la tâche n'est pas
  * passée « Traité » — une notification évacuée n'est donc pas une notification
@@ -38,6 +47,8 @@ export function ReminderPicker({
   onRepeatChange,
   defaultRepeat = true,
   repeatLabel,
+  dueDate = null,
+  dueReminderHour = -1,
 }: Props) {
   const [customOpen, setCustomOpen] = useState(false);
   const repeatOn = repeat === null || repeat === undefined ? defaultRepeat : repeat;
@@ -61,14 +72,22 @@ export function ReminderPicker({
       d.setHours(9, 0, 0, 0);
       return d;
     })();
+    // Le jour de l'échéance, à l'heure réglée — en tête, et seulement s'il
+    // reste quelque chose à annoncer (une échéance passée ne se rappelle plus).
+    const dueDay = (() => {
+      const at = dueDayReminderAt(dueDate, dueReminderHour);
+      if (!at || at.getTime() <= now.getTime()) return null;
+      return { label: `Échéance ${String(dueReminderHour).padStart(2, "0")}h`, iso: at.toISOString() };
+    })();
     return [
+      ...(dueDay ? [dueDay] : []),
       { label: "Dans 1h", iso: in1h.toISOString() },
       { label: "Dans 3h", iso: in3h.toISOString() },
       { label: "Demain 9h", iso: tomorrow9.toISOString() },
       { label: "Demain 18h", iso: tomorrow18.toISOString() },
       { label: "Lundi 9h", iso: nextMonday9.toISOString() },
     ];
-  }, []);
+  }, [dueDate, dueReminderHour]);
 
   const currentLabel = useMemo(() => {
     if (!value) return null;

@@ -219,6 +219,10 @@ const DEFAULT_POLICY = {
   recapEnabled: true,
   recapEveningHour: 18,
   recapMorningHour: 8,
+  // Heure du rappel proposé le jour de l'échéance (-1 = aucune proposition).
+  // Posé côté client au moment où l'échéance est choisie : le serveur ne s'en
+  // sert pas, mais la clé doit figurer ici pour rester lisible par loadPolicy.
+  dueReminderHour: 9,
 };
 
 /** Lit users/{uid}/settings/reminders et complète avec les valeurs par défaut. */

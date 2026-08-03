@@ -18,6 +18,7 @@ import { atDueHour, getDueSuggestions } from "@/lib/dates";
 import { Icon } from "./Icon";
 import DueChips from "./DueChips";
 import { ReminderPicker } from "./ReminderPicker";
+import { proposeDueReminder } from "@/lib/reminderPolicy";
 import { RecurrencePicker } from "./RecurrencePicker";
 
 export type MemoDraft = {
@@ -55,6 +56,8 @@ type Props = {
   onClose: () => void;
   defaultRepeat?: boolean;
   repeatLabel?: string;
+  /** Heure du rappel proposé le jour de l'échéance ; -1 = proposition coupée. */
+  dueReminderHour?: number;
 };
 
 const LABEL: React.CSSProperties = {
@@ -92,6 +95,7 @@ export default function MemoSheet({
   onClose,
   defaultRepeat = true,
   repeatLabel,
+  dueReminderHour = -1,
 }: Props) {
   const [draft, setDraft] = useState<MemoDraft>(initial);
   const [caseSearch, setCaseSearch] = useState("");
@@ -105,6 +109,21 @@ export default function MemoSheet({
   useEffect(() => { setDraft(initial); }, [initial]);
 
   const patch = (next: Partial<MemoDraft>) => setDraft((current) => ({ ...current, ...next }));
+
+  /** Poser l'échéance propose du même geste le rappel du jour de l'échéance. */
+  const patchDue = (iso: string | null) => setDraft((current) => {
+    const reminder = proposeDueReminder({
+      previousDue: current.dueDate,
+      nextDue: iso,
+      currentReminder: current.reminderAt,
+      policy: { dueReminderHour },
+    });
+    return {
+      ...current,
+      dueDate: iso,
+      ...(reminder === undefined ? {} : { reminderAt: reminder }),
+    };
+  });
 
   const selectedCase = draft.caseId ? cases.find((entry) => entry.id === draft.caseId) ?? null : null;
   const parentItem = draft.parentItemId ? items.find((entry) => entry.id === draft.parentItemId) ?? null : null;
@@ -183,8 +202,8 @@ export default function MemoSheet({
           <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center" }}>
             <DueChips
               value={draft.dueDate}
-              onPick={(date) => patch({ dueDate: date.toISOString() })}
-              onClear={() => patch({ dueDate: null })}
+              onPick={(date) => patchDue(date.toISOString())}
+              onClear={() => patchDue(null)}
             />
             <label style={{ position: "relative", padding: "8px 14px", borderRadius: "20px", border: isCustomDue ? "2px solid #111827" : "1px solid #e5e7eb", background: isCustomDue ? "#111827" : "white", color: isCustomDue ? "white" : "#374151", fontSize: "13px", fontWeight: isCustomDue ? 600 : 400, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: "5px" }}>
               <Icon name="calendar" size={14} />
@@ -192,11 +211,11 @@ export default function MemoSheet({
                 ? new Date(draft.dueDate).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })
                 : "Autre…"}
               <input type="date" value={dueDayKey}
-                onChange={(event) => patch({ dueDate: event.target.value ? noonOf(event.target.value) : null })}
+                onChange={(event) => patchDue(event.target.value ? noonOf(event.target.value) : null)}
                 style={{ position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", cursor: "pointer" }} />
             </label>
             {draft.dueDate && (
-              <button onClick={() => patch({ dueDate: null })} aria-label="Retirer l'échéance"
+              <button onClick={() => patchDue(null)} aria-label="Retirer l'échéance"
                 style={{ padding: "8px 12px", borderRadius: "20px", border: "1px solid #fee2e2", background: "white", color: "#ef4444", fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>
                 <Icon name="close" size={13} />
               </button>
@@ -213,6 +232,8 @@ export default function MemoSheet({
             onRepeatChange={(value) => patch({ reminderRepeat: value })}
             defaultRepeat={defaultRepeat}
             repeatLabel={repeatLabel}
+            dueDate={draft.dueDate}
+            dueReminderHour={dueReminderHour}
           />
         </div>
 

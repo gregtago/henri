@@ -57,6 +57,13 @@ npm run dev
   et nulle part ailleurs. La puce retenue est pleine, et l'appui l'enfonce (`.due-chip`). Toute échéance posée par
   Henri tombe à **9 h** (`DUE_HOUR`), saisie manuelle comprise. « En retard » se compare donc
   en jours et non en heures : une échéance posée pour aujourd'hui ne vire pas au rouge à 9 h 01.
+- **Poser une échéance arme un rappel le jour même**, à l'heure réglée dans Préférences →
+  Rappels (`dueReminderHour`, 9 h par défaut ; `-1` = ne rien proposer). Toute la logique est
+  dans `dueReminderPatch` / `proposeDueReminder` (`src/lib/reminderPolicy.ts`), appelée partout
+  où l'on écrit une échéance — jamais recopiée. Deux garde-fous : un rappel posé à la main n'est
+  jamais remplacé (Henri ne déplace que celui qui tombe exactement sur sa propre proposition
+  précédente), et rien n'est proposé pour une heure déjà passée. Retirer l'échéance retire le
+  rappel proposé ; la puce « Échéance 09h » du `ReminderPicker` le réarme.
 - Raccourcis de création : une lettre par nature — `D` dossier · `T` tâche · `⇧T` sous-tâche ·
   `M` mémo · `⇧M` mémo sous la tâche sélectionnée. La majuscule descend d'un cran, pour la
   tâche comme pour le mémo. Remplace l'ancien `N` contextuel (qui créait un dossier, une
@@ -154,3 +161,7 @@ qui tomberait hors de la plage `dayStartHour` → `dayEndHour` est reportée au 
 matin. La relance se règle par tâche (`reminderRepeat`) ou globalement
 (`users/{uid}/settings/reminders`, cf. `src/lib/reminderPolicy.ts` — à garder aligné
 avec `DEFAULT_POLICY` côté functions).
+
+`dueReminderHour` fait exception dans ce document : il est **posé côté client**, au moment où
+l'échéance est choisie, et le serveur ne s'en sert pas. La clé figure quand même dans
+`DEFAULT_POLICY` (functions) parce que `loadPolicy` n'itère que sur les clés qu'elle y trouve.

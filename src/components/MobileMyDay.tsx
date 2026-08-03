@@ -28,7 +28,7 @@ import { MEMO_TTL_DAYS, listRecentlyDoneMemos, purgeExpiredMemos } from "@/lib/m
 import { Icon } from "./Icon";
 import { ReminderPicker } from "./ReminderPicker";
 import { RecurrencePicker } from "./RecurrencePicker";
-import { useReminderPolicy, describeRepeat } from "@/lib/reminderPolicy";
+import { useReminderPolicy, describeRepeat, dueReminderPatch } from "@/lib/reminderPolicy";
 import MemoSheet, { emptyMemoDraft, type MemoDraft } from "./MemoSheet";
 import MemoSwitch from "./MemoSwitch";
 import DueChips from "./DueChips";
@@ -783,6 +783,7 @@ export default function MobileMyDay({ user }: { user: User }) {
           onClose={() => setMemoSheet(null)}
           defaultRepeat={reminderPolicy.repeatEnabled}
           repeatLabel={describeRepeat(reminderPolicy)}
+          dueReminderHour={reminderPolicy.dueReminderHour}
         />
       )}
 
@@ -1000,11 +1001,19 @@ export default function MobileMyDay({ user }: { user: User }) {
         /** L'échéance d'un mémo programme aussi son jour : posée au-delà
           * d'aujourd'hui, elle le sort de la journée en cours. */
         const patchDue = (iso: string | null) => {
-          if (!isMemo) { patch({ dueDate: iso }); return; }
+          // Et, du même geste, le rappel du jour de l'échéance (reminderPolicy.ts).
+          const reminder = dueReminderPatch({
+            previousDue: dueDate,
+            nextDue: iso,
+            currentReminder: reminderAt,
+            policy: reminderPolicy,
+          });
+          if (!isMemo) { patch({ dueDate: iso, ...reminder }); return; }
           const dueKey = iso ? getDateKeyFromValue(iso) : null;
           void updateFloatingTask(user.uid, liveMemo!.id, {
             dueDate: iso,
             dateKey: dueKey && dueKey > todayKey ? dueKey : todayKey,
+            ...reminder,
           });
         };
 
@@ -1251,6 +1260,8 @@ export default function MobileMyDay({ user }: { user: User }) {
                     onRepeatChange={(v) => patch({ reminderRepeat: v })}
                     defaultRepeat={reminderPolicy.repeatEnabled}
                     repeatLabel={describeRepeat(reminderPolicy)}
+                    dueDate={dueDate}
+                    dueReminderHour={reminderPolicy.dueReminderHour}
                   />
 
                   {/* Répétition et observations — affichées dans les deux cas,
