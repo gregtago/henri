@@ -84,7 +84,7 @@ import GuidedTour, { type TourStep } from "./GuidedTour";
 import { EditableInput, EditableTextarea } from "./EditableField";
 import { ReminderPicker } from "./ReminderPicker";
 import { formatRecurrence } from "@/lib/recurrence";
-import { useReminderPolicy, describeRepeat } from "@/lib/reminderPolicy";
+import { useReminderPolicy, describeRepeat, dueReminderPatch } from "@/lib/reminderPolicy";
 
 // Couleurs d'avancement (Créé, Demandé, Reçu, Traité), alignées sur les badges de statut.
 const STATUS_COLORS = ["var(--s0-fg)", "var(--s1-fg)", "var(--s2-fg)", "var(--s3-fg)"];
@@ -2236,12 +2236,21 @@ export default function AppShell() {
   // Met à jour l'échéance d'un mémo + ajuste son dateKey (futur = pas dans Ma journée aujourd'hui)
   const handleFloatingDueDate = async (taskId: string, dueDate: Date | null) => {
     if (!user) return;
+    const task = floatingTasks.find(entry => entry.id === taskId) ?? null;
     const dueDateKey = dueDate ? dueDate.toISOString().slice(0, 10) : null;
     const isFuture = dueDateKey && dueDateKey > todayKey;
+    const iso = dueDate ? dueDate.toISOString() : null;
     await updateFloatingTask(user.uid, taskId, {
-      dueDate: dueDate ? dueDate.toISOString() : null,
+      dueDate: iso,
       // Si échéance future, sortir de Ma journée actuelle et programmer pour le bon jour
       ...(isFuture ? { dateKey: dueDateKey } : { dateKey: todayKey }),
+      // …et proposer le rappel du jour de l'échéance.
+      ...dueReminderPatch({
+        previousDue: task?.dueDate ?? null,
+        nextDue: iso,
+        currentReminder: task?.reminderAt ?? null,
+        policy: reminderPolicy,
+      }),
     });
   };
 
@@ -2381,6 +2390,7 @@ export default function AppShell() {
         }}
         defaultRepeat={reminderPolicy.repeatEnabled}
         repeatLabel={describeRepeat(reminderPolicy)}
+        dueReminderHour={reminderPolicy.dueReminderHour}
       />
     </section>
   ) : null;
@@ -2654,12 +2664,20 @@ export default function AppShell() {
                     : null;
 
                   const handleSetDue = (iso: string | null) => {
-                    if (!iso) { updateItem(user.uid, detailItem.id, { dueDate: null }); return; }
-                    if (latestSubDue && iso < latestSubDue) {
+                    if (iso && latestSubDue && iso < latestSubDue) {
                       showToast("Échéance impossible : une sous-tâche a une échéance plus tardive.");
                       return;
                     }
-                    updateItem(user.uid, detailItem.id, { dueDate: iso });
+                    updateItem(user.uid, detailItem.id, {
+                      dueDate: iso,
+                      // Poser une échéance propose le rappel du jour même.
+                      ...dueReminderPatch({
+                        previousDue: detailItem.dueDate ?? null,
+                        nextDue: iso,
+                        currentReminder: detailItem.reminderAt ?? null,
+                        policy: reminderPolicy,
+                      }),
+                    });
                   };
 
                   return (
@@ -2771,6 +2789,8 @@ export default function AppShell() {
                   onRepeatChange={v => updateItem(user.uid, detailItem.id, { reminderRepeat: v })}
                   defaultRepeat={reminderPolicy.repeatEnabled}
                   repeatLabel={describeRepeat(reminderPolicy)}
+                  dueDate={detailItem.dueDate ?? null}
+                  dueReminderHour={reminderPolicy.dueReminderHour}
                 />
               </div>
 
@@ -4000,6 +4020,7 @@ export default function AppShell() {
                       onDelete={() => { deleteFloatingTasks(user.uid, [task.id]); setMyDayDetailId(null); }}
                       defaultRepeat={reminderPolicy.repeatEnabled}
                       repeatLabel={describeRepeat(reminderPolicy)}
+                      dueReminderHour={reminderPolicy.dueReminderHour}
                     />
                   );
                 }
@@ -4150,6 +4171,7 @@ export default function AppShell() {
           onClose={() => setMemoComposer(null)}
           defaultRepeat={reminderPolicy.repeatEnabled}
           repeatLabel={describeRepeat(reminderPolicy)}
+          dueReminderHour={reminderPolicy.dueReminderHour}
         />
       )}
 

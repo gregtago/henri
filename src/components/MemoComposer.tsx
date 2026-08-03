@@ -17,6 +17,7 @@ import { RecurrencePicker } from "./RecurrencePicker";
 import { ReminderPicker } from "./ReminderPicker";
 import DueChips from "./DueChips";
 import { atDueHour, formatDateFR } from "@/lib/dates";
+import { proposeDueReminder } from "@/lib/reminderPolicy";
 
 export type MemoDraft = {
   title: string;
@@ -43,6 +44,8 @@ type Props = {
   /** Préférence globale de relance, pour le libellé du rappel. */
   defaultRepeat?: boolean;
   repeatLabel?: string;
+  /** Heure du rappel proposé le jour de l'échéance ; -1 = proposition coupée. */
+  dueReminderHour?: number;
 };
 
 /** Toute échéance posée ici tombe à l'heure commune (voir src/lib/dates.ts). */
@@ -57,6 +60,7 @@ export default function MemoComposer({
   onClose,
   defaultRepeat = true,
   repeatLabel,
+  dueReminderHour = -1,
 }: Props) {
   const [title, setTitle] = useState("");
   const [caseId, setCaseId] = useState<string | null>(defaultCaseId);
@@ -69,6 +73,18 @@ export default function MemoComposer({
   const [caseSearch, setCaseSearch] = useState("");
   const [showMore, setShowMore] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  /** Poser l'échéance propose du même geste le rappel du jour de l'échéance. */
+  const pickDue = (iso: string | null) => {
+    const reminder = proposeDueReminder({
+      previousDue: dueDate,
+      nextDue: iso,
+      currentReminder: reminderAt,
+      policy: { dueReminderHour },
+    });
+    if (reminder !== undefined) setReminderAt(reminder);
+    setDueDate(iso);
+  };
 
   const titleRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => { titleRef.current?.focus(); }, []);
@@ -247,17 +263,17 @@ export default function MemoComposer({
             <div className="flex flex-wrap gap-1.5 items-center">
               <DueChips
                 value={dueDate}
-                onPick={(date) => setDueDate(date.toISOString())}
-                onClear={() => setDueDate(null)}
+                onPick={(date) => pickDue(date.toISOString())}
+                onClear={() => pickDue(null)}
               />
               <input
                 type="date"
                 value={dueDate ? dueDate.slice(0, 10) : ""}
                 onChange={(event) => {
-                  if (!event.target.value) { setDueDate(null); return; }
+                  if (!event.target.value) { pickDue(null); return; }
                   const [year, month, day] = event.target.value.split("-").map(Number);
                   if (year < 1900 || year > 2100) return;
-                  setDueDate(atNoon(new Date(year, month - 1, day)));
+                  pickDue(atNoon(new Date(year, month - 1, day)));
                 }}
                 className="font-[inherit] text-[12.5px] text-tx bg-bg-subtle border border-border rounded-lg px-2 py-1 outline-none focus:border-border-strong transition-colors"
                 aria-label="Échéance"
@@ -275,6 +291,8 @@ export default function MemoComposer({
               onChange={setReminderAt}
               defaultRepeat={defaultRepeat}
               repeatLabel={repeatLabel}
+              dueDate={dueDate}
+              dueReminderHour={dueReminderHour}
             />
           </div>
 

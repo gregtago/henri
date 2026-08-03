@@ -53,6 +53,8 @@ type Props = {
   onDelete: () => void;
   defaultRepeat?: boolean;
   repeatLabel?: string;
+  /** Heure du rappel proposé le jour de l'échéance ; -1 = proposition coupée. */
+  dueReminderHour?: number;
   titleRef?: React.Ref<HTMLInputElement>;
 };
 
@@ -69,6 +71,7 @@ export default function MemoDetail({
   onDelete,
   defaultRepeat = true,
   repeatLabel,
+  dueReminderHour = -1,
   titleRef,
 }: Props) {
   const [caseSearch, setCaseSearch] = useState("");
@@ -164,7 +167,7 @@ export default function MemoDetail({
               <DueChips
                 value={task.dueDate ?? null}
                 onPick={date => onDueDate(date)}
-                onClear={() => onPatch({ dueDate: null })}
+                onClear={() => onDueDate(null)}
               />
             </div>
             <div className="flex items-center gap-2">
@@ -194,6 +197,8 @@ export default function MemoDetail({
             onRepeatChange={v => onPatch({ reminderRepeat: v })}
             defaultRepeat={defaultRepeat}
             repeatLabel={repeatLabel}
+            dueDate={task.dueDate ?? null}
+            dueReminderHour={dueReminderHour}
           />
 
           <div className="border-t border-border" />

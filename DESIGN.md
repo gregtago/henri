@@ -117,6 +117,18 @@ Une puce d'échéance doit dire deux choses, et les taisait toutes les deux : **
 
 **Toutes tombent à 9 h**, l'heure à laquelle on ouvre le dossier — y compris la date saisie à la main. Une échéance n'est pas un rendez-vous : ce qui compte est le jour, mais l'heure doit être tôt et la même partout, sinon deux échéances du même jour ne se comparent pas. Corollaire : « en retard » se compte en **jours**, jamais en heures — une échéance posée pour aujourd'hui ne vire pas au rouge à 9 h 01.
 
+#### Le rappel du jour de l'échéance
+
+Poser une échéance et poser un rappel étaient deux gestes, et le second se perdait : on datait une pièce pour le 12, et le 12 personne ne prévenait. Une échéance sans rappel est une intention, pas un engagement. **Poser une échéance arme donc systématiquement un rappel le jour même**, à l'heure réglée dans Préférences → Rappels (9 h par défaut, `dueReminderHour`) — sur une tâche comme sur un mémo, à l'ordinateur comme au téléphone, aux puces comme au calendrier saisi à la main.
+
+« Proposer » n'est pas « imposer », et la nuance tient dans trois règles, toutes dans `src/lib/reminderPolicy.ts` :
+
+- **Le rappel est posé d'avance, pas caché.** Il s'affiche aussitôt dans le sélecteur de rappel et se retire d'un clic, comme n'importe quel rappel. La puce « Échéance 09h » le réarme si on l'a retiré à tort.
+- **Un rappel choisi à la main n'est jamais remplacé.** Henri ne déplace que le rappel qu'il avait proposé lui-même, reconnaissable à ce qu'il tombe exactement sur la proposition de l'échéance précédente — la valeur suffit à dire d'où vient un rappel, sans stocker sa provenance. Déplacer l'échéance déplace ce rappel ; retirer l'échéance le retire.
+- **Rien n'est proposé pour une heure déjà passée.** Une échéance posée à 15 h pour aujourd'hui n'a que faire d'un rappel de 9 h : elle est déjà dans Ma journée, et le récap du soir la reprendra.
+
+Une seule heure pour tous les rappels d'échéance, et non une par tâche : c'est le même geste de bureau — ouvrir la journée et voir ce qui tombe aujourd'hui. Qui n'en veut pas la coupe une fois pour toutes (« Ne rien proposer »), plutôt que de la refuser à chaque échéance.
+
 N'inventer ni troisième nature ni statut intermédiaire : si un objet ne rentre dans aucune des deux cases, c'est la définition qu'il faut revoir, pas le modèle qu'il faut étendre. Le contenant n'en est pas une : c'est une tâche dans une certaine situation, et rien n'est stocké pour lui.
 
 ---
