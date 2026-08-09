@@ -82,20 +82,34 @@ Ce qu'un contenant garde : son titre, son étoile, ses commentaires, son échéa
 
 Le sens de lecture importe : une tâche **sans** enfant ne conclut jamais rien toute seule — sinon toute tâche naîtrait traitée. La règle vit dans `src/lib/firestore.ts` (`completeParentIfAllChildrenDone`), branchée sur les deux seuls gestes qui ferment un enfant : `updateItemProgress` et `updateFloatingTask`. Elle relit l'état au serveur plutôt que de croire la vue appelante — deux enfants fermés coup sur coup depuis deux écrans donnent quand même la bonne conclusion.
 
-### Le dossier se dit à la saisie — `#`
+### Les réglages se disent à la saisie — `#` `@` `>` `!`
 
-Dans Ma journée, un mémo se tape en une ligne, et cette ligne ne savait pas dire à quel dossier il appartient. Le rattacher supposait d'ouvrir la fenêtre de création, ou de retrouver le mémo après coup — précisément le geste qu'une ligne de saisie existe pour éviter. **Un `#` en tête de saisie ouvre donc la liste des dossiers** : on en retient un, puis on écrit le mémo.
+Dans Ma journée, un mémo se tape en une ligne, et cette ligne ne savait rien dire de ses réglages. Les poser supposait d'ouvrir la fenêtre de création, ou de retrouver le mémo après coup — précisément le geste qu'une ligne de saisie existe pour éviter. **Un caractère en tête de saisie ouvre donc la proposition correspondante** : on en retient une, la ligne repart à vide, et on écrit le mémo.
 
-Ce que la ligne crée reste un **mémo**, rattaché ou non : une chose qu'on coche, sans statut. Le dossier ne change pas la nature de ce qu'on écrit — c'est toute la première section de ce document, et la saisie rapide n'y fait pas exception. Une tâche se crée depuis son dossier (`T`), jamais depuis la ligne du jour.
+| Jeton | Ce qu'il règle | Ce qu'il propose |
+|---|---|---|
+| `#` | le **dossier** | les derniers dossiers touchés, ou ceux dont le titre contient la requête |
+| `@` | l'**échéance** | **les mêmes six propositions que partout ailleurs** (`getDueSuggestions`), et donc le rappel du jour même |
+| `>` | la **tâche** sous laquelle le poser | les tâches de premier niveau du dossier retenu |
+| `!` | l'**étoile** | rien — il n'y a rien à choisir entre important et pas important, il se règle dès la frappe |
 
-C'est la même convention à l'ordinateur et au téléphone, et elle vit dans `src/lib/caseToken.ts` — rien ne doit la réimplémenter, sinon les deux écrans finiront par proposer des dossiers différents dans un ordre différent.
+```
+#dupr  @lundi  !  relancer le syndic pour l'état daté
+└ dossier      └ échéance + rappel 9 h              └ le mémo
+```
 
-- **`#` seul** propose les derniers dossiers touchés : on note presque toujours un mémo sur le dossier qu'on a sous les yeux. `#dup` filtre — accents ignorés, les titres qui *commencent* par la requête d'abord. Les dossiers **archivés** ne sont jamais proposés : on n'y ajoute plus rien.
-- Le dièse n'est lu qu'**en tête** de saisie. « rappeler le client au sujet du lot #3 » est un mémo, pas une recherche de dossier.
-- **Tant que la liste est ouverte, la touche Entrée lui appartient** : elle retient le dossier, elle ne crée pas un mémo qui s'appellerait « #dup ». `↑↓` choisissent, `Échap` renonce.
-- **Un seul dossier répond ? La barre d'espace le retient**, au clavier comme au pouce. L'espace qu'on allait taper pour continuer le nom n'a plus de rival à écarter : autant qu'il fasse passer à la suite. À deux dossiers près il reste une lettre du nom cherché — un titre de dossier en contient (« #vente dup » doit pouvoir se taper). La liste le dit sur la ligne concernée (`Espace`), plutôt que de le faire deviner.
-- **Renoncer ne perd pas ce qui est écrit** : le dièse tombe et le texte devient le titre. Quand aucun dossier ne répond, c'est dit et proposé sur une ligne cliquable — « Aucun dossier à ce nom — écrire un mémo sans dossier ». Un geste ne doit jamais rester sans issue.
-- **Le dossier retenu s'affiche** en pastille au-dessus de la saisie, avec sa croix, le temps qu'on écrive la tâche. La ligne de saisie, elle, ne bouge pas : la liste s'ouvre au-dessus, comme le popover des mémos réalisés.
+Ce que la ligne crée reste un **mémo**, rattaché ou non : une chose qu'on coche, sans statut. Les jetons règlent le mémo, ils ne changent pas sa nature — c'est toute la première section de ce document, et la saisie rapide n'y fait pas exception. Une tâche se crée depuis son dossier (`T`), jamais depuis la ligne du jour.
+
+C'est la même convention à l'ordinateur et au téléphone, et elle vit dans `src/lib/memoTokens.ts` — rien ne doit la réimplémenter, sinon les deux écrans finiront par proposer des choses différentes dans un ordre différent. Ce que la ligne écrit ensuite est un seul payload, `buildQuickMemo` (`src/lib/memos.ts`) : les deux écrans n'y mettaient déjà pas les mêmes champs.
+
+Les règles sont les mêmes pour les quatre jetons :
+
+- **Un jeton ne se lit qu'en tête de saisie.** « rappeler le client au sujet du lot #3 » est un mémo, pas une recherche de dossier : un caractère au milieu d'une phrase ne doit jamais ouvrir une liste.
+- **Un jeton retenu se consomme** : il disparaît de la ligne et va s'afficher en **pastille** au-dessus, avec sa croix. La ligne est de nouveau vide, prête pour le jeton suivant ou pour le titre — et elle ne bouge pas, la liste s'ouvrant au-dessus comme le popover des mémos réalisés.
+- **Tant qu'une liste est ouverte, la touche Entrée lui appartient** : elle retient une proposition, elle ne crée pas un mémo qui s'appellerait « #dup ». `↑↓` choisissent, `Échap` renonce.
+- **Une seule proposition répond ? La barre d'espace la retient**, au clavier comme au pouce. L'espace qu'on allait taper pour continuer le nom n'a plus de rival à écarter : autant qu'il fasse passer à la suite. À deux propositions près il reste une lettre du nom cherché — un titre de dossier en contient (« #vente dup » doit pouvoir se taper). La liste le dit sur la ligne concernée (`Espace`), plutôt que de le faire deviner.
+- **Renoncer ne perd pas ce qui est écrit** : le caractère tombe et le texte devient le titre. Quand rien ne répond, c'est dit et proposé sur une ligne cliquable — « Aucun dossier à ce nom — écrire un mémo sans dossier ». Un geste ne doit jamais rester sans issue.
+- **Un jeton ne s'annonce que quand il veut dire quelque chose.** `>` n'apparaît dans le libellé de la saisie qu'une fois un dossier retenu : un mémo se pose sous une tâche *de son dossier*, et le proposer avant serait promettre une liste vide. Les dossiers **archivés** ne sont jamais proposés, pour la même raison — on n'y ajoute plus rien.
 
 ### Durée de vie d'un mémo
 
@@ -379,7 +393,7 @@ Aucune confirmation modale pour les actions destructives standard. L'undo est su
 - `D` — dossier
 - `T` — tâche · `⇧T` — sous-tâche
 - `M` — mémo (ouvre sa fenêtre de saisie)
-- `#` — en tête de la saisie de Ma journée : le dossier du mémo (voir « Le dossier se dit à la saisie »)
+- `#` `@` `>` `!` — en tête de la saisie de Ma journée : dossier, échéance, tâche, étoile (voir « Les réglages se disent à la saisie »)
 
 **Agir :**
 
