@@ -25,6 +25,7 @@ import { getProgressLevel } from "@/lib/progress";
 import { countOpenChildren, describeOpenChildren, getCompletion, isContainer } from "@/lib/completion";
 import { refusedFeedback, successFeedback, tapFeedback } from "@/lib/haptics";
 import { MEMO_TTL_DAYS, listRecentlyDoneMemos, purgeExpiredMemos } from "@/lib/memos";
+import { CASE_TOKEN_CHAR, caseOnSpace, readCaseQuery, stripCaseToken, suggestCases } from "@/lib/caseToken";
 import { Icon } from "./Icon";
 import { ReminderPicker } from "./ReminderPicker";
 import { RecurrencePicker } from "./RecurrencePicker";
@@ -98,6 +99,10 @@ export default function MobileMyDay({ user }: { user: User }) {
   const toggleGroupMyDay = () => setGroupMyDay(g => { const v = !g; try { localStorage.setItem("henri:mydayGroup", v ? "1" : "0"); } catch {} return v; });
   const [memoSheet, setMemoSheet] = useState<MemoSheetState | null>(null);
   const [memoText, setMemoText] = useState("");
+  // Le dossier retenu pour le prochain mémo tapé dans la barre du bas — « # »
+  // en tête de saisie ouvre la liste (voir src/lib/caseToken.ts).
+  const [memoCaseId, setMemoCaseId] = useState<string | null>(null);
+  const memoInputRef = useRef<HTMLInputElement | null>(null);
   const [doneOpen, setDoneOpen] = useState(false);
   const [statusPrompt, setStatusPrompt] = useState<SelectionEntry | null>(null);
   // Le refus d'une bascule de nature, dit sous l'interrupteur (pas de toast ici).
@@ -284,8 +289,62 @@ export default function MobileMyDay({ user }: { user: User }) {
   };
 
   // ── MÉMOS ──
+  // Le dossier se dit à la saisie : « # » en tête ouvre la liste des dossiers,
+  // on en choisit un, puis on écrit le mémo. La lecture de la saisie et l'ordre
+  // des propositions sont les mêmes qu'à l'ordinateur (src/lib/caseToken.ts) —
+  // un seul geste à apprendre. Ce que la barre crée reste un mémo — une chose
+  // qu'on coche —, rattaché ou non.
+  const memoQuery = readCaseQuery(memoText);
+  const memoCase = memoCaseId ? cases.find(c => c.id === memoCaseId) ?? null : null;
+  const memoCaseMatches = useMemo(
+    () => (memoQuery === null ? [] : suggestCases(cases, memoQuery)),
+    [cases, memoQuery]
+  );
+  // Un seul dossier proposé : la barre d'espace le retient (src/lib/caseToken.ts).
+  const memoSpaceCase = caseOnSpace(memoCaseMatches);
+
+  /** Retenir un dossier : la saisie repart à vide, le dossier attend au-dessus. */
+  const pickMemoCase = (caseId: string) => {
+    tapFeedback();
+    setMemoCaseId(caseId);
+    setMemoText("");
+    memoInputRef.current?.focus();
+  };
+
+  /** Renoncer au dossier : le dièse tombe, ce qui restait devient le titre. */
+  const dropMemoToken = () => {
+    setMemoText(current => stripCaseToken(current));
+    memoInputRef.current?.focus();
+  };
+
+  /** Créer le mémo de la barre du bas, avec le dossier retenu s'il y en a un. */
+  const submitQuickMemo = async () => {
+    const title = memoText.trim();
+    if (!title) return;
+    setMemoText("");
+    setMemoCaseId(null);
+    await createFloatingTask(user.uid, {
+      title,
+      dateKey: todayKey,
+      caseId: memoCaseId,
+      note: null,
+      dueDate: null,
+      starred: false,
+      status: "Créé",
+      doneAt: null,
+    });
+  };
+
+  // Le formulaire complet reprend ce qui est déjà écrit — titre et dossier. Un
+  // jeton en cours (« #dup ») n'est pas un titre : il ne suit pas.
   const openNewMemo = () =>
-    setMemoSheet({ draft: { ...emptyMemoDraft(), title: memoText.trim() } });
+    setMemoSheet({
+      draft: {
+        ...emptyMemoDraft(),
+        title: memoQuery === null ? memoText.trim() : "",
+        caseId: memoCaseId,
+      },
+    });
 
   // Un refus de bascule ne vaut que pour l'objet ouvert : changer de panneau
   // l'efface.
@@ -394,6 +453,7 @@ export default function MobileMyDay({ user }: { user: User }) {
       doneAt: null,
     });
     setMemoText("");
+    setMemoCaseId(null);
     setMemoSheet(null);
   };
 
@@ -736,38 +796,100 @@ export default function MobileMyDay({ user }: { user: User }) {
         )}
       </div>
 
-      {/* Barre du bas */}
-      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "white", borderTop: "1px solid #e5e7eb", padding: "10px 12px 24px", display: "flex", gap: "8px", alignItems: "center" }}>
-        <button onClick={() => setSuggestionsOpen(true)}
-          style={{ width: "44px", height: "44px", borderRadius: "12px", background: "#f3f4f6", border: "1px solid #e5e7eb", fontSize: "20px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          🔭
-        </button>
-        <input
-          value={memoText}
-          onChange={e => setMemoText(e.target.value)}
-          onKeyDown={async e => {
-            if (e.key === "Enter") {
-              const text = memoText.trim();
-              if (!text) return;
-              setMemoText("");
-              await createFloatingTask(user.uid, {
-                title: text,
-                dateKey: todayKey,
-                note: null,
-                dueDate: null,
-                starred: false,
-                status: "Créé",
-                doneAt: null,
-              });
-            }
-          }}
-          placeholder="Nouveau mémo…"
-          style={{ flex: 1, height: "44px", borderRadius: "12px", border: "1px solid #e5e7eb", background: "#f9fafb", fontSize: "15px", padding: "0 14px", outline: "none", fontFamily: "inherit", color: "#111827" }}
-        />
-        <button onClick={openNewMemo}
-          style={{ width: "44px", height: "44px", borderRadius: "12px", background: "#111827", color: "white", border: "none", fontSize: "22px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          +
-        </button>
+      {/* Barre du bas — un mémo s'y tape en une ligne, dossier compris : « # »
+        * ouvre la liste des dossiers, on en touche un (ou l'espace, s'il n'en
+        * reste qu'un), puis on écrit le mémo. */}
+      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "white", borderTop: "1px solid #e5e7eb", padding: "10px 12px 24px", display: "flex", flexDirection: "column", gap: "8px" }}>
+
+        {/* Les dossiers proposés — au-dessus de la barre, qui ne bouge pas. */}
+        {memoQuery !== null && (
+          <>
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.15)", zIndex: 40 }}
+              onClick={dropMemoToken} />
+            <div style={{ position: "absolute", left: "12px", right: "12px", bottom: "100%", marginBottom: "8px", background: "white", border: "1px solid #e5e7eb", borderRadius: "14px", overflow: "hidden", maxHeight: "50dvh", overflowY: "auto", zIndex: 45, boxShadow: "0 -8px 24px rgba(0,0,0,0.12)" }}>
+              <p style={{ padding: "10px 16px", fontSize: "11px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", borderBottom: "1px solid #f3f4f6" }}>
+                {memoQuery ? `Dossier « ${memoQuery} »` : "Dossier du mémo"}
+              </p>
+              {memoCaseMatches.length > 0 ? (
+                memoCaseMatches.map(entry => (
+                  <button key={entry.id} onClick={() => pickMemoCase(entry.id)}
+                    style={{ width: "100%", padding: "14px 16px", textAlign: "left", background: "white", border: "none", borderBottom: "1px solid #f3f4f6", fontSize: "14.5px", color: "#111827", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: "8px" }}>
+                    <Icon name="folder" size={15} style={{ color: "#6b7280", flexShrink: 0 }} />
+                    <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.title}</span>
+                    {/* Seul en lice : l'espace le retient, autant le dire. */}
+                    {memoSpaceCase?.id === entry.id && (
+                      <span style={{ flexShrink: 0, fontSize: "11px", color: "#9ca3af", border: "1px solid #e5e7eb", borderRadius: "6px", padding: "2px 6px" }}>
+                        Espace
+                      </span>
+                    )}
+                  </button>
+                ))
+              ) : (
+                <button onClick={dropMemoToken}
+                  style={{ width: "100%", padding: "14px 16px", textAlign: "left", background: "white", border: "none", fontSize: "14px", color: "#6b7280", cursor: "pointer", fontFamily: "inherit" }}>
+                  Aucun dossier à ce nom — écrire un mémo sans dossier
+                </button>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Au-dessus du voile : la barre reste vivante pendant qu'on choisit un
+          * dossier — on écrit la suite sans rien fermer. */}
+        <div style={{ position: "relative", zIndex: 46, display: "flex", flexDirection: "column", gap: "8px" }}>
+
+        {/* Le dossier retenu attend le temps qu'on écrive la tâche. */}
+        {memoCase && (
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", alignSelf: "flex-start", maxWidth: "100%", padding: "5px 10px", borderRadius: "20px", background: "#f3f4f6", border: "1px solid #e5e7eb" }}>
+            <Icon name="folder" size={13} style={{ color: "#6b7280", flexShrink: 0 }} />
+            <span style={{ fontSize: "12.5px", color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{memoCase.title}</span>
+            <button onClick={() => { setMemoCaseId(null); memoInputRef.current?.focus(); }}
+              aria-label="Détacher le dossier"
+              style={{ flexShrink: 0, border: "none", background: "transparent", color: "#9ca3af", cursor: "pointer", padding: 0, lineHeight: 0, display: "flex" }}>
+              <Icon name="close" size={13} />
+            </button>
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <button onClick={() => setSuggestionsOpen(true)}
+            style={{ width: "44px", height: "44px", borderRadius: "12px", background: "#f3f4f6", border: "1px solid #e5e7eb", fontSize: "20px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            🔭
+          </button>
+          <input
+            ref={memoInputRef}
+            value={memoText}
+            onChange={e => setMemoText(e.target.value)}
+            onKeyDown={async e => {
+              // Tant que la liste des dossiers est ouverte, ces touches lui
+              // appartiennent : Entrée retient un dossier, elle ne crée pas un
+              // mémo qui s'appellerait « #dup ». Et quand un seul dossier
+              // répond, l'espace suffit — il n'y a plus de nom à allonger.
+              if (memoQuery !== null) {
+                if (e.key === " " && memoSpaceCase) {
+                  e.preventDefault();
+                  pickMemoCase(memoSpaceCase.id);
+                  return;
+                }
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  const picked = memoCaseMatches[0];
+                  if (picked) pickMemoCase(picked.id);
+                  else refusedFeedback();
+                }
+                return;
+              }
+              if (e.key === "Enter") await submitQuickMemo();
+            }}
+            placeholder={memoCase ? "Mémo dans ce dossier…" : `Nouveau mémo… (${CASE_TOKEN_CHAR}dossier)`}
+            style={{ flex: 1, minWidth: 0, height: "44px", borderRadius: "12px", border: "1px solid #e5e7eb", background: "#f9fafb", fontSize: "15px", padding: "0 14px", outline: "none", fontFamily: "inherit", color: "#111827" }}
+          />
+          <button onClick={openNewMemo}
+            style={{ width: "44px", height: "44px", borderRadius: "12px", background: "#111827", color: "white", border: "none", fontSize: "22px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            +
+          </button>
+        </div>
+        </div>
       </div>
 
       {/* ── FORMULAIRE DU MÉMO (création) ──

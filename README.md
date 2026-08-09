@@ -113,6 +113,20 @@ npm run dev
   colonne Tâches) : titre, dossier, échéance, rappel, étoile, répétition et observations
   en un seul geste. Entrée crée, Échap annule. Un mémo avec une échéance future part
   directement au bon jour plutôt que dans la journée en cours.
+- **Le dossier d'un mémo se dit à la saisie, avec `#`** (`src/lib/caseToken.ts`) : dans la
+  ligne de saisie de Ma journée — desktop et mobile —, un `#` en tête ouvre la liste des
+  dossiers, on en retient un, puis on écrit le mémo. Ce que la ligne crée reste un **mémo**
+  (`floatingTasks`), rattaché ou non : le dossier ne change pas la nature de ce qu'on écrit.
+  `#` seul propose les derniers dossiers
+  touchés ; `#dup` filtre (sans tenir compte des accents, les titres qui *commencent* par la
+  requête d'abord) ; les dossiers archivés ne sont jamais proposés. Le dièse n'est lu qu'en
+  **tête** de saisie — « lot #3 » reste un titre de mémo. Tant que la liste est ouverte,
+  Entrée retient le dossier au lieu de créer le mémo ; ↑↓ choisissent, Échap (ou « écrire un
+  mémo sans dossier ») retire le dièse et rend le texte au titre. **Quand un seul dossier
+  répond, la barre d'espace le retient** (`caseOnSpace`) — à deux dossiers près, l'espace
+  reste une lettre du nom cherché (« #vente dup »). La lecture de la saisie et
+  l'ordre des propositions ne sont écrits qu'une fois, pour que les deux écrans proposent les
+  mêmes dossiers dans le même ordre.
 - Sur mobile, `MemoSheet` ne sert plus qu'à **créer** un mémo (titre, dossier, tâche,
   échéance, rappel, répétition, observations en un seul geste) : un mémo qui existe s'ouvre
   dans le panneau de détail, comme une tâche.

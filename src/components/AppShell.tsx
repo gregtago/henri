@@ -69,6 +69,7 @@ import {
   getItemMemos
 } from "@/lib/completion";
 import { listRecentlyDoneMemos, purgeExpiredMemos } from "@/lib/memos";
+import { CASE_TOKEN_CHAR, caseOnSpace, readCaseQuery, stripCaseToken, suggestCases } from "@/lib/caseToken";
 import { resolveDelai, latestLaunchDate } from "@/lib/delais";
 import type { Case, CaseTemplate, Comment, Event, FloatingTask, Item, MyDaySelection, Status } from "@/lib/types";
 import { STATUSES } from "@/lib/types";
@@ -231,6 +232,14 @@ export default function AppShell() {
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [myDayDetailId, setMyDayDetailId] = useState<string | null>(null);
+  // ── Saisie rapide d'un mémo dans Ma journée ──
+  // Contrôlée, parce qu'elle lit ce qu'on tape : un « # » en tête ouvre la
+  // liste des dossiers (voir src/lib/caseToken.ts). Le dossier retenu attend
+  // dans `myDayMemoCaseId` le temps qu'on écrive la tâche.
+  const [myDayMemoText, setMyDayMemoText] = useState("");
+  const [myDayMemoCaseId, setMyDayMemoCaseId] = useState<string | null>(null);
+  const [myDayMemoCursor, setMyDayMemoCursor] = useState(0);
+  const myDayMemoRef = useRef<HTMLInputElement | null>(null);
   const [dossierSearch, setDossierSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false); // "f-{id}" pour volante, selectionId pour dossier
@@ -814,6 +823,56 @@ export default function AppShell() {
 
   // Les mémos réalisés récemment — ceux que le lien du bas rouvre.
   const doneMemos = useMemo(() => listRecentlyDoneMemos(floatingTasks), [floatingTasks]);
+
+  // ── Le dossier d'un mémo, dit à la saisie ──
+  // « # » en tête de la ligne de saisie ouvre la liste des dossiers ; on en
+  // choisit un, puis on écrit la tâche. La lecture de la saisie et l'ordre des
+  // propositions vivent dans src/lib/caseToken.ts, partagés avec mobile.
+  const myDayMemoQuery = readCaseQuery(myDayMemoText);
+  const myDayMemoCase = myDayMemoCaseId
+    ? cases.find(entry => entry.id === myDayMemoCaseId) ?? null
+    : null;
+  const myDayMemoMatches = useMemo(
+    () => (myDayMemoQuery === null ? [] : suggestCases(cases, myDayMemoQuery)),
+    [cases, myDayMemoQuery]
+  );
+  // Le curseur ne doit jamais désigner une ligne qui n'existe plus : la liste
+  // se resserre à chaque lettre tapée.
+  const myDayMemoIndex = myDayMemoMatches.length === 0
+    ? -1
+    : Math.min(myDayMemoCursor, myDayMemoMatches.length - 1);
+  // Un seul dossier proposé : la barre d'espace le retient (src/lib/caseToken.ts).
+  const myDayMemoSpaceCase = caseOnSpace(myDayMemoMatches);
+
+  /** Retenir un dossier : la saisie repart à vide, le dossier attend au-dessus. */
+  const pickMyDayMemoCase = (caseId: string) => {
+    setMyDayMemoCaseId(caseId);
+    setMyDayMemoText("");
+    setMyDayMemoCursor(0);
+    myDayMemoRef.current?.focus();
+  };
+
+  /** Renoncer au dossier : le dièse tombe, ce qui restait devient le titre. */
+  const dropMyDayMemoToken = () => {
+    setMyDayMemoText(current => stripCaseToken(current));
+    setMyDayMemoCursor(0);
+    myDayMemoRef.current?.focus();
+  };
+
+  /** Créer le mémo de la ligne de saisie, avec le dossier retenu s'il y en a un. */
+  const submitMyDayMemo = async () => {
+    const title = myDayMemoText.trim();
+    if (!title || !user) return;
+    setMyDayMemoText("");
+    setMyDayMemoCaseId(null);
+    await createFloatingTask(user.uid, {
+      dateKey: todayKey,
+      title,
+      status: "Créé",
+      caseId: myDayMemoCaseId,
+    });
+    if (myDayMemoCase) showToast(`Mémo ajouté au dossier « ${myDayMemoCase.title} ».`);
+  };
 
   // Construire la liste unifiée triée pour Ma journée (tâches de dossier + mémos flottants)
   const myDayCombined = useMemo(() => {
@@ -3977,20 +4036,128 @@ export default function AppShell() {
               </div>
             )}
 
-            {/* ── Saisie mémo en bas ── */}
-            <div className="border-t border-border bg-bg p-3">
-              <div className="flex items-center gap-2 bg-white border border-border-strong rounded-lg px-3 py-2 transition-colors focus-within:border-tx-2">
-                <span className="shrink-0 text-tx-3"><Icon name="edit" size={14} /></span>
+            {/* ── Saisie mémo en bas ──
+                 Un mémo se tape en une ligne, dossier compris : « # » ouvre la
+                 liste des dossiers, on en choisit un, puis on écrit le mémo.
+                 Ce que la ligne crée reste un mémo — une chose qu'on coche —,
+                 rattaché ou non.
+                 Le clavier suffit de bout en bout (↑↓ pour choisir, Entrée ou,
+                 quand un seul dossier répond, Espace pour retenir, Échap pour
+                 renoncer au dossier). */}
+            <div className="border-t border-border bg-bg p-3 relative">
+              {/* Les dossiers proposés — au-dessus de la saisie, comme le
+                   popover des mémos réalisés : la ligne de saisie ne bouge pas. */}
+              {myDayMemoQuery !== null && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={dropMyDayMemoToken} />
+                  <div
+                    className="absolute left-3 right-3 bottom-full mb-1 max-h-[320px] overflow-y-auto bg-white border border-border-strong rounded-lg z-20"
+                    style={{ boxShadow: "0 -8px 24px rgba(0,0,0,0.12)" }}
+                  >
+                    <div className="px-3 py-2 border-b border-border">
+                      <span className="text-[10px] font-medium text-tx-3 uppercase tracking-wide">
+                        {myDayMemoQuery ? `Dossier « ${myDayMemoQuery} »` : "Dossier du mémo"}
+                      </span>
+                    </div>
+                    {myDayMemoMatches.length > 0 ? (
+                      <div className="px-2 py-1">
+                        {myDayMemoMatches.map((entry, index) => (
+                          <div
+                            key={entry.id}
+                            className={`flex items-center gap-2 py-2 px-2.5 rounded cursor-pointer ${index === myDayMemoIndex ? "bg-bg-hover" : "hover:bg-bg-subtle"}`}
+                            onMouseEnter={() => setMyDayMemoCursor(index)}
+                            onClick={() => pickMyDayMemoCase(entry.id)}
+                          >
+                            <Icon name="folder" size={13} className="shrink-0 text-tx-3" />
+                            <p className="text-[14px] text-tx truncate flex-1 min-w-0">{entry.title}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <button
+                        onClick={dropMyDayMemoToken}
+                        className="w-full text-left font-[inherit] text-[13px] text-tx-2 bg-transparent border-none cursor-pointer px-3 py-2.5 hover:bg-bg-subtle transition-colors"
+                      >
+                        Aucun dossier à ce nom — écrire un mémo sans dossier
+                      </button>
+                    )}
+                    <p className="px-3 py-2 text-[11px] text-tx-3 border-t border-border leading-snug">
+                      {myDayMemoSpaceCase ? (
+                        <>
+                          <kbd className="border border-border rounded px-1 py-0.5 text-[10px]">Espace</kbd> ou{" "}
+                          <kbd className="border border-border rounded px-1 py-0.5 text-[10px]">Entrée</kbd> retenir ce dossier ·{" "}
+                        </>
+                      ) : (
+                        <>
+                          <kbd className="border border-border rounded px-1 py-0.5 text-[10px]">↑↓</kbd> choisir ·{" "}
+                          <kbd className="border border-border rounded px-1 py-0.5 text-[10px]">Entrée</kbd> retenir ·{" "}
+                        </>
+                      )}
+                      <kbd className="border border-border rounded px-1 py-0.5 text-[10px]">Échap</kbd> sans dossier
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {/* Au-dessus du voile : la ligne de saisie reste vivante pendant
+                   qu'on choisit un dossier — on tape la suite sans rien fermer. */}
+              <div className="relative z-20 flex items-center gap-2 bg-white border border-border-strong rounded-lg px-3 py-2 transition-colors focus-within:border-tx-2">
+                {myDayMemoCase ? (
+                  <span className="inline-flex items-center gap-1.5 shrink-0 max-w-[45%] bg-bg-subtle border border-border rounded px-1.5 py-0.5 text-[12px] text-tx-2">
+                    <Icon name="folder" size={11} className="shrink-0" />
+                    <span className="truncate">{myDayMemoCase.title}</span>
+                    <button
+                      onClick={() => { setMyDayMemoCaseId(null); myDayMemoRef.current?.focus(); }}
+                      className="shrink-0 border-none bg-transparent cursor-pointer text-tx-3 hover:text-tx p-0 leading-none"
+                      title="Détacher le dossier"
+                      aria-label="Détacher le dossier"
+                    ><Icon name="close" size={11} /></button>
+                  </span>
+                ) : (
+                  <span className="shrink-0 text-tx-3"><Icon name="edit" size={14} /></span>
+                )}
                 <input
+                  ref={myDayMemoRef}
+                  value={myDayMemoText}
+                  onChange={e => { setMyDayMemoText(e.target.value); setMyDayMemoCursor(0); }}
                   className="flex-1 font-[inherit] text-[15px] text-tx bg-transparent border-none outline-none placeholder:text-tx-3"
-                  placeholder="Nouveau mémo… (Entrée)"
+                  placeholder={myDayMemoCase ? "Mémo dans ce dossier… (Entrée)" : `Nouveau mémo… (Entrée · ${CASE_TOKEN_CHAR} pour un dossier)`}
                   onKeyDown={async e => {
+                    // Tant que la liste des dossiers est ouverte, le clavier lui
+                    // appartient : Entrée retient un dossier, elle ne crée pas
+                    // un mémo qui s'appellerait « #dup ».
+                    if (myDayMemoQuery !== null) {
+                      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                        e.preventDefault();
+                        if (myDayMemoMatches.length === 0) return;
+                        const direction = e.key === "ArrowDown" ? 1 : -1;
+                        setMyDayMemoCursor(Math.min(Math.max(0, myDayMemoIndex + direction), myDayMemoMatches.length - 1));
+                        return;
+                      }
+                      if (e.key === "Enter" || e.key === "Tab") {
+                        e.preventDefault();
+                        const picked = myDayMemoMatches[myDayMemoIndex];
+                        if (picked) pickMyDayMemoCase(picked.id);
+                        return;
+                      }
+                      // Un seul dossier répond : l'espace le retient plutôt que
+                      // d'allonger un nom qui n'a plus de rival. À deux dossiers
+                      // près, il reste une lettre du nom cherché.
+                      if (e.key === " " && myDayMemoSpaceCase) {
+                        e.preventDefault();
+                        pickMyDayMemoCase(myDayMemoSpaceCase.id);
+                        return;
+                      }
+                      if (e.key === "Escape") {
+                        e.preventDefault();
+                        dropMyDayMemoToken();
+                        return;
+                      }
+                      return;
+                    }
                     if (e.key === "Enter") {
-                      const t = e.target as HTMLInputElement;
-                      const val = t.value.trim();
-                      if (!val || !user) return;
-                      await createFloatingTask(user.uid, { dateKey: todayKey, title: val, status: "Créé" });
-                      t.value = "";
+                      e.preventDefault();
+                      await submitMyDayMemo();
                     }
                   }}
                 />
@@ -4066,6 +4233,7 @@ export default function AppShell() {
                     ["⇧T", "Nouvelle sous-tâche"],
                     ["M", "Nouveau mémo"],
                     ["⇧M", "Nouveau mémo sous la tâche"],
+                    ["#", "Dossier du mémo (saisie Ma journée)"],
                     ["Espace", "Renommer"],
                     ["Entrée", "Valider le nom"],
                     ["A", "Ajouter à Ma journée"],
