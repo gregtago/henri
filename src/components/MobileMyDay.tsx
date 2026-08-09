@@ -25,7 +25,7 @@ import { getProgressLevel } from "@/lib/progress";
 import { countOpenChildren, describeOpenChildren, getCompletion, isContainer } from "@/lib/completion";
 import { refusedFeedback, successFeedback, tapFeedback } from "@/lib/haptics";
 import { MEMO_TTL_DAYS, listRecentlyDoneMemos, purgeExpiredMemos } from "@/lib/memos";
-import { CASE_TOKEN_CHAR, readCaseQuery, stripCaseToken, suggestCases } from "@/lib/caseToken";
+import { CASE_TOKEN_CHAR, caseOnSpace, readCaseQuery, stripCaseToken, suggestCases } from "@/lib/caseToken";
 import { Icon } from "./Icon";
 import { ReminderPicker } from "./ReminderPicker";
 import { RecurrencePicker } from "./RecurrencePicker";
@@ -290,15 +290,18 @@ export default function MobileMyDay({ user }: { user: User }) {
 
   // ── MÉMOS ──
   // Le dossier se dit à la saisie : « # » en tête ouvre la liste des dossiers,
-  // on en choisit un, puis on écrit ce qu'il y a à faire. La lecture de la
-  // saisie et l'ordre des propositions sont les mêmes qu'à l'ordinateur
-  // (src/lib/caseToken.ts) — un seul geste à apprendre.
+  // on en choisit un, puis on écrit le mémo. La lecture de la saisie et l'ordre
+  // des propositions sont les mêmes qu'à l'ordinateur (src/lib/caseToken.ts) —
+  // un seul geste à apprendre. Ce que la barre crée reste un mémo — une chose
+  // qu'on coche —, rattaché ou non.
   const memoQuery = readCaseQuery(memoText);
   const memoCase = memoCaseId ? cases.find(c => c.id === memoCaseId) ?? null : null;
   const memoCaseMatches = useMemo(
     () => (memoQuery === null ? [] : suggestCases(cases, memoQuery)),
     [cases, memoQuery]
   );
+  // Un seul dossier proposé : la barre d'espace le retient (src/lib/caseToken.ts).
+  const memoSpaceCase = caseOnSpace(memoCaseMatches);
 
   /** Retenir un dossier : la saisie repart à vide, le dossier attend au-dessus. */
   const pickMemoCase = (caseId: string) => {
@@ -794,7 +797,8 @@ export default function MobileMyDay({ user }: { user: User }) {
       </div>
 
       {/* Barre du bas — un mémo s'y tape en une ligne, dossier compris : « # »
-        * ouvre la liste des dossiers, on en touche un, puis on écrit la tâche. */}
+        * ouvre la liste des dossiers, on en touche un (ou l'espace, s'il n'en
+        * reste qu'un), puis on écrit le mémo. */}
       <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "white", borderTop: "1px solid #e5e7eb", padding: "10px 12px 24px", display: "flex", flexDirection: "column", gap: "8px" }}>
 
         {/* Les dossiers proposés — au-dessus de la barre, qui ne bouge pas. */}
@@ -812,6 +816,12 @@ export default function MobileMyDay({ user }: { user: User }) {
                     style={{ width: "100%", padding: "14px 16px", textAlign: "left", background: "white", border: "none", borderBottom: "1px solid #f3f4f6", fontSize: "14.5px", color: "#111827", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: "8px" }}>
                     <Icon name="folder" size={15} style={{ color: "#6b7280", flexShrink: 0 }} />
                     <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.title}</span>
+                    {/* Seul en lice : l'espace le retient, autant le dire. */}
+                    {memoSpaceCase?.id === entry.id && (
+                      <span style={{ flexShrink: 0, fontSize: "11px", color: "#9ca3af", border: "1px solid #e5e7eb", borderRadius: "6px", padding: "2px 6px" }}>
+                        Espace
+                      </span>
+                    )}
                   </button>
                 ))
               ) : (
@@ -851,20 +861,27 @@ export default function MobileMyDay({ user }: { user: User }) {
             value={memoText}
             onChange={e => setMemoText(e.target.value)}
             onKeyDown={async e => {
-              if (e.key !== "Enter") return;
-              // Tant que la liste des dossiers est ouverte, la touche lui
-              // appartient : elle retient un dossier, elle ne crée pas un mémo
-              // qui s'appellerait « #dup ».
+              // Tant que la liste des dossiers est ouverte, ces touches lui
+              // appartiennent : Entrée retient un dossier, elle ne crée pas un
+              // mémo qui s'appellerait « #dup ». Et quand un seul dossier
+              // répond, l'espace suffit — il n'y a plus de nom à allonger.
               if (memoQuery !== null) {
-                e.preventDefault();
-                const picked = memoCaseMatches[0];
-                if (picked) pickMemoCase(picked.id);
-                else refusedFeedback();
+                if (e.key === " " && memoSpaceCase) {
+                  e.preventDefault();
+                  pickMemoCase(memoSpaceCase.id);
+                  return;
+                }
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  const picked = memoCaseMatches[0];
+                  if (picked) pickMemoCase(picked.id);
+                  else refusedFeedback();
+                }
                 return;
               }
-              await submitQuickMemo();
+              if (e.key === "Enter") await submitQuickMemo();
             }}
-            placeholder={memoCase ? "Que faut-il faire ?" : `Nouveau mémo… (${CASE_TOKEN_CHAR}dossier)`}
+            placeholder={memoCase ? "Mémo dans ce dossier…" : `Nouveau mémo… (${CASE_TOKEN_CHAR}dossier)`}
             style={{ flex: 1, minWidth: 0, height: "44px", borderRadius: "12px", border: "1px solid #e5e7eb", background: "#f9fafb", fontSize: "15px", padding: "0 14px", outline: "none", fontFamily: "inherit", color: "#111827" }}
           />
           <button onClick={openNewMemo}

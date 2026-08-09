@@ -69,7 +69,7 @@ import {
   getItemMemos
 } from "@/lib/completion";
 import { listRecentlyDoneMemos, purgeExpiredMemos } from "@/lib/memos";
-import { CASE_TOKEN_CHAR, readCaseQuery, stripCaseToken, suggestCases } from "@/lib/caseToken";
+import { CASE_TOKEN_CHAR, caseOnSpace, readCaseQuery, stripCaseToken, suggestCases } from "@/lib/caseToken";
 import { resolveDelai, latestLaunchDate } from "@/lib/delais";
 import type { Case, CaseTemplate, Comment, Event, FloatingTask, Item, MyDaySelection, Status } from "@/lib/types";
 import { STATUSES } from "@/lib/types";
@@ -841,6 +841,8 @@ export default function AppShell() {
   const myDayMemoIndex = myDayMemoMatches.length === 0
     ? -1
     : Math.min(myDayMemoCursor, myDayMemoMatches.length - 1);
+  // Un seul dossier proposé : la barre d'espace le retient (src/lib/caseToken.ts).
+  const myDayMemoSpaceCase = caseOnSpace(myDayMemoMatches);
 
   /** Retenir un dossier : la saisie repart à vide, le dossier attend au-dessus. */
   const pickMyDayMemoCase = (caseId: string) => {
@@ -4036,9 +4038,12 @@ export default function AppShell() {
 
             {/* ── Saisie mémo en bas ──
                  Un mémo se tape en une ligne, dossier compris : « # » ouvre la
-                 liste des dossiers, on en choisit un, puis on écrit la tâche.
-                 Le clavier suffit de bout en bout (↑↓ pour choisir, Entrée pour
-                 retenir, Échap pour renoncer au dossier). */}
+                 liste des dossiers, on en choisit un, puis on écrit le mémo.
+                 Ce que la ligne crée reste un mémo — une chose qu'on coche —,
+                 rattaché ou non.
+                 Le clavier suffit de bout en bout (↑↓ pour choisir, Entrée ou,
+                 quand un seul dossier répond, Espace pour retenir, Échap pour
+                 renoncer au dossier). */}
             <div className="border-t border-border bg-bg p-3 relative">
               {/* Les dossiers proposés — au-dessus de la saisie, comme le
                    popover des mémos réalisés : la ligne de saisie ne bouge pas. */}
@@ -4077,8 +4082,17 @@ export default function AppShell() {
                       </button>
                     )}
                     <p className="px-3 py-2 text-[11px] text-tx-3 border-t border-border leading-snug">
-                      <kbd className="border border-border rounded px-1 py-0.5 text-[10px]">↑↓</kbd> choisir ·{" "}
-                      <kbd className="border border-border rounded px-1 py-0.5 text-[10px]">Entrée</kbd> retenir ·{" "}
+                      {myDayMemoSpaceCase ? (
+                        <>
+                          <kbd className="border border-border rounded px-1 py-0.5 text-[10px]">Espace</kbd> ou{" "}
+                          <kbd className="border border-border rounded px-1 py-0.5 text-[10px]">Entrée</kbd> retenir ce dossier ·{" "}
+                        </>
+                      ) : (
+                        <>
+                          <kbd className="border border-border rounded px-1 py-0.5 text-[10px]">↑↓</kbd> choisir ·{" "}
+                          <kbd className="border border-border rounded px-1 py-0.5 text-[10px]">Entrée</kbd> retenir ·{" "}
+                        </>
+                      )}
                       <kbd className="border border-border rounded px-1 py-0.5 text-[10px]">Échap</kbd> sans dossier
                     </p>
                   </div>
@@ -4107,7 +4121,7 @@ export default function AppShell() {
                   value={myDayMemoText}
                   onChange={e => { setMyDayMemoText(e.target.value); setMyDayMemoCursor(0); }}
                   className="flex-1 font-[inherit] text-[15px] text-tx bg-transparent border-none outline-none placeholder:text-tx-3"
-                  placeholder={myDayMemoCase ? "Que faut-il faire ? (Entrée)" : `Nouveau mémo… (Entrée · ${CASE_TOKEN_CHAR} pour un dossier)`}
+                  placeholder={myDayMemoCase ? "Mémo dans ce dossier… (Entrée)" : `Nouveau mémo… (Entrée · ${CASE_TOKEN_CHAR} pour un dossier)`}
                   onKeyDown={async e => {
                     // Tant que la liste des dossiers est ouverte, le clavier lui
                     // appartient : Entrée retient un dossier, elle ne crée pas
@@ -4124,6 +4138,14 @@ export default function AppShell() {
                         e.preventDefault();
                         const picked = myDayMemoMatches[myDayMemoIndex];
                         if (picked) pickMyDayMemoCase(picked.id);
+                        return;
+                      }
+                      // Un seul dossier répond : l'espace le retient plutôt que
+                      // d'allonger un nom qui n'a plus de rival. À deux dossiers
+                      // près, il reste une lettre du nom cherché.
+                      if (e.key === " " && myDayMemoSpaceCase) {
+                        e.preventDefault();
+                        pickMyDayMemoCase(myDayMemoSpaceCase.id);
                         return;
                       }
                       if (e.key === "Escape") {

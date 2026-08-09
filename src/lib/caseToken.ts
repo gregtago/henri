@@ -4,7 +4,11 @@
 // dossier. Le rattacher supposait d'ouvrir la fenêtre de création, ou de
 // retrouver le mémo après coup — précisément le geste qu'une ligne de saisie
 // existe pour éviter. Un « # » en tête ouvre donc la liste des dossiers : on en
-// choisit un, puis on écrit ce qu'il y a à faire.
+// choisit un, puis on écrit le mémo.
+//
+// Ce que la ligne crée reste un **mémo** — une chose qu'on coche —, rattaché ou
+// non : le dossier ne change pas la nature de ce qu'on écrit (voir DESIGN.md,
+// « Deux natures d'objets »).
 //
 // Le jeton n'est reconnu qu'en **tête** de saisie. « #dupont » cherche un
 // dossier ; « appeler le client au sujet du lot #3 » écrit un mémo, sans quoi
@@ -45,6 +49,19 @@ export const stripCaseToken = (text: string): string => {
   const query = readCaseQuery(text);
   return query === null ? text : query;
 };
+
+/**
+ * Le dossier que la **barre d'espace** retient — `null` s'il y a encore à
+ * choisir.
+ *
+ * Quand la requête ne laisse plus qu'un dossier, il n'y a plus rien à
+ * sélectionner : l'espace qu'on allait taper pour continuer le nom ne sert plus
+ * à rien, autant qu'il retienne le dossier et laisse écrire le mémo. Tant que
+ * deux dossiers répondent, l'espace reste une lettre du nom cherché — un titre
+ * de dossier en contient (« #vente dup » doit pouvoir se taper).
+ */
+export const caseOnSpace = (matches: Case[]): Case | null =>
+  matches.length === 1 ? matches[0] : null;
 
 /** Minuscules et sans accents : « Duprés » se trouve en tapant « dupres ». */
 const fold = (value: string) =>
