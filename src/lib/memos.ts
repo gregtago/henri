@@ -13,6 +13,8 @@
 
 import type { FloatingTask } from "./types";
 import { deleteFloatingTasks } from "./firestore";
+import { getDateKeyFromValue } from "./dates";
+import { dueReminderPatch, type DueReminderSetting } from "./reminderPolicy";
 
 /** Au-delà de ce nombre de jours, un mémo réalisé et libre disparaît. */
 export const MEMO_TTL_DAYS = 7;
@@ -57,6 +59,47 @@ export const purgeExpiredMemos = async (uid: string, memos: FloatingTask[]): Pro
   if (expired.length === 0) return 0;
   await deleteFloatingTasks(uid, expired.map((memo) => memo.id));
   return expired.length;
+};
+
+/**
+ * Ce qu'une **ligne de saisie** de Ma journée écrit — desktop et mobile.
+ *
+ * Les deux écrans posaient chacun leur payload, et n'y mettaient déjà pas les
+ * mêmes champs. Or trois règles s'appliquent ici et se perdent facilement :
+ *
+ * - une **échéance à venir** programme le mémo pour ce jour-là plutôt que
+ *   d'encombrer la journée en cours (comme la fenêtre de création) ;
+ * - poser une échéance **arme le rappel du jour même** (`dueReminderPatch`,
+ *   voir DESIGN.md) — une échéance sans rappel est une intention, pas un
+ *   engagement ;
+ * - un mémo posé **sous une tâche** appartient forcément au dossier de cette
+ *   tâche : c'est à l'appelant de ne proposer que des tâches du dossier retenu.
+ */
+export type QuickMemoDraft = {
+  title: string;
+  caseId?: string | null;
+  parentItemId?: string | null;
+  /** ISO, à l'heure des échéances (9 h) — null si pas d'échéance. */
+  dueDate?: string | null;
+  starred?: boolean;
+};
+
+export const buildQuickMemo = (
+  draft: QuickMemoDraft,
+  context: { todayKey: string; policy: DueReminderSetting }
+): Omit<FloatingTask, "id" | "createdAt" | "updatedAt"> => {
+  const dueKey = draft.dueDate ? getDateKeyFromValue(draft.dueDate) : null;
+  return {
+    dateKey: dueKey && dueKey > context.todayKey ? dueKey : context.todayKey,
+    title: draft.title,
+    status: "Créé",
+    caseId: draft.caseId ?? null,
+    parentItemId: draft.parentItemId ?? null,
+    dueDate: draft.dueDate ?? null,
+    starred: Boolean(draft.starred),
+    doneAt: null,
+    ...dueReminderPatch({ nextDue: draft.dueDate ?? null, policy: context.policy }),
+  };
 };
 
 /**
