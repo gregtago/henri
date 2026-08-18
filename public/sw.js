@@ -4,7 +4,7 @@
 // cache offline natif de Firestore (côté client SDK) qui sait gérer la
 // reconnexion et la résolution de conflits proprement.
 
-const CACHE_VERSION = "henri-v5";
+const CACHE_VERSION = "henri-v6";
 const APP_SHELL = [
   "/",
   "/my-day",
@@ -13,6 +13,7 @@ const APP_SHELL = [
   "/favicon.ico",
   "/web-app-manifest-192x192.png",
   "/web-app-manifest-512x512.png",
+  "/apple-touch-icon.png",
 ];
 
 // Permettre au client de pousser le SW à prendre la main immédiatement
