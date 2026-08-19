@@ -100,23 +100,10 @@
   --danger-soft:   #ef5a5a;
 }
 
-/* Le logo la nuit — lettrage noir sur fond transparent, jamais dupliqué en
- * second fichier : deux fichiers finiraient par diverger.
- *
- * Aux petites tailles (24 à 36 px dans les barres), on le renverse simplement :
- * un bord blanc y remplirait les contre-formes du « e » et du « n », et la
- * signature deviendrait une tache.
- *
- * En grand — l'écran de connexion —, le lettrage garde son noir et se borde de
- * blanc. Quatre ombres portées sans flou, une par direction : un vrai bord, pas
- * un halo. */
+/* Le logo — lettrage noir sur fond transparent. Noir au thème clair, blanc au
+ * thème sombre, et jamais un second fichier : deux fichiers finiraient par
+ * diverger. */
 :root[data-theme="dark"] img[src*="logo-henri"] { filter: invert(1); }
-
-:root[data-theme="dark"] img.logo-xl {
-  filter:
-    drop-shadow(1.5px 0 0 #fff) drop-shadow(-1.5px 0 0 #fff)
-    drop-shadow(0 1.5px 0 #fff) drop-shadow(0 -1.5px 0 #fff);
-}
 
 /* Un logo posé sur l'encre — il est déjà renversé au thème clair, il ne doit
  * pas l'être une seconde fois quand l'encre devient claire. */
