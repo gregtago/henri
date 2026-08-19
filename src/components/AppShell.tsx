@@ -44,7 +44,8 @@ import {
   renameCaseTemplate,
   deleteCaseTemplate,
   buildTemplateItems,
-  applyTemplateToCase
+  applyTemplateToCase,
+  purgeExpiredMemos
 } from "@/lib/firestore";
 import { auth, db } from "@/lib/firebase";
 import { seedOnboardingIfNeeded, seedExampleTemplateIfNeeded } from "@/lib/onboarding";
@@ -68,7 +69,7 @@ import {
   getContainerIds,
   getItemMemos
 } from "@/lib/completion";
-import { buildQuickMemo, listRecentlyDoneMemos, purgeExpiredMemos } from "@/lib/memos";
+import { buildQuickMemo, listRecentlyDoneMemos } from "@/lib/memos";
 import {
   isInstantToken,
   readToken,

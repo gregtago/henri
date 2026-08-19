@@ -111,6 +111,22 @@ Les règles sont les mêmes pour les quatre jetons :
 - **Renoncer ne perd pas ce qui est écrit** : le caractère tombe et le texte devient le titre. Quand rien ne répond, c'est dit et proposé sur une ligne cliquable — « Aucun dossier à ce nom — écrire un mémo sans dossier ». Un geste ne doit jamais rester sans issue.
 - **Un jeton ne s'annonce que quand il veut dire quelque chose.** `>` n'apparaît dans le libellé de la saisie qu'une fois un dossier retenu : un mémo se pose sous une tâche *de son dossier*, et le proposer avant serait promettre une liste vide. Les dossiers **archivés** ne sont jamais proposés, pour la même raison — on n'y ajoute plus rien.
 
+### Le même mémo depuis l'iPhone — la touche Action
+
+Un mémo naît rarement devant l'écran. Il naît dans un couloir, au téléphone, en sortant d'un rendez-vous — et la ligne de saisie de Ma journée, si rapide soit-elle, suppose l'application déverrouillée, ouverte, à la bonne page. **La touche Action de l'iPhone ouvre donc un champ, et ce qu'on y tape ou dicte arrive dans Ma journée sans qu'Henri s'ouvre.** Le réglage tient dans Préférences → « Raccourci iPhone » : une clé à coller une fois dans le raccourci, et on n'y revient plus.
+
+Ce que la capture écrit est **le mémo de la ligne de saisie**, pas un objet d'une autre espèce : même `buildQuickMemo`, mêmes jetons `#` `@` `>` `!`, même rappel armé le jour de l'échéance. Un notaire qui a appris « #dupr » à l'écran ne doit rien apprendre d'autre pour son pouce.
+
+Deux différences, et une seule règle nouvelle :
+
+- **le jeton s'arrête au premier espace.** « #vente dup » se tape à l'écran parce qu'une liste répond à chaque lettre ; dicté d'un trait, rien ne dirait où finit le nom du dossier et où commence le mémo ;
+- **ce qui n'est pas certain n'est pas retenu.** À l'écran on choisit dans une liste ; ici personne n'est là pour trancher, et deviner classerait un mémo dans le mauvais dossier — l'erreur qu'on ne voit pas passer. Un jeton ambigu **revient donc dans le titre** : le mémo s'appelle « #dup relancer le syndic », il est sous les yeux dans Ma journée, il se corrige d'un geste. Perdre un rattachement est réparable, se tromper de dossier ne l'est pas ;
+- **une ligne, un mémo** (vingt au plus) : une dictée en produit une, un texte collé peut en produire plusieurs.
+
+Le raccourci reçoit en retour **une phrase, et c'est son seul accusé de réception** — « Noté : relancer le syndic (DUPONT · éch. 24/08/2026) ». Elle dit le dossier et l'échéance retenus, ce qui est la seule façon de repérer un jeton mal compris sans ouvrir l'application.
+
+La lecture du texte vit dans `src/lib/quickCapture.ts`, la clé dans `src/lib/shortcutKey.ts`, la route dans `app/api/memo`. La clé n'ouvre que l'écriture d'un mémo — jamais la lecture des dossiers — et se retire d'un bouton.
+
 ### Durée de vie d'un mémo
 
 Un mémo est un pense-bête, pas une archive. Un mémo **coché** et **non rattaché** disparaît définitivement **7 jours après avoir été réalisé**.

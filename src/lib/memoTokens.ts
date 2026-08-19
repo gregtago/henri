@@ -112,7 +112,7 @@ export const soleMatch = <T,>(matches: T[]): T | null =>
   matches.length === 1 ? matches[0] : null;
 
 /** Minuscules et sans accents : « Duprés » se trouve en tapant « dupres ». */
-const fold = (value: string) =>
+export const fold = (value: string) =>
   value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 const matchesQuery = (haystack: string, needle: string) =>

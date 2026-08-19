@@ -152,6 +152,21 @@ npm run dev
 - Le détail d'un mémo est le même partout (`MemoDetail` sur desktop, le panneau de détail de
   `MobileMyDay` sur mobile) : on l'ouvre en cliquant son texte, depuis Ma journée comme depuis
   la colonne Tâches de son dossier — et c'est le même panneau que celui d'une tâche.
+- **Un mémo se note depuis l'iPhone sans ouvrir Henri** (`app/api/memo`, onglet Préférences →
+  « Raccourci iPhone »). La touche Action ouvre un champ, ce qu'on y tape ou dicte arrive dans
+  Ma journée. Le raccourci s'authentifie par une **clé** propre à l'utilisateur
+  (`src/lib/shortcutKey.ts`), créée et révoquée depuis les Préférences via `/api/memo/key` :
+  `users/{uid}/settings/shortcut` porte la clé qui fait foi, `shortcutKeys/{clé}` donne le
+  chemin inverse clé → utilisateur. Régénérer casse l'ancienne aussitôt.
+  La lecture du texte est dans `src/lib/quickCapture.ts` et **nulle part ailleurs** : mêmes
+  jetons qu'à la saisie (`#` `@` `>` `!`, arrêtés au premier espace faute de liste à choisir),
+  une ligne = un mémo (20 au plus), et **ce qui n'est pas certain n'est pas retenu** — un jeton
+  ambigu revient dans le titre (« #dup relancer le syndic ») plutôt que d'être deviné, parce
+  qu'un mémo classé dans le mauvais dossier ne se voit pas passer. Le mémo écrit est celui de
+  `buildQuickMemo`, rappel du jour de l'échéance compris. La route force `TZ=Europe/Paris` :
+  la journée d'un notaire change à minuit à Paris, pas en UTC.
+  ⚠ Règles Firestore : `shortcutKeys/**` ne doit être lisible d'**aucun** client (seul le SDK
+  admin y accède) — `match /shortcutKeys/{key} { allow read, write: if false; }`.
 - La vue Calendrier (`/calendrier`) affiche trois bandes, dans l'ordre du cycle d'une tâche :
   « à faire » (ce qu'on réalise ce jour-là), « j'attends » (les demandes sans réponse, en barres
   de durée), « échéances » (ce qui tombe). Une tâche « Traité » quitte les trois bandes et

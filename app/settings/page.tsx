@@ -14,8 +14,9 @@ import {
 } from "@/lib/settings";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { subscribePushTokens, deletePushToken, subscribeCaseTemplates, renameCaseTemplate, deleteCaseTemplate, type PushTokenInfo } from "@/lib/firestore";
+import { subscribePushTokens, deletePushToken, subscribeCaseTemplates, renameCaseTemplate, deleteCaseTemplate, subscribeShortcutKey, type PushTokenInfo, type ShortcutKeyInfo } from "@/lib/firestore";
 import type { CaseTemplate } from "@/lib/types";
+import { maskShortcutKey } from "@/lib/shortcutKey";
 import { getCurrentToken } from "@/lib/messaging";
 import {
   DEFAULT_REMINDER_POLICY,
@@ -53,7 +54,7 @@ function tsToDate(v: unknown): Date | null {
   return null;
 }
 
-type Tab = "apparence" | "rappels" | "appareils" | "modeles" | "aide" | "versions" | "legal";
+type Tab = "apparence" | "rappels" | "appareils" | "raccourci" | "modeles" | "aide" | "versions" | "legal";
 
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 const formatHour = (h: number) => `${String(h).padStart(2, "0")}h`;
@@ -71,6 +72,11 @@ export default function SettingsPage() {
   const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
   const [policy, setPolicy] = useState<ReminderPolicy>(DEFAULT_REMINDER_POLICY);
   const [policySaved, setPolicySaved] = useState(false);
+  const [shortcut, setShortcut] = useState<ShortcutKeyInfo | null>(null);
+  const [shortcutBusy, setShortcutBusy] = useState(false);
+  const [shortcutShown, setShortcutShown] = useState(false);
+  const [shortcutCopied, setShortcutCopied] = useState<string | null>(null);
+  const [origin, setOrigin] = useState("");
 
   useEffect(() => {
     const loaded = loadSettings();
@@ -126,6 +132,58 @@ export default function SettingsPage() {
         setTimeout(() => setPolicySaved(false), 1800);
       })
       .catch(() => {});
+  };
+
+  // ── Raccourci iPhone ────────────────────────────────────────────────────
+  //
+  // La clé s'affiche ici et **nulle part ailleurs** : c'est le seul écran où
+  // l'on peut la lire, la remplacer ou la retirer. Elle est masquée par défaut
+  // — un écran de préférences se montre volontiers à un tiers.
+  useEffect(() => {
+    if (typeof window !== "undefined") setOrigin(window.location.origin);
+  }, []);
+
+  useEffect(() => {
+    if (!user) { setShortcut(null); return; }
+    const unsub = subscribeShortcutKey(user.uid, setShortcut);
+    return () => unsub();
+  }, [user]);
+
+  const callKeyApi = async (method: "POST" | "DELETE") => {
+    if (!user || shortcutBusy) return;
+    setShortcutBusy(true);
+    try {
+      const idToken = await user.getIdToken();
+      const res = await fetch("/api/memo/key", { method, headers: { authorization: `Bearer ${idToken}` } });
+      if (!res.ok) throw new Error(String(res.status));
+      setShortcutShown(method === "POST");
+    } catch {
+      window.alert("L'opération a échoué. Réessayez dans un instant.");
+    } finally {
+      setShortcutBusy(false);
+    }
+  };
+
+  const handleCreateKey = () => callKeyApi("POST");
+
+  const handleRotateKey = () => {
+    if (!window.confirm("Remplacer la clé ? L'ancienne cesse d'écrire aussitôt : le raccourci de l'iPhone devra recevoir la nouvelle.")) return;
+    callKeyApi("POST");
+  };
+
+  const handleRevokeKey = () => {
+    if (!window.confirm("Retirer la clé ? Le raccourci cessera d'ajouter des mémos.")) return;
+    callKeyApi("DELETE");
+  };
+
+  const copyToClipboard = (value: string, what: string) => {
+    navigator.clipboard?.writeText(value).then(
+      () => {
+        setShortcutCopied(what);
+        setTimeout(() => setShortcutCopied(null), 1800);
+      },
+      () => window.alert("Copie impossible — sélectionnez le texte à la main.")
+    );
   };
 
   // Modèles de dossier
@@ -197,8 +255,8 @@ export default function SettingsPage() {
       <div className="flex-1 flex min-h-0">
         {/* Onglets verticaux */}
         <nav className="w-40 sm:w-52 shrink-0 border-r border-border bg-bg overflow-y-auto py-2">
-          {(["apparence", "rappels", "appareils", "modeles", "aide", "versions", "legal"] as Tab[]).map((t) => {
-            const labels: Record<Tab, string> = { apparence: "Apparence", rappels: "Rappels", appareils: "Appareils", modeles: "Modèles", aide: "Aide", versions: "Notes de version", legal: "Mentions légales" };
+          {(["apparence", "rappels", "appareils", "raccourci", "modeles", "aide", "versions", "legal"] as Tab[]).map((t) => {
+            const labels: Record<Tab, string> = { apparence: "Apparence", rappels: "Rappels", appareils: "Appareils", raccourci: "Raccourci iPhone", modeles: "Modèles", aide: "Aide", versions: "Notes de version", legal: "Mentions légales" };
             return (
               <button key={t} onClick={() => setTab(t)}
                 className="w-full text-left text-[13px] font-medium font-[inherit] px-4 py-2.5 border-none bg-transparent cursor-pointer transition-colors"
@@ -455,6 +513,93 @@ export default function SettingsPage() {
                     })}
                 </div>
               )}
+            </div>
+          )}
+
+          {tab === "raccourci" && (
+            <div className="space-y-4">
+              <div className="bg-bg border border-border rounded-xl p-5">
+                <p className="text-[14px] font-semibold text-tx mb-1">Noter un mémo sans ouvrir Henri</p>
+                <p className="text-[13px] text-tx-2 leading-relaxed">
+                  Un mémo naît rarement devant l&apos;écran : il naît dans un couloir, au téléphone, en sortant d&apos;un rendez-vous. La <strong>touche Action</strong> de l&apos;iPhone (ou l&apos;écran verrouillé, ou « Dis Siri ») peut ouvrir un champ, et ce que vous y tapez ou dictez arrive directement dans <strong>Ma journée</strong> — sans déverrouiller l&apos;application, sans l&apos;ouvrir du tout.
+                </p>
+                <p className="text-[13px] text-tx-2 leading-relaxed mt-2">
+                  Les jetons de la ligne de saisie fonctionnent aussi : <code className="text-[12px] bg-bg-subtle border border-border rounded px-1 py-0.5">#dupont @lundi ! relancer le syndic</code>. Un jeton dont la requête laisse un doute revient dans le titre du mémo plutôt que d&apos;être deviné — vous le corrigez d&apos;un geste dans Ma journée. Une ligne = un mémo.
+                </p>
+              </div>
+
+              {!user ? (
+                <div className="bg-bg border border-border rounded-xl p-5 text-[13px] text-tx-2">Connectez-vous pour créer votre clé.</div>
+              ) : (
+                <section>
+                  <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-3">Votre clé</h2>
+                  <div className="bg-bg border border-border rounded-xl p-5">
+                    {!shortcut?.key ? (
+                      <>
+                        <p className="text-[13px] text-tx-2 leading-relaxed mb-3">
+                          La clé autorise votre iPhone à ajouter des mémos, et rien d&apos;autre : elle ne donne accès ni aux dossiers ni à leur contenu. Elle se retire d&apos;un bouton.
+                        </p>
+                        <button disabled={shortcutBusy} onClick={handleCreateKey}
+                          className="text-[12px] font-[inherit] bg-tx text-bg border border-tx px-4 py-1.5 rounded cursor-pointer hover:opacity-90 transition-all disabled:opacity-50">
+                          {shortcutBusy ? "…" : "Créer la clé"}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <code className="text-[12.5px] text-tx bg-bg-subtle border border-border rounded px-2.5 py-1.5 select-all break-all">
+                            {shortcutShown ? shortcut.key : maskShortcutKey(shortcut.key)}
+                          </code>
+                          <button onClick={() => setShortcutShown(v => !v)}
+                            className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-border-strong transition-all">
+                            {shortcutShown ? "Masquer" : "Afficher"}
+                          </button>
+                          <button onClick={() => copyToClipboard(`Bearer ${shortcut.key}`, "cle")}
+                            className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-border-strong transition-all">
+                            {shortcutCopied === "cle" ? "Copié ✓" : "Copier « Bearer … »"}
+                          </button>
+                        </div>
+                        <p className="text-[11.5px] text-tx-3 mt-2">
+                          Créée le {shortcut.createdAt ? new Date(shortcut.createdAt).toLocaleDateString("fr-FR") : "—"} · à coller une seule fois dans le raccourci, puis à oublier.
+                        </p>
+                        <div className="flex gap-2 mt-4">
+                          <button disabled={shortcutBusy} onClick={handleRotateKey}
+                            className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-border-strong transition-all disabled:opacity-50">
+                            Remplacer
+                          </button>
+                          <button disabled={shortcutBusy} onClick={handleRevokeKey}
+                            className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-red-300 hover:text-red-600 transition-all disabled:opacity-50">
+                            Retirer
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </section>
+              )}
+
+              <section>
+                <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-3">Le raccourci, pas à pas</h2>
+                <div className="bg-bg border border-border rounded-xl p-5 space-y-3 text-[13px] text-tx-2 leading-relaxed">
+                  <p><strong className="text-tx">1.</strong> Application <strong>Raccourcis</strong> → <strong>+</strong> → nommez-le « Mémo Henri ».</p>
+                  <p><strong className="text-tx">2.</strong> Action <strong>« Demander une entrée »</strong> — Type : Texte, Invite : « Mémo ».</p>
+                  <p>
+                    <strong className="text-tx">3.</strong> Action <strong>« Obtenir le contenu de »</strong> avec l&apos;adresse ci-dessous, puis, dans « Afficher plus » : Méthode <strong>POST</strong>, En-tête <code className="text-[12px] bg-bg-subtle border border-border rounded px-1 py-0.5">Authorization</code> = la clé copiée ci-dessus (« Bearer … »), Corps de la requête <strong>JSON</strong> avec un champ texte nommé <code className="text-[12px] bg-bg-subtle border border-border rounded px-1 py-0.5">text</code> dont la valeur est la <strong>Entrée fournie</strong> de l&apos;étape 2.
+                  </p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <code className="text-[12.5px] text-tx bg-bg-subtle border border-border rounded px-2.5 py-1.5 select-all break-all">{origin || "https://…"}/api/memo</code>
+                    <button onClick={() => copyToClipboard(`${origin}/api/memo`, "url")}
+                      className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-border-strong transition-all">
+                      {shortcutCopied === "url" ? "Copié ✓" : "Copier l'adresse"}
+                    </button>
+                  </div>
+                  <p><strong className="text-tx">4.</strong> Action <strong>« Afficher une notification »</strong> avec, pour texte, la valeur <code className="text-[12px] bg-bg-subtle border border-border rounded px-1 py-0.5">message</code> du dictionnaire reçu — c&apos;est l&apos;accusé de réception : « Noté : relancer le syndic (DUPONT · éch. 24/08/2026) ».</p>
+                  <p><strong className="text-tx">5.</strong> <strong>Réglages</strong> → <strong>Touche Action</strong> → <strong>Raccourci</strong> → choisissez « Mémo Henri ». (Sans touche Action : ajoutez le raccourci à l&apos;écran d&apos;accueil, ou dites « Dis Siri, Mémo Henri ».)</p>
+                </div>
+                <p className="text-[12px] text-tx-3 mt-2 leading-relaxed">
+                  Le mémo part dans la journée en cours, sauf échéance à venir — auquel cas il part directement au bon jour, avec son rappel, exactement comme s&apos;il avait été tapé dans Ma journée.
+                </p>
+              </section>
             </div>
           )}
 
