@@ -188,10 +188,9 @@ dedans) — la même liste que lisent les règles de sécurité Firestore (`isSu
 Nommer un administrateur, c'est créer le document depuis la console ; le révoquer, c'est
 l'effacer. Aucun redéploiement.
 
-- `src/lib/superAdmin.ts` — la doctrine, et `LEGACY_SUPER_ADMIN_UID`, le compte historique
-  reconnu sans document. C'est un filet le temps de basculer vers un compte d'administration
-  dédié : une fois le nouveau compte inscrit dans `superAdmins` et vérifié, **supprimer cette
-  constante** le retire partout.
+- `src/lib/superAdmin.ts` — la doctrine. **Aucun compte n'est reconnu sans document** : plus
+  aucun identifiant dans le code, la collection est la seule réponse à « qui administre
+  Henri ? ». Se renommer soi-même administrateur passe donc par la console.
 - `src/lib/superAdminServer.ts` — `requireSuperAdmin(req)` pour les routes d'API (jeton
   Firebase dans `Authorization`). C'est là que se joue l'autorisation : le SDK admin ne passe
   pas par les règles.

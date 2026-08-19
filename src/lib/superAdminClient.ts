@@ -13,11 +13,9 @@
 
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "./firebase";
-import { LEGACY_SUPER_ADMIN_UID } from "./superAdmin";
 
 /** Ce compte est-il administrateur ? */
 export const isSuperAdmin = async (uid: string): Promise<boolean> => {
-  if (uid === LEGACY_SUPER_ADMIN_UID) return true;
   try {
     return (await getDoc(doc(db, `superAdmins/${uid}`))).exists();
   } catch {

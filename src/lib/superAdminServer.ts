@@ -6,11 +6,9 @@
 // se joue l'autorisation de ces routes.
 
 import { adminAuth, adminDb } from "./firebase-admin";
-import { LEGACY_SUPER_ADMIN_UID } from "./superAdmin";
 
 /** Ce compte est-il administrateur ? */
 export const isSuperAdminUid = async (uid: string): Promise<boolean> => {
-  if (uid === LEGACY_SUPER_ADMIN_UID) return true;
   try {
     return (await adminDb.doc(`superAdmins/${uid}`).get()).exists;
   } catch {
