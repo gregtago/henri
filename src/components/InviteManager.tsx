@@ -6,8 +6,8 @@ import {
   subscribeInvitations,
   type Invitation,
 } from "@/lib/firestore";
+import { isSuperAdmin } from "@/lib/superAdminClient";
 
-const ADMIN_UID = "ByHcIefOjWVdQBcikq5oZtJGGZA2";
 const BASE_URL = "https://henri.tagot.fr";
 
 export default function InviteManager({ uid }: { uid: string }) {
@@ -17,12 +17,17 @@ export default function InviteManager({ uid }: { uid: string }) {
   const [copied, setCopied] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  if (uid !== ADMIN_UID) return null;
+  const [allowed, setAllowed] = useState(false);
 
   useEffect(() => {
+    isSuperAdmin(uid).then(setAllowed);
+  }, [uid]);
+
+  useEffect(() => {
+    if (!allowed) return;
     const unsub = subscribeInvitations(setInvitations);
     return () => unsub();
-  }, []);
+  }, [allowed]);
 
   const handleInvite = async () => {
     const trimmed = email.trim().toLowerCase();
@@ -57,6 +62,8 @@ export default function InviteManager({ uid }: { uid: string }) {
 
   const inputClass =
     "flex-1 font-[inherit] text-[13px] bg-bg-subtle border border-border rounded-lg px-3 py-1.5 outline-none focus:border-border-strong transition-colors placeholder:text-tx-3";
+
+  if (!allowed) return null;
 
   return (
     <div className="space-y-4">

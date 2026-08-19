@@ -1,19 +1,9 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth } from "@/lib/firebase-admin";
+import { requireSuperAdmin, verifySuperAdminToken } from "@/lib/superAdminServer";
 
-const ADMIN_UID = "ByHcIefOjWVdQBcikq5oZtJGGZA2";
 const BASE_URL = "https://henri.tagot.fr";
-
-async function checkAdmin(req: NextRequest) {
-  const token = req.headers.get("authorization")?.replace("Bearer ", "");
-  if (!token) return null;
-  try {
-    const decoded = await adminAuth.verifyIdToken(token);
-    return decoded.uid === ADMIN_UID ? decoded : null;
-  } catch { return null; }
-}
 
 async function sendBrevoEmail({ to, toName, subject, html, text }: {
   to: string; toName: string; subject: string; html: string; text: string;
@@ -39,16 +29,12 @@ async function sendBrevoEmail({ to, toName, subject, html, text }: {
 export async function POST(req: NextRequest) {
   const { token, email, name, authToken } = await req.json();
 
-  if (authToken) {
-    try {
-      const decoded = await adminAuth.verifyIdToken(authToken);
-      if (decoded.uid !== ADMIN_UID) {
-        return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-      }
-    } catch {
-      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-    }
-  }
+  // Ce courriel part avec l'adresse d'expéditeur de l'Office : il faut un
+  // administrateur derrière chaque envoi. La vérification était conditionnée à
+  // la présence du champ `authToken` — donc contournable en l'omettant, ce qui
+  // ouvrait l'envoi à n'importe qui. Sans preuve, plus d'envoi.
+  const admin = (await verifySuperAdminToken(authToken)) ?? (await requireSuperAdmin(req));
+  if (!admin) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const link = `${BASE_URL}/invite/${token}`;
 

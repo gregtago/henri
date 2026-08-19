@@ -11,9 +11,9 @@ import {
 } from "@/lib/firestore";
 import { collection, onSnapshot, orderBy, query, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { isSuperAdmin } from "@/lib/superAdminClient";
 import Link from "next/link";
 
-const ADMIN_UID = "ByHcIefOjWVdQBcikq5oZtJGGZA2";
 const BASE_URL = "https://henri.tagot.fr";
 
 type UserRecord = {
@@ -27,6 +27,7 @@ type UserRecord = {
   itemsCount: number;
   floatingCount: number;
   doneCount: number;
+  isSuperAdmin?: boolean;
 };
 
 type Tab = "pipeline" | "users" | "invitations" | "candidatures" | "feedbacks";
@@ -69,7 +70,10 @@ export default function AdminPage() {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
       if (!u) { router.push("/"); return; }
-      if (u.uid !== ADMIN_UID) { router.push("/"); return; }
+      // L'appartenance à `superAdmins` fait foi — le même document que lisent
+      // les règles de sécurité. L'écran ne protège rien à lui seul : il évite
+      // d'afficher une page vide à qui n'a rien à y faire.
+      if (!(await isSuperAdmin(u.uid))) { router.push("/"); return; }
       setUid(u.uid);
       const t = await getIdToken(u);
       setToken(t);
@@ -171,7 +175,7 @@ export default function AdminPage() {
         await fetch("/api/send-invite", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token: tok, email: trimmed, name: "" }),
+          body: JSON.stringify({ token: tok, email: trimmed, name: "", authToken: token }),
         });
       } catch {}
       await navigator.clipboard.writeText(link);
@@ -435,7 +439,7 @@ export default function AdminPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1.5">
                         <p className="text-[14px] font-medium text-tx truncate">{u.email}</p>
-                        {u.uid === ADMIN_UID && (
+                        {u.isSuperAdmin && (
                           <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium">ADMIN</span>
                         )}
                         {u.disabled && (
@@ -474,7 +478,7 @@ export default function AdminPage() {
                     </div>
 
                     {/* Actions */}
-                    {u.uid !== ADMIN_UID && (
+                    {!u.isSuperAdmin && (
                       <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
                         <button
                           onClick={() => doAction(u.uid, u.disabled ? "enable" : "disable")}

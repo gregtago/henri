@@ -2,19 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
-
-const ADMIN_UID = "ByHcIefOjWVdQBcikq5oZtJGGZA2";
-
-async function checkAdmin(req: NextRequest) {
-  const token = req.headers.get("authorization")?.replace("Bearer ", "");
-  if (!token) return null;
-  try {
-    const decoded = await adminAuth.verifyIdToken(token);
-    return decoded.uid === ADMIN_UID ? decoded : null;
-  } catch {
-    return null;
-  }
-}
+import { isSuperAdminUid, requireSuperAdmin } from "@/lib/superAdminServer";
 
 async function getLastActivity(uid: string): Promise<string | null> {
   // Chercher le document le plus récemment modifié parmi cases, items, floatingTasks
@@ -37,8 +25,7 @@ async function getLastActivity(uid: string): Promise<string | null> {
 }
 
 export async function GET(req: NextRequest) {
-  const admin = await checkAdmin(req);
-  if (!admin) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  if (!(await requireSuperAdmin(req))) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   try {
     const listResult = await adminAuth.listUsers(1000);
@@ -67,6 +54,9 @@ export async function GET(req: NextRequest) {
         return {
           uid: u.uid,
           email: u.email ?? "",
+          // L'écran ne peut pas lire la liste des administrateurs (les règles
+          // ne laissent voir que sa propre ligne) : c'est ici qu'on la dit.
+          isSuperAdmin: await isSuperAdminUid(u.uid),
           disabled: u.disabled,
           createdAt: u.metadata.creationTime,
           lastSignIn: u.metadata.lastSignInTime,

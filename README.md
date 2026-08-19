@@ -180,6 +180,32 @@ npm run dev
   le libellé via le barème de `src/lib/delais.ts`. Le raisonnement de la vue est dans
   `CALENDRIER.md`.
 
+## Administration
+
+Les comptes administrateurs sont **une donnée, pas une constante** : un document par
+administrateur dans la collection `superAdmins` (l'identifiant du compte pour nom, rien
+dedans) — la même liste que lisent les règles de sécurité Firestore (`isSuperAdmin()`).
+Nommer un administrateur, c'est créer le document depuis la console ; le révoquer, c'est
+l'effacer. Aucun redéploiement.
+
+- `src/lib/superAdmin.ts` — la doctrine, et `LEGACY_SUPER_ADMIN_UID`, le compte historique
+  reconnu sans document. C'est un filet le temps de basculer vers un compte d'administration
+  dédié : une fois le nouveau compte inscrit dans `superAdmins` et vérifié, **supprimer cette
+  constante** le retire partout.
+- `src/lib/superAdminServer.ts` — `requireSuperAdmin(req)` pour les routes d'API (jeton
+  Firebase dans `Authorization`). C'est là que se joue l'autorisation : le SDK admin ne passe
+  pas par les règles.
+- `src/lib/superAdminClient.ts` — `isSuperAdmin(uid)` pour l'écran `/admin`. Il ne protège
+  rien (un écran qui se cache reste un écran) : il évite d'afficher une page à qui n'y a rien
+  à faire. Les règles n'autorisent chacun qu'à lire **sa propre** ligne de `superAdmins` —
+  la liste des comptes de l'écran d'administration reçoit donc du serveur, par utilisateur,
+  le drapeau `isSuperAdmin`.
+- Un administrateur ne peut être ni désactivé ni supprimé depuis l'écran d'administration :
+  deux administrateurs ne doivent pas pouvoir se démettre l'un l'autre d'un clic.
+- `/api/send-invite` exige un administrateur à chaque envoi. La vérification était
+  conditionnée à la présence du champ `authToken` — donc contournable en l'omettant, ce qui
+  ouvrait l'envoi de courriels depuis l'adresse de l'Office à n'importe qui.
+
 ## Rappels et relances (Cloud Functions)
 
 Trois fonctions planifiées dans `functions/index.js` (fuseau `Europe/Paris`) :
