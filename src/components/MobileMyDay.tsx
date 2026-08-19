@@ -36,6 +36,7 @@ import {
   suggestTasks,
 } from "@/lib/memoTokens";
 import { Icon } from "./Icon";
+import AccountMenu from "./AccountMenu";
 import { ReminderPicker } from "./ReminderPicker";
 import { RecurrencePicker } from "./RecurrencePicker";
 import { useReminderPolicy, describeRepeat, dueDayReminder, dueReminderPatch } from "@/lib/reminderPolicy";
@@ -123,8 +124,6 @@ export default function MobileMyDay({ user }: { user: User }) {
   const [detailCaseSearch, setDetailCaseSearch] = useState("");
   const [pendingRemovalIds, setPendingRemovalIds] = useState<Set<string>>(new Set());
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
-  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
-  const [notifStatus, setNotifStatus] = useState<"unknown" | "granted" | "denied" | "default" | "unsupported">("unknown");
   const [showMobileAnnounce, setShowMobileAnnounce] = useState(false);
 
   // Annonce ponctuelle : « Mes dossiers » est maintenant sur mobile (affichée une seule fois)
@@ -136,18 +135,13 @@ export default function MobileMyDay({ user }: { user: User }) {
     }
   }, [user.uid]);
 
-  // Au montage : vérifier l'état actuel de la permission notification
+  // Au montage : si la permission est déjà accordée, rafraîchir le jeton de cet
+  // appareil (pour son `lastSeenAt`). L'état des rappels, lui, se lit et se
+  // change dans le menu compte — il n'a plus à être suivi ici.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!("Notification" in window)) {
-      setNotifStatus("unsupported");
-      return;
-    }
-    setNotifStatus(Notification.permission as any);
-    // Si déjà granted, rafraîchir le token pour mise à jour de lastSeenAt
-    if (Notification.permission === "granted") {
-      import("@/lib/messaging").then(m => m.refreshPushToken(user.uid)).catch(() => {});
-    }
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+    import("@/lib/messaging").then(m => m.refreshPushToken(user.uid)).catch(() => {});
   }, [user.uid]);
 
   const playDone = () => {
@@ -644,77 +638,12 @@ export default function MobileMyDay({ user }: { user: User }) {
           <span style={{ fontSize: "12px", color: "#6b7280" }}>
             {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
           </span>
-          <button
-            onClick={() => setAccountMenuOpen(p => !p)}
-            style={{ width: "32px", height: "32px", borderRadius: "50%", border: "1px solid #e5e7eb", background: accountMenuOpen ? "#111827" : "#f9fafb", color: accountMenuOpen ? "white" : "#6b7280", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
-            title="Compte"
-          >
-            <Icon name="user" size={16} />
-          </button>
+          <AccountMenu
+            uid={user.uid}
+            email={user.email}
+            onNotice={(message) => window.alert(message)}
+          />
         </div>
-
-        {/* Menu compte */}
-        {accountMenuOpen && (
-          <>
-            <div style={{ position: "fixed", inset: 0, zIndex: 30 }} onClick={() => setAccountMenuOpen(false)} />
-            <div style={{ position: "absolute", top: "calc(100% + 4px)", right: 12, background: "white", border: "1px solid #e5e7eb", borderRadius: "10px", boxShadow: "0 8px 24px rgba(0,0,0,0.12)", minWidth: "220px", zIndex: 40, overflow: "hidden" }}>
-              <div style={{ padding: "12px 14px", borderBottom: "1px solid #f3f4f6" }}>
-                <p style={{ fontSize: "10px", fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em" }}>Connecté</p>
-                <p style={{ fontSize: "13px", color: "#111827", marginTop: "4px", wordBreak: "break-all" }}>{user.email}</p>
-              </div>
-
-              {/* Notifications */}
-              {notifStatus !== "unsupported" && (
-                <button
-                  onClick={async () => {
-                    if (notifStatus === "granted") {
-                      // Désactiver
-                      const m = await import("@/lib/messaging");
-                      await m.disablePushNotifications(user.uid);
-                      // L'utilisateur doit retirer la permission OS manuellement,
-                      // donc l'état reste "granted" mais le token est supprimé.
-                      alert("Notifications désactivées pour cet appareil. Pour les retirer définitivement, modifiez les permissions du site dans votre navigateur.");
-                      setAccountMenuOpen(false);
-                    } else {
-                      // Activer
-                      const m = await import("@/lib/messaging");
-                      const res = await m.enablePushNotifications(user.uid);
-                      if (res.ok) {
-                        setNotifStatus("granted");
-                        alert("Rappels activés ! Tu recevras une notification quand tu programmes un rappel sur une tâche ou un mémo.");
-                      } else {
-                        if (res.reason === "denied") alert("Permission refusée. Modifie les permissions du site dans les réglages de ton navigateur pour réactiver.");
-                        else if (res.reason === "no-vapid") alert("Configuration serveur incomplète. Contacte le support.");
-                        else if (res.reason === "unsupported") alert("Ton navigateur ne supporte pas les notifications. Sur iPhone, installe d'abord l'application sur l'écran d'accueil.");
-                        else alert("Une erreur s'est produite. Réessaie.");
-                      }
-                      setAccountMenuOpen(false);
-                    }
-                  }}
-                  style={{ display: "flex", width: "100%", textAlign: "left", padding: "12px 14px", fontSize: "14px", color: "#374151", background: "white", border: "none", borderBottom: "1px solid #f3f4f6", cursor: "pointer", fontFamily: "inherit", alignItems: "center", gap: "8px" }}>
-                  <Icon name="time" size={16} style={{ color: notifStatus === "granted" ? "#16a34a" : "#9ca3af" }} />
-                  <span style={{ flex: 1 }}>
-                    {notifStatus === "granted" ? "Rappels activés" : "Activer les rappels"}
-                  </span>
-                  {notifStatus === "granted" && (
-                    <span style={{ fontSize: "11px", color: "#16a34a", fontWeight: 600 }}>✓</span>
-                  )}
-                </button>
-              )}
-
-              <button
-                onClick={async () => {
-                  setAccountMenuOpen(false);
-                  const { signOut } = await import("firebase/auth");
-                  const { auth } = await import("@/lib/firebase");
-                  await signOut(auth);
-                }}
-                style={{ display: "block", width: "100%", textAlign: "left", padding: "12px 14px", fontSize: "14px", color: "#dc2626", background: "white", border: "none", cursor: "pointer", fontFamily: "inherit" }}>
-                Déconnexion
-              </button>
-            </div>
-          </>
-        )}
       </header>
 
       {/* Liste */}

@@ -847,3 +847,43 @@ kbd {
   .cal-lanes { grid-template-columns: minmax(0, 1fr); }
   .cal-week { overflow-x: auto; }
 }
+
+/* ── Pivot : les titres des réglages, à l'horizontale ─────────────────────
+ * Une colonne d'onglets mangeait le quart de la largeur pour neuf mots, et
+ * autant de moins pour ce qu'on est venu régler. Les titres passent donc en
+ * haut, sur un rail qui défile — celui qui suit dépasse du bord, ce qui dit
+ * qu'il y en a d'autres sans avoir à tous les montrer.
+ */
+.pivot {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+.pivot::-webkit-scrollbar { display: none; }
+
+.pivot-tab {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  color: var(--text-3);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 11px 12px 9px;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.pivot-tab:hover { color: var(--text-2); }
+.pivot-tab[aria-current="true"] {
+  color: var(--text);
+  font-weight: 600;
+  border-bottom-color: var(--text);
+}
