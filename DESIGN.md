@@ -305,6 +305,14 @@ Ce qui ne sert pas au travail se replie. Les rappels de cet appareil, l'installa
 
 La règle qui vaut au-delà de ce rond : **une commande qu'on touche une fois par mois n'a pas à occuper la barre que l'on regarde toute la journée.** Ce qui est fréquent — créer, trier, cocher — garde la place ; le reste se replie derrière un geste.
 
+### Les réglages — un rail de titres, pas une colonne
+
+Les Préférences s'ouvraient sur une colonne d'onglets verticale : un quart de la largeur pour neuf mots, et autant de moins pour ce qu'on est venu régler — sur un téléphone, la moitié de l'écran.
+
+Les titres passent donc **à l'horizontale, en haut, sur un rail qui défile** (`.pivot`, `app/globals.css`). Le titre courant se range au bord gauche, en pleine encre ; les suivants restent gris, et **celui qui vient dépasse du bord** — c'est lui qui dit qu'il y en a d'autres, sans avoir à les montrer tous. Le pouce fait défiler les sections comme il fait défiler les colonnes ailleurs dans Henri : un geste franchement horizontal, jamais un geste vertical, qui reste un défilement de page.
+
+Sur grand écran les neuf titres tiennent d'une traite ; sur téléphone le rail glisse. Le même composant, sans variante à maintenir.
+
 ### Desktop — métaphore Finder à colonnes
 
 La vue principale est un **Miller column browser** : trois colonnes glissantes (Dossiers → Tâches → Sous-tâches) plus un panneau de détail à droite. Une 4ᵉ colonne contextuelle apparaît pour « Ma journée » et « Suggestions ».

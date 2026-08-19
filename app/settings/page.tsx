@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   DEFAULT_SETTINGS,
@@ -59,6 +59,23 @@ function tsToDate(v: unknown): Date | null {
 
 type Tab = "apparence" | "securite" | "rappels" | "appareils" | "raccourci" | "modeles" | "aide" | "versions" | "legal";
 
+// L'ordre du rail, et les mots qu'il porte. Du plus courant au plus rare :
+// on lit de gauche à droite, et ce qui dépasse du bord est ce qu'on ouvre le
+// moins souvent.
+const TABS: Tab[] = ["apparence", "securite", "rappels", "appareils", "raccourci", "modeles", "aide", "versions", "legal"];
+
+const TAB_LABELS: Record<Tab, string> = {
+  apparence: "Apparence",
+  securite: "Sécurité",
+  rappels: "Rappels",
+  appareils: "Appareils",
+  raccourci: "Raccourci iPhone",
+  modeles: "Modèles",
+  aide: "Aide",
+  versions: "Notes de version",
+  legal: "Mentions légales",
+};
+
 // Le repère que le raccourci partagé porte à la place d'une clé : chacun le
 // remplace par la sienne après l'avoir installé. Il a la forme d'une clé sans
 // en être une — on voit du premier coup d'œil ce qu'on doit remplacer.
@@ -71,6 +88,8 @@ export default function SettingsPage() {
   const [s, setS] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [saved, setSaved] = useState(false);
   const [tab, setTab] = useState<Tab>("apparence");
+  const pivotRef = useRef<HTMLElement>(null);
+  const swipeStart = useRef<{ x: number; y: number } | null>(null);
   const [aideSection, setAideSection] = useState(0);
   const [user, setUser] = useState<User | null>(null);
   const [tokens, setTokens] = useState<PushTokenInfo[]>([]);
@@ -96,6 +115,32 @@ export default function SettingsPage() {
     setS(loaded);
     applySettings(loaded);
   }, []);
+
+  // Le titre choisi vient se ranger au bord gauche du rail : on voit toujours
+  // où l'on est, et ce qui vient après.
+  useEffect(() => {
+    pivotRef.current
+      ?.querySelector<HTMLElement>(`[data-tab="${tab}"]`)
+      ?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
+  }, [tab]);
+
+  // Le pouce fait défiler les réglages comme il fait défiler les colonnes
+  // ailleurs dans Henri : un geste franchement horizontal, et rien d'autre —
+  // un geste vertical reste un défilement de la page.
+  const handleSwipeStart = (event: React.TouchEvent) => {
+    swipeStart.current = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+  };
+
+  const handleSwipeEnd = (event: React.TouchEvent) => {
+    const start = swipeStart.current;
+    swipeStart.current = null;
+    if (!start) return;
+    const dx = event.changedTouches[0].clientX - start.x;
+    const dy = event.changedTouches[0].clientY - start.y;
+    if (Math.abs(dy) > Math.abs(dx) || Math.abs(dx) < 60) return;
+    const next = TABS.indexOf(tab) + (dx < 0 ? 1 : -1);
+    if (next >= 0 && next < TABS.length) setTab(TABS[next]);
+  };
 
   // Auth + support notifications
   useEffect(() => {
@@ -349,7 +394,7 @@ export default function SettingsPage() {
         <div className="flex items-center gap-3 z-10">
           <span className="text-[13px] text-tx-2 select-none">← <Link href="/" className="hover:text-tx transition-colors">Retour</Link></span>
         </div>
-        <div className="absolute left-0 right-0 flex justify-center pointer-events-none">
+        <div className="hidden sm:flex absolute left-0 right-0 justify-center pointer-events-none">
           <Link href="/" className="pointer-events-auto">
             <img src="/logo-henri-new.png" alt="Henri" style={{height:"28px", width:"auto"}} />
           </Link>
@@ -362,24 +407,19 @@ export default function SettingsPage() {
         </div>
       </header>
 
-      {/* Corps : onglets verticaux + contenu */}
-      <div className="flex-1 flex min-h-0">
-        {/* Onglets verticaux */}
-        <nav className="w-40 sm:w-52 shrink-0 border-r border-border bg-bg overflow-y-auto py-2">
-          {(["apparence", "securite", "rappels", "appareils", "raccourci", "modeles", "aide", "versions", "legal"] as Tab[]).map((t) => {
-            const labels: Record<Tab, string> = { apparence: "Apparence", securite: "Sécurité", rappels: "Rappels", appareils: "Appareils", raccourci: "Raccourci iPhone", modeles: "Modèles", aide: "Aide", versions: "Notes de version", legal: "Mentions légales" };
-            return (
-              <button key={t} onClick={() => setTab(t)}
-                className="w-full text-left text-[13px] font-medium font-[inherit] px-4 py-2.5 border-none bg-transparent cursor-pointer transition-colors"
-                style={{ color: tab === t ? "var(--text)" : "var(--text-2)", background: tab === t ? "var(--bg-active)" : "transparent", borderLeft: tab === t ? "3px solid var(--text)" : "3px solid transparent" }}>
-                {labels[t]}
-              </button>
-            );
-          })}
+      {/* Corps : rail de titres + contenu */}
+      <div className="flex-1 flex flex-col min-h-0">
+        {/* Titres — un rail horizontal, celui qui suit dépasse du bord */}
+        <nav ref={pivotRef} className="pivot shrink-0 border-b border-border bg-bg px-3 sm:px-5">
+          {TABS.map((t) => (
+            <button key={t} data-tab={t} aria-current={tab === t} className="pivot-tab" onClick={() => setTab(t)}>
+              {TAB_LABELS[t]}
+            </button>
+          ))}
         </nav>
 
         {/* Contenu */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto" onTouchStart={handleSwipeStart} onTouchEnd={handleSwipeEnd}>
         <div className={"max-w-4xl mx-auto px-6 py-8 space-y-6"}>
 
           {tab === "apparence" && <>
