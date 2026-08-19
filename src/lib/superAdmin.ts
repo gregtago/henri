@@ -22,11 +22,15 @@
 // même vérité.
 
 /**
- * Le compte administrateur historique, reconnu sans document.
+ * Rien n'est reconnu sans document.
  *
- * Un filet de sécurité, pas une exception permanente : il évite de se
- * verrouiller dehors le jour où l'on bascule vers un compte dédié. Une fois le
- * nouveau compte inscrit dans `superAdmins` et vérifié, cette constante n'a
- * plus de raison d'être — la supprimer ici la retire partout.
+ * Le compte historique l'était, le temps de basculer vers un compte
+ * d'administration dédié sans risquer de se verrouiller dehors. La bascule
+ * faite, ce filet est retiré : **la collection `superAdmins` est désormais la
+ * seule réponse à la question « qui administre Henri ? »**, côté serveur comme
+ * côté navigateur comme dans les règles de sécurité.
+ *
+ * Nommer un administrateur — se renommer soi-même compris — se fait donc en
+ * créant un document dans cette collection, depuis la console. Il n'y a plus
+ * rien à déployer pour cela, et plus aucun identifiant dans le code.
  */
-export const LEGACY_SUPER_ADMIN_UID = "ByHcIefOjWVdQBcikq5oZtJGGZA2";
