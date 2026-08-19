@@ -85,7 +85,7 @@ export default function AuthPanel() {
       <div className="w-full max-w-sm bg-bg border border-border rounded-xl shadow-sm p-7 space-y-5">
 
         <div className="flex flex-col items-center text-center space-y-2 pb-1">
-          <img src="/logo-henri-new.png" alt="Henri" style={{width:"200px", height:"auto"}} />
+          <img src="/logo-henri-new.png" alt="Henri" className="logo-xl" style={{width:"200px", height:"auto"}} />
           <p className="text-[13.5px] text-tx-3 leading-snug">Une nouvelle manière de piloter vos dossiers.</p>
         </div>
 
