@@ -1,0 +1,108 @@
+// Règles de sécurité Firestore — copie de référence.
+//
+// ⚠ Ce fichier n'est pas déployé automatiquement (firebase.json ne référence
+// que les Cloud Functions) : il est la copie versionnée de ce qui est publié
+// depuis la console Firestore → onglet Règles. Toute modification publiée doit
+// être recopiée ici, sinon cette copie ment.
+//
+// Le principe, en une phrase : **le navigateur parle directement à la base**.
+// Les écrans d'Henri ne protègent donc rien — ils décident seulement de ce
+// qu'ils affichent. Ces règles sont le seul mur. (Le SDK admin, lui, ne passe
+// pas par elles : les routes d'API portent leur propre autorisation.)
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Administrateurs ──────────────────────────────────────────────────
+    //
+    // La collection qui dit qui administre Henri. Chacun ne peut lire que SA
+    // ligne : on peut savoir si l'on est administrateur, jamais qui l'est.
+    // Personne ne s'écrit ici — seule la console (ou le SDK admin) y touche.
+    match /superAdmins/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    function isSuperAdmin() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/superAdmins/$(request.auth.uid));
+    }
+
+    // ── Les données d'un notaire ─────────────────────────────────────────
+    //
+    // Dossiers, tâches, mémos, réglages, clé du raccourci iPhone : tout vit
+    // sous users/{uid} et n'appartient qu'à lui.
+    match /users/{userId}/{document=**} {
+      allow read, write: if (request.auth != null && request.auth.uid == userId)
+        || isSuperAdmin();
+    }
+
+    // ── Invitations ──────────────────────────────────────────────────────
+    //
+    // Un jeton d'invitation permet de CRÉER UN COMPTE : le lire, c'est pouvoir
+    // s'inscrire à la place de celui qui l'attend.
+    //
+    // - `get` reste ouvert : la page /invite/[token] est consultée par
+    //   quelqu'un qui n'a pas encore de compte, et il faut connaître le jeton
+    //   (un UUID) pour lire quoi que ce soit ;
+    // - `list` est fermé : sans cela, n'importe qui téléchargeait la
+    //   collection entière — noms, adresses et jetons de tous les invités ;
+    // - `update` ne laisse passer que le marquage « utilisée », et rien
+    //   d'autre : sinon un compte connecté pouvait réécrire l'adresse d'une
+    //   invitation, puis créer un compte avec.
+    //
+    // (L'inscription libre, elle, crée ces documents côté serveur via le SDK
+    // admin : elle ne dépend pas de ces règles.)
+    match /invitations/{token} {
+      allow get: if true;
+      allow list: if isSuperAdmin();
+      allow create, delete: if isSuperAdmin();
+      allow update: if request.auth != null
+        && request.resource.data.status == "used"
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+    }
+
+    // ── Candidatures au programme alpha ──────────────────────────────────
+    //
+    // Le formulaire public écrit ici ; seul l'administrateur relit.
+    // (`update` est nécessaire : l'écran d'administration marque une
+    // candidature comme invitée. Il manquait, et l'action échouait.)
+    match /betaRegistrations/{id} {
+      allow create: if true;
+      allow read, update, delete: if isSuperAdmin();
+    }
+
+    // ── Retours des utilisateurs ─────────────────────────────────────────
+    match /feedbacks/{id} {
+      allow create: if request.auth != null;
+      allow read, delete: if isSuperAdmin();
+    }
+
+    // ── Annuaire des clés de raccourci ───────────────────────────────────
+    //
+    // Rangé sous l'empreinte SHA-256 de la clé, donc inexploitable même lu —
+    // mais il n'a aucune raison d'être lu par un client. On le dit plutôt que
+    // de compter sur le refus par défaut.
+    match /shortcutKeys/{fingerprint} {
+      allow read, write: if false;
+    }
+
+    // ── Offices (partage entre collaborateurs) ───────────────────────────
+    //
+    // Fonctionnalité NON CONSTRUITE : le mot « offices » n'apparaît nulle part
+    // dans le code. Les règles qui vivaient ici laissaient tout compte
+    // connecté s'ajouter comme membre de n'importe quel office — et même s'y
+    // déclarer « admin » —, ce qui ouvrait ensuite la lecture et l'écriture de
+    // toutes les données de cet office. Rien ne le gardait puisque rien n'y
+    // était encore stocké ; ce ne serait plus vrai le jour du partage.
+    //
+    // On ferme donc, et on écrira ces règles EN MÊME TEMPS que la
+    // fonctionnalité. Points à trancher ce jour-là : qui crée un office, qui
+    // ajoute un membre (jamais le membre lui-même), et ce qu'un membre voit
+    // des dossiers des autres.
+    match /offices/{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
