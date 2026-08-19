@@ -4,7 +4,7 @@
 // cache offline natif de Firestore (côté client SDK) qui sait gérer la
 // reconnexion et la résolution de conflits proprement.
 
-const CACHE_VERSION = "henri-v6";
+const CACHE_VERSION = "henri-v7";
 const APP_SHELL = [
   "/",
   "/my-day",
@@ -58,6 +58,18 @@ self.addEventListener("fetch", (event) => {
     url.hostname.includes("firestore") ||
     url.hostname.includes("googleapis")
   ) {
+    return;
+  }
+
+  // Routes d'API : jamais de cache, jamais d'interception.
+  //
+  // Elles ne répondent pas une ressource mais un instant : ce que porte le
+  // compte connecté, maintenant. Une réponse mise en cache mentirait ensuite
+  // sans jamais se corriger — c'est arrivé avec `/api/memo/lien`, dont le
+  // « pas encore publié » de la veille survivait à la publication du lien.
+  // Les autres routes n'étaient pas exposées parce qu'elles s'appellent en
+  // POST, que le filtre ci-dessus laisse déjà passer ; celle-ci se lit en GET.
+  if (url.pathname.startsWith("/api/")) {
     return;
   }
 
