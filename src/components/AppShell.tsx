@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { loadSettings, applySettings, type UserSettings, DEFAULT_SETTINGS } from "@/lib/settings";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { onAuthStateChanged, signOut, type User } from "firebase/auth";
+import { onAuthStateChanged, type User } from "firebase/auth";
 import { Timestamp, addDoc, collection } from "firebase/firestore";
 import {
   addMyDaySelection,
@@ -86,7 +86,7 @@ import { STATUSES } from "@/lib/types";
 import { RecurrencePicker } from "./RecurrencePicker";
 import MemoDetail from "./MemoDetail";
 import { Icon } from "./Icon";
-import InstallButton from "./InstallButton";
+import AccountMenu from "./AccountMenu";
 import CaseTemplatesModal from "./CaseTemplatesModal";
 import MemoComposer, { type MemoDraft } from "./MemoComposer";
 import MemoSwitch from "./MemoSwitch";
@@ -109,9 +109,8 @@ const TOUR_STEPS: TourStep[] = [
   { title: "Tâches & sous-tâches", body: "Sélectionnez un dossier pour afficher ses Tâches (niveau 2), puis une tâche pour ses Sous-tâches (niveau 3). Créez une tâche avec T, une sous-tâche avec Maj+T, un mémo avec M, un mémo sous la tâche sélectionnée avec Maj+M, et faites avancer le statut avec les touches 1 à 4." },
   { selector: '[data-tour="new-case"]', title: "Créer un dossier", body: "Le bouton + propose un dossier vierge ou un modèle. Un modèle d'exemple « Vente immobilière » est déjà intégré. Depuis un dossier, « Enregistrer comme modèle » crée le vôtre." },
   { selector: '[data-tour="import"]', title: "Import & export", body: "Depuis le détail d'un dossier, « Exporter » télécharge un fichier JSON ; « Importer » (ici) recrée un dossier depuis un fichier. Pratique pour dupliquer ou partager une trame." },
-  { selector: '[data-tour="reminders"]', title: "Rappels & notifications", body: "Activez les notifications ici, puis posez un rappel sur une tâche ou un mémo. Vous gérez vos appareils dans Préférences → Appareils." },
+  { selector: '[data-tour="compte"]', title: "Votre compte, en un bouton", body: "Ce rond ouvre tout ce qui ne concerne pas le travail : activer les rappels sur cet appareil, installer l'application, les Préférences (apparence, aide, appareils, notes de version) et la déconnexion." },
   { title: "Raccourcis clavier", body: "Une lettre par nature : D dossier · T tâche · Maj+T sous-tâche · M mémo. Puis A : ajouter à Ma journée · 1 à 4 : changer le statut · ← → : naviguer entre colonnes · Suppr : supprimer. La liste complète est dans l'Aide." },
-  { selector: '[data-tour="prefs"]', title: "Réglages & aide", body: "Dans Préférences : apparence, aide détaillée, gestion des appareils et notes de version." },
   { title: "C'est parti ! 🎯", body: "Vous êtes prêt. Bonne organisation ! Relancez cette visite quand vous voulez depuis Préférences → Aide." },
 ];
 
@@ -3285,48 +3284,12 @@ export default function AppShell() {
 
         {/* Actions — droite */}
         <div className="flex items-center gap-2.5 text-[12px] text-tx-3 ml-auto z-10">
-          <span className="hidden sm:inline">{user.email}</span>
-          {notifStatus !== "unsupported" && (
-            <button
-              data-tour="reminders"
-              className={`hidden md:inline-flex items-center gap-1 px-2 py-1 rounded border cursor-pointer transition-colors ${
-                notifStatus === "granted"
-                  ? "bg-transparent text-tx-2 border-border hover:border-border-strong"
-                  : "bg-transparent text-tx-2 border-border hover:border-border-strong hover:text-tx"
-              }`}
-              title={notifStatus === "granted" ? "Rappels activés (cliquer pour désactiver sur ce device)" : "Activer les notifications de rappel"}
-              onClick={async () => {
-                if (notifStatus === "granted") {
-                  const m = await import("@/lib/messaging");
-                  await m.disablePushNotifications(user.uid);
-                  showToast("Rappels désactivés sur ce navigateur.");
-                } else {
-                  const m = await import("@/lib/messaging");
-                  const res = await m.enablePushNotifications(user.uid);
-                  if (res.ok) {
-                    setNotifStatus("granted");
-                    showToast("Rappels activés.");
-                  } else {
-                    if (res.reason === "denied") showToast("Permission refusée par le navigateur.");
-                    else if (res.reason === "no-vapid") showToast("Configuration serveur incomplète.");
-                    else if (res.reason === "unsupported") showToast("Navigateur non supporté.");
-                    else showToast("Erreur lors de l'activation.");
-                  }
-                }
-              }}>
-              <Icon name="time" size={12} />
-              {notifStatus === "granted" ? (
-                <span style={{ color: "#16a34a", fontWeight: 600 }}>Rappels ✓</span>
-              ) : "Rappels"}
-            </button>
-          )}
-          <span className="hidden md:inline-flex"><InstallButton /></span>
-          {/* Desktop : boutons texte */}
-          <Link href="/settings" data-tour="prefs" className={`hidden md:inline-flex ${btnGhost}`} style={{textDecoration:"none"}}>Préférences</Link>
-          <button className={`hidden md:inline-flex ${btnGhost}`} onClick={() => signOut(auth)}>Déconnexion</button>
-          {/* Mobile : icônes rondes compactes */}
-          <Link href="/settings" className="md:hidden w-[32px] h-[32px] flex items-center justify-center rounded-full border border-border bg-bg-subtle hover:bg-bg-hover text-tx-2" style={{textDecoration:"none"}} title="Préférences" aria-label="Préférences"><Icon name="settings" size={16} /></Link>
-          <button className="md:hidden w-[32px] h-[32px] flex items-center justify-center rounded-full border border-border bg-bg-subtle hover:bg-bg-hover text-tx-2 cursor-pointer" onClick={() => signOut(auth)} title="Déconnexion" aria-label="Déconnexion"><Icon name="log-out" size={16} /></button>
+          <AccountMenu
+            uid={user.uid}
+            email={user.email}
+            onNotice={showToast}
+            onNotifStatusChange={setNotifStatus}
+          />
         </div>
       </header>
 
