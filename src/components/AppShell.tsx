@@ -2569,6 +2569,8 @@ export default function AppShell() {
   // autres bandeaux (11 px, bordure, coin arrondi), et non plus le menu
   // déroulant natif — qui imposait sa police, sa taille et son chevron.
   const headerPill = "inline-flex items-center gap-1 text-[11px] font-[inherit] font-medium px-1.5 py-0.5 rounded border cursor-pointer transition-colors";
+  // Le bandeau d'échéances parle la même langue, en teinte d'avertissement.
+  const warnPill = "inline-flex items-center gap-1 text-[11px] font-[inherit] font-medium px-2 py-1 rounded border cursor-pointer transition-colors shrink-0";
   const propKey = "w-[120px] shrink-0 text-[14px] text-tx-3 py-1 flex items-center gap-1.5";
   const propVal = "flex-1 text-[14px] text-tx py-1 px-2 rounded min-h-[28px] flex items-center";
 
@@ -3311,19 +3313,26 @@ export default function AppShell() {
       {/* ── RAPPEL ÉCHÉANCES ── */}
       {!isMyDay && reminderItems.length > 0 && (
         <div style={{background:"var(--warn-bg)", borderBottom:"1px solid var(--warn-border)", position:"relative", zIndex:10}}>
-          {/* Barre principale */}
-          <div className="flex items-center justify-between px-4 py-2">
+          {/* Barre principale — une seule ligne, quelle que soit la largeur. */}
+          <div className="flex items-center gap-2 px-3 sm:px-4 h-[38px]">
             <button
-              className="flex items-center gap-2 text-[13px] font-medium text-[var(--warn-fg)] bg-transparent border-none cursor-pointer hover:underline"
+              className="flex items-center gap-1.5 min-w-0 flex-1 text-[12.5px] text-left text-[var(--warn-fg)] bg-transparent border-none cursor-pointer"
               onClick={() => setReminderOpen(p => !p)}
+              aria-expanded={reminderOpen}
+              title={reminderOpen ? "Replier la liste" : "Voir les tâches concernées"}
             >
-              <span>⚠</span>
-              <span><strong>{reminderItems.length} tâche{reminderItems.length > 1 ? "s" : ""}</strong> à échéance aujourd'hui ou en retard</span>
-              <span className="text-[10px]">{reminderOpen ? "▲" : "▼"}</span>
+              <span className="shrink-0">⚠</span>
+              {/* La phrase se raccourcit sur téléphone plutôt que de se couper
+                * au milieu d'un mot : le nombre est l'information, le reste est
+                * du contexte. */}
+              <span className="truncate">
+                <strong>{reminderItems.length} tâche{reminderItems.length > 1 ? "s" : ""}</strong> à échéance<span className="hidden sm:inline"> aujourd&apos;hui ou en retard</span>
+              </span>
+              <Icon name={reminderOpen ? "chevron-up" : "chevron-down"} size={12} className="shrink-0 opacity-70" />
             </button>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
-                className="text-[12px] font-[inherit] font-medium bg-[var(--warn-fg)] text-white border-none px-3 py-1 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                className={`${warnPill} bg-warn text-warn-bg border-warn hover:opacity-90`}
                 onClick={async () => {
                   if (!user) return;
                   await Promise.all(reminderItems.map(item =>
@@ -3335,9 +3344,9 @@ export default function AppShell() {
                   setReminderOpen(false);
                   showToast(`☀ ${reminderItems.length} tâche${reminderItems.length > 1 ? "s" : ""} ajoutée${reminderItems.length > 1 ? "s" : ""} à Ma journée`);
                 }}
-              >☀ Tout ajouter à Ma journée</button>
+              >☀ Tout ajouter</button>
               <button
-                className="text-[12px] font-[inherit] bg-transparent border border-[var(--warn-accent)] text-[var(--warn-fg)] px-3 py-1 rounded-lg cursor-pointer hover:bg-[var(--warn-border-soft)] transition-colors"
+                className={`${warnPill} bg-transparent text-warn border-warn-border hover:bg-warn-border-soft`}
                 onClick={async () => {
                   if (!user) return;
                   await Promise.all(reminderItems.map(item =>
@@ -3377,7 +3386,7 @@ export default function AppShell() {
                       </p>
                     </button>
                     <button
-                      className="opacity-0 group-hover:opacity-100 text-[11px] font-[inherit] font-medium bg-[var(--warn-fg)] text-white border-none px-2 py-0.5 rounded cursor-pointer hover:opacity-90 ml-2 shrink-0 transition-opacity"
+                      className="opacity-0 group-hover:opacity-100 text-[11px] font-[inherit] font-medium bg-warn text-warn-bg border-none px-2 py-0.5 rounded cursor-pointer hover:opacity-90 ml-2 shrink-0 transition-opacity"
                       onClick={async () => {
                         if (!user) return;
                         await addMyDaySelection(user.uid, { dateKey: todayKey, refType: item.level === 2 ? "item" : "subitem", refId: item.id });
