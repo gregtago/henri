@@ -50,12 +50,67 @@ export const subscribeItems = (uid: string, onChange: (items: Item[]) => void) =
     onChange(data);
   });
 
-export const subscribeComments = (uid: string, onChange: (comments: Comment[]) => void) =>
-  onSnapshot(userCollection(uid, "comments"), (snapshot) => {
-    const data = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })) as Comment[];
-    onChange(data);
-  });
+/**
+ * Les observations d'une tâche, et d'elle seule.
+ *
+ * Elles ne s'affichent que dans le panneau de détail, à l'unité : les
+ * télécharger toutes au démarrage revenait à faire attendre l'écran d'accueil
+ * pour alimenter un panneau qui n'est pas encore ouvert — et cette collection
+ * ne fait que grossir. On s'y abonne donc à l'ouverture d'un détail, et on s'en
+ * détache à la fermeture.
+ */
+export const subscribeItemComments = (
+  uid: string,
+  itemId: string,
+  onChange: (comments: Comment[]) => void
+) =>
+  onSnapshot(
+    query(userCollection(uid, "comments"), where("itemId", "==", itemId)),
+    (snapshot) => {
+      const data = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })) as Comment[];
+      onChange(data);
+    },
+    () => onChange([])
+  );
 
+/**
+ * Tous les changements de statut, en une lecture.
+ *
+ * Pour le rattrapage de `lastProgressAt` sur les tâches d'avant ce champ, et
+ * pour lui seul : un rattrapage exceptionnel mérite une lecture exceptionnelle,
+ * pas un abonnement permanent à tout l'historique. Il ne part que s'il reste
+ * des tâches à rattraper, donc plus jamais une fois l'affaire faite.
+ */
+export const fetchProgressEvents = async (uid: string): Promise<Event[]> => {
+  const snapshot = await getDocs(
+    query(userCollection(uid, "events"), where("type", "==", "progress_changed"))
+  );
+  return snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })) as Event[];
+};
+
+/** L'historique d'une tâche, et d'elle seule — même raison. */
+export const subscribeItemEvents = (
+  uid: string,
+  itemId: string,
+  onChange: (events: Event[]) => void
+) =>
+  onSnapshot(
+    query(userCollection(uid, "events"), where("itemId", "==", itemId)),
+    (snapshot) => {
+      const data = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })) as Event[];
+      onChange(data);
+    },
+    () => onChange([])
+  );
+
+/**
+ * Tout l'historique, pour le calendrier et lui seul.
+ *
+ * Les barres « j'attends » se déduisent du dernier passage au statut
+ * « Demandé », qui peut dater de plusieurs mois : borner cette lecture à la
+ * semaine affichée effacerait les demandes les plus anciennes — précisément
+ * celles qu'il faut voir.
+ */
 export const subscribeEvents = (uid: string, onChange: (events: Event[]) => void) =>
   onSnapshot(userCollection(uid, "events"), (snapshot) => {
     const data = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })) as Event[];

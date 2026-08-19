@@ -42,6 +42,18 @@ npm run dev
   - `users/{uid}/pushTokens` (appareils recevant les notifications)
   - `users/{uid}/settings/reminders` (réglages de relance, lus par les Cloud Functions)
   - `users/{uid}/reminderDigests` (garde anti-doublon des récapitulatifs quotidiens)
+- **Ce qui se charge au lancement, et ce qui attend.** La base garde son cache
+  sur le disque (`persistentLocalCache`, `src/lib/firebase.ts`) : au lancement
+  suivant l'écran se peint depuis IndexedDB, puis le réseau corrige ce qui a
+  bougé. `cases`, `items` et `floatingTasks` sont diffusés en entier — le
+  tableau les lit tous —, `myDaySelections` est borné à une fenêtre de jours.
+  `comments` et `events` ne le sont plus : ils ne servent qu'au panneau de
+  détail, donc on s'y abonne **à l'ouverture d'une tâche**
+  (`subscribeItemComments`, `subscribeItemEvents`) et on s'en détache après.
+  Deux exceptions assumées : le calendrier lit tout l'historique (une barre
+  « j'attends » remonte au dernier passage à « Demandé », qui peut dater de
+  plusieurs mois), et le rattrapage de `lastProgressAt` le lit une fois, tant
+  qu'il reste des tâches à dater (`fetchProgressEvents`).
 - Un seed est inséré au premier login si aucun dossier n'existe.
 - Les sélections "Ma journée" stockent `selectionDate` (Timestamp) pour requêter facilement les 7 derniers jours.
 - Les sélections "Ma journée" stockent aussi `dateTs` (Timestamp à minuit) pour requêter par fenêtre glissante.
