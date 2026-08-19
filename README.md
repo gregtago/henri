@@ -180,6 +180,25 @@ npm run dev
   le libellé via le barème de `src/lib/delais.ts`. Le raisonnement de la vue est dans
   `CALENDRIER.md`.
 
+## Inscription libre et double authentification
+
+- **Qui peut s'inscrire** (`src/lib/signupDomain.ts`) : les adresses en `notaires.fr` et ses
+  sous-domaines (`paris.notaires.fr`…), jamais `faux-notaires.fr`. La règle est vérifiée
+  **côté serveur** (`/api/signup`) : la même règle dans un écran n'est qu'un affichage.
+- **L'inscription ne crée pas de compte**, elle envoie une invitation — le même objet que
+  celle de l'administrateur (`src/lib/invitations.ts`), sept jours, même page d'atterrissage
+  `/invite/[token]`. Le domaine dit que l'adresse appartient au notariat ; le courriel reçu
+  dit qu'elle appartient à celui qui s'inscrit. Saisir l'adresse d'un confrère ne donne donc
+  rien, sinon lui envoyer un courriel. La réponse ne révèle jamais qu'un compte existe déjà
+  (pas d'annuaire des notaires inscrits) ; elle dit en revanche franchement qu'un domaine
+  n'est pas éligible. Un même courriel n'est pas renvoyé deux fois en un quart d'heure.
+- **Échéance du second facteur** (`src/lib/mfaPolicy.ts`) : elle se **calcule** à partir de
+  la seule date de création du compte, rien n'est stocké. Comptes ouverts avant l'annonce →
+  une date commune, le **1er octobre 2026**. Comptes créés après → **trois mois** chacun à
+  compter de sa création. `MFA_POLICY.enforced` est le garde-fou : tant qu'il est faux, la
+  politique **s'annonce sans jamais bloquer** — c'est ce qui permet de la déployer avant que
+  le TOTP ne soit disponible (il demande Identity Platform) sans verrouiller personne dehors.
+
 ## Comptes : adresse vérifiée, puis second facteur
 
 - **Tous les courriels partent de Brevo**, du même expéditeur et du même gabarit

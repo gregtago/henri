@@ -17,6 +17,7 @@ import { auth } from "@/lib/firebase";
 import { subscribePushTokens, deletePushToken, subscribeCaseTemplates, renameCaseTemplate, deleteCaseTemplate, subscribeShortcutKey, type PushTokenInfo, type ShortcutKeyInfo } from "@/lib/firestore";
 import type { CaseTemplate } from "@/lib/types";
 import { maskShortcutKey } from "@/lib/shortcutKey";
+import { MFA_POLICY, mfaStanding } from "@/lib/mfaPolicy";
 import { getCurrentToken } from "@/lib/messaging";
 import {
   DEFAULT_REMINDER_POLICY,
@@ -443,8 +444,26 @@ export default function SettingsPage() {
 
               <section>
                 <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-3">Double authentification</h2>
-                <div className="bg-bg border border-border rounded-xl p-5 text-[13px] text-tx-2 leading-relaxed">
-                  L&apos;inscription d&apos;une application d&apos;authentification (code à six chiffres) se réglera ici. Elle demande deux choses : une adresse vérifiée — ci-dessus —, et l&apos;activation d&apos;Identity Platform sur le projet Firebase.
+                <div className="bg-bg border border-border rounded-xl p-5 text-[13px] text-tx-2 leading-relaxed space-y-2">
+                  <p>
+                    Un mot de passe garde seul des dossiers couverts par le secret professionnel. Henri demandera donc, en plus, un <strong className="text-tx">code à six chiffres</strong> lu dans une application d&apos;authentification (Google Authenticator, 1Password, Bitwarden…).
+                  </p>
+                  {(() => {
+                    // L'échéance se calcule : elle ne dépend que de la date de
+                    // création du compte (voir mfaPolicy.ts).
+                    const standing = mfaStanding({ enrolled: false, creationTime: user?.metadata?.creationTime });
+                    if (standing.state !== "pending" && standing.state !== "due") return null;
+                    const when = standing.deadline.toLocaleDateString("fr-FR");
+                    return (
+                      <p>
+                        Pour votre compte, l&apos;échéance est le <strong className="text-tx">{when}</strong>
+                        {standing.state === "pending" ? <> — dans {standing.daysLeft} jour{standing.daysLeft > 1 ? "s" : ""}.</> : <>.</>}
+                      </p>
+                    );
+                  })()}
+                  <p className="text-tx-3">
+                    L&apos;inscription se règlera ici même. Elle demande une adresse vérifiée — ci-dessus — et l&apos;activation d&apos;Identity Platform sur le projet Firebase{MFA_POLICY.enforced ? "" : " ; d'ici là, rien n'est bloqué"}.
+                  </p>
                 </div>
               </section>
             </div>
