@@ -88,9 +88,9 @@ export default function InviteManager({ uid }: { uid: string }) {
             {loading ? "…" : "Inviter"}
           </button>
         </div>
-        {error && <p className="text-[11px] text-red-500 mt-1">{error}</p>}
+        {error && <p className="text-[11px] text-danger-soft mt-1">{error}</p>}
         {copied && (
-          <p className="text-[11px] text-green-600 mt-1">
+          <p className="text-[11px] text-ok mt-1">
             ✓ Lien copié dans le presse-papier
           </p>
         )}
@@ -116,9 +116,9 @@ export default function InviteManager({ uid }: { uid: string }) {
                     })}
                     {" · "}
                     {inv.status === "used" ? (
-                      <span className="text-green-600">Utilisée</span>
+                      <span className="text-ok">Utilisée</span>
                     ) : isExpired(inv) ? (
-                      <span className="text-red-500">Expirée</span>
+                      <span className="text-danger-soft">Expirée</span>
                     ) : (
                       <span className="text-tx-3">
                         Expire le{" "}

@@ -89,7 +89,7 @@ export default function CaseTemplatesModal({ mode, templates, onApply, onCreateN
                 >✎</button>
                 <button
                   onClick={() => onDelete(t)}
-                  className="text-tx-2 border border-border hover:border-red-300 hover:text-red-600"
+                  className="text-tx-2 border border-border hover:border-danger-border hover:text-danger"
                   style={{ background: "transparent", borderRadius: "6px", cursor: "pointer", fontSize: "13px", padding: "5px 8px" }}
                   title="Supprimer le modèle"
                 >🗑</button>

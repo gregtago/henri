@@ -330,9 +330,9 @@ export default function AdminPage() {
           const all = [...userRows, ...inviteRows, ...candRows].sort((a, b) => new Date(b.date ?? 0).getTime() - new Date(a.date ?? 0).getTime());
 
           const cfg: Record<string, { label: string; bg: string; color: string; border: string }> = {
-            user:      { label: "Utilisateur",  bg: "#dcfce7", color: "#15803d", border: "#bbf7d0" },
+            user:      { label: "Utilisateur",  bg: "var(--ok-bg)", color: "#15803d", border: "var(--ok-border)" },
             invited:   { label: "Invité",        bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" },
-            candidate: { label: "Candidat",      bg: "#fef9c3", color: "#854d0e", border: "#fde68a" },
+            candidate: { label: "Candidat",      bg: "#fef9c3", color: "#854d0e", border: "var(--warn-border-soft)" },
           };
 
           return (
@@ -419,7 +419,7 @@ export default function AdminPage() {
                   <>
                     <div className="flex gap-3 flex-wrap mb-2">
                       {[
-                        { label: "Actifs 7j", value: active7, color: "bg-green-50 text-green-700 border-green-200" },
+                        { label: "Actifs 7j", value: active7, color: "bg-ok-bg-soft text-ok-strong border-ok-border" },
                         { label: "Actifs 30j", value: active30, color: "bg-blue-50 text-blue-700 border-blue-200" },
                         { label: "Jamais utilisé", value: neverUsed, color: neverUsed > 0 ? "bg-orange-50 text-orange-700 border-orange-200" : "bg-bg-subtle text-tx-3 border-border" },
                         { label: "Total", value: users.length, color: "bg-bg-subtle text-tx-2 border-border" },
@@ -432,7 +432,7 @@ export default function AdminPage() {
                     {sorted.map((u) => (
                   <div key={u.uid}
                     className={`bg-bg border rounded-xl p-4 flex items-start gap-4 transition-colors ${
-                      u.disabled ? "border-red-200 opacity-60" : "border-border"
+                      u.disabled ? "border-danger-border opacity-60" : "border-border"
                     }`}
                   >
                     {/* Identité + stats */}
@@ -440,10 +440,10 @@ export default function AdminPage() {
                       <div className="flex items-center gap-2 mb-1.5">
                         <p className="text-[14px] font-medium text-tx truncate">{u.email}</p>
                         {u.isSuperAdmin && (
-                          <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium">ADMIN</span>
+                          <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-warn rounded font-medium">ADMIN</span>
                         )}
                         {u.disabled && (
-                          <span className="text-[10px] px-1.5 py-0.5 bg-red-100 text-red-600 rounded font-medium">DÉSACTIVÉ</span>
+                          <span className="text-[10px] px-1.5 py-0.5 bg-red-100 text-danger rounded font-medium">DÉSACTIVÉ</span>
                         )}
                       </div>
                       {/* Dates */}
@@ -451,7 +451,7 @@ export default function AdminPage() {
                         <span>Inscrit le {formatDate(u.createdAt)}</span>
                         {u.lastSignIn && <span>Connecté le {formatDate(u.lastSignIn)}</span>}
                         {u.lastActivity
-                          ? <span className="text-green-600 font-medium">Actif le {formatDate(u.lastActivity)}</span>
+                          ? <span className="text-ok font-medium">Actif le {formatDate(u.lastActivity)}</span>
                           : u.casesCount === 0
                             ? <span className="text-orange-500 font-medium">Jamais utilisé</span>
                             : null
@@ -462,8 +462,8 @@ export default function AdminPage() {
                         {[
                           { label: "dossier", value: u.casesCount, active: "bg-blue-50 text-blue-700 border-blue-200" },
                           { label: "tâche", value: u.itemsCount, active: "bg-purple-50 text-purple-700 border-purple-200" },
-                          { label: "traitée", value: u.doneCount, active: "bg-green-50 text-green-700 border-green-200" },
-                          { label: "mémo", value: u.floatingCount, active: "bg-amber-50 text-amber-700 border-amber-200" },
+                          { label: "traitée", value: u.doneCount, active: "bg-ok-bg-soft text-ok-strong border-ok-border" },
+                          { label: "mémo", value: u.floatingCount, active: "bg-warn-bg-soft text-warn border-warn-border-soft" },
                         ].map(({ label, value, active }) => (
                           <span key={label} className={`text-[11px] px-2 py-0.5 rounded-full border font-medium ${value > 0 ? active : "bg-bg-subtle text-tx-3 border-border"}`}>
                             {value} {label}{value > 1 ? "s" : ""}
@@ -471,7 +471,7 @@ export default function AdminPage() {
                         ))}
                       </div>
                       {actionResult?.uid === u.uid && (
-                        <p className={`text-[11px] mt-1.5 ${actionResult.type === "ok" ? "text-green-600" : "text-red-500"}`}>
+                        <p className={`text-[11px] mt-1.5 ${actionResult.type === "ok" ? "text-ok" : "text-danger-soft"}`}>
                           {actionResult.msg}
                         </p>
                       )}
@@ -499,7 +499,7 @@ export default function AdminPage() {
                             if (confirm(`Supprimer définitivement ${u.email} ?`)) doAction(u.uid, "delete");
                           }}
                           disabled={!!actionLoading}
-                          className="text-[11px] font-[inherit] px-2.5 py-1 border border-red-200 rounded-lg bg-bg-subtle text-red-500 cursor-pointer hover:bg-red-50 transition-colors disabled:opacity-50"
+                          className="text-[11px] font-[inherit] px-2.5 py-1 border border-danger-border rounded-lg bg-bg-subtle text-danger-soft cursor-pointer hover:bg-danger-bg-soft transition-colors disabled:opacity-50"
                         >
                           Supprimer
                         </button>
@@ -538,8 +538,8 @@ export default function AdminPage() {
                   {inviteLoading ? "…" : "Inviter"}
                 </button>
               </div>
-              {inviteError && <p className="text-[11px] text-red-500">{inviteError}</p>}
-              {copied && <p className="text-[11px] text-green-600">✓ Lien copié dans le presse-papier !</p>}
+              {inviteError && <p className="text-[11px] text-danger-soft">{inviteError}</p>}
+              {copied && <p className="text-[11px] text-ok">✓ Lien copié dans le presse-papier !</p>}
 
               {/* Import CSV */}
               <div className="border-t border-border pt-3">
@@ -554,9 +554,9 @@ export default function AdminPage() {
                 </div>
                 {csvResult && (
                   <div className="mt-2 p-3 bg-bg-subtle border border-border rounded-lg space-y-1">
-                    <p className="text-[12px] text-green-600 font-medium">✓ {csvResult.ok} invitation{csvResult.ok > 1 ? "s" : ""} créée{csvResult.ok > 1 ? "s" : ""}</p>
+                    <p className="text-[12px] text-ok font-medium">✓ {csvResult.ok} invitation{csvResult.ok > 1 ? "s" : ""} créée{csvResult.ok > 1 ? "s" : ""}</p>
                     {csvResult.skipped.length > 0 && (
-                      <p className="text-[11px] text-red-500">Échec : {csvResult.skipped.join(", ")}</p>
+                      <p className="text-[11px] text-danger-soft">Échec : {csvResult.skipped.join(", ")}</p>
                     )}
                   </div>
                 )}
@@ -580,9 +580,9 @@ export default function AdminPage() {
                       <div className="flex gap-3 text-[11px] text-tx-3 mt-0.5">
                         <span>Envoyée le {formatDate(inv.createdAt)}</span>
                         {inv.status === "used" ? (
-                          <span className="text-green-600 font-medium">✓ Utilisée</span>
+                          <span className="text-ok font-medium">✓ Utilisée</span>
                         ) : isExpired(inv) ? (
-                          <span className="text-red-500">Expirée</span>
+                          <span className="text-danger-soft">Expirée</span>
                         ) : (
                           <span>Expire le {formatDate(inv.expiresAt)}</span>
                         )}
@@ -599,7 +599,7 @@ export default function AdminPage() {
                       )}
                       <button
                         onClick={() => handleDeleteInvitation(inv.token)}
-                        className="text-[11px] font-[inherit] px-2 py-1.5 border border-red-200 rounded-lg bg-bg-subtle text-red-400 cursor-pointer hover:bg-red-50 transition-colors"
+                        className="text-[11px] font-[inherit] px-2 py-1.5 border border-danger-border rounded-lg bg-bg-subtle text-danger-soft cursor-pointer hover:bg-danger-bg-soft transition-colors"
                       >✕</button>
                     </div>
                   </div>
@@ -683,7 +683,7 @@ export default function AdminPage() {
                       <div className="flex items-center gap-2">
                         <p className="font-semibold text-[15px] text-tx">{c.prenom} {c.nom}</p>
                         {c.invitedAt && (
-                          <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">
+                          <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-ok-bg-soft text-ok-strong border border-ok-border">
                             ✓ Invité le {new Date(c.invitedAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
                           </span>
                         )}
@@ -699,12 +699,12 @@ export default function AdminPage() {
                     <div className="col-span-2 flex justify-between items-center pt-1">
                       <button
                         onClick={() => handleDeleteCandidature(c.id)}
-                        className="font-[inherit] text-[12px] px-3 py-1.5 border border-red-200 rounded-lg bg-bg-subtle text-red-400 cursor-pointer hover:bg-red-50 transition-colors"
+                        className="font-[inherit] text-[12px] px-3 py-1.5 border border-danger-border rounded-lg bg-bg-subtle text-danger-soft cursor-pointer hover:bg-danger-bg-soft transition-colors"
                       >✕ Supprimer</button>
                       <button
                         onClick={() => handleSendInviteFromCandidature(c)}
                         disabled={sendingInvite === c.id}
-                        className={`font-[inherit] text-[12px] font-medium px-4 py-1.5 rounded-lg border-none cursor-pointer hover:opacity-90 disabled:opacity-50 transition-opacity ${c.invitedAt ? "bg-green-100 text-green-800 border border-green-200" : "bg-tx text-bg"}`}
+                        className={`font-[inherit] text-[12px] font-medium px-4 py-1.5 rounded-lg border-none cursor-pointer hover:opacity-90 disabled:opacity-50 transition-opacity ${c.invitedAt ? "bg-green-100 text-ok-strong border border-ok-border" : "bg-tx text-bg"}`}
                       >
                         {sendingInvite === c.id ? "Envoi…" : c.invitedAt ? "↩ Renvoyer l'invitation" : "✉ Envoyer une invitation"}
                       </button>

@@ -146,7 +146,7 @@ export default function AccountMenu({ uid, email, onNotice, onNotifStatusChange 
             <button type="button" role="menuitem" disabled={busy} onClick={toggleReminders} className={`${rowClass} border-b border-border disabled:opacity-50`}>
               <Icon name="time" size={15} />
               <span className="flex-1">{notifStatus === "granted" ? "Rappels sur cet appareil" : "Activer les rappels ici"}</span>
-              {notifStatus === "granted" && <span className="text-[11px] font-semibold text-green-600">✓</span>}
+              {notifStatus === "granted" && <span className="text-[11px] font-semibold text-ok">✓</span>}
             </button>
           )}
 
@@ -164,7 +164,7 @@ export default function AccountMenu({ uid, email, onNotice, onNotifStatusChange 
               setOpen(false);
               void signOut(auth);
             }}
-            className={`${rowClass} text-red-600 hover:text-red-600`}
+            className={`${rowClass} text-danger hover:text-danger`}
           >
             <Icon name="log-out" size={15} />
             <span>Déconnexion</span>

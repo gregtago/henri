@@ -62,10 +62,10 @@ const DELAI_SOURCE_LABEL: Record<DelaiInfo["source"], (label: string) => string>
 };
 
 const STATUS_DOT: Record<Status, string> = {
-  "Créé": "#d1d5db",
-  "Demandé": "#fbbf24",
-  "Reçu": "#60a5fa",
-  "Traité": "#34d399",
+  "Créé": "var(--border-strong)",
+  "Demandé": "var(--warn-accent)",
+  "Reçu": "var(--accent)",
+  "Traité": "var(--ok-fg)",
 };
 
 const startOfToday = () => {

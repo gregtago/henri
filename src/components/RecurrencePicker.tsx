@@ -41,7 +41,7 @@ export function RecurrencePicker({ value, onChange }: Props) {
         >
           <span style={{
             position: "absolute", top: 2, left: value ? 18 : 2,
-            width: 16, height: 16, background: "white", borderRadius: "50%",
+            width: 16, height: 16, background: "var(--bg)", borderRadius: "50%",
             boxShadow: "0 1px 3px rgba(0,0,0,0.2)", transition: "left 0.2s", display: "block"
           }} />
         </button>

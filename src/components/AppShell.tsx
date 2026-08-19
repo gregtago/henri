@@ -97,6 +97,16 @@ import { ReminderPicker } from "./ReminderPicker";
 import { formatRecurrence } from "@/lib/recurrence";
 import { useReminderPolicy, describeRepeat, dueReminderPatch } from "@/lib/reminderPolicy";
 
+// Les critères de tri des dossiers, dans l'ordre où ils se proposent.
+const CASE_SORT_LABELS = {
+  title: "Nom",
+  createdAt: "Ancienneté",
+  legalDueDate: "Échéance",
+  progress: "Charge restante",
+} as const;
+
+type CaseSortKey = keyof typeof CASE_SORT_LABELS;
+
 // Couleurs d'avancement (Créé, Demandé, Reçu, Traité), alignées sur les badges de statut.
 const STATUS_COLORS = ["var(--s0-fg)", "var(--s1-fg)", "var(--s2-fg)", "var(--s3-fg)"];
 
@@ -278,7 +288,8 @@ export default function AppShell() {
   const myDayTitleRef = useRef<HTMLInputElement | null>(null);
   const [undoCountdown, setUndoCountdown] = useState(0);
 
-  const [caseSortKey, setCaseSortKey] = useState<"title" | "createdAt" | "legalDueDate" | "progress">(settings.defaultSort);
+  const [caseSortKey, setCaseSortKey] = useState<CaseSortKey>(settings.defaultSort);
+  const [caseSortMenuOpen, setCaseSortMenuOpen] = useState(false);
   const [caseSearch, setCaseSearch] = useState("");
   const [caseSortDirection, setCaseSortDirection] = useState<"asc" | "desc">(settings.defaultSortDir);
 
@@ -1044,7 +1055,7 @@ export default function AppShell() {
         : <span className="text-[12.5px] text-tx-3">Dossier</span>;
       const removeBtn = (
         <button
-          className="w-5 h-5 flex items-center justify-center text-[12.5px] text-tx-3 bg-transparent border-none cursor-pointer hover:text-red-500 rounded shrink-0"
+          className="w-5 h-5 flex items-center justify-center text-[12.5px] text-tx-3 bg-transparent border-none cursor-pointer hover:text-danger-soft rounded shrink-0"
           onClick={e => {
             e.stopPropagation();
             setPendingRemovalIds(prev => new Set([...prev, selectionId]));
@@ -2552,8 +2563,12 @@ export default function AppShell() {
 
 
   const btnGhost = "text-[14px] font-[inherit] bg-bg border border-border text-text-2 px-2 py-[2px] rounded cursor-pointer hover:border-border-strong hover:text-tx transition-all";
-  const btnDanger = "text-[14px] font-[inherit] bg-bg border border-[#fecaca] text-red-600 px-2 py-[2px] rounded cursor-pointer hover:bg-red-50 hover:border-red-400 transition-all";
+  const btnDanger = "text-[14px] font-[inherit] bg-bg border border-[var(--danger-border)] text-danger px-2 py-[2px] rounded cursor-pointer hover:bg-danger-bg-soft hover:border-danger-border transition-all";
   const iconBtn = "w-6 h-6 flex items-center justify-center border-none bg-transparent rounded text-tx-3 text-sm cursor-pointer hover:bg-bg-hover hover:text-tx-2 transition-all";
+  // La pastille de tri du bandeau « Dossiers » : même vocabulaire que les
+  // autres bandeaux (11 px, bordure, coin arrondi), et non plus le menu
+  // déroulant natif — qui imposait sa police, sa taille et son chevron.
+  const headerPill = "inline-flex items-center gap-1 text-[11px] font-[inherit] font-medium px-1.5 py-0.5 rounded border cursor-pointer transition-colors";
   const propKey = "w-[120px] shrink-0 text-[14px] text-tx-3 py-1 flex items-center gap-1.5";
   const propVal = "flex-1 text-[14px] text-tx py-1 px-2 rounded min-h-[28px] flex items-center";
 
@@ -2605,8 +2620,8 @@ export default function AppShell() {
           title={done ? `Fait le ${formatDateFR(memo.doneAt)} — cliquer pour décocher` : "Marquer réalisé"}
           style={{
             width: "20px", height: "20px", borderRadius: "6px",
-            border: done ? "none" : "2px solid #9ca3af",
-            background: done ? "#16a34a" : "white",
+            border: done ? "none" : "2px solid var(--text-3)",
+            background: done ? "var(--ok-fg)" : "var(--bg)",
           }}
         >
           {done && <Icon name="check" size={13} className="text-white" strokeWidth={2.5} />}
@@ -2639,7 +2654,7 @@ export default function AppShell() {
       <span
         className="shrink-0 text-[11.5px] font-medium tabular-nums px-2 py-0.5 rounded-full border"
         style={finished
-          ? { background: "#dcfce7", borderColor: "#86efac", color: "#166534" }
+          ? { background: "var(--ok-bg)", borderColor: "var(--ok-border)", color: "var(--ok-fg-strong)" }
           : { background: "var(--bg-subtle)", borderColor: "var(--border)", color: "var(--tx-3)" }}
         title={finished
           ? "Tout ce que porte cette tâche est fait."
@@ -2749,7 +2764,7 @@ export default function AppShell() {
                 className="shrink-0 block"
                 style={{
                   width: "22px", height: "22px", borderRadius: "6px",
-                  border: "2px solid #e5e7eb", background: "var(--bg-subtle)",
+                  border: "2px solid var(--border)", background: "var(--bg-subtle)",
                   cursor: "default",
                 }}
               />
@@ -2757,7 +2772,7 @@ export default function AppShell() {
                 title={detailItem.starred ? "Retirer l'étoile" : "Marquer importante"}
                 onClick={() => updateItem(user.uid, detailItem.id, { starred: !detailItem.starred })}
                 className="shrink-0 border-none bg-transparent cursor-pointer p-0 leading-none transition-all hover:scale-110"
-                style={{ color: detailItem.starred ? "#f59e0b" : "#d1d5db" }}
+                style={{ color: detailItem.starred ? "var(--warn-accent)" : "var(--border-strong)" }}
               >
                 <Icon name="star" size={26} filled={!!detailItem.starred} strokeWidth={1.75} />
               </button>
@@ -2793,7 +2808,7 @@ export default function AppShell() {
                       <span
                         className="text-[13px] font-medium tabular-nums px-4 py-1.5 rounded-full border"
                         style={finished
-                          ? { background: "#dcfce7", borderColor: "#86efac", color: "#166534" }
+                          ? { background: "var(--ok-bg)", borderColor: "var(--ok-border)", color: "var(--ok-fg-strong)" }
                           : { background: "var(--bg-subtle)", borderColor: "var(--border)", color: "var(--tx-2)" }}
                       >
                         {finished ? `Terminé · ${done}/${total}` : `${done}/${total} terminé${done > 1 ? "s" : ""}`}
@@ -3295,11 +3310,11 @@ export default function AppShell() {
 
       {/* ── RAPPEL ÉCHÉANCES ── */}
       {!isMyDay && reminderItems.length > 0 && (
-        <div style={{background:"#fef3c7", borderBottom:"1px solid #fcd34d", position:"relative", zIndex:10}}>
+        <div style={{background:"var(--warn-bg)", borderBottom:"1px solid var(--warn-border)", position:"relative", zIndex:10}}>
           {/* Barre principale */}
           <div className="flex items-center justify-between px-4 py-2">
             <button
-              className="flex items-center gap-2 text-[13px] font-medium text-[#92400e] bg-transparent border-none cursor-pointer hover:underline"
+              className="flex items-center gap-2 text-[13px] font-medium text-[var(--warn-fg)] bg-transparent border-none cursor-pointer hover:underline"
               onClick={() => setReminderOpen(p => !p)}
             >
               <span>⚠</span>
@@ -3308,7 +3323,7 @@ export default function AppShell() {
             </button>
             <div className="flex gap-2">
               <button
-                className="text-[12px] font-[inherit] font-medium bg-[#92400e] text-white border-none px-3 py-1 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                className="text-[12px] font-[inherit] font-medium bg-[var(--warn-fg)] text-white border-none px-3 py-1 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
                 onClick={async () => {
                   if (!user) return;
                   await Promise.all(reminderItems.map(item =>
@@ -3322,7 +3337,7 @@ export default function AppShell() {
                 }}
               >☀ Tout ajouter à Ma journée</button>
               <button
-                className="text-[12px] font-[inherit] bg-transparent border border-[#d97706] text-[#92400e] px-3 py-1 rounded-lg cursor-pointer hover:bg-[#fde68a] transition-colors"
+                className="text-[12px] font-[inherit] bg-transparent border border-[var(--warn-accent)] text-[var(--warn-fg)] px-3 py-1 rounded-lg cursor-pointer hover:bg-[var(--warn-border-soft)] transition-colors"
                 onClick={async () => {
                   if (!user) return;
                   await Promise.all(reminderItems.map(item =>
@@ -3336,12 +3351,12 @@ export default function AppShell() {
 
           {/* Liste déroulante des tâches */}
           {reminderOpen && (
-            <div style={{borderTop:"1px solid #fcd34d", background:"#fffbeb"}} className="px-4 py-2 space-y-1">
+            <div style={{borderTop:"1px solid var(--warn-border)", background:"var(--warn-bg-soft)"}} className="px-4 py-2 space-y-1">
               {reminderItems.map(item => {
                 const caseTitle = cases.find(c => c.id === item.caseId)?.title ?? "";
                 const parentTitle = item.parentItemId ? items.find(i => i.id === item.parentItemId)?.title : null;
                 return (
-                  <div key={item.id} className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-[#fef3c7] transition-colors group">
+                  <div key={item.id} className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-[var(--warn-bg)] transition-colors group">
                     <button
                       className="flex-1 text-left bg-transparent border-none cursor-pointer"
                       onClick={() => {
@@ -3355,14 +3370,14 @@ export default function AppShell() {
                         setReminderOpen(false);
                       }}
                     >
-                      <p className="text-[13px] font-medium text-[#92400e]">{item.title}</p>
-                      <p className="text-[11px] text-[#b45309]">
+                      <p className="text-[13px] font-medium text-[var(--warn-fg)]">{item.title}</p>
+                      <p className="text-[11px] text-[var(--warn-fg)]">
                         {caseTitle}{parentTitle ? ` › ${parentTitle}` : ""}
                         {item.dueDate && <span className="ml-2">· Éch. {new Date(item.dueDate).toLocaleDateString("fr-FR", {day:"numeric", month:"short"})}</span>}
                       </p>
                     </button>
                     <button
-                      className="opacity-0 group-hover:opacity-100 text-[11px] font-[inherit] font-medium bg-[#92400e] text-white border-none px-2 py-0.5 rounded cursor-pointer hover:opacity-90 ml-2 shrink-0 transition-opacity"
+                      className="opacity-0 group-hover:opacity-100 text-[11px] font-[inherit] font-medium bg-[var(--warn-fg)] text-white border-none px-2 py-0.5 rounded cursor-pointer hover:opacity-90 ml-2 shrink-0 transition-opacity"
                       onClick={async () => {
                         if (!user) return;
                         await addMyDaySelection(user.uid, { dateKey: todayKey, refType: item.level === 2 ? "item" : "subitem", refId: item.id });
@@ -3393,32 +3408,55 @@ export default function AppShell() {
           {/* ── COL DOSSIERS ── */}
           {showCasesColumn && (
             <div className="finder-column">
-              <div className="finder-header">
-                <span>{showArchived ? "Dossiers archivés" : "Dossiers"}</span>
+              <div className="finder-header relative">
+                <span className="flex items-baseline gap-1.5 min-w-0">
+                  <span className="truncate">{showArchived ? "Dossiers archivés" : "Dossiers"}</span>
+                  {filteredCases.length > 0 && (
+                    <span className="text-tx-3 tabular-nums">{filteredCases.length}</span>
+                  )}
+                </span>
                 <div data-tour="cases-actions" className="flex items-center gap-1">
-                  <select
-                    className="text-[12.5px] font-[inherit] bg-transparent border-none text-tx-2 cursor-pointer outline-none pr-1 hover:text-tx transition-colors"
-                    value={caseSortKey}
-                    onChange={(e) => setCaseSortKey(e.target.value as "title" | "createdAt" | "legalDueDate" | "progress")}
-                    title="Trier par"
-                  >
-                    <option value="title">Nom</option>
-                    <option value="createdAt">Ancienneté</option>
-                    <option value="legalDueDate">Échéance</option>
-                    <option value="progress">Charge restante</option>
-                  </select>
                   <button
-                    className={iconBtn}
-                    onClick={() => setCaseSortDirection(p => p === "asc" ? "desc" : "asc")}
-                    title={caseSortDirection === "asc" ? "Ordre croissant — cliquer pour inverser" : "Ordre décroissant — cliquer pour inverser"}
+                    className={`${headerPill} ${caseSortMenuOpen ? "bg-tx text-bg border-tx" : "bg-transparent text-tx-2 border-border hover:border-border-strong hover:text-tx"}`}
+                    onClick={() => setCaseSortMenuOpen(p => !p)}
+                    title="Trier les dossiers"
+                    aria-haspopup="menu"
+                    aria-expanded={caseSortMenuOpen}
                   >
-                    <Icon name={caseSortDirection === "asc" ? "chevron-up" : "chevron-down"} size={14} strokeWidth={2} />
+                    {CASE_SORT_LABELS[caseSortKey]}
+                    <Icon name={caseSortDirection === "asc" ? "chevron-up" : "chevron-down"} size={11} strokeWidth={2} />
                   </button>
                   <button data-tour="new-case" className={iconBtn} title="Nouveau dossier — vierge ou depuis un modèle (N)" onClick={() => setTemplatesModal({ mode: "new" })}>
-                    <Icon name="myday" size={14} className="hidden" />
                     <span className="text-[18px] leading-none">+</span>
                   </button>
                 </div>
+
+                {caseSortMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setCaseSortMenuOpen(false)} />
+                    <div role="menu" className="absolute top-full right-2 mt-1 min-w-[190px] bg-bg border border-border rounded-lg shadow-lg overflow-hidden z-50">
+                      {(Object.keys(CASE_SORT_LABELS) as CaseSortKey[]).map((key) => (
+                        <button
+                          key={key}
+                          role="menuitem"
+                          className="flex items-center gap-2 w-full text-left px-3 py-2 text-[12.5px] font-[inherit] bg-transparent border-none cursor-pointer text-tx-2 hover:bg-bg-hover hover:text-tx transition-colors"
+                          onClick={() => { setCaseSortKey(key); setCaseSortMenuOpen(false); }}
+                        >
+                          <span className="flex-1">{CASE_SORT_LABELS[key]}</span>
+                          {caseSortKey === key && <Icon name="check" size={12} />}
+                        </button>
+                      ))}
+                      <button
+                        role="menuitem"
+                        className="flex items-center gap-2 w-full text-left px-3 py-2 text-[12.5px] font-[inherit] bg-transparent border-t border-border cursor-pointer text-tx-2 hover:bg-bg-hover hover:text-tx transition-colors"
+                        onClick={() => setCaseSortDirection(p => p === "asc" ? "desc" : "asc")}
+                      >
+                        <Icon name={caseSortDirection === "asc" ? "chevron-up" : "chevron-down"} size={12} strokeWidth={2} />
+                        <span>{caseSortDirection === "asc" ? "Ordre croissant" : "Ordre décroissant"}</span>
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="finder-list" ref={casesListRef} data-tour="cases-list">
@@ -3435,7 +3473,7 @@ export default function AppShell() {
                       <div className="flex items-center gap-1.5">
                         {myDayMarkerCaseIds.has(entry.id) && (
                           <span
-                            className="inline-block w-2 h-2 rounded-full bg-amber-400 shrink-0"
+                            className="inline-block w-2 h-2 rounded-full bg-warn-accent shrink-0"
                             title="Contient une tâche dans Ma journée"
                           />
                         )}
@@ -3444,7 +3482,7 @@ export default function AppShell() {
                       <div className="flex items-center justify-between gap-2 mt-0.5 min-h-[1.25rem]">
                         <p className="text-[12.5px] text-tx-3 truncate">
                           {entry.legalDueDate ? (
-                            <>Éch. <span className={new Date(entry.legalDueDate) < new Date() ? "text-red-500" : ""}>{formatDateFR(entry.legalDueDate)}</span></>
+                            <>Éch. <span className={new Date(entry.legalDueDate) < new Date() ? "text-danger-soft" : ""}>{formatDateFR(entry.legalDueDate)}</span></>
                           ) : null}
                         </p>
                         {(() => {
@@ -3600,7 +3638,7 @@ export default function AppShell() {
                       <div className="flex items-center gap-1.5">
                         {myDayMarkerItemIds.has(entry.id) && (
                           <span
-                            className="inline-block w-2 h-2 rounded-full bg-amber-400 shrink-0"
+                            className="inline-block w-2 h-2 rounded-full bg-warn-accent shrink-0"
                             title="Dans Ma journée"
                           />
                         )}
@@ -3608,7 +3646,7 @@ export default function AppShell() {
                       </div>
                       <p className="text-[12.5px] text-tx-3 mt-0.5 truncate min-h-[1.25rem]">
                         {entry.dueDate ? (
-                          <>Éch. <span className={dueKey && dueKey < todayKey ? "text-red-500" : ""}>{formatDateFR(entry.dueDate)}</span></>
+                          <>Éch. <span className={dueKey && dueKey < todayKey ? "text-danger-soft" : ""}>{formatDateFR(entry.dueDate)}</span></>
                         ) : (
                           (() => {
                             const subCount = getSubItems(items, entry.id).length;
@@ -3710,7 +3748,7 @@ export default function AppShell() {
                       <div className="flex items-center gap-1.5">
                         {myDayMarkerItemIds.has(entry.id) && (
                           <span
-                            className="inline-block w-2 h-2 rounded-full bg-amber-400 shrink-0"
+                            className="inline-block w-2 h-2 rounded-full bg-warn-accent shrink-0"
                             title="Dans Ma journée"
                           />
                         )}
@@ -3761,7 +3799,7 @@ export default function AppShell() {
       ) : (
 
         /* ══ VUE MA JOURNÉE — 2 colonnes ══ */
-        <div className="flex flex-1 overflow-hidden bg-white">
+        <div className="flex flex-1 overflow-hidden bg-bg">
 
           {/* ── BANDE "DOSSIERS" à gauche ── */}
           {settings.sideTabs && (
@@ -3824,7 +3862,7 @@ export default function AppShell() {
                               {item.dueDate && (() => {
                               const diff = Math.round((new Date(item.dueDate).getTime() - new Date().getTime()) / 86400000);
                               const label = diff < 0 ? `${Math.abs(diff)}j` : diff === 0 ? "auj." : `+${diff}j`;
-                              return <span className={`text-[10px] font-semibold ${diff <= 0 ? "text-red-500" : diff <= 3 ? "text-amber-500" : "text-tx-3"}`}>{label}</span>;
+                              return <span className={`text-[10px] font-semibold ${diff <= 0 ? "text-danger-soft" : diff <= 3 ? "text-warn-accent" : "text-tx-3"}`}>{label}</span>;
                             })()}
                             </div>
                           </div>
@@ -3885,7 +3923,7 @@ export default function AppShell() {
           </div>
 
           {/* ── COL LISTE : 40% ── */}
-          <div className="flex flex-col overflow-hidden border-r border-border bg-white" style={{flex:"0 0 40%", zIndex:1, position:"relative"}}>
+          <div className="flex flex-col overflow-hidden border-r border-border bg-bg" style={{flex:"0 0 40%", zIndex:1, position:"relative"}}>
             <div className="finder-header relative">
               <span>{new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}</span>
               <div className="flex items-center gap-2">
@@ -3917,7 +3955,7 @@ export default function AppShell() {
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setUpcomingExpanded(false)} />
                   <div
-                    className="absolute right-2 top-full mt-1 w-[420px] max-h-[480px] overflow-y-auto bg-white border border-border-strong rounded-lg z-20"
+                    className="absolute right-2 top-full mt-1 w-[420px] max-h-[480px] overflow-y-auto bg-bg border border-border-strong rounded-lg z-20"
                     style={{ boxShadow: "0 8px 24px rgba(0,0,0,0.12)" }}
                   >
                     <div className="px-3 py-2 border-b border-border flex items-center justify-between">
@@ -3968,7 +4006,7 @@ export default function AppShell() {
               ) : (
                 <div>
                   {myDayDisplay.map(({ entry, header }) => {
-                    const statusColor = {"Créé":"#d1d5db","Demandé":"#fbbf24","Reçu":"#60a5fa","Traité":"#34d399"}[entry.status as string] ?? "#d1d5db";
+                    const statusColor = {"Créé":"var(--border-strong)","Demandé":"var(--warn-accent)","Reçu":"var(--accent)","Traité":"var(--ok-fg)"}[entry.status as string] ?? "var(--border-strong)";
                     const isCompletingRow = entry.kind === "floating" && !!entry.floatingId && completingFloatingIds.has(entry.floatingId);
                     const isFloatingDone = entry.kind === "floating" && !!floatingTasks.find(t => t.id === entry.floatingId)?.doneAt;
                     return (
@@ -4008,8 +4046,8 @@ export default function AppShell() {
                                   width: "22px",
                                   height: "22px",
                                   borderRadius: "6px",
-                                  border: filled ? "none" : "2px solid #9ca3af",
-                                  background: filled ? "#16a34a" : "white",
+                                  border: filled ? "none" : "2px solid var(--text-3)",
+                                  background: filled ? "var(--ok-fg)" : "var(--bg)",
                                   transform: isCompleting ? "scale(1.1)" : "scale(1)",
                                   marginTop: "1px",
                                 }}
@@ -4020,7 +4058,7 @@ export default function AppShell() {
                           })()
                         ) : (
                           <button
-                            className="shrink-0 flex items-center justify-center text-tx-3 bg-transparent border-2 border-transparent cursor-pointer rounded-md hover:text-red-500 hover:bg-red-50 hover:border-red-200 transition-colors"
+                            className="shrink-0 flex items-center justify-center text-tx-3 bg-transparent border-2 border-transparent cursor-pointer rounded-md hover:text-danger-soft hover:bg-danger-bg-soft hover:border-danger-border transition-colors"
                             style={{ width: "22px", height: "22px", marginTop: "1px" }}
                             onClick={e => {
                               e.stopPropagation();
@@ -4047,7 +4085,7 @@ export default function AppShell() {
                               if (dayDiff === 0) return null; // aujourd'hui = rien
                               const label = dayDiff > 0 ? `+${dayDiff}` : `${dayDiff}`;
                               return (
-                                <span className={`inline-flex items-center gap-1 text-[11px] shrink-0 ${entry.overdue ? "text-red-500 font-medium" : "text-tx-3"}`}>
+                                <span className={`inline-flex items-center gap-1 text-[11px] shrink-0 ${entry.overdue ? "text-danger-soft font-medium" : "text-tx-3"}`}>
                                   {entry.overdue && <Icon name="warning" size={11} />}
                                   {label}
                                 </span>
@@ -4092,7 +4130,7 @@ export default function AppShell() {
                   <>
                     <div className="fixed inset-0 z-10" onClick={() => setDoneMemosExpanded(false)} />
                     <div
-                      className="absolute left-2 right-2 bottom-full mb-1 max-h-[360px] overflow-y-auto bg-white border border-border-strong rounded-lg z-20"
+                      className="absolute left-2 right-2 bottom-full mb-1 max-h-[360px] overflow-y-auto bg-bg border border-border-strong rounded-lg z-20"
                       style={{ boxShadow: "0 -8px 24px rgba(0,0,0,0.12)" }}
                     >
                       <div className="px-3 py-2 border-b border-border flex items-center justify-between">
@@ -4112,7 +4150,7 @@ export default function AppShell() {
                               className="shrink-0 cursor-pointer flex items-center justify-center"
                               onClick={e => { e.stopPropagation(); handleToggleFloatingDone(memo); }}
                               title="Remettre à faire"
-                              style={{ width: "18px", height: "18px", borderRadius: "5px", border: "none", background: "#16a34a" }}
+                              style={{ width: "18px", height: "18px", borderRadius: "5px", border: "none", background: "var(--ok-fg)" }}
                             ><Icon name="check" size={12} className="text-white" strokeWidth={2.5} /></button>
                             <div className="flex-1 min-w-0">
                               <p className="text-[14px] text-tx-3 truncate leading-snug line-through">{memo.title}</p>
@@ -4147,7 +4185,7 @@ export default function AppShell() {
                 <>
                   <div className="fixed inset-0 z-10" onClick={dropMyDayMemoToken} />
                   <div
-                    className="absolute left-3 right-3 bottom-full mb-1 max-h-[320px] overflow-y-auto bg-white border border-border-strong rounded-lg z-20"
+                    className="absolute left-3 right-3 bottom-full mb-1 max-h-[320px] overflow-y-auto bg-bg border border-border-strong rounded-lg z-20"
                     style={{ boxShadow: "0 -8px 24px rgba(0,0,0,0.12)" }}
                   >
                     <div className="px-3 py-2 border-b border-border">
@@ -4242,7 +4280,7 @@ export default function AppShell() {
                     )}
                     {myDayMemoStarred && (
                       <span className="inline-flex items-center gap-1.5 bg-bg-subtle border border-border rounded px-1.5 py-0.5 text-[12px] text-tx-2">
-                        <Icon name="star" size={11} filled className="shrink-0 text-amber-500" />
+                        <Icon name="star" size={11} filled className="shrink-0 text-warn-accent" />
                         <span>Important</span>
                         <button
                           onClick={() => { setMyDayMemoStarred(false); myDayMemoRef.current?.focus(); }}
@@ -4255,7 +4293,7 @@ export default function AppShell() {
                   </div>
                 )}
 
-                <div className="flex items-center gap-2 bg-white border border-border-strong rounded-lg px-3 py-2 transition-colors focus-within:border-tx-2">
+                <div className="flex items-center gap-2 bg-bg border border-border-strong rounded-lg px-3 py-2 transition-colors focus-within:border-tx-2">
                   <span className="shrink-0 text-tx-3"><Icon name="edit" size={14} /></span>
                   <input
                     ref={myDayMemoRef}
@@ -4512,38 +4550,38 @@ export default function AppShell() {
       {showWelcome && (
         <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}
           onClick={() => setShowWelcome(false)}>
-          <div style={{ background: "white", borderRadius: "20px", maxWidth: "540px", width: "100%", maxHeight: "calc(100dvh - 48px)", overflowX: "hidden", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}
+          <div style={{ background: "var(--bg)", borderRadius: "20px", maxWidth: "540px", width: "100%", maxHeight: "calc(100dvh - 48px)", overflowX: "hidden", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}
             onClick={e => e.stopPropagation()}>
             {/* Header sombre */}
-            <div style={{ background: "#111827", padding: "32px 36px", color: "white" }}>
+            <div style={{ background: "var(--text)", padding: "32px 36px", color: "var(--bg)" }}>
               <img src="/logo-henri-transparent.png" alt="Henri" style={{ height: "36px", marginBottom: "20px", filter: "invert(1)" }} />
               <h2 style={{ fontSize: "22px", fontWeight: 700, marginBottom: "12px", lineHeight: 1.3 }}>Une nouvelle manière de piloter vos dossiers.</h2>
-              <p style={{ fontSize: "13px", lineHeight: 1.7, color: "#9ca3af" }}>
+              <p style={{ fontSize: "13px", lineHeight: 1.7, color: "var(--text-3)" }}>
                 Henri part d'un constat simple : un rédacteur gère simultanément des dizaines de dossiers, chacun contenant de multiples tâches à des stades d'avancement différents. L'enjeu n'est pas de tout faire — c'est de savoir <em>quoi</em> faire aujourd'hui.
               </p>
             </div>
             {/* Corps */}
             <div style={{ padding: "28px 36px", display: "flex", flexDirection: "column", gap: "16px" }}>
-              <p style={{ fontSize: "13px", lineHeight: 1.7, color: "#374151" }}>
+              <p style={{ fontSize: "13px", lineHeight: 1.7, color: "var(--text)" }}>
                 Henri propose une organisation en deux temps : d'un côté, <strong>tous vos dossiers</strong> avec leurs tâches, organisés, classés, toujours disponibles. De l'autre, <strong>Ma journée</strong> — un espace de travail quotidien où vous extrayez uniquement les tâches sur lesquelles vous vous concentrez ce jour-là. Vous commencez la journée avec une liste claire, vous la traitez, et vous passez à autre chose.
               </p>
-              <p style={{ fontSize: "13px", lineHeight: 1.7, color: "#374151" }}>
+              <p style={{ fontSize: "13px", lineHeight: 1.7, color: "var(--text)" }}>
                 Contrairement à un simple gestionnaire de tâches où les éléments disparaissent quand ils sont cochés, Henri reflète la réalité du notariat : chaque acte passe par plusieurs étapes — le besoin exprimé, la demande formulée, la réception des pièces, le traitement. Une tâche ne disparaît pas, elle <strong>avance</strong>.
               </p>
-              <p style={{ fontSize: "13px", lineHeight: 1.7, color: "#374151" }}>
+              <p style={{ fontSize: "13px", lineHeight: 1.7, color: "var(--text)" }}>
                 Henri s'installe comme une <strong>application</strong> sur votre ordinateur ou votre téléphone (bouton <strong>Installer l'app</strong>) et peut vous envoyer des <strong>rappels</strong> au bon moment sur vos tâches et mémos — activez-les d'un clic sur <strong>Rappels</strong>, en haut.
               </p>
               <button
                 onClick={() => { setShowWelcome(false); setActiveTour(TOUR_STEPS); }}
-                style={{ width: "100%", padding: "13px", borderRadius: "12px", background: "white", color: "#111827", border: "1px solid #e5e7eb", fontSize: "14px", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginTop: "4px" }}>
+                style={{ width: "100%", padding: "13px", borderRadius: "12px", background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)", fontSize: "14px", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginTop: "4px" }}>
                 ▶ Faire la visite guidée
               </button>
               <button
                 onClick={() => setShowWelcome(false)}
-                style={{ width: "100%", padding: "14px", borderRadius: "12px", background: "#111827", color: "white", border: "none", fontSize: "15px", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                style={{ width: "100%", padding: "14px", borderRadius: "12px", background: "var(--text)", color: "var(--bg)", border: "none", fontSize: "15px", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
                 Commencer →
               </button>
-              <p style={{ fontSize: "11px", color: "#9ca3af", textAlign: "center" }}>
+              <p style={{ fontSize: "11px", color: "var(--text-3)", textAlign: "center" }}>
                 Retrouvez l'aide complète dans Préférences → Aide
               </p>
             </div>

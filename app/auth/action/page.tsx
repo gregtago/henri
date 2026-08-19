@@ -95,10 +95,10 @@ function ActionContent() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f9fafb", padding: "20px", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif" }}>
-      <div style={{ width: "100%", maxWidth: "420px", background: "white", borderRadius: "16px", boxShadow: "0 2px 24px rgba(0,0,0,0.08)", overflow: "hidden" }}>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-subtle)", padding: "20px", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif" }}>
+      <div style={{ width: "100%", maxWidth: "420px", background: "var(--bg)", borderRadius: "16px", boxShadow: "0 2px 24px rgba(0,0,0,0.08)", overflow: "hidden" }}>
         {/* Bandeau ambré */}
-        <div style={{ height: "4px", background: "#f59e0b" }} />
+        <div style={{ height: "4px", background: "var(--warn-accent)" }} />
 
         <div style={{ padding: "40px 36px" }}>
           <Link href="/" style={{ display: "inline-block", marginBottom: "28px" }}>
@@ -107,21 +107,21 @@ function ActionContent() {
 
           {phase === "loading" && (
             <>
-              <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#111827", marginBottom: "8px" }}>Vérification…</h1>
-              <p style={{ fontSize: "14px", color: "#6b7280" }}>Un instant.</p>
+              <h1 style={{ fontSize: "22px", fontWeight: 700, color: "var(--text)", marginBottom: "8px" }}>Vérification…</h1>
+              <p style={{ fontSize: "14px", color: "var(--text-2)" }}>Un instant.</p>
             </>
           )}
 
           {phase === "form" && mode === "resetPassword" && (
             <>
-              <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#111827", marginBottom: "8px" }}>
+              <h1 style={{ fontSize: "22px", fontWeight: 700, color: "var(--text)", marginBottom: "8px" }}>
                 Nouveau mot de passe
               </h1>
-              <p style={{ fontSize: "14px", color: "#6b7280", marginBottom: "24px", lineHeight: 1.6 }}>
-                Choisis un nouveau mot de passe pour <strong style={{ color: "#111827" }}>{email}</strong>.
+              <p style={{ fontSize: "14px", color: "var(--text-2)", marginBottom: "24px", lineHeight: 1.6 }}>
+                Choisis un nouveau mot de passe pour <strong style={{ color: "var(--text)" }}>{email}</strong>.
               </p>
               <form onSubmit={handleSubmit}>
-                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "#374151", marginBottom: "6px" }}>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--text)", marginBottom: "6px" }}>
                   Mot de passe
                 </label>
                 <input
@@ -131,9 +131,9 @@ function ActionContent() {
                   required
                   minLength={8}
                   autoComplete="new-password"
-                  style={{ width: "100%", padding: "12px 14px", fontSize: "15px", border: "1.5px solid #e5e7eb", borderRadius: "10px", outline: "none", boxSizing: "border-box", marginBottom: "16px", fontFamily: "inherit" }}
+                  style={{ width: "100%", padding: "12px 14px", fontSize: "15px", border: "1.5px solid var(--border)", borderRadius: "10px", outline: "none", boxSizing: "border-box", marginBottom: "16px", fontFamily: "inherit" }}
                 />
-                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "#374151", marginBottom: "6px" }}>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--text)", marginBottom: "6px" }}>
                   Confirmer
                 </label>
                 <input
@@ -143,17 +143,17 @@ function ActionContent() {
                   required
                   minLength={8}
                   autoComplete="new-password"
-                  style={{ width: "100%", padding: "12px 14px", fontSize: "15px", border: "1.5px solid #e5e7eb", borderRadius: "10px", outline: "none", boxSizing: "border-box", marginBottom: "20px", fontFamily: "inherit" }}
+                  style={{ width: "100%", padding: "12px 14px", fontSize: "15px", border: "1.5px solid var(--border)", borderRadius: "10px", outline: "none", boxSizing: "border-box", marginBottom: "20px", fontFamily: "inherit" }}
                 />
                 {errorMsg && (
-                  <p style={{ fontSize: "13px", color: "#dc2626", marginBottom: "16px", padding: "10px 12px", background: "#fef2f2", borderRadius: "8px", border: "1px solid #fecaca" }}>
+                  <p style={{ fontSize: "13px", color: "var(--danger-fg)", marginBottom: "16px", padding: "10px 12px", background: "var(--danger-bg-soft)", borderRadius: "8px", border: "1px solid var(--danger-border)" }}>
                     {errorMsg}
                   </p>
                 )}
                 <button
                   type="submit"
                   disabled={submitting}
-                  style={{ width: "100%", padding: "13px", fontSize: "15px", fontWeight: 600, color: "white", background: submitting ? "#9ca3af" : "#111827", border: "none", borderRadius: "10px", cursor: submitting ? "not-allowed" : "pointer", fontFamily: "inherit" }}>
+                  style={{ width: "100%", padding: "13px", fontSize: "15px", fontWeight: 600, color: "var(--bg)", background: submitting ? "var(--text-3)" : "var(--text)", border: "none", borderRadius: "10px", cursor: submitting ? "not-allowed" : "pointer", fontFamily: "inherit" }}>
                   {submitting ? "Enregistrement…" : "Définir le mot de passe"}
                 </button>
               </form>
@@ -162,17 +162,17 @@ function ActionContent() {
 
           {phase === "done" && (
             <>
-              <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#111827", marginBottom: "8px" }}>
+              <h1 style={{ fontSize: "22px", fontWeight: 700, color: "var(--text)", marginBottom: "8px" }}>
                 {mode === "resetPassword" ? "Mot de passe modifié" : mode === "verifyEmail" ? "Email vérifié" : "Action confirmée"}
               </h1>
-              <p style={{ fontSize: "14px", color: "#6b7280", marginBottom: "28px", lineHeight: 1.6 }}>
+              <p style={{ fontSize: "14px", color: "var(--text-2)", marginBottom: "28px", lineHeight: 1.6 }}>
                 {mode === "resetPassword"
                   ? "Tu peux maintenant te connecter avec ton nouveau mot de passe."
                   : "C'est validé. Tu peux retourner sur l'application."}
               </p>
               <button
                 onClick={() => router.push("/")}
-                style={{ width: "100%", padding: "13px", fontSize: "15px", fontWeight: 600, color: "white", background: "#111827", border: "none", borderRadius: "10px", cursor: "pointer", fontFamily: "inherit" }}>
+                style={{ width: "100%", padding: "13px", fontSize: "15px", fontWeight: 600, color: "var(--bg)", background: "var(--text)", border: "none", borderRadius: "10px", cursor: "pointer", fontFamily: "inherit" }}>
                 Aller à la connexion
               </button>
             </>
@@ -180,23 +180,23 @@ function ActionContent() {
 
           {phase === "error" && (
             <>
-              <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#111827", marginBottom: "8px" }}>
+              <h1 style={{ fontSize: "22px", fontWeight: 700, color: "var(--text)", marginBottom: "8px" }}>
                 Lien invalide
               </h1>
-              <p style={{ fontSize: "14px", color: "#6b7280", marginBottom: "20px", lineHeight: 1.6 }}>
+              <p style={{ fontSize: "14px", color: "var(--text-2)", marginBottom: "20px", lineHeight: 1.6 }}>
                 {errorMsg ?? "Ce lien n'est plus utilisable."}
               </p>
               <button
                 onClick={() => router.push("/")}
-                style={{ width: "100%", padding: "13px", fontSize: "15px", fontWeight: 600, color: "white", background: "#111827", border: "none", borderRadius: "10px", cursor: "pointer", fontFamily: "inherit" }}>
+                style={{ width: "100%", padding: "13px", fontSize: "15px", fontWeight: 600, color: "var(--bg)", background: "var(--text)", border: "none", borderRadius: "10px", cursor: "pointer", fontFamily: "inherit" }}>
                 Retour à la connexion
               </button>
             </>
           )}
         </div>
 
-        <div style={{ background: "#fafafa", borderTop: "1px solid #f3f4f6", padding: "16px 36px", textAlign: "center" }}>
-          <p style={{ fontSize: "11px", color: "#9ca3af", margin: 0 }}>
+        <div style={{ background: "#fafafa", borderTop: "1px solid var(--bg-hover)", padding: "16px 36px", textAlign: "center" }}>
+          <p style={{ fontSize: "11px", color: "var(--text-3)", margin: 0 }}>
             Henri · henri.tagot.fr
           </p>
         </div>
@@ -208,8 +208,8 @@ function ActionContent() {
 export default function AuthActionPage() {
   return (
     <Suspense fallback={
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f9fafb" }}>
-        <p style={{ color: "#6b7280" }}>Chargement…</p>
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-subtle)" }}>
+        <p style={{ color: "var(--text-2)" }}>Chargement…</p>
       </div>
     }>
       <ActionContent />

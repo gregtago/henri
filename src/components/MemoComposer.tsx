@@ -173,7 +173,7 @@ export default function MemoComposer({
             <button
               onClick={() => setStarred((current) => !current)}
               className="shrink-0 border-none bg-transparent cursor-pointer p-0 leading-none transition-transform hover:scale-110"
-              style={{ color: starred ? "#f59e0b" : "#d1d5db" }}
+              style={{ color: starred ? "var(--warn-accent)" : "var(--border-strong)" }}
               title={starred ? "Retirer l'étoile" : "Marquer important"}
               aria-pressed={starred}
             >

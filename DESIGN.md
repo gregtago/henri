@@ -205,6 +205,20 @@ Tous les tokens sont des CSS variables définies dans `app/globals.css`, exposé
 
 Le ton volontairement légèrement chaud (gris-beige plutôt que gris pur, beige `#f7f7f5` plutôt que `#f5f5f5`) renforce l'aspect « bureau » et fatigue moins l'œil sur de longues sessions.
 
+### La nuit
+
+Un notaire ouvre Henri le soir, et un écran blanc à 23 h se paie en fatigue. Le thème se choisit dans **Préférences → Apparence** — *Clair*, *Sombre*, ou *Système*, ce dernier suivant l'appareil, y compris quand il bascule tout seul au coucher du soleil.
+
+Techniquement : un attribut `data-theme` sur `<html>`, une seconde table de variables dans `globals.css`, et rien d'autre à changer — **tout passe par les tokens**. Un petit script inline dans `app/layout.tsx` pose l'attribut avant le premier pixel : sans lui, l'application ouverte la nuit commencerait par un éclair blanc, ce qui est exactement ce qu'on cherchait à éviter.
+
+Trois principes ont guidé la table sombre :
+
+- **ce n'est pas un négatif.** Le fond est un gris très sombre, légèrement chaud (`#1a1a19`) : un noir pur fait vibrer le texte clair, et l'aspect « bureau » du thème clair se perdrait ;
+- **les couleurs sémantiques sont reprises une à une, pas inversées.** L'ambre de l'échéance s'éclaircit (`#e9b661`) au lieu de s'assombrir ; sans quoi un texte ambre foncé sur fond ambre sombre deviendrait illisible ;
+- **une paire encre/papier bascule ensemble.** Un bouton « fond `--text`, texte `--bg` » reste lisible dans les deux thèmes sans une ligne de code de plus. C'est pourquoi les couleurs ne s'écrivent jamais en dur dans un composant : elles s'écrivaient ainsi partout, et c'est ce qui rendait la nuit impossible.
+
+Le logo, lettrage noir sur fond transparent, est renversé par un filtre CSS plutôt que dupliqué en second fichier — deux fichiers finiraient par diverger.
+
 ### Couleurs sémantiques — statuts de tâche
 
 Le filet vertical à gauche des lignes Ma journée porte cette info ; les badges existent pour les contextes où le filet n'est pas disponible.
@@ -319,7 +333,7 @@ La vue principale est un **Miller column browser** : trois colonnes glissantes (
 
 - Chaque colonne fait `var(--col-w)` (280 px par défaut), shrink interdit, scroll vertical interne.
 - Filet de 1 px `--border` entre chaque colonne.
-- Header de colonne de 34 px contenant le titre et un compteur d'éléments.
+- Header de colonne de 34 px : le titre à gauche, son compteur d'éléments juste après, les commandes à droite. Ces commandes parlent une seule langue — des **pastilles** de 11 px (bordure, coin arrondi, pleine encre quand elles sont actives), jamais un contrôle natif : le menu déroulant du tri des dossiers imposait sa police, sa taille et son chevron, et jurait avec les pastilles « Sélection » ou « Dossier » des colonnes voisines. Le tri tient donc dans une pastille unique qui dit le critère courant et son sens (« Nom ↑ »), et ouvre un menu où l'on choisit l'un des quatre critères, puis le sens.
 - La colonne **active** (focus clavier) a ses lignes en bleu vif (`#dbeafe` fond, `#2f6eff` filet gauche 3 px, texte 600).
 - Les colonnes **parentes** (qui portent la sélection menant à la colonne active) ont leurs lignes en gris discret (`--bg-subtle`, `--border-strong` filet, opacity 0.75). Le contraste hiérarchique est clé pour comprendre la navigation.
 
@@ -486,6 +500,7 @@ Un mémo coché sort de ce classement : il quitte la liste et rejoint le lien «
 - **Ne pas ajouter d'icônes SVG décoratives**. Les glyphes Unicode (`☀`, `⇄`, `✕`, `⭐`, `🔁`) suffisent et restent cohérents.
 - **Ne pas afficher le statut « Créé »** en badge ou en texte explicite dans les listes. C'est le défaut, ça n'apporte rien.
 - **Ne pas mettre de filet coloré sur les mémos**. Le filet est réservé aux items de dossier qui portent un statut métier.
+- **Ne jamais écrire une couleur en dur** — ni `#9ca3af` dans un `style`, ni `text-red-500` dans un `className`. Une couleur écrite en dur ne connaît pas la nuit : elle reste claire quand tout s'assombrit. Les tokens couvrent les neutres, les statuts et les trois familles sémantiques (`--warn-*`, `--ok-*`, `--danger-*`), exposées à Tailwind sous `warn`, `ok`, `danger`. Deux exceptions, et elles sont volontaires : les voiles de modale (`bg-black/20`), qui sont sombres dans les deux thèmes, et la coche blanche posée sur une pastille de couleur pleine.
 - **Ne pas inventer de nouvelle couleur**. Si un cas nécessite une nuance qui n'existe pas dans les tokens, c'est probablement le moment de réfléchir au token et de l'ajouter à `globals.css` proprement.
 - **Ne pas multiplier les tailles de police**. Si un texte semble nécessiter 14 px, demander si 13 ou 15 fait l'affaire.
 - **Ne pas mettre de confirmation `confirm()` JS**. Toujours préférer l'undo via toast.

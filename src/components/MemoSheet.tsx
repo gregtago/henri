@@ -61,14 +61,14 @@ type Props = {
 };
 
 const LABEL: React.CSSProperties = {
-  fontSize: "11px", fontWeight: 700, color: "#9ca3af",
+  fontSize: "11px", fontWeight: 700, color: "var(--text-3)",
   textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px",
 };
 
 const FIELD: React.CSSProperties = {
-  width: "100%", fontSize: "15px", border: "1px solid #e5e7eb", borderRadius: "12px",
+  width: "100%", fontSize: "15px", border: "1px solid var(--border)", borderRadius: "12px",
   padding: "12px 16px", outline: "none", fontFamily: "inherit",
-  background: "#f9fafb", color: "#111827", boxSizing: "border-box",
+  background: "var(--bg-subtle)", color: "var(--text)", boxSizing: "border-box",
 };
 
 /** Clé de date locale (JJ) d'une valeur ISO — sans passer par UTC. */
@@ -157,20 +157,20 @@ export default function MemoSheet({
   const isCustomDue = !!dueDayKey && !chips.some((chip) => chip.key === dueDayKey);
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 50, background: "white" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 50, background: "var(--bg)" }}>
       <div style={{
-        width: "100%", height: "100%", background: "white",
+        width: "100%", height: "100%", background: "var(--bg)",
         padding: "calc(env(safe-area-inset-top) + 16px) 20px calc(env(safe-area-inset-bottom) + 24px)",
         display: "flex", flexDirection: "column", gap: "16px", overflowY: "auto", boxSizing: "border-box",
       }}>
 
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <p style={{ fontSize: "17px", fontWeight: 700, color: "#111827" }}>
+          <p style={{ fontSize: "17px", fontWeight: 700, color: "var(--text)" }}>
             Nouveau mémo
           </p>
           <button onClick={onClose} aria-label="Fermer"
-            style={{ width: "32px", height: "32px", border: "1px solid #e5e7eb", borderRadius: "8px", background: "#f9fafb", cursor: "pointer", color: "#6b7280", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            style={{ width: "32px", height: "32px", border: "1px solid var(--border)", borderRadius: "8px", background: "var(--bg-subtle)", cursor: "pointer", color: "var(--text-2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <Icon name="close" size={16} />
           </button>
         </div>
@@ -183,7 +183,7 @@ export default function MemoSheet({
               onClick={() => patch({ starred: !draft.starred })}
               aria-pressed={draft.starred}
               title={draft.starred ? "Retirer l'étoile" : "Marquer important"}
-              style={{ flexShrink: 0, border: "none", background: "transparent", cursor: "pointer", padding: 0, lineHeight: 0, color: draft.starred ? "#f59e0b" : "#d1d5db" }}>
+              style={{ flexShrink: 0, border: "none", background: "transparent", cursor: "pointer", padding: 0, lineHeight: 0, color: draft.starred ? "var(--warn-accent)" : "var(--border-strong)" }}>
               <Icon name="star" size={26} filled={draft.starred} strokeWidth={1.75} />
             </button>
             <input
@@ -205,7 +205,7 @@ export default function MemoSheet({
               onPick={(date) => patchDue(date.toISOString())}
               onClear={() => patchDue(null)}
             />
-            <label style={{ position: "relative", padding: "8px 14px", borderRadius: "20px", border: isCustomDue ? "2px solid #111827" : "1px solid #e5e7eb", background: isCustomDue ? "#111827" : "white", color: isCustomDue ? "white" : "#374151", fontSize: "13px", fontWeight: isCustomDue ? 600 : 400, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: "5px" }}>
+            <label style={{ position: "relative", padding: "8px 14px", borderRadius: "20px", border: isCustomDue ? "2px solid var(--text)" : "1px solid var(--border)", background: isCustomDue ? "var(--text)" : "var(--bg)", color: isCustomDue ? "var(--bg)" : "var(--text)", fontSize: "13px", fontWeight: isCustomDue ? 600 : 400, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: "5px" }}>
               <Icon name="calendar" size={14} />
               {isCustomDue && draft.dueDate
                 ? new Date(draft.dueDate).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })
@@ -216,7 +216,7 @@ export default function MemoSheet({
             </label>
             {draft.dueDate && (
               <button onClick={() => patchDue(null)} aria-label="Retirer l'échéance"
-                style={{ padding: "8px 12px", borderRadius: "20px", border: "1px solid #fee2e2", background: "white", color: "#ef4444", fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>
+                style={{ padding: "8px 12px", borderRadius: "20px", border: "1px solid var(--danger-bg)", background: "var(--bg)", color: "var(--danger-soft)", fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>
                 <Icon name="close" size={13} />
               </button>
             )}
@@ -243,13 +243,13 @@ export default function MemoSheet({
             Dossier <span style={{ fontWeight: 400, textTransform: "none", fontSize: "11px" }}>(optionnel)</span>
           </p>
           {selectedCase ? (
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "12px 16px", border: "1px solid #e5e7eb", borderRadius: "12px", background: "#f9fafb" }}>
-              <Icon name="folder" size={15} style={{ color: "#6b7280", flexShrink: 0 }} />
-              <span style={{ flex: 1, minWidth: 0, fontSize: "14px", color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "12px 16px", border: "1px solid var(--border)", borderRadius: "12px", background: "var(--bg-subtle)" }}>
+              <Icon name="folder" size={15} style={{ color: "var(--text-2)", flexShrink: 0 }} />
+              <span style={{ flex: 1, minWidth: 0, fontSize: "14px", color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {selectedCase.title}
               </span>
               <button onClick={() => { patch({ caseId: null, parentItemId: null }); setCaseSearch(""); }}
-                style={{ flexShrink: 0, fontSize: "12px", color: "#ef4444", background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit" }}>
+                style={{ flexShrink: 0, fontSize: "12px", color: "var(--danger-soft)", background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit" }}>
                 Détacher
               </button>
             </div>
@@ -262,19 +262,19 @@ export default function MemoSheet({
                 style={FIELD}
               />
               {caseSearch.trim() && (
-                <div style={{ border: "1px solid #e5e7eb", borderRadius: "12px", overflow: "hidden", maxHeight: "180px", overflowY: "auto", marginTop: "8px" }}>
+                <div style={{ border: "1px solid var(--border)", borderRadius: "12px", overflow: "hidden", maxHeight: "180px", overflowY: "auto", marginTop: "8px" }}>
                   {caseMatches.map((entry) => (
                     <button key={entry.id} onClick={() => { patch({ caseId: entry.id, parentItemId: null }); setCaseSearch(""); }}
-                      style={{ width: "100%", padding: "12px 16px", textAlign: "left", background: "white", border: "none", borderBottom: "1px solid #f3f4f6", fontSize: "14px", color: "#111827", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: "8px" }}>
+                      style={{ width: "100%", padding: "12px 16px", textAlign: "left", background: "var(--bg)", border: "none", borderBottom: "1px solid var(--bg-hover)", fontSize: "14px", color: "var(--text)", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: "8px" }}>
                       <Icon name="folder" size={14} /> {entry.title}
                     </button>
                   ))}
                   {caseMatches.length === 0 && (
-                    <p style={{ padding: "12px 16px", fontSize: "13px", color: "#9ca3af" }}>Aucun dossier trouvé</p>
+                    <p style={{ padding: "12px 16px", fontSize: "13px", color: "var(--text-3)" }}>Aucun dossier trouvé</p>
                   )}
                 </div>
               )}
-              <p style={{ fontSize: "11.5px", color: "#9ca3af", marginTop: "6px", lineHeight: 1.4 }}>
+              <p style={{ fontSize: "11.5px", color: "var(--text-3)", marginTop: "6px", lineHeight: 1.4 }}>
                 Sans dossier, un mémo s'efface 7 jours après avoir été réalisé.
               </p>
             </>
@@ -300,7 +300,7 @@ export default function MemoSheet({
               ))}
             </select>
             {parentItem && (
-              <p style={{ fontSize: "11.5px", color: "#9ca3af", marginTop: "6px", lineHeight: 1.4 }}>
+              <p style={{ fontSize: "11.5px", color: "var(--text-3)", marginTop: "6px", lineHeight: 1.4 }}>
                 Ce mémo compte dans l'avancement de « {parentItem.title} ».
               </p>
             )}
@@ -310,7 +310,7 @@ export default function MemoSheet({
         {/* Le reste est replié : neuf mémos sur dix n'en ont pas besoin. */}
         {!showMore ? (
           <button onClick={() => setShowMore(true)}
-            style={{ alignSelf: "flex-start", fontSize: "13px", color: "#6b7280", background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit" }}>
+            style={{ alignSelf: "flex-start", fontSize: "13px", color: "var(--text-2)", background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit" }}>
             ▸ Répétition et observations
           </button>
         ) : (
@@ -337,7 +337,7 @@ export default function MemoSheet({
           <button
             disabled={!canSubmit}
             onClick={() => void submit()}
-            style={{ width: "100%", padding: "16px", borderRadius: "14px", border: "none", background: canSubmit ? "#111827" : "#e5e7eb", color: canSubmit ? "white" : "#9ca3af", fontSize: "16px", fontWeight: 700, cursor: canSubmit ? "pointer" : "not-allowed", fontFamily: "inherit" }}>
+            style={{ width: "100%", padding: "16px", borderRadius: "14px", border: "none", background: canSubmit ? "var(--text)" : "var(--border)", color: canSubmit ? "var(--bg)" : "var(--text-3)", fontSize: "16px", fontWeight: 700, cursor: canSubmit ? "pointer" : "not-allowed", fontFamily: "inherit" }}>
             Créer le mémo
           </button>
         </div>

@@ -112,30 +112,30 @@ export default function GuidedTour({ steps, onClose }: { steps: TourStep[]; onCl
         <div
           style={{
             position: "absolute", top: box.top, left: box.left, width: box.width, height: box.height,
-            borderRadius: 8, boxShadow: "0 0 0 9999px rgba(0,0,0,0.55)", outline: "2px solid #2f6eff", outlineOffset: 2,
+            borderRadius: 8, boxShadow: "0 0 0 9999px rgba(0,0,0,0.55)", outline: "2px solid var(--accent)", outlineOffset: 2,
             pointerEvents: "none", transition: "top 0.18s ease, left 0.18s ease, width 0.18s ease, height 0.18s ease",
           }}
         />
       )}
 
       {/* Bulle */}
-      <div ref={bubbleRef} style={{ ...bubbleStyle, background: "white", borderRadius: 14, boxShadow: "0 12px 40px rgba(0,0,0,0.3)", padding: "18px 20px" }} onClick={(e) => e.stopPropagation()}>
-        <p style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", letterSpacing: "0.06em", marginBottom: 6 }}>
+      <div ref={bubbleRef} style={{ ...bubbleStyle, background: "var(--bg)", borderRadius: 14, boxShadow: "0 12px 40px rgba(0,0,0,0.3)", padding: "18px 20px" }} onClick={(e) => e.stopPropagation()}>
+        <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: "0.06em", marginBottom: 6 }}>
           ÉTAPE {idx + 1} / {steps.length}
         </p>
-        <p style={{ fontSize: 16, fontWeight: 700, color: "#111827", marginBottom: 6, lineHeight: 1.3 }}>{step.title}</p>
-        <p style={{ fontSize: 13.5, lineHeight: 1.6, color: "#374151" }}>{step.body}</p>
+        <p style={{ fontSize: 16, fontWeight: 700, color: "var(--text)", marginBottom: 6, lineHeight: 1.3 }}>{step.title}</p>
+        <p style={{ fontSize: 13.5, lineHeight: 1.6, color: "var(--text)" }}>{step.body}</p>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 16, gap: 8 }}>
-          <button onClick={onClose} style={{ fontSize: 13, color: "#9ca3af", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", padding: 4 }}>
+          <button onClick={onClose} style={{ fontSize: 13, color: "var(--text-3)", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", padding: 4 }}>
             Passer
           </button>
           <div style={{ display: "flex", gap: 8 }}>
             {idx > 0 && (
-              <button onClick={prev} style={{ fontSize: 13, color: "#374151", background: "white", border: "1px solid #e5e7eb", borderRadius: 8, padding: "8px 14px", cursor: "pointer", fontFamily: "inherit", fontWeight: 600 }}>
+              <button onClick={prev} style={{ fontSize: 13, color: "var(--text)", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 14px", cursor: "pointer", fontFamily: "inherit", fontWeight: 600 }}>
                 Précédent
               </button>
             )}
-            <button onClick={next} style={{ fontSize: 13, color: "white", background: "#111827", border: "1px solid #111827", borderRadius: 8, padding: "8px 16px", cursor: "pointer", fontFamily: "inherit", fontWeight: 600 }}>
+            <button onClick={next} style={{ fontSize: 13, color: "var(--bg)", background: "var(--text)", border: "1px solid var(--text)", borderRadius: 8, padding: "8px 16px", cursor: "pointer", fontFamily: "inherit", fontWeight: 600 }}>
               {isLast ? "Terminer" : "Suivant"}
             </button>
           </div>

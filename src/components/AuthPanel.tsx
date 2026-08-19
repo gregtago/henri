@@ -202,7 +202,7 @@ export default function AuthPanel() {
           </>
         )}
 
-        {error && <p className="text-[12px] text-red-500">{error}</p>}
+        {error && <p className="text-[12px] text-danger-soft">{error}</p>}
       </div>
     </div>
   );

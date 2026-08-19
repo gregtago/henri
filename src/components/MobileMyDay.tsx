@@ -46,16 +46,16 @@ import DueChips from "./DueChips";
 
 const STATUSES: Status[] = ["Créé", "Demandé", "Reçu", "Traité"];
 const STATUS_COLORS: Record<string, string> = {
-  "Créé":   "#e5e7eb",
-  "Demandé": "#fde68a",
-  "Reçu":    "#a5f3fc",
-  "Traité":  "#bbf7d0",
+  "Créé":   "var(--border)",
+  "Demandé": "var(--warn-border-soft)",
+  "Reçu":    "var(--s2-bg)",
+  "Traité":  "var(--ok-border)",
 };
 const STATUS_TEXT: Record<string, string> = {
-  "Créé":   "#374151",
-  "Demandé": "#92400e",
-  "Reçu":    "#155e75",
-  "Traité":  "#14532d",
+  "Créé":   "var(--text)",
+  "Demandé": "var(--warn-fg)",
+  "Reçu":    "var(--s2-fg)",
+  "Traité":  "var(--ok-fg-strong)",
 };
 
 type SelectionEntry = {
@@ -618,15 +618,15 @@ export default function MobileMyDay({ user }: { user: User }) {
 
   // ── RENDU ──
   return (
-    <div style={{ height: "100dvh", display: "flex", flexDirection: "column", background: "#f9fafb", overflow: "hidden", position: "relative" }}>
+    <div style={{ height: "100dvh", display: "flex", flexDirection: "column", background: "var(--bg-subtle)", overflow: "hidden", position: "relative" }}>
 
       {/* Header */}
-      <header style={{ background: "white", borderBottom: "1px solid #e5e7eb", height: "48px", padding: "0 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, position: "relative" }}>
+      <header style={{ background: "var(--bg)", borderBottom: "1px solid var(--border)", height: "48px", padding: "0 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, position: "relative" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           {/* Accès Mes dossiers — haut à gauche */}
           <Link
             href="/"
-            style={{ width: "32px", height: "32px", borderRadius: "50%", border: "1px solid #e5e7eb", background: "#f9fafb", color: "#6b7280", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, textDecoration: "none" }}
+            style={{ width: "32px", height: "32px", borderRadius: "50%", border: "1px solid var(--border)", background: "var(--bg-subtle)", color: "var(--text-2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, textDecoration: "none" }}
             title="Mes dossiers"
             aria-label="Mes dossiers"
           >
@@ -635,7 +635,7 @@ export default function MobileMyDay({ user }: { user: User }) {
           <img src="/logo-henri-new.png" alt="Henri" style={{ height: "24px" }} />
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <span style={{ fontSize: "12px", color: "#6b7280" }}>
+          <span style={{ fontSize: "12px", color: "var(--text-2)" }}>
             {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
           </span>
           <AccountMenu
@@ -649,16 +649,16 @@ export default function MobileMyDay({ user }: { user: User }) {
       {/* Liste */}
       <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px 100px" }}>
         {todayEntries.length === 0 ? (
-          <div style={{ textAlign: "center", marginTop: "80px", color: "#9ca3af" }}>
+          <div style={{ textAlign: "center", marginTop: "80px", color: "var(--text-3)" }}>
               <p style={{ fontSize: "48px", marginBottom: "16px" }}>☀️</p>
-              <p style={{ fontSize: "18px", fontWeight: 600, color: "#374151" }}>C'est une belle journée</p>
-              <p style={{ fontSize: "14px", marginTop: "8px", color: "#9ca3af" }}>Ajoutez des tâches via les suggestions 🔭</p>
+              <p style={{ fontSize: "18px", fontWeight: 600, color: "var(--text)" }}>C'est une belle journée</p>
+              <p style={{ fontSize: "14px", marginTop: "8px", color: "var(--text-3)" }}>Ajoutez des tâches via les suggestions 🔭</p>
             </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
               <button onClick={toggleGroupMyDay}
-                style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "12px", fontFamily: "inherit", padding: "5px 11px", borderRadius: "16px", border: "1px solid #e5e7eb", background: groupMyDay ? "#111827" : "white", color: groupMyDay ? "white" : "#374151", cursor: "pointer" }}>
+                style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "12px", fontFamily: "inherit", padding: "5px 11px", borderRadius: "16px", border: "1px solid var(--border)", background: groupMyDay ? "var(--text)" : "var(--bg)", color: groupMyDay ? "var(--bg)" : "var(--text)", cursor: "pointer" }}>
                 <Icon name="folder" size={12} /> Par dossier
               </button>
             </div>
@@ -692,11 +692,11 @@ export default function MobileMyDay({ user }: { user: User }) {
 
               // Filet (box-shadow inset, pas border, pour ne pas décaler le contenu)
               const statusColors: Record<string, string> = {
-                "Créé": "#d1d5db", "Demandé": "#fbbf24", "Reçu": "#60a5fa", "Traité": "#34d399",
+                "Créé": "var(--border-strong)", "Demandé": "var(--warn-accent)", "Reçu": "var(--accent)", "Traité": "var(--ok-fg)",
               };
               const filet = entry.floating
                 ? "none"
-                : `inset 3px 0 0 ${statusColors[status ?? "Créé"] ?? "#d1d5db"}`;
+                : `inset 3px 0 0 ${statusColors[status ?? "Créé"] ?? "var(--border-strong)"}`;
 
               // Coche verte pendant l'animation de complétion, juste avant que
               // la ligne quitte la liste.
@@ -705,15 +705,15 @@ export default function MobileMyDay({ user }: { user: User }) {
               return (
                 <Fragment key={entry.selectionId}>
                 {header && (
-                  <p style={{ fontSize: "11px", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", margin: "8px 2px 0", display: "flex", alignItems: "center", gap: "6px" }}>
+                  <p style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: "0.06em", margin: "8px 2px 0", display: "flex", alignItems: "center", gap: "6px" }}>
                     <Icon name="folder" size={11} /> {header}
                   </p>
                 )}
                 <div
                   onClick={() => setDetailEntry(entry)}
                   style={{
-                    background: starred ? "rgba(251,191,36,0.10)" : "white",
-                    border: "1px solid #e5e7eb",
+                    background: starred ? "rgba(251,191,36,0.10)" : "var(--bg)",
+                    border: "1px solid var(--border)",
                     borderRadius: "12px",
                     padding: "12px 14px",
                     display: "flex",
@@ -741,8 +741,8 @@ export default function MobileMyDay({ user }: { user: User }) {
                     aria-label={entry.floating ? "Marquer réalisé" : "Faire évoluer le statut"}
                     style={{
                       width: "26px", height: "26px", borderRadius: "7px", flexShrink: 0, marginTop: "1px",
-                      border: checking ? "none" : "2px solid #9ca3af",
-                      background: checking ? "#16a34a" : "white",
+                      border: checking ? "none" : "2px solid var(--text-3)",
+                      background: checking ? "var(--ok-fg)" : "var(--bg)",
                       cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
                       transition: "all 0.2s ease",
                     }}>
@@ -751,11 +751,11 @@ export default function MobileMyDay({ user }: { user: User }) {
 
                   <div style={{ flex: 1, minWidth: 0, opacity: checking ? 0.45 : 1, transition: "opacity 0.3s" }}>
                     <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
-                      <p style={{ fontSize: "15px", fontWeight: starred ? 600 : 500, color: "#111827", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.35 }}>
+                      <p style={{ fontSize: "15px", fontWeight: starred ? 600 : 500, color: "var(--text)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.35 }}>
                         {title}
                       </p>
                       {relativeLabel && (
-                        <span style={{ fontSize: "12px", color: isOverdue ? "#ef4444" : "#9ca3af", fontWeight: isOverdue ? 600 : 400, flexShrink: 0, display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                        <span style={{ fontSize: "12px", color: isOverdue ? "var(--danger-soft)" : "var(--text-3)", fontWeight: isOverdue ? 600 : 400, flexShrink: 0, display: "inline-flex", alignItems: "center", gap: "3px" }}>
                           {isOverdue && <Icon name="warning" size={11} />}
                           {relativeLabel}
                         </span>
@@ -763,8 +763,8 @@ export default function MobileMyDay({ user }: { user: User }) {
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "3px", minHeight: "16px" }}>
                       {folderLabel ? (
-                        <span style={{ fontSize: "11.5px", color: "#6b7280", flex: 1, minWidth: 0, display: "inline-flex", alignItems: "center", gap: "4px", overflow: "hidden" }}>
-                          <Icon name="folder" size={11} style={{ flexShrink: 0, color: "#9ca3af" }} />
+                        <span style={{ fontSize: "11.5px", color: "var(--text-2)", flex: 1, minWidth: 0, display: "inline-flex", alignItems: "center", gap: "4px", overflow: "hidden" }}>
+                          <Icon name="folder" size={11} style={{ flexShrink: 0, color: "var(--text-3)" }} />
                           <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {folderLabel}
                           </span>
@@ -773,7 +773,7 @@ export default function MobileMyDay({ user }: { user: User }) {
                         <span style={{ flex: 1 }} />
                       )}
                       {recurrence && (
-                        <span style={{ color: "#9ca3af", flexShrink: 0, display: "inline-flex", alignItems: "center" }} title="Récurrent">
+                        <span style={{ color: "var(--text-3)", flexShrink: 0, display: "inline-flex", alignItems: "center" }} title="Récurrent">
                           <Icon name="recurrence" size={11} />
                         </span>
                       )}
@@ -789,7 +789,7 @@ export default function MobileMyDay({ user }: { user: User }) {
                       title="Retirer de Ma journée"
                       style={{
                         width: "26px", height: "26px", borderRadius: "7px", border: "none",
-                        background: "transparent", color: "#d1d5db", cursor: "pointer",
+                        background: "transparent", color: "var(--border-strong)", cursor: "pointer",
                         display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: "1px",
                       }}>
                       <Icon name="close" size={16} strokeWidth={1.75} />
@@ -806,7 +806,7 @@ export default function MobileMyDay({ user }: { user: User }) {
         {doneMemos.length > 0 && (
           <div style={{ display: "flex", justifyContent: "center", marginTop: "18px" }}>
             <button onClick={() => setDoneOpen(true)}
-              style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12.5px", fontFamily: "inherit", background: "none", border: "none", color: "#9ca3af", cursor: "pointer", padding: "6px 10px" }}>
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12.5px", fontFamily: "inherit", background: "none", border: "none", color: "var(--text-3)", cursor: "pointer", padding: "6px 10px" }}>
               <Icon name="check" size={13} strokeWidth={2} />
               {doneMemos.length} mémo{doneMemos.length > 1 ? "s" : ""} réalisé{doneMemos.length > 1 ? "s" : ""}
             </button>
@@ -818,27 +818,27 @@ export default function MobileMyDay({ user }: { user: User }) {
         * un dossier, « @ » une échéance, « > » une tâche du dossier, « ! »
         * l'étoile. On touche une proposition (ou l'espace, s'il n'en reste
         * qu'une), la barre repart à vide, puis on écrit le mémo. */}
-      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "white", borderTop: "1px solid #e5e7eb", padding: "10px 12px 24px", display: "flex", flexDirection: "column", gap: "8px" }}>
+      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "var(--bg)", borderTop: "1px solid var(--border)", padding: "10px 12px 24px", display: "flex", flexDirection: "column", gap: "8px" }}>
 
         {/* Les propositions du jeton ouvert — au-dessus de la barre, qui ne bouge pas. */}
         {memoToken && !isInstantToken(memoToken) && (
           <>
             <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.15)", zIndex: 40 }}
               onClick={dropMemoToken} />
-            <div style={{ position: "absolute", left: "12px", right: "12px", bottom: "100%", marginBottom: "8px", background: "white", border: "1px solid #e5e7eb", borderRadius: "14px", overflow: "hidden", maxHeight: "50dvh", overflowY: "auto", zIndex: 45, boxShadow: "0 -8px 24px rgba(0,0,0,0.12)" }}>
-              <p style={{ padding: "10px 16px", fontSize: "11px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", borderBottom: "1px solid #f3f4f6" }}>
+            <div style={{ position: "absolute", left: "12px", right: "12px", bottom: "100%", marginBottom: "8px", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "14px", overflow: "hidden", maxHeight: "50dvh", overflowY: "auto", zIndex: 45, boxShadow: "0 -8px 24px rgba(0,0,0,0.12)" }}>
+              <p style={{ padding: "10px 16px", fontSize: "11px", fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", borderBottom: "1px solid var(--bg-hover)" }}>
                 {memoToken.query ? `${memoToken.hint} « ${memoToken.query} »` : `${memoToken.hint} du mémo`}
               </p>
               {memoRows.length > 0 ? (
                 memoRows.map(row => (
                   <button key={row.key} onClick={row.take}
-                    style={{ width: "100%", padding: "14px 16px", textAlign: "left", background: "white", border: "none", borderBottom: "1px solid #f3f4f6", fontSize: "14.5px", color: "#111827", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: "8px" }}>
-                    <Icon name={memoToken.kind === "due" ? "calendar" : memoToken.kind === "parent" ? "arrow-right" : "folder"} size={15} style={{ color: "#6b7280", flexShrink: 0 }} />
+                    style={{ width: "100%", padding: "14px 16px", textAlign: "left", background: "var(--bg)", border: "none", borderBottom: "1px solid var(--bg-hover)", fontSize: "14.5px", color: "var(--text)", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: "8px" }}>
+                    <Icon name={memoToken.kind === "due" ? "calendar" : memoToken.kind === "parent" ? "arrow-right" : "folder"} size={15} style={{ color: "var(--text-2)", flexShrink: 0 }} />
                     <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.label}</span>
-                    {row.meta && <span style={{ flexShrink: 0, fontSize: "12.5px", color: "#9ca3af" }}>{row.meta}</span>}
+                    {row.meta && <span style={{ flexShrink: 0, fontSize: "12.5px", color: "var(--text-3)" }}>{row.meta}</span>}
                     {/* Seule en lice : l'espace la retient, autant le dire. */}
                     {memoSoleRow?.key === row.key && (
-                      <span style={{ flexShrink: 0, fontSize: "11px", color: "#9ca3af", border: "1px solid #e5e7eb", borderRadius: "6px", padding: "2px 6px" }}>
+                      <span style={{ flexShrink: 0, fontSize: "11px", color: "var(--text-3)", border: "1px solid var(--border)", borderRadius: "6px", padding: "2px 6px" }}>
                         Espace
                       </span>
                     )}
@@ -846,7 +846,7 @@ export default function MobileMyDay({ user }: { user: User }) {
                 ))
               ) : (
                 <button onClick={dropMemoToken}
-                  style={{ width: "100%", padding: "14px 16px", textAlign: "left", background: "white", border: "none", fontSize: "14px", color: "#6b7280", cursor: "pointer", fontFamily: "inherit" }}>
+                  style={{ width: "100%", padding: "14px 16px", textAlign: "left", background: "var(--bg)", border: "none", fontSize: "14px", color: "var(--text-2)", cursor: "pointer", fontFamily: "inherit" }}>
                   {memoEmptyLabel}
                 </button>
               )}
@@ -862,45 +862,45 @@ export default function MobileMyDay({ user }: { user: User }) {
         {(memoCase || memoParent || memoDue || memoStarred) && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", maxWidth: "100%" }}>
             {memoCase && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", maxWidth: "100%", padding: "5px 10px", borderRadius: "20px", background: "#f3f4f6", border: "1px solid #e5e7eb" }}>
-                <Icon name="folder" size={13} style={{ color: "#6b7280", flexShrink: 0 }} />
-                <span style={{ fontSize: "12.5px", color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{memoCase.title}</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", maxWidth: "100%", padding: "5px 10px", borderRadius: "20px", background: "var(--bg-hover)", border: "1px solid var(--border)" }}>
+                <Icon name="folder" size={13} style={{ color: "var(--text-2)", flexShrink: 0 }} />
+                <span style={{ fontSize: "12.5px", color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{memoCase.title}</span>
                 <button onClick={() => { setMemoCaseId(null); setMemoParentId(null); memoInputRef.current?.focus(); }}
                   aria-label="Détacher le dossier"
-                  style={{ flexShrink: 0, border: "none", background: "transparent", color: "#9ca3af", cursor: "pointer", padding: 0, lineHeight: 0, display: "flex" }}>
+                  style={{ flexShrink: 0, border: "none", background: "transparent", color: "var(--text-3)", cursor: "pointer", padding: 0, lineHeight: 0, display: "flex" }}>
                   <Icon name="close" size={13} />
                 </button>
               </span>
             )}
             {memoParent && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", maxWidth: "100%", padding: "5px 10px", borderRadius: "20px", background: "#f3f4f6", border: "1px solid #e5e7eb" }}>
-                <Icon name="arrow-right" size={13} style={{ color: "#6b7280", flexShrink: 0 }} />
-                <span style={{ fontSize: "12.5px", color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{memoParent.title}</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", maxWidth: "100%", padding: "5px 10px", borderRadius: "20px", background: "var(--bg-hover)", border: "1px solid var(--border)" }}>
+                <Icon name="arrow-right" size={13} style={{ color: "var(--text-2)", flexShrink: 0 }} />
+                <span style={{ fontSize: "12.5px", color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{memoParent.title}</span>
                 <button onClick={() => { setMemoParentId(null); memoInputRef.current?.focus(); }}
                   aria-label="Remonter au niveau du dossier"
-                  style={{ flexShrink: 0, border: "none", background: "transparent", color: "#9ca3af", cursor: "pointer", padding: 0, lineHeight: 0, display: "flex" }}>
+                  style={{ flexShrink: 0, border: "none", background: "transparent", color: "var(--text-3)", cursor: "pointer", padding: 0, lineHeight: 0, display: "flex" }}>
                   <Icon name="close" size={13} />
                 </button>
               </span>
             )}
             {memoDue && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "5px 10px", borderRadius: "20px", background: "#f3f4f6", border: "1px solid #e5e7eb" }}>
-                <Icon name="calendar" size={13} style={{ color: "#6b7280", flexShrink: 0 }} />
-                <span style={{ fontSize: "12.5px", color: "#374151", whiteSpace: "nowrap" }}>{formatDateFR(memoDue)}</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "5px 10px", borderRadius: "20px", background: "var(--bg-hover)", border: "1px solid var(--border)" }}>
+                <Icon name="calendar" size={13} style={{ color: "var(--text-2)", flexShrink: 0 }} />
+                <span style={{ fontSize: "12.5px", color: "var(--text)", whiteSpace: "nowrap" }}>{formatDateFR(memoDue)}</span>
                 <button onClick={() => { setMemoDue(null); memoInputRef.current?.focus(); }}
                   aria-label="Retirer l'échéance"
-                  style={{ flexShrink: 0, border: "none", background: "transparent", color: "#9ca3af", cursor: "pointer", padding: 0, lineHeight: 0, display: "flex" }}>
+                  style={{ flexShrink: 0, border: "none", background: "transparent", color: "var(--text-3)", cursor: "pointer", padding: 0, lineHeight: 0, display: "flex" }}>
                   <Icon name="close" size={13} />
                 </button>
               </span>
             )}
             {memoStarred && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "5px 10px", borderRadius: "20px", background: "#f3f4f6", border: "1px solid #e5e7eb" }}>
-                <Icon name="star" size={13} filled style={{ color: "#f59e0b", flexShrink: 0 }} />
-                <span style={{ fontSize: "12.5px", color: "#374151", whiteSpace: "nowrap" }}>Important</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "5px 10px", borderRadius: "20px", background: "var(--bg-hover)", border: "1px solid var(--border)" }}>
+                <Icon name="star" size={13} filled style={{ color: "var(--warn-accent)", flexShrink: 0 }} />
+                <span style={{ fontSize: "12.5px", color: "var(--text)", whiteSpace: "nowrap" }}>Important</span>
                 <button onClick={() => { setMemoStarred(false); memoInputRef.current?.focus(); }}
                   aria-label="Retirer l'étoile"
-                  style={{ flexShrink: 0, border: "none", background: "transparent", color: "#9ca3af", cursor: "pointer", padding: 0, lineHeight: 0, display: "flex" }}>
+                  style={{ flexShrink: 0, border: "none", background: "transparent", color: "var(--text-3)", cursor: "pointer", padding: 0, lineHeight: 0, display: "flex" }}>
                   <Icon name="close" size={13} />
                 </button>
               </span>
@@ -910,7 +910,7 @@ export default function MobileMyDay({ user }: { user: User }) {
 
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
           <button onClick={() => setSuggestionsOpen(true)}
-            style={{ width: "44px", height: "44px", borderRadius: "12px", background: "#f3f4f6", border: "1px solid #e5e7eb", fontSize: "20px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            style={{ width: "44px", height: "44px", borderRadius: "12px", background: "var(--bg-hover)", border: "1px solid var(--border)", fontSize: "20px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             🔭
           </button>
           <input
@@ -946,10 +946,10 @@ export default function MobileMyDay({ user }: { user: User }) {
                   ? "Que faut-il faire ?"
                   : "Nouveau mémo… (#dossier @date)"
             }
-            style={{ flex: 1, minWidth: 0, height: "44px", borderRadius: "12px", border: "1px solid #e5e7eb", background: "#f9fafb", fontSize: "15px", padding: "0 14px", outline: "none", fontFamily: "inherit", color: "#111827" }}
+            style={{ flex: 1, minWidth: 0, height: "44px", borderRadius: "12px", border: "1px solid var(--border)", background: "var(--bg-subtle)", fontSize: "15px", padding: "0 14px", outline: "none", fontFamily: "inherit", color: "var(--text)" }}
           />
           <button onClick={openNewMemo}
-            style={{ width: "44px", height: "44px", borderRadius: "12px", background: "#111827", color: "white", border: "none", fontSize: "22px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            style={{ width: "44px", height: "44px", borderRadius: "12px", background: "var(--text)", color: "var(--bg)", border: "none", fontSize: "22px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             +
           </button>
         </div>
@@ -977,49 +977,49 @@ export default function MobileMyDay({ user }: { user: User }) {
       {doneOpen && (
         <div style={{ position: "fixed", inset: 0, zIndex: 55, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "flex-end" }}
           onClick={() => setDoneOpen(false)}>
-          <div style={{ width: "100%", maxHeight: "80dvh", background: "white", borderRadius: "18px 18px 0 0", display: "flex", flexDirection: "column", paddingBottom: "env(safe-area-inset-bottom)" }}
+          <div style={{ width: "100%", maxHeight: "80dvh", background: "var(--bg)", borderRadius: "18px 18px 0 0", display: "flex", flexDirection: "column", paddingBottom: "env(safe-area-inset-bottom)" }}
             onClick={e => e.stopPropagation()}>
-            <div style={{ padding: "16px 20px 12px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <p style={{ fontSize: "15px", fontWeight: 600, color: "#111827" }}>Mémos réalisés</p>
+            <div style={{ padding: "16px 20px 12px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <p style={{ fontSize: "15px", fontWeight: 600, color: "var(--text)" }}>Mémos réalisés</p>
               <button onClick={() => setDoneOpen(false)} aria-label="Fermer"
-                style={{ width: "30px", height: "30px", border: "1px solid #e5e7eb", borderRadius: "8px", background: "#f9fafb", cursor: "pointer", color: "#6b7280", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                style={{ width: "30px", height: "30px", border: "1px solid var(--border)", borderRadius: "8px", background: "var(--bg-subtle)", cursor: "pointer", color: "var(--text-2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <Icon name="close" size={16} />
               </button>
             </div>
             <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
               {doneMemos.length === 0 ? (
-                <p style={{ textAlign: "center", color: "#9ca3af", fontSize: "14px", padding: "24px 0" }}>Rien de réalisé ces derniers jours.</p>
+                <p style={{ textAlign: "center", color: "var(--text-3)", fontSize: "14px", padding: "24px 0" }}>Rien de réalisé ces derniers jours.</p>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                   {doneMemos.map(memo => (
                     <div key={memo.id}
-                      style={{ display: "flex", alignItems: "flex-start", gap: "10px", padding: "12px 14px", background: "white", border: "1px solid #e5e7eb", borderRadius: "12px" }}>
+                      style={{ display: "flex", alignItems: "flex-start", gap: "10px", padding: "12px 14px", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "12px" }}>
                       <button onClick={() => uncompleteMemo(memo)}
                         aria-label="Remettre à faire"
                         title="Remettre à faire"
-                        style={{ width: "24px", height: "24px", borderRadius: "7px", border: "none", background: "#16a34a", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: "1px" }}>
+                        style={{ width: "24px", height: "24px", borderRadius: "7px", border: "none", background: "var(--ok-fg)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: "1px" }}>
                         <Icon name="check" size={15} strokeWidth={2.5} style={{ color: "white" }} />
                       </button>
                       <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }}
                         onClick={() => { setDoneOpen(false); openMemo(memo); }}>
-                        <p style={{ fontSize: "14.5px", color: "#6b7280", textDecoration: "line-through", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <p style={{ fontSize: "14.5px", color: "var(--text-2)", textDecoration: "line-through", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {memo.title}
                         </p>
-                        <p style={{ fontSize: "11.5px", color: "#9ca3af", marginTop: "3px" }}>
+                        <p style={{ fontSize: "11.5px", color: "var(--text-3)", marginTop: "3px" }}>
                           Fait le {formatDateFR(memo.doneAt)}
                           {memo.caseId ? ` · ${cases.find(c => c.id === memo.caseId)?.title ?? ""}` : ""}
                         </p>
                       </div>
                       <button onClick={() => deleteFloatingTasks(user.uid, [memo.id])}
                         aria-label="Supprimer"
-                        style={{ width: "24px", height: "24px", border: "none", background: "transparent", color: "#d1d5db", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: "1px" }}>
+                        style={{ width: "24px", height: "24px", border: "none", background: "transparent", color: "var(--border-strong)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: "1px" }}>
                         <Icon name="delete" size={15} />
                       </button>
                     </div>
                   ))}
                 </div>
               )}
-              <p style={{ fontSize: "11.5px", color: "#9ca3af", textAlign: "center", marginTop: "16px", lineHeight: 1.5 }}>
+              <p style={{ fontSize: "11.5px", color: "var(--text-3)", textAlign: "center", marginTop: "16px", lineHeight: 1.5 }}>
                 Un mémo sans dossier s'efface définitivement<br />{MEMO_TTL_DAYS} jours après avoir été réalisé.
               </p>
             </div>
@@ -1034,11 +1034,11 @@ export default function MobileMyDay({ user }: { user: User }) {
         return (
           <div style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}
             onClick={() => setStatusPrompt(null)}>
-            <div style={{ background: "white", borderRadius: "16px", width: "100%", maxWidth: "360px", padding: "20px", boxShadow: "0 20px 60px rgba(0,0,0,0.28)" }}
+            <div style={{ background: "var(--bg)", borderRadius: "16px", width: "100%", maxWidth: "360px", padding: "20px", boxShadow: "0 20px 60px rgba(0,0,0,0.28)" }}
               onClick={e => e.stopPropagation()}>
-              <p style={{ fontSize: "11px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em" }}>Où en est cette tâche ?</p>
-              <p style={{ fontSize: "15px", fontWeight: 600, color: "#111827", margin: "6px 0 4px", lineHeight: 1.35 }}>{task.title}</p>
-              <p style={{ fontSize: "12px", color: "#9ca3af", marginBottom: "16px" }}>{caseOf(task)}</p>
+              <p style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Où en est cette tâche ?</p>
+              <p style={{ fontSize: "15px", fontWeight: 600, color: "var(--text)", margin: "6px 0 4px", lineHeight: 1.35 }}>{task.title}</p>
+              <p style={{ fontSize: "12px", color: "var(--text-3)", marginBottom: "16px" }}>{caseOf(task)}</p>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
                 {STATUSES.map(s => {
@@ -1047,7 +1047,7 @@ export default function MobileMyDay({ user }: { user: User }) {
                   return (
                     <button key={s} disabled={blocked}
                       onClick={() => { if (!blocked) void handleStatusPromptChoice(statusPrompt, s); }}
-                      style={{ padding: "13px", borderRadius: "10px", border: isCurrent ? "2px solid #111827" : "1px solid #e5e7eb", background: isCurrent ? STATUS_COLORS[s] : "white", color: isCurrent ? STATUS_TEXT[s] : blocked ? "#d1d5db" : "#374151", fontSize: "14px", fontWeight: isCurrent ? 700 : 500, cursor: blocked ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: blocked ? 0.5 : 1 }}>
+                      style={{ padding: "13px", borderRadius: "10px", border: isCurrent ? "2px solid var(--text)" : "1px solid var(--border)", background: isCurrent ? STATUS_COLORS[s] : "var(--bg)", color: isCurrent ? STATUS_TEXT[s] : blocked ? "var(--border-strong)" : "var(--text)", fontSize: "14px", fontWeight: isCurrent ? 700 : 500, cursor: blocked ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: blocked ? 0.5 : 1 }}>
                       {s}
                     </button>
                   );
@@ -1055,16 +1055,16 @@ export default function MobileMyDay({ user }: { user: User }) {
               </div>
 
               {unfinishedSubs > 0 && (
-                <p style={{ fontSize: "11.5px", color: "#f59e0b", marginTop: "10px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                <p style={{ fontSize: "11.5px", color: "var(--warn-accent)", marginTop: "10px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
                   <Icon name="warning" size={11} /> {describeOpenChildren(task.id, items, floatingTasks)}
                 </p>
               )}
 
-              <p style={{ fontSize: "12px", color: "#9ca3af", marginTop: "14px", lineHeight: 1.45 }}>
+              <p style={{ fontSize: "12px", color: "var(--text-3)", marginTop: "14px", lineHeight: 1.45 }}>
                 La tâche quitte Ma journée et reste dans son dossier.
               </p>
               <button onClick={() => setStatusPrompt(null)}
-                style={{ width: "100%", marginTop: "12px", padding: "11px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "white", color: "#6b7280", fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>
+                style={{ width: "100%", marginTop: "12px", padding: "11px", borderRadius: "10px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text-2)", fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>
                 Annuler
               </button>
             </div>
@@ -1075,12 +1075,12 @@ export default function MobileMyDay({ user }: { user: User }) {
       {/* ── PANNEAU SUGGESTIONS (gauche) ── */}
       {suggestionsOpen && (
         <div style={{ position: "fixed", inset: 0, zIndex: 40 }} onClick={() => setSuggestionsOpen(false)}>
-          <div style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: "85vw", maxWidth: "360px", background: "white", boxShadow: "4px 0 24px rgba(0,0,0,0.12)", display: "flex", flexDirection: "column" }}
+          <div style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: "85vw", maxWidth: "360px", background: "var(--bg)", boxShadow: "4px 0 24px rgba(0,0,0,0.12)", display: "flex", flexDirection: "column" }}
             onClick={e => e.stopPropagation()}>
-            <div style={{ padding: "16px 20px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <p style={{ fontSize: "15px", fontWeight: 600, color: "#111827" }}>Suggestions</p>
+            <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <p style={{ fontSize: "15px", fontWeight: 600, color: "var(--text)" }}>Suggestions</p>
               <button onClick={() => setSuggestionsOpen(false)}
-                style={{ width: "32px", height: "32px", border: "none", background: "transparent", fontSize: "20px", cursor: "pointer", color: "#6b7280", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+                style={{ width: "32px", height: "32px", border: "none", background: "transparent", fontSize: "20px", cursor: "pointer", color: "var(--text-2)", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
             </div>
             <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
               {[
@@ -1090,7 +1090,7 @@ export default function MobileMyDay({ user }: { user: User }) {
                 { label: "🆕 Récentes", items: suggestions.recent, bg: "rgba(59,130,246,0.08)" },
               ].map(({ label, items: cats, bg }) => cats.length === 0 ? null : (
                 <div key={label} style={{ marginBottom: "20px" }}>
-                  <p style={{ fontSize: "10px", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>{label}</p>
+                  <p style={{ fontSize: "10px", fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>{label}</p>
                   <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                     {cats.map(item => {
                       const parent = item.parentItemId ? items.find(i => i.id === item.parentItemId) : null;
@@ -1098,13 +1098,13 @@ export default function MobileMyDay({ user }: { user: User }) {
                       return (
                         <button key={item.id} onClick={() => addToMyDay(item)}
                           style={{ background: bg, border: "none", borderRadius: "10px", padding: "12px 14px", textAlign: "left", cursor: "pointer", width: "100%" }}>
-                          <p style={{ fontSize: "14px", fontWeight: 500, color: "#111827", marginBottom: "2px" }}>{item.title}</p>
+                          <p style={{ fontSize: "14px", fontWeight: 500, color: "var(--text)", marginBottom: "2px" }}>{item.title}</p>
                           <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                            {subtitle && <p style={{ fontSize: "11px", color: "#6b7280" }}>{subtitle}</p>}
+                            {subtitle && <p style={{ fontSize: "11px", color: "var(--text-2)" }}>{subtitle}</p>}
                             {item.dueDate && (() => {
                               const diff = Math.round((new Date(item.dueDate).getTime() - new Date().getTime()) / 86400000);
                               const label = diff < 0 ? `${Math.abs(diff)}j` : diff === 0 ? "auj." : `+${diff}j`;
-                              const color = diff < 0 ? "#ef4444" : diff <= 3 ? "#f59e0b" : "#6b7280";
+                              const color = diff < 0 ? "var(--danger-soft)" : diff <= 3 ? "var(--warn-accent)" : "var(--text-2)";
                               return <span style={{ fontSize: "11px", fontWeight: 600, color }}>· {label}</span>;
                             })()}
                           </div>
@@ -1115,7 +1115,7 @@ export default function MobileMyDay({ user }: { user: User }) {
                 </div>
               ))}
               {suggestions.starred.length + suggestions.overdue.length + suggestions.dueToday.length + suggestions.recent.length === 0 && (
-                <p style={{ textAlign: "center", color: "#9ca3af", fontSize: "14px", marginTop: "40px" }}>Aucune suggestion pour aujourd'hui</p>
+                <p style={{ textAlign: "center", color: "var(--text-3)", fontSize: "14px", marginTop: "40px" }}>Aucune suggestion pour aujourd'hui</p>
               )}
 
               {/* Mémos à venir */}
@@ -1130,16 +1130,16 @@ export default function MobileMyDay({ user }: { user: User }) {
                 };
                 return (
                   <div style={{ marginTop: "20px" }}>
-                    <p style={{ fontSize: "10px", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>📅 Mémos à venir</p>
+                    <p style={{ fontSize: "10px", fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>📅 Mémos à venir</p>
                     <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                       {upcoming.map(t => (
                         <div key={t.id}
                           onClick={() => { setSuggestionsOpen(false); openMemo(t); }}
-                          style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px 14px", background: "white", border: "1px solid #e5e7eb", borderRadius: "10px", cursor: "pointer" }}>
+                          style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px 14px", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "10px", cursor: "pointer" }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <p style={{ fontSize: "14px", fontWeight: 500, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.title}</p>
+                            <p style={{ fontSize: "14px", fontWeight: 500, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.title}</p>
                           </div>
-                          <span style={{ fontSize: "12px", color: "#9ca3af", flexShrink: 0 }}>{dayLabel(t.dateKey!)}</span>
+                          <span style={{ fontSize: "12px", color: "var(--text-3)", flexShrink: 0 }}>{dayLabel(t.dateKey!)}</span>
                         </div>
                       ))}
                     </div>
@@ -1205,18 +1205,18 @@ export default function MobileMyDay({ user }: { user: User }) {
 
         return (
         <div style={{ position: "fixed", inset: 0, zIndex: 40 }} onClick={() => setDetailEntry(null)}>
-          <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: "92vw", maxWidth: "420px", background: "white", boxShadow: "-4px 0 24px rgba(0,0,0,0.12)", display: "flex", flexDirection: "column" }}
+          <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: "92vw", maxWidth: "420px", background: "var(--bg)", boxShadow: "-4px 0 24px rgba(0,0,0,0.12)", display: "flex", flexDirection: "column" }}
             onClick={e => e.stopPropagation()}>
 
                 {/* Header */}
-                <div style={{ padding: "14px 16px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <p style={{ fontSize: "12px", fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <p style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
                     {isMemo ? "Mémo" : "Tâche"}
                   </p>
                   <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    {done && <span style={{ fontSize: "11px", color: "#9ca3af" }}>Réalisé le {formatDateFR(liveMemo!.doneAt)}</span>}
+                    {done && <span style={{ fontSize: "11px", color: "var(--text-3)" }}>Réalisé le {formatDateFR(liveMemo!.doneAt)}</span>}
                     <button onClick={() => setDetailEntry(null)}
-                      style={{ width: "30px", height: "30px", border: "1px solid #e5e7eb", borderRadius: "8px", background: "#f9fafb", cursor: "pointer", color: "#6b7280", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      style={{ width: "30px", height: "30px", border: "1px solid var(--border)", borderRadius: "8px", background: "var(--bg-subtle)", cursor: "pointer", color: "var(--text-2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <Icon name="close" size={16} />
                     </button>
                   </div>
@@ -1237,15 +1237,15 @@ export default function MobileMyDay({ user }: { user: User }) {
                         : "Une tâche ne se coche pas : elle avance par statuts."}
                       style={{
                         width: "24px", height: "24px", borderRadius: "7px", flexShrink: 0,
-                        border: done ? "none" : `2px solid ${isMemo ? "#9ca3af" : "#e5e7eb"}`,
-                        background: done ? "#16a34a" : isMemo ? "white" : "#f9fafb",
+                        border: done ? "none" : `2px solid ${isMemo ? "var(--text-3)" : "var(--border)"}`,
+                        background: done ? "var(--ok-fg)" : isMemo ? "var(--bg)" : "var(--bg-subtle)",
                         cursor: isMemo ? "pointer" : "default",
                         display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
                       }}>
                       {done && <Icon name="check" size={15} strokeWidth={2.5} style={{ color: "white" }} />}
                     </button>
                     <button onClick={() => patch({ starred: !starred })}
-                      style={{ flexShrink: 0, border: "none", background: "transparent", cursor: "pointer", padding: 0, lineHeight: 0, color: starred ? "#f59e0b" : "#d1d5db" }}
+                      style={{ flexShrink: 0, border: "none", background: "transparent", cursor: "pointer", padding: 0, lineHeight: 0, color: starred ? "var(--warn-accent)" : "var(--border-strong)" }}
                       title={starred ? "Retirer l'étoile" : "Marquer importante"}>
                       <Icon name="star" size={24} filled={starred} strokeWidth={1.75} />
                     </button>
@@ -1257,7 +1257,7 @@ export default function MobileMyDay({ user }: { user: User }) {
                         if (!val || val === title) return;
                         patch({ title: val });
                       }}
-                      style={{ flex: 1, minWidth: 0, fontSize: "18px", fontWeight: 600, color: "#111827", border: "1.5px solid #e5e7eb", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "#f9fafb", boxSizing: "border-box", lineHeight: 1.3, textDecoration: done ? "line-through" : undefined }}
+                      style={{ flex: 1, minWidth: 0, fontSize: "18px", fontWeight: 600, color: "var(--text)", border: "1.5px solid var(--border)", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "var(--bg-subtle)", boxSizing: "border-box", lineHeight: 1.3, textDecoration: done ? "line-through" : undefined }}
                     />
                   </div>
 
@@ -1270,11 +1270,11 @@ export default function MobileMyDay({ user }: { user: User }) {
                       const { done: sub, total } = getCompletion(liveItem!.id, items, floatingTasks);
                       return (
                         <div>
-                          <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Avancement</p>
-                          <div style={{ padding: "13px", borderRadius: "10px", border: "1px solid #e5e7eb", background: sub === total ? "#dcfce7" : "#f9fafb", color: sub === total ? "#166534" : "#374151", fontSize: "14px", fontWeight: 600 }}>
+                          <p style={{ fontSize: "10px", fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Avancement</p>
+                          <div style={{ padding: "13px", borderRadius: "10px", border: "1px solid var(--border)", background: sub === total ? "var(--ok-bg)" : "var(--bg-subtle)", color: sub === total ? "var(--ok-fg-strong)" : "var(--text)", fontSize: "14px", fontWeight: 600 }}>
                             {sub}/{total} terminé{sub > 1 ? "s" : ""}
                           </div>
-                          <p style={{ fontSize: "11.5px", color: "#9ca3af", marginTop: "8px", lineHeight: 1.45 }}>
+                          <p style={{ fontSize: "11.5px", color: "var(--text-3)", marginTop: "8px", lineHeight: 1.45 }}>
                             Cette tâche contient ; son état suit ce qu'elle porte.
                           </p>
                         </div>
@@ -1283,7 +1283,7 @@ export default function MobileMyDay({ user }: { user: User }) {
                     const openCount = isMemo ? 0 : countOpenChildren(liveItem!.id, items, floatingTasks);
                     return (
                       <div>
-                        <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Statut</p>
+                        <p style={{ fontSize: "10px", fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Statut</p>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
                           {STATUSES.map(s => {
                             const isActive = !isMemo && liveItem!.status === s;
@@ -1292,7 +1292,7 @@ export default function MobileMyDay({ user }: { user: User }) {
                               <button key={s} disabled={isMemo}
                                 onClick={() => { if (!isMemo && !blocked) handleStatusChange(detailEntry, s); }}
                                 title={isMemo ? "Un mémo se coche ; il n'avance pas par statuts." : undefined}
-                                style={{ padding: "11px", borderRadius: "10px", border: isActive ? "2px solid #111827" : "1px solid #e5e7eb", background: isActive ? STATUS_COLORS[s] : "white", color: isActive ? STATUS_TEXT[s] : blocked ? "#d1d5db" : "#374151", fontSize: "13px", fontWeight: isActive ? 700 : 400, cursor: isMemo || blocked ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: isMemo ? 0.35 : blocked ? 0.5 : 1 }}>
+                                style={{ padding: "11px", borderRadius: "10px", border: isActive ? "2px solid var(--text)" : "1px solid var(--border)", background: isActive ? STATUS_COLORS[s] : "var(--bg)", color: isActive ? STATUS_TEXT[s] : blocked ? "var(--border-strong)" : "var(--text)", fontSize: "13px", fontWeight: isActive ? 700 : 400, cursor: isMemo || blocked ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: isMemo ? 0.35 : blocked ? 0.5 : 1 }}>
                                 {s}
                               </button>
                             );
@@ -1316,7 +1316,7 @@ export default function MobileMyDay({ user }: { user: User }) {
                         onChange={() => { void toggleNature(detailEntry, liveItem, liveMemo); }}
                       />
                       {natureNotice && (
-                        <span style={{ fontSize: "11.5px", color: "#dc2626", lineHeight: 1.45, flex: 1, minWidth: "140px" }}>
+                        <span style={{ fontSize: "11.5px", color: "var(--danger-fg)", lineHeight: 1.45, flex: 1, minWidth: "140px" }}>
                           {natureNotice}
                         </span>
                       )}
@@ -1330,17 +1330,17 @@ export default function MobileMyDay({ user }: { user: User }) {
                   {isMemo ? (
                     <div>
                       <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginBottom: "6px" }}>
-                        <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em" }}>Dossier</p>
+                        <p style={{ fontSize: "10px", fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Dossier</p>
                         {liveMemo!.caseId && (
                           <button
                             onClick={() => { patch({ caseId: null, parentItemId: null }); setDetailCaseSearch(""); }}
-                            style={{ marginLeft: "auto", fontSize: "12px", color: "#ef4444", background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit" }}>
+                            style={{ marginLeft: "auto", fontSize: "12px", color: "var(--danger-soft)", background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit" }}>
                             Détacher
                           </button>
                         )}
                       </div>
                       {liveMemo!.caseId ? (
-                        <p style={{ fontSize: "14px", color: "#374151", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                        <p style={{ fontSize: "14px", color: "var(--text)", display: "inline-flex", alignItems: "center", gap: "6px" }}>
                           <Icon name="folder" size={14} />
                           {caseTitle || "Dossier introuvable"}
                         </p>
@@ -1350,7 +1350,7 @@ export default function MobileMyDay({ user }: { user: User }) {
                             value={detailCaseSearch}
                             onChange={e => setDetailCaseSearch(e.target.value)}
                             placeholder="Rechercher un dossier…"
-                            style={{ width: "100%", fontSize: "14px", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "#f9fafb", color: "#374151", boxSizing: "border-box" }}
+                            style={{ width: "100%", fontSize: "14px", border: "1px solid var(--border)", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "var(--bg-subtle)", color: "var(--text)", boxSizing: "border-box" }}
                           />
                           {detailCaseSearch.trim() && (() => {
                             const needle = detailCaseSearch.trim().toLowerCase();
@@ -1358,20 +1358,20 @@ export default function MobileMyDay({ user }: { user: User }) {
                               .filter(c => !c.archived && c.title.toLowerCase().includes(needle))
                               .slice(0, 8);
                             return (
-                              <div style={{ border: "1px solid #e5e7eb", borderRadius: "10px", overflow: "hidden", maxHeight: "180px", overflowY: "auto", marginTop: "8px" }}>
+                              <div style={{ border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden", maxHeight: "180px", overflowY: "auto", marginTop: "8px" }}>
                                 {found.length === 0
-                                  ? <p style={{ padding: "12px 14px", fontSize: "13px", color: "#9ca3af" }}>Aucun dossier trouvé</p>
+                                  ? <p style={{ padding: "12px 14px", fontSize: "13px", color: "var(--text-3)" }}>Aucun dossier trouvé</p>
                                   : found.map(c => (
                                     <button key={c.id}
                                       onClick={() => { patch({ caseId: c.id, parentItemId: null }); setDetailCaseSearch(""); }}
-                                      style={{ width: "100%", padding: "12px 14px", textAlign: "left", background: "white", border: "none", borderBottom: "1px solid #f3f4f6", fontSize: "14px", color: "#111827", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: "8px" }}>
+                                      style={{ width: "100%", padding: "12px 14px", textAlign: "left", background: "var(--bg)", border: "none", borderBottom: "1px solid var(--bg-hover)", fontSize: "14px", color: "var(--text)", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: "8px" }}>
                                       <Icon name="folder" size={14} /> {c.title}
                                     </button>
                                   ))}
                               </div>
                             );
                           })()}
-                          <p style={{ fontSize: "11.5px", color: "#9ca3af", marginTop: "6px", lineHeight: 1.4 }}>
+                          <p style={{ fontSize: "11.5px", color: "var(--text-3)", marginTop: "6px", lineHeight: 1.4 }}>
                             Sans dossier, un mémo s'efface {MEMO_TTL_DAYS} jours après avoir été réalisé.
                           </p>
                         </>
@@ -1384,12 +1384,12 @@ export default function MobileMyDay({ user }: { user: User }) {
                         if (caseTasks.length === 0) return null;
                         return (
                           <div style={{ marginTop: "12px" }}>
-                            <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "6px" }}>Sous la tâche</p>
+                            <p style={{ fontSize: "10px", fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "6px" }}>Sous la tâche</p>
                             <select
                               value={liveMemo!.parentItemId ?? ""}
                               onChange={e => patch({ parentItemId: e.target.value || null })}
                               aria-label="Sous quelle tâche"
-                              style={{ width: "100%", fontSize: "14px", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "#f9fafb", color: "#374151", boxSizing: "border-box" }}>
+                              style={{ width: "100%", fontSize: "14px", border: "1px solid var(--border)", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "var(--bg-subtle)", color: "var(--text)", boxSizing: "border-box" }}>
                               <option value="">Au niveau du dossier</option>
                               {caseTasks.map(t => (
                                 <option key={t.id} value={t.id}>{t.title}</option>
@@ -1401,8 +1401,8 @@ export default function MobileMyDay({ user }: { user: User }) {
                     </div>
                   ) : (
                     <div>
-                      <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "6px" }}>Dossier</p>
-                      <p style={{ fontSize: "14px", color: "#374151", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                      <p style={{ fontSize: "10px", fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "6px" }}>Dossier</p>
+                      <p style={{ fontSize: "14px", color: "var(--text)", display: "inline-flex", alignItems: "center", gap: "6px" }}>
                         <Icon name="folder" size={14} />
                         {caseTitle || "Sans dossier"}{parentTitle ? ` › ${parentTitle}` : ""}
                       </p>
@@ -1411,7 +1411,7 @@ export default function MobileMyDay({ user }: { user: User }) {
 
                   {/* Échéance avec calendrier à gauche */}
                   <div>
-                    <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Échéance</p>
+                    <p style={{ fontSize: "10px", fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Échéance</p>
                     <div style={{ marginBottom: "10px" }}>
                       <DueChips
                         value={dueDate}
@@ -1423,7 +1423,7 @@ export default function MobileMyDay({ user }: { user: User }) {
                       <button
                         type="button"
                         onClick={e => { const inp = (e.currentTarget.parentElement?.querySelector("input[type=date]") as any); if (inp?.showPicker) inp.showPicker(); else inp?.focus(); }}
-                        style={{ flexShrink: 0, border: "none", background: "transparent", cursor: "pointer", padding: 0, lineHeight: 0, color: "#6b7280" }}
+                        style={{ flexShrink: 0, border: "none", background: "transparent", cursor: "pointer", padding: 0, lineHeight: 0, color: "var(--text-2)" }}
                         title="Ouvrir le calendrier">
                         <Icon name="calendar" size={20} />
                       </button>
@@ -1433,7 +1433,7 @@ export default function MobileMyDay({ user }: { user: User }) {
                           if (!e.target.value) { patchDue(null); return; }
                           patchDue(atDueHour(new Date(e.target.value + "T00:00:00")).toISOString());
                         }}
-                        style={{ flex: 1, fontSize: "14px", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "#f9fafb", color: "#374151", boxSizing: "border-box" }}
+                        style={{ flex: 1, fontSize: "14px", border: "1px solid var(--border)", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "var(--bg-subtle)", color: "var(--text)", boxSizing: "border-box" }}
                       />
                     </div>
                   </div>
@@ -1457,7 +1457,7 @@ export default function MobileMyDay({ user }: { user: User }) {
                   <div style={isMemo ? undefined : { opacity: 0.4, pointerEvents: "none" }}
                     aria-disabled={!isMemo}
                     title={isMemo ? undefined : "Une tâche ne se répète pas : elle se traite une fois."}>
-                    <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Répétition</p>
+                    <p style={{ fontSize: "10px", fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Répétition</p>
                     <RecurrencePicker
                       value={isMemo ? liveMemo!.recurrence ?? null : null}
                       onChange={(r: Recurrence | null) => { if (isMemo) patch({ recurrence: r ?? null }); }}
@@ -1466,23 +1466,23 @@ export default function MobileMyDay({ user }: { user: User }) {
                   <div style={isMemo ? undefined : { opacity: 0.4, pointerEvents: "none" }}
                     aria-disabled={!isMemo}
                     title={isMemo ? undefined : "Les observations d'une tâche sont ses commentaires, dans Mes dossiers."}>
-                    <p style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Observations</p>
+                    <p style={{ fontSize: "10px", fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Observations</p>
                     <textarea
                       key={(isMemo ? liveMemo!.id : liveItem!.id) + "-note"}
                       defaultValue={isMemo ? liveMemo!.note ?? "" : ""}
                       onBlur={e => { if (isMemo) patch({ note: e.target.value.trim() || null }); }}
                       rows={3}
                       placeholder="Contexte, numéro de téléphone, précision…"
-                      style={{ width: "100%", fontSize: "14px", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "#f9fafb", color: "#374151", boxSizing: "border-box", resize: "none" }}
+                      style={{ width: "100%", fontSize: "14px", border: "1px solid var(--border)", borderRadius: "10px", padding: "10px 12px", outline: "none", fontFamily: "inherit", background: "var(--bg-subtle)", color: "var(--text)", boxSizing: "border-box", resize: "none" }}
                     />
                   </div>
 
                 </div>
 
                 {/* Barre d'actions bas */}
-                <div style={{ borderTop: "1px solid #e5e7eb", padding: "12px 16px", background: "white", display: "flex", gap: "8px" }}>
+                <div style={{ borderTop: "1px solid var(--border)", padding: "12px 16px", background: "var(--bg)", display: "flex", gap: "8px" }}>
                   <button onClick={() => { void removeEntry(detailEntry); setDetailEntry(null); }}
-                    style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "white", color: isMemo ? "#dc2626" : "#374151", fontSize: "13px", fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+                    style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid var(--border)", background: "var(--bg)", color: isMemo ? "var(--danger-fg)" : "var(--text)", fontSize: "13px", fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
                     <Icon name={isMemo ? "delete" : "myday"} size={14} />
                     {isMemo ? "Supprimer" : "Retirer de Ma journée"}
                   </button>
@@ -1499,27 +1499,27 @@ export default function MobileMyDay({ user }: { user: User }) {
           onClick={() => setShowMobileAnnounce(false)}
         >
           <div
-            style={{ background: "white", borderRadius: "16px", maxWidth: "360px", width: "100%", padding: "24px", boxShadow: "0 20px 60px rgba(0,0,0,0.28)" }}
+            style={{ background: "var(--bg)", borderRadius: "16px", maxWidth: "360px", width: "100%", padding: "24px", boxShadow: "0 20px 60px rgba(0,0,0,0.28)" }}
             onClick={e => e.stopPropagation()}
           >
             <p style={{ fontSize: "40px", textAlign: "center", margin: 0 }}>📱</p>
-            <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#111827", textAlign: "center", margin: "8px 0 6px" }}>
+            <h2 style={{ fontSize: "18px", fontWeight: 700, color: "var(--text)", textAlign: "center", margin: "8px 0 6px" }}>
               Mes dossiers arrive sur mobile
             </h2>
-            <p style={{ fontSize: "14px", color: "#374151", lineHeight: 1.5, textAlign: "center", margin: "0 0 16px" }}>
+            <p style={{ fontSize: "14px", color: "var(--text)", lineHeight: 1.5, textAlign: "center", margin: "0 0 16px" }}>
               Consultez et gérez tous vos dossiers directement depuis votre téléphone.
             </p>
 
-            <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "14px 16px", marginBottom: "20px", display: "flex", flexDirection: "column", gap: "12px" }}>
+            <div style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", borderRadius: "12px", padding: "14px 16px", marginBottom: "20px", display: "flex", flexDirection: "column", gap: "12px" }}>
               <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
                 <span style={{ fontSize: "18px", lineHeight: "20px", flexShrink: 0 }}>👉</span>
-                <p style={{ fontSize: "13px", color: "#374151", lineHeight: 1.5, margin: 0 }}>
+                <p style={{ fontSize: "13px", color: "var(--text)", lineHeight: 1.5, margin: 0 }}>
                   <strong>Balayez</strong> l'écran vers la gauche ou la droite pour passer de <strong>Dossiers → Tâches → Sous-tâches → Détail</strong> (et revenir).
                 </p>
               </div>
               <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
-                <span style={{ display: "inline-flex", flexShrink: 0, color: "#6b7280", marginTop: "1px" }}><Icon name="folder" size={18} /></span>
-                <p style={{ fontSize: "13px", color: "#374151", lineHeight: 1.5, margin: 0 }}>
+                <span style={{ display: "inline-flex", flexShrink: 0, color: "var(--text-2)", marginTop: "1px" }}><Icon name="folder" size={18} /></span>
+                <p style={{ fontSize: "13px", color: "var(--text)", lineHeight: 1.5, margin: 0 }}>
                   En haut à gauche : l'icône <strong>dossier</strong> ouvre Mes dossiers, l'icône <strong>soleil</strong> revient à Ma journée.
                 </p>
               </div>
@@ -1528,13 +1528,13 @@ export default function MobileMyDay({ user }: { user: User }) {
             <Link
               href="/"
               onClick={() => setShowMobileAnnounce(false)}
-              style={{ display: "block", width: "100%", textAlign: "center", boxSizing: "border-box", background: "#111827", color: "white", padding: "12px", borderRadius: "10px", fontSize: "14px", fontWeight: 600, textDecoration: "none", marginBottom: "6px" }}
+              style={{ display: "block", width: "100%", textAlign: "center", boxSizing: "border-box", background: "var(--text)", color: "var(--bg)", padding: "12px", borderRadius: "10px", fontSize: "14px", fontWeight: 600, textDecoration: "none", marginBottom: "6px" }}
             >
               Découvrir Mes dossiers
             </Link>
             <button
               onClick={() => setShowMobileAnnounce(false)}
-              style={{ display: "block", width: "100%", textAlign: "center", background: "transparent", border: "none", color: "#6b7280", padding: "8px", fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}
+              style={{ display: "block", width: "100%", textAlign: "center", background: "transparent", border: "none", color: "var(--text-2)", padding: "8px", fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}
             >
               Plus tard
             </button>
