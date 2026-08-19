@@ -9,9 +9,10 @@
 //
 // - `users/{uid}/settings/shortcut` : la clé de l'utilisateur, telle que les
 //   Préférences l'affichent — c'est aussi elle qui fait foi ;
-// - `shortcutKeys/{clé}` : le chemin inverse, clé → utilisateur, pour que la
-//   route d'écriture retrouve son propriétaire en une lecture, sans parcourir
-//   les comptes.
+// - `shortcutKeys/{empreinte}` : le chemin inverse, clé → utilisateur, pour que
+//   la route d'écriture retrouve son propriétaire en une lecture, sans
+//   parcourir les comptes. Il est rangé sous l'**empreinte** SHA-256 de la clé
+//   et ne contient jamais la clé : lire cet annuaire n'apprend rien.
 //
 // Régénérer efface l'ancien couple : une clé remplacée cesse d'écrire
 // immédiatement, sans quoi « régénérer » ne protégerait de rien.
@@ -20,7 +21,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
-import { generateShortcutKey, isShortcutKey } from "@/lib/shortcutKey";
+import { generateShortcutKey, isShortcutKey, shortcutKeyHash } from "@/lib/shortcutKey";
 
 /** L'utilisateur connecté derrière la requête, `null` sinon. */
 async function requireUid(req: NextRequest): Promise<string | null> {
@@ -39,7 +40,9 @@ const settingsRef = (uid: string) => adminDb.doc(`users/${uid}/settings/shortcut
 async function dropCurrentKey(uid: string) {
   const snap = await settingsRef(uid).get();
   const previous = snap.exists ? snap.data()?.key : null;
-  if (isShortcutKey(previous)) await adminDb.doc(`shortcutKeys/${previous}`).delete();
+  if (isShortcutKey(previous)) {
+    await adminDb.doc(`shortcutKeys/${await shortcutKeyHash(previous)}`).delete();
+  }
 }
 
 /** Crée la clé, ou la remplace. */
@@ -51,7 +54,7 @@ export async function POST(req: NextRequest) {
     await dropCurrentKey(uid);
     const key = generateShortcutKey();
     const createdAt = new Date().toISOString();
-    await adminDb.doc(`shortcutKeys/${key}`).set({ uid, createdAt });
+    await adminDb.doc(`shortcutKeys/${await shortcutKeyHash(key)}`).set({ uid, createdAt });
     await settingsRef(uid).set({ key, createdAt }, { merge: true });
     return NextResponse.json({ key, createdAt });
   } catch (err: unknown) {

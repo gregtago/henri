@@ -17,8 +17,15 @@
 // Le format est reconnaissable — `hnr_` puis 32 caractères hexadécimaux — pour
 // deux raisons : on la reconnaît dans un presse-papiers, et la route d'API
 // refuse tout ce qui n'y ressemble pas **avant** d'aller chercher quoi que ce
-// soit (la clé sert d'identifiant de document : elle ne doit pas pouvoir porter
-// de « / »).
+// soit.
+//
+// **La clé en clair n'est écrite qu'à un seul endroit** : le réglage de son
+// propriétaire (`users/{uid}/settings/shortcut`), protégé comme le reste de ses
+// données. L'annuaire clé → utilisateur, lui, est rangé sous l'**empreinte**
+// SHA-256 de la clé (`shortcutKeys/{empreinte}`) : il faut présenter la clé pour
+// retrouver la ligne, et lire l'annuaire entier n'apprend rien — on ne remonte
+// pas d'une empreinte à 128 bits de hasard. Une collection qu'un oubli dans les
+// règles Firestore rendrait lisible ne doit rien livrer d'utilisable.
 
 /** Le préfixe qui rend une clé reconnaissable. */
 export const SHORTCUT_KEY_PREFIX = "hnr_";
@@ -36,6 +43,19 @@ export const generateShortcutKey = (): string => {
 /** Le texte a-t-il la forme d'une clé ? À vérifier avant toute lecture. */
 export const isShortcutKey = (value: unknown): value is string =>
   typeof value === "string" && KEY_PATTERN.test(value);
+
+/**
+ * L'empreinte sous laquelle l'annuaire range la clé.
+ *
+ * SHA-256 nu, sans sel : le sel protège des secrets devinables (un mot de
+ * passe), et il empêcherait ici de retrouver la ligne à partir de la seule clé
+ * présentée — ce qui est précisément ce qu'on demande. 128 bits de hasard ne se
+ * devinent pas.
+ */
+export const shortcutKeyHash = async (key: string): Promise<string> => {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(key));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+};
 
 /** La clé telle qu'on l'affiche quand on ne veut pas la montrer en entier. */
 export const maskShortcutKey = (key: string): string =>

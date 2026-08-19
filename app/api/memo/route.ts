@@ -28,7 +28,7 @@ import { adminDb } from "@/lib/firebase-admin";
 import { buildQuickMemo } from "@/lib/memos";
 import { normalizeReminderPolicy } from "@/lib/reminderRules";
 import { formatDateFR, getTodayKey } from "@/lib/dates";
-import { isShortcutKey } from "@/lib/shortcutKey";
+import { isShortcutKey, shortcutKeyHash } from "@/lib/shortcutKey";
 import {
   readCaptureLine,
   resolveCaptureCase,
@@ -66,13 +66,13 @@ const readKey = (req: NextRequest, body: Record<string, unknown>): string | null
 /**
  * L'utilisateur derrière une clé, `null` si elle ne vaut plus rien.
  *
- * Deux lectures et non une : `shortcutKeys` dit à qui appartient la clé, et le
- * réglage de l'utilisateur dit si c'est **toujours** celle-ci. Sans cette
- * seconde lecture, une clé régénérée continuerait d'écrire — révoquer ne
- * révoquerait rien.
+ * Deux lectures et non une : l'annuaire dit à qui appartient la clé — rangé
+ * sous son **empreinte**, jamais sous la clé elle-même —, et le réglage de
+ * l'utilisateur dit si c'est **toujours** celle-ci. Sans cette seconde lecture,
+ * une clé régénérée continuerait d'écrire : révoquer ne révoquerait rien.
  */
 const resolveKeyOwner = async (key: string): Promise<string | null> => {
-  const snap = await adminDb.doc(`shortcutKeys/${key}`).get();
+  const snap = await adminDb.doc(`shortcutKeys/${await shortcutKeyHash(key)}`).get();
   const uid = snap.exists ? (snap.data()?.uid as string | undefined) : undefined;
   if (!uid) return null;
   const settings = await adminDb.doc(`users/${uid}/settings/shortcut`).get();

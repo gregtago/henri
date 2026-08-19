@@ -156,8 +156,10 @@ npm run dev
   « Raccourci iPhone »). La touche Action ouvre un champ, ce qu'on y tape ou dicte arrive dans
   Ma journée. Le raccourci s'authentifie par une **clé** propre à l'utilisateur
   (`src/lib/shortcutKey.ts`), créée et révoquée depuis les Préférences via `/api/memo/key` :
-  `users/{uid}/settings/shortcut` porte la clé qui fait foi, `shortcutKeys/{clé}` donne le
-  chemin inverse clé → utilisateur. Régénérer casse l'ancienne aussitôt.
+  `users/{uid}/settings/shortcut` porte la clé qui fait foi ; `shortcutKeys/{empreinte}` donne
+  le chemin inverse clé → utilisateur, rangé sous l'**empreinte SHA-256** de la clé et sans
+  jamais la contenir — lire cet annuaire n'apprend donc rien, même si les règles Firestore
+  l'exposaient. Régénérer casse l'ancienne aussitôt.
   La lecture du texte est dans `src/lib/quickCapture.ts` et **nulle part ailleurs** : mêmes
   jetons qu'à la saisie (`#` `@` `>` `!`, arrêtés au premier espace faute de liste à choisir),
   une ligne = un mémo (20 au plus), et **ce qui n'est pas certain n'est pas retenu** — un jeton
@@ -165,8 +167,9 @@ npm run dev
   qu'un mémo classé dans le mauvais dossier ne se voit pas passer. Le mémo écrit est celui de
   `buildQuickMemo`, rappel du jour de l'échéance compris. La route force `TZ=Europe/Paris` :
   la journée d'un notaire change à minuit à Paris, pas en UTC.
-  ⚠ Règles Firestore : `shortcutKeys/**` ne doit être lisible d'**aucun** client (seul le SDK
-  admin y accède) — `match /shortcutKeys/{key} { allow read, write: if false; }`.
+  Rien à changer dans les règles Firestore : une collection de premier niveau sans règle est
+  refusée par défaut, et le SDK admin ne passe pas par les règles. `allow read, write: if false`
+  sur `shortcutKeys/**` reste la déclaration la plus claire si les règles portent un joker.
 - La vue Calendrier (`/calendrier`) affiche trois bandes, dans l'ordre du cycle d'une tâche :
   « à faire » (ce qu'on réalise ce jour-là), « j'attends » (les demandes sans réponse, en barres
   de durée), « échéances » (ce qui tombe). Une tâche « Traité » quitte les trois bandes et
