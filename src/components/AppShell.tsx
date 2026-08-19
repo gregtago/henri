@@ -30,8 +30,9 @@ import {
   logStatusEvent,
   queryMyDayByDate,
   subscribeCases,
-  subscribeComments,
-  subscribeEvents,
+  fetchProgressEvents,
+  subscribeItemComments,
+  subscribeItemEvents,
   subscribeFloatingTasks,
   subscribeItems,
   subscribeMyDaySelections,
@@ -160,8 +161,11 @@ export default function AppShell() {
   const reminderPolicy = useReminderPolicy(user?.uid);
   const [cases, setCases] = useState<Case[]>([]);
   const [items, setItems] = useState<Item[]>([]);
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [events, setEvents] = useState<Event[]>([]);
+  // Les observations et l'historique de la tâche ouverte, et rien d'autre :
+  // ces deux collections ne servent qu'au panneau de détail (voir plus bas
+  // l'abonnement, ouvert à l'ouverture et refermé à la fermeture).
+  const [detailComments, setDetailComments] = useState<Comment[]>([]);
+  const [detailEvents, setDetailEvents] = useState<Event[]>([]);
   const [floatingTasks, setFloatingTasks] = useState<FloatingTask[]>([]);
   const [liveMyDaySelections, setLiveMyDaySelections] = useState<MyDaySelection[]>([]);
   const [legacyMyDaySelections, setLegacyMyDaySelections] = useState<MyDaySelection[]>([]);
@@ -369,21 +373,42 @@ export default function AppShell() {
     if (!user) return;
     const unsubCases = subscribeCases(user.uid, setCases);
     const unsubItems = subscribeItems(user.uid, setItems);
-    const unsubComments = subscribeComments(user.uid, setComments);
-    const unsubEvents = subscribeEvents(user.uid, setEvents);
     const unsubFloating = subscribeFloatingTasks(user.uid, setFloatingTasks);
     const unsubMyDay = subscribeMyDaySelections(user.uid, setLiveMyDaySelections, startOfWindow);
     const unsubTemplates = subscribeCaseTemplates(user.uid, setCaseTemplates);
     return () => {
       unsubCases();
       unsubItems();
-      unsubComments();
-      unsubEvents();
       unsubFloating();
       unsubMyDay();
       unsubTemplates();
     };
   }, [user, startOfWindow]);
+
+  // Observations et historique : lus à l'ouverture d'un détail, pas avant.
+  //
+  // Ils ne s'affichent que là, tâche par tâche. Les diffuser tous au démarrage
+  // faisait attendre l'écran d'accueil pour un panneau encore fermé, et ces
+  // deux collections sont celles qui grossissent sans fin — une observation
+  // écrite reste, un changement de statut se journalise à chaque fois.
+  const detailItemId = detailTarget?.type === "item" ? detailTarget.id : null;
+  useEffect(() => {
+    if (!user || !detailItemId) {
+      setDetailComments([]);
+      setDetailEvents([]);
+      return;
+    }
+    const unsubComments = subscribeItemComments(user.uid, detailItemId, (list) =>
+      setDetailComments(
+        [...list].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+      )
+    );
+    const unsubEvents = subscribeItemEvents(user.uid, detailItemId, setDetailEvents);
+    return () => {
+      unsubComments();
+      unsubEvents();
+    };
+  }, [user, detailItemId]);
 
   // Un mémo libre s'efface au bout de 7 jours (voir src/lib/memos.ts). La règle
   // est celle du modèle, pas celle d'un écran : on balaie ici aussi.
@@ -640,8 +665,6 @@ export default function AppShell() {
   const detailItem = detailTarget?.type === "item" ? items.find((entry) => entry.id === detailTarget.id) ?? null : null;
   const detailCase = detailTarget?.type === "case" ? cases.find((entry) => entry.id === detailTarget.id) ?? null : null;
   const detailMemo = detailTarget?.type === "memo" ? floatingTasks.find((entry) => entry.id === detailTarget.id) ?? null : null;
-  const detailComments = detailItem ? comments.filter((comment) => comment.itemId === detailItem.id).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) : [];
-  const detailEvents = detailItem ? events.filter((event) => event.itemId === detailItem.id) : [];
   const reparentTarget = reparentTargetId ? items.find((entry) => entry.id === reparentTargetId) ?? null : null;
   const reparentHasChildren = useMemo(
     () => (reparentTarget ? items.some((item) => item.parentItemId === reparentTarget.id) : false),
@@ -667,14 +690,22 @@ export default function AppShell() {
     return Array.from(merged.values()).filter(entry => !pendingRemovalIds.has(entry.id));
   }, [legacyMyDaySelections, liveMyDaySelections, pendingRemovalIds]);
 
+  // Rattrapage de `lastProgressAt` sur les tâches antérieures à ce champ.
+  //
+  // L'historique se lit ici en **une fois**, et seulement s'il reste des tâches
+  // à dater : un rattrapage exceptionnel ne justifie pas de diffuser tout
+  // l'historique en permanence à l'écran d'accueil. Une fois l'affaire faite,
+  // plus rien ne part.
   useEffect(() => {
     if (!user || items.length === 0) return;
     const missing = items.filter((item) => !item.lastProgressAt && !backfilledItemIds.current.has(item.id));
     if (missing.length === 0) return;
-    const latestEventByItem = new Map<string, Date>();
-    events
-      .filter((eventEntry) => eventEntry.type === "progress_changed")
-      .forEach((eventEntry) => {
+    let cancelled = false;
+    const runBackfill = async () => {
+      const progressEvents = await fetchProgressEvents(user.uid);
+      if (cancelled) return;
+      const latestEventByItem = new Map<string, Date>();
+      progressEvents.forEach((eventEntry) => {
         const eventDate = toDate(eventEntry.createdAt);
         if (!eventDate) return;
         const current = latestEventByItem.get(eventEntry.itemId);
@@ -682,7 +713,6 @@ export default function AppShell() {
           latestEventByItem.set(eventEntry.itemId, eventDate);
         }
       });
-    const runBackfill = async () => {
       await Promise.all(
         missing.map(async (item) => {
           const fallbackDate = toDate(item.createdAt);
@@ -693,8 +723,11 @@ export default function AppShell() {
         })
       );
     };
-    runBackfill();
-  }, [events, items, user]);
+    runBackfill().catch((err) => console.warn("[AppShell] rattrapage lastProgressAt échoué", err));
+    return () => {
+      cancelled = true;
+    };
+  }, [items, user]);
   const reminderItems = items.filter((item) => {
     const dueKey = getDateKeyFromValue(item.dueDate);
     if (!dueKey || dueKey > todayKey) return false;
