@@ -5,13 +5,16 @@ import {
   signInWithEmailAndPassword,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { SIGNUP_DOMAIN } from "@/lib/signupDomain";
 
 export default function AuthPanel() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [resetSent, setResetSent] = useState(false);
-  const [mode, setMode] = useState<"login" | "reset">("login");
+  const [mode, setMode] = useState<"login" | "reset" | "signup">("login");
+  const [signupSent, setSignupSent] = useState(false);
+  const [signupLoading, setSignupLoading] = useState(false);
 
   const handleEmailLogin = async () => {
     setError(null);
@@ -42,6 +45,34 @@ export default function AuthPanel() {
       setResetSent(true);
     } catch (err: any) {
       setError("Impossible de contacter le serveur. Réessayez.");
+    }
+  };
+
+  // L'inscription ne crée pas de compte : elle demande le lien qui permettra
+  // d'en créer un. C'est ce lien, reçu à l'adresse saisie, qui prouve que
+  // l'adresse est bien celle de la personne — le domaine, lui, est vérifié par
+  // le serveur (`/api/signup`), jamais ici : un écran ne garde rien.
+  const handleSignup = async () => {
+    const trimmed = email.trim().toLowerCase();
+    setError(null);
+    if (!trimmed) { setError("Saisissez votre adresse professionnelle."); return; }
+    setSignupLoading(true);
+    try {
+      const res = await fetch("/api/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: trimmed }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data?.error ?? "L'inscription a échoué.");
+        return;
+      }
+      setSignupSent(true);
+    } catch {
+      setError("Impossible de contacter le serveur. Réessayez.");
+    } finally {
+      setSignupLoading(false);
     }
   };
 
@@ -89,9 +120,51 @@ export default function AuthPanel() {
               >
                 Mot de passe oublié ?
               </button>
+              <button
+                className="text-[12px] text-tx-3 bg-transparent border-none cursor-pointer hover:text-tx-2 underline"
+                onClick={() => { setMode("signup"); setError(null); }}
+              >
+                Créer un compte
+              </button>
             </div>
 
 
+          </>
+        ) : mode === "signup" ? (
+          <>
+            {signupSent ? (
+              <div className="bg-bg-subtle border border-border rounded px-4 py-3 text-[13px] text-tx space-y-1">
+                <p className="font-medium">C&apos;est parti ✓</p>
+                <p className="text-tx-3">Si cette adresse ouvre droit à l&apos;inscription, un lien vient de vous être envoyé. Il est valable 7 jours et c&apos;est lui qui vous fera créer votre mot de passe.</p>
+              </div>
+            ) : (
+              <>
+                <p className="text-[13px] text-tx-2">
+                  Henri est réservé aux professionnels du notariat : l&apos;inscription se fait avec une adresse en <strong className="text-tx">{SIGNUP_DOMAIN}</strong>. Vous recevrez un lien pour créer votre compte.
+                </p>
+                <div className="space-y-2.5">
+                  <input
+                    className={inputClass}
+                    placeholder={`prenom.nom@${SIGNUP_DOMAIN}`}
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSignup()}
+                    autoFocus
+                  />
+                  <button className={btnPrimary} disabled={signupLoading} onClick={handleSignup}>
+                    {signupLoading ? "Envoi…" : "Recevoir mon lien d'inscription"}
+                  </button>
+                </div>
+              </>
+            )}
+
+            <button
+              className="text-[12px] text-tx-3 bg-transparent border-none cursor-pointer hover:text-tx-2 underline"
+              onClick={() => { setMode("login"); setError(null); setSignupSent(false); }}
+            >
+              ← Retour à la connexion
+            </button>
           </>
         ) : (
           <>
