@@ -88,6 +88,17 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ── Réglages de l'office ─────────────────────────────────────────────
+    //
+    // `config/shortcut` porte le lien iCloud du raccourci iPhone, publié une
+    // fois pour toute l'étude. Le navigateur ne l'atteint jamais directement :
+    // il passe par `/api/memo/lien`, qui lit avec le SDK admin et n'accepte
+    // d'écrire que pour un administrateur. Rien à ouvrir ici, donc — et on le
+    // dit plutôt que de compter sur le refus par défaut.
+    match /config/{document=**} {
+      allow read, write: if false;
+    }
+
     // ── Offices (partage entre collaborateurs) ───────────────────────────
     //
     // Fonctionnalité NON CONSTRUITE : le mot « offices » n'apparaît nulle part
