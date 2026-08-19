@@ -152,6 +152,24 @@ npm run dev
 - Le détail d'un mémo est le même partout (`MemoDetail` sur desktop, le panneau de détail de
   `MobileMyDay` sur mobile) : on l'ouvre en cliquant son texte, depuis Ma journée comme depuis
   la colonne Tâches de son dossier — et c'est le même panneau que celui d'une tâche.
+- **Un mémo se note depuis l'iPhone sans ouvrir Henri** (`app/api/memo`, onglet Préférences →
+  « Raccourci iPhone »). La touche Action ouvre un champ, ce qu'on y tape ou dicte arrive dans
+  Ma journée. Le raccourci s'authentifie par une **clé** propre à l'utilisateur
+  (`src/lib/shortcutKey.ts`), créée et révoquée depuis les Préférences via `/api/memo/key` :
+  `users/{uid}/settings/shortcut` porte la clé qui fait foi ; `shortcutKeys/{empreinte}` donne
+  le chemin inverse clé → utilisateur, rangé sous l'**empreinte SHA-256** de la clé et sans
+  jamais la contenir — lire cet annuaire n'apprend donc rien, même si les règles Firestore
+  l'exposaient. Régénérer casse l'ancienne aussitôt.
+  La lecture du texte est dans `src/lib/quickCapture.ts` et **nulle part ailleurs** : mêmes
+  jetons qu'à la saisie (`#` `@` `>` `!`, arrêtés au premier espace faute de liste à choisir),
+  une ligne = un mémo (20 au plus), et **ce qui n'est pas certain n'est pas retenu** — un jeton
+  ambigu revient dans le titre (« #dup relancer le syndic ») plutôt que d'être deviné, parce
+  qu'un mémo classé dans le mauvais dossier ne se voit pas passer. Le mémo écrit est celui de
+  `buildQuickMemo`, rappel du jour de l'échéance compris. La route force `TZ=Europe/Paris` :
+  la journée d'un notaire change à minuit à Paris, pas en UTC.
+  Rien à changer dans les règles Firestore : une collection de premier niveau sans règle est
+  refusée par défaut, et le SDK admin ne passe pas par les règles. `allow read, write: if false`
+  sur `shortcutKeys/**` reste la déclaration la plus claire si les règles portent un joker.
 - La vue Calendrier (`/calendrier`) affiche trois bandes, dans l'ordre du cycle d'une tâche :
   « à faire » (ce qu'on réalise ce jour-là), « j'attends » (les demandes sans réponse, en barres
   de durée), « échéances » (ce qui tombe). Une tâche « Traité » quitte les trois bandes et
@@ -161,6 +179,32 @@ npm run dev
   `items.delaiDays` (délai de retour d'une pièce, en jours). Nul = Henri l'estime d'après
   le libellé via le barème de `src/lib/delais.ts`. Le raisonnement de la vue est dans
   `CALENDRIER.md`.
+
+## Administration
+
+Les comptes administrateurs sont **une donnée, pas une constante** : un document par
+administrateur dans la collection `superAdmins` (l'identifiant du compte pour nom, rien
+dedans) — la même liste que lisent les règles de sécurité Firestore (`isSuperAdmin()`).
+Nommer un administrateur, c'est créer le document depuis la console ; le révoquer, c'est
+l'effacer. Aucun redéploiement.
+
+- `src/lib/superAdmin.ts` — la doctrine, et `LEGACY_SUPER_ADMIN_UID`, le compte historique
+  reconnu sans document. C'est un filet le temps de basculer vers un compte d'administration
+  dédié : une fois le nouveau compte inscrit dans `superAdmins` et vérifié, **supprimer cette
+  constante** le retire partout.
+- `src/lib/superAdminServer.ts` — `requireSuperAdmin(req)` pour les routes d'API (jeton
+  Firebase dans `Authorization`). C'est là que se joue l'autorisation : le SDK admin ne passe
+  pas par les règles.
+- `src/lib/superAdminClient.ts` — `isSuperAdmin(uid)` pour l'écran `/admin`. Il ne protège
+  rien (un écran qui se cache reste un écran) : il évite d'afficher une page à qui n'y a rien
+  à faire. Les règles n'autorisent chacun qu'à lire **sa propre** ligne de `superAdmins` —
+  la liste des comptes de l'écran d'administration reçoit donc du serveur, par utilisateur,
+  le drapeau `isSuperAdmin`.
+- Un administrateur ne peut être ni désactivé ni supprimé depuis l'écran d'administration :
+  deux administrateurs ne doivent pas pouvoir se démettre l'un l'autre d'un clic.
+- `/api/send-invite` exige un administrateur à chaque envoi. La vérification était
+  conditionnée à la présence du champ `authToken` — donc contournable en l'omettant, ce qui
+  ouvrait l'envoi de courriels depuis l'adresse de l'Office à n'importe qui.
 
 ## Rappels et relances (Cloud Functions)
 

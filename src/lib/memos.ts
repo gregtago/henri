@@ -10,11 +10,16 @@
 //   seul : ce serait perdre du travail sans l'avoir demandé ;
 // - le mémo est **non rattaché** — ni à un dossier, ni à une tâche. Rattaché, un
 //   mémo appartient à ce qui le porte : il vit et meurt avec lui.
+//
+// Ce fichier ne fait que **raisonner** : il dit quels mémos ont expiré et ce
+// qu'une ligne de saisie écrit, sans jamais toucher Firestore. C'est ce qui
+// permet à la capture depuis l'iPhone (`app/api/memo`) de composer exactement
+// le même mémo que Ma journée. L'effacement, lui, est dans `firestore.ts`
+// (`purgeExpiredMemos`).
 
 import type { FloatingTask } from "./types";
-import { deleteFloatingTasks } from "./firestore";
 import { getDateKeyFromValue } from "./dates";
-import { dueReminderPatch, type DueReminderSetting } from "./reminderPolicy";
+import { dueReminderPatch, type DueReminderSetting } from "./reminderRules";
 
 /** Au-delà de ce nombre de jours, un mémo réalisé et libre disparaît. */
 export const MEMO_TTL_DAYS = 7;
@@ -49,17 +54,6 @@ export const isExpiredMemo = (memo: FloatingTask, now: Date = new Date()): boole
 /** Les mémos réalisés arrivés au bout de leurs 7 jours, dans la liste donnée. */
 export const listExpiredMemos = (memos: FloatingTask[], now: Date = new Date()): FloatingTask[] =>
   memos.filter((memo) => isExpiredMemo(memo, now));
-
-/**
- * Efface les mémos libres expirés. Sans effet s'il n'y en a aucun.
- * Retourne le nombre de mémos supprimés.
- */
-export const purgeExpiredMemos = async (uid: string, memos: FloatingTask[]): Promise<number> => {
-  const expired = listExpiredMemos(memos);
-  if (expired.length === 0) return 0;
-  await deleteFloatingTasks(uid, expired.map((memo) => memo.id));
-  return expired.length;
-};
 
 /**
  * Ce qu'une **ligne de saisie** de Ma journée écrit — desktop et mobile.

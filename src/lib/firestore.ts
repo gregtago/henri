@@ -32,6 +32,7 @@ import type {
 import { dateKeyToDate, getYesterdayKey as getYesterdayKeyUtil, getTodayKey as getTodayKeyUtil } from "./dates";
 import { getProgressLevel } from "./progress";
 import { areAllChildrenDone } from "./completion";
+import { listExpiredMemos } from "./memos";
 
 const nowIso = () => new Date().toISOString();
 
@@ -230,6 +231,17 @@ export const updateFloatingTask = async (uid: string, id: string, payload: Parti
   if (parentItemId) await completeParentIfAllChildrenDone(uid, parentItemId);
 };
 
+/**
+ * Efface les mémos libres expirés. Sans effet s'il n'y en a aucun.
+ * Retourne le nombre de mémos supprimés.
+ */
+export const purgeExpiredMemos = async (uid: string, memos: FloatingTask[]): Promise<number> => {
+  const expired = listExpiredMemos(memos);
+  if (expired.length === 0) return 0;
+  await deleteFloatingTasks(uid, expired.map((memo) => memo.id));
+  return expired.length;
+};
+
 // ── Tokens push (appareils recevant les rappels) ──
 export type PushTokenInfo = {
   id: string;                 // = le token FCM (id du doc)
@@ -246,6 +258,20 @@ export const subscribePushTokens = (uid: string, cb: (tokens: PushTokenInfo[]) =
 
 export const deletePushToken = (uid: string, tokenId: string) =>
   deleteDoc(doc(db, `users/${uid}/pushTokens/${tokenId}`));
+
+// ── Clé du raccourci iOS ──
+//
+// Elle est **créée et révoquée côté serveur** (`/api/memo/key`), qui tient aussi
+// le chemin inverse clé → utilisateur ; l'application, elle, ne fait que la
+// lire pour l'afficher dans les Préférences.
+export type ShortcutKeyInfo = { key: string; createdAt?: string | null };
+
+export const subscribeShortcutKey = (uid: string, cb: (info: ShortcutKeyInfo | null) => void) =>
+  onSnapshot(
+    doc(db, `users/${uid}/settings/shortcut`),
+    (snap) => cb(snap.exists() ? (snap.data() as ShortcutKeyInfo) : null),
+    () => cb(null)
+  );
 
 export const addMyDaySelection = async (uid: string, payload: Omit<MyDaySelection, "id">) => {
   // Garde-fou anti-doublon : si une sélection existe déjà pour ce (dateKey, refType, refId),

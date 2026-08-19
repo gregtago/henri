@@ -18,13 +18,14 @@ import {
   convertMemoToTask,
   deleteFloatingTasks,
   logStatusEvent,
+  purgeExpiredMemos,
 } from "@/lib/firestore";
 import type { Item, Case, FloatingTask, MyDaySelection, Recurrence, Status } from "@/lib/types";
 import { getTodayKey, getDateKeyFromValue, formatDateFR, atDueHour } from "@/lib/dates";
 import { getProgressLevel } from "@/lib/progress";
 import { countOpenChildren, describeOpenChildren, getCompletion, isContainer } from "@/lib/completion";
 import { refusedFeedback, successFeedback, tapFeedback } from "@/lib/haptics";
-import { MEMO_TTL_DAYS, buildQuickMemo, listRecentlyDoneMemos, purgeExpiredMemos } from "@/lib/memos";
+import { MEMO_TTL_DAYS, buildQuickMemo, listRecentlyDoneMemos } from "@/lib/memos";
 import {
   isInstantToken,
   readToken,

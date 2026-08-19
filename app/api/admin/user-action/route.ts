@@ -3,19 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { sendResetEmail } from "@/lib/brevo";
-
-const ADMIN_UID = "ByHcIefOjWVdQBcikq5oZtJGGZA2";
-
-async function checkAdmin(req: NextRequest) {
-  const token = req.headers.get("authorization")?.replace("Bearer ", "");
-  if (!token) return null;
-  try {
-    const decoded = await adminAuth.verifyIdToken(token);
-    return decoded.uid === ADMIN_UID ? decoded : null;
-  } catch {
-    return null;
-  }
-}
+import { isSuperAdminUid, requireSuperAdmin } from "@/lib/superAdminServer";
 
 // Supprime récursivement toutes les sous-collections d'un document
 async function deleteCollection(path: string) {
@@ -36,12 +24,16 @@ async function deleteUserData(uid: string) {
 }
 
 export async function POST(req: NextRequest) {
-  const admin = await checkAdmin(req);
-  if (!admin) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  if (!(await requireSuperAdmin(req))) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const { uid, action } = await req.json();
   if (!uid || !action) return NextResponse.json({ error: "Paramètres manquants" }, { status: 400 });
-  if (uid === ADMIN_UID) return NextResponse.json({ error: "Impossible d'agir sur le superadmin" }, { status: 403 });
+  // Aucun administrateur n'est désactivable ni supprimable depuis cet écran —
+  // pas seulement celui qui s'y trouve : deux administrateurs ne doivent pas
+  // pouvoir se démettre l'un l'autre d'un clic.
+  if (await isSuperAdminUid(uid)) {
+    return NextResponse.json({ error: "Impossible d'agir sur un administrateur" }, { status: 403 });
+  }
 
   try {
     switch (action) {
