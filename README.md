@@ -180,6 +180,26 @@ npm run dev
   le libellé via le barème de `src/lib/delais.ts`. Le raisonnement de la vue est dans
   `CALENDRIER.md`.
 
+## Comptes : adresse vérifiée, puis second facteur
+
+- **Tous les courriels partent de Brevo**, du même expéditeur et du même gabarit
+  (`src/lib/brevo.ts`) : invitation, réinitialisation de mot de passe, vérification d'adresse.
+  Le SDK admin fabrique les liens d'action sans rien envoyer
+  (`generatePasswordResetLink`, `generateEmailVerificationLink`) — ce sont des courriels de
+  l'Office, pas de Firebase, et il n'y a qu'un seul expéditeur à authentifier (SPF/DKIM sur
+  `mail.tagot.fr`).
+- **`/api/verify-email`** envoie le lien de confirmation. Le destinataire ne se demande pas,
+  il se **déduit du jeton** : c'est l'adresse du compte appelant, jamais une adresse reçue
+  dans la requête — sinon la route deviendrait un moyen d'expédier du courrier depuis
+  l'adresse de l'Office vers n'importe qui. Le retour du clic est déjà traité par
+  `/auth/action` (cas `verifyEmail`).
+- Préférences → **Sécurité** : l'état de l'adresse, l'envoi du lien, et l'endroit où
+  l'inscription du second facteur viendra se poser.
+- **La vérification commande le TOTP** : Identity Platform refuse d'inscrire un second
+  facteur tant que l'adresse n'est pas vérifiée — sans quoi il suffirait de s'inscrire avec
+  l'adresse d'un autre pour l'enfermer dehors avec son propre téléphone. Le TOTP demande en
+  outre l'activation d'Identity Platform sur le projet.
+
 ## Administration
 
 Les comptes administrateurs sont **une donnée, pas une constante** : un document par

@@ -54,7 +54,7 @@ function tsToDate(v: unknown): Date | null {
   return null;
 }
 
-type Tab = "apparence" | "rappels" | "appareils" | "raccourci" | "modeles" | "aide" | "versions" | "legal";
+type Tab = "apparence" | "securite" | "rappels" | "appareils" | "raccourci" | "modeles" | "aide" | "versions" | "legal";
 
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 const formatHour = (h: number) => `${String(h).padStart(2, "0")}h`;
@@ -77,6 +77,7 @@ export default function SettingsPage() {
   const [shortcutShown, setShortcutShown] = useState(false);
   const [shortcutCopied, setShortcutCopied] = useState<string | null>(null);
   const [origin, setOrigin] = useState("");
+  const [verifyState, setVerifyState] = useState<"idle" | "sending" | "sent" | "error">("idle");
 
   useEffect(() => {
     const loaded = loadSettings();
@@ -132,6 +133,33 @@ export default function SettingsPage() {
         setTimeout(() => setPolicySaved(false), 1800);
       })
       .catch(() => {});
+  };
+
+  // ── Vérification de l'adresse ───────────────────────────────────────────
+  //
+  // Elle ne sert pas qu'à faire joli : Identity Platform refuse d'inscrire un
+  // second facteur (TOTP) tant que l'adresse n'est pas vérifiée. C'est donc la
+  // première marche de la double authentification, et elle vit ici, dans
+  // l'onglet où celle-ci se réglera.
+  const handleSendVerification = async () => {
+    if (!user || verifyState === "sending") return;
+    setVerifyState("sending");
+    try {
+      const idToken = await user.getIdToken();
+      const res = await fetch("/api/verify-email", { method: "POST", headers: { authorization: `Bearer ${idToken}` } });
+      if (!res.ok) throw new Error(String(res.status));
+      setVerifyState("sent");
+    } catch {
+      setVerifyState("error");
+    }
+  };
+
+  // Firebase ne prévient pas quand l'adresse vient d'être confirmée : l'état
+  // est dans le jeton, et le jeton date d'avant le clic. On le relit.
+  const handleRefreshUser = async () => {
+    if (!user) return;
+    await user.reload().catch(() => {});
+    setUser(auth.currentUser);
   };
 
   // ── Raccourci iPhone ────────────────────────────────────────────────────
@@ -255,8 +283,8 @@ export default function SettingsPage() {
       <div className="flex-1 flex min-h-0">
         {/* Onglets verticaux */}
         <nav className="w-40 sm:w-52 shrink-0 border-r border-border bg-bg overflow-y-auto py-2">
-          {(["apparence", "rappels", "appareils", "raccourci", "modeles", "aide", "versions", "legal"] as Tab[]).map((t) => {
-            const labels: Record<Tab, string> = { apparence: "Apparence", rappels: "Rappels", appareils: "Appareils", raccourci: "Raccourci iPhone", modeles: "Modèles", aide: "Aide", versions: "Notes de version", legal: "Mentions légales" };
+          {(["apparence", "securite", "rappels", "appareils", "raccourci", "modeles", "aide", "versions", "legal"] as Tab[]).map((t) => {
+            const labels: Record<Tab, string> = { apparence: "Apparence", securite: "Sécurité", rappels: "Rappels", appareils: "Appareils", raccourci: "Raccourci iPhone", modeles: "Modèles", aide: "Aide", versions: "Notes de version", legal: "Mentions légales" };
             return (
               <button key={t} onClick={() => setTab(t)}
                 className="w-full text-left text-[13px] font-medium font-[inherit] px-4 py-2.5 border-none bg-transparent cursor-pointer transition-colors"
@@ -362,6 +390,65 @@ export default function SettingsPage() {
               </div>
             </section>
           </>}
+
+          {tab === "securite" && (
+            <div className="space-y-4">
+              <div className="bg-bg border border-border rounded-xl p-5">
+                <p className="text-[14px] font-semibold text-tx mb-1">Votre adresse</p>
+                <p className="text-[13px] text-tx-2 leading-relaxed">
+                  Confirmer votre adresse prouve qu'elle est bien la vôtre. C'est aussi la <strong>condition préalable à la double authentification</strong> : sans adresse vérifiée, aucun second facteur ne peut être inscrit — sans quoi il suffirait de s'inscrire avec l'adresse d'un autre pour l'enfermer dehors avec son propre téléphone.
+                </p>
+              </div>
+
+              {!user ? (
+                <div className="bg-bg border border-border rounded-xl p-5 text-[13px] text-tx-2">Connectez-vous pour gérer votre compte.</div>
+              ) : (
+                <section>
+                  <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-3">Adresse du compte</h2>
+                  <div className="bg-bg border border-border rounded-xl p-5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-[13.5px] text-tx">{user.email}</p>
+                      {user.emailVerified ? (
+                        <span className="text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 rounded px-1.5 py-0.5">VÉRIFIÉE</span>
+                      ) : (
+                        <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">NON VÉRIFIÉE</span>
+                      )}
+                    </div>
+
+                    {user.emailVerified ? (
+                      <p className="text-[12px] text-tx-3 mt-2 leading-relaxed">Rien à faire — cette adresse est confirmée.</p>
+                    ) : (
+                      <>
+                        <div className="flex gap-2 mt-4 flex-wrap">
+                          <button disabled={verifyState === "sending"} onClick={handleSendVerification}
+                            className="text-[12px] font-[inherit] bg-tx text-bg border border-tx px-4 py-1.5 rounded cursor-pointer hover:opacity-90 transition-all disabled:opacity-50">
+                            {verifyState === "sending" ? "Envoi…" : verifyState === "sent" ? "Renvoyer le lien" : "M'envoyer le lien"}
+                          </button>
+                          <button onClick={handleRefreshUser}
+                            className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-border-strong transition-all">
+                            J'ai cliqué — actualiser
+                          </button>
+                        </div>
+                        {verifyState === "sent" && (
+                          <p className="text-[12px] text-green-700 mt-2 leading-relaxed">Lien envoyé à {user.email}. Ouvrez-le, puis revenez cliquer « actualiser ».</p>
+                        )}
+                        {verifyState === "error" && (
+                          <p className="text-[12px] text-red-600 mt-2">L&apos;envoi a échoué. Réessayez dans un instant.</p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </section>
+              )}
+
+              <section>
+                <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-3">Double authentification</h2>
+                <div className="bg-bg border border-border rounded-xl p-5 text-[13px] text-tx-2 leading-relaxed">
+                  L&apos;inscription d&apos;une application d&apos;authentification (code à six chiffres) se réglera ici. Elle demande deux choses : une adresse vérifiée — ci-dessus —, et l&apos;activation d&apos;Identity Platform sur le projet Firebase.
+                </div>
+              </section>
+            </div>
+          )}
 
           {tab === "rappels" && (
             <div className="space-y-6">
