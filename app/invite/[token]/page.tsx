@@ -69,13 +69,13 @@ export default function InvitePage() {
         )}
 
         {!loading && error && !invitation && (
-          <div className="bg-red-50 border border-red-200 rounded px-4 py-3 text-[13px] text-red-600">
+          <div className="bg-danger-bg-soft border border-danger-border rounded px-4 py-3 text-[13px] text-danger">
             {error}
           </div>
         )}
 
         {!loading && done && (
-          <div className="bg-green-50 border border-green-200 rounded px-4 py-3 text-[13px] text-green-700 space-y-1">
+          <div className="bg-ok-bg-soft border border-ok-border rounded px-4 py-3 text-[13px] text-ok-strong space-y-1">
             <p className="font-medium">Compte créé avec succès ✓</p>
 <button onClick={() => router.push("/")} className="w-full font-[inherit] text-[13.5px] bg-green-700 text-white border-none rounded py-2 cursor-pointer hover:opacity-90 transition-opacity mt-2">
                 Accéder à Henri →
@@ -117,7 +117,7 @@ export default function InvitePage() {
               </button>
             </div>
 
-            {error && <p className="text-[12px] text-red-500">{error}</p>}
+            {error && <p className="text-[12px] text-danger-soft">{error}</p>}
           </>
         )}
       </div>

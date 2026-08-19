@@ -11,6 +11,7 @@ import {
   type FontChoice,
   type DensityChoice,
   type SortChoice,
+  type ThemeChoice,
 } from "@/lib/settings";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -402,7 +403,7 @@ export default function SettingsPage() {
         <div className="z-10 flex gap-2">
           {tab === "apparence" && <>
             <button onClick={handleReset} className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-3 px-3 py-1.5 rounded cursor-pointer hover:border-border-strong hover:text-tx-2 transition-all">Réinitialiser</button>
-            <button onClick={handleSave} className={`text-[12px] font-[inherit] px-4 py-1.5 rounded cursor-pointer transition-all ${saved ? "bg-green-600 text-white border border-green-600" : "bg-tx text-bg border border-tx hover:opacity-90"}`}>{saved ? "Enregistré ✓" : "Enregistrer"}</button>
+            <button onClick={handleSave} className={`text-[12px] font-[inherit] px-4 py-1.5 rounded cursor-pointer transition-all ${saved ? "bg-ok text-white border border-ok" : "bg-tx text-bg border border-tx hover:opacity-90"}`}>{saved ? "Enregistré ✓" : "Enregistrer"}</button>
           </>}
         </div>
       </header>
@@ -444,6 +445,16 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <div className={row}>
+                  <div><p className={lbl}>Thème</p><p className={sublbl}>« Système » suit le réglage de l&apos;appareil, y compris quand il bascule le soir</p></div>
+                  <div className="flex gap-1">
+                    {(["clair", "sombre", "systeme"] as ThemeChoice[]).map(t => (
+                      <button key={t} onClick={() => update("theme", t)} className={`text-[11.5px] px-3 py-1.5 rounded border cursor-pointer font-[inherit] transition-all ${s.theme === t ? "bg-tx text-bg border-tx" : "bg-bg-subtle border-border text-tx-2 hover:border-border-strong"}`}>
+                        {t === "clair" ? "Clair" : t === "sombre" ? "Sombre" : "Système"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className={row}>
                   <div><p className={lbl}>Densité des lignes</p><p className={sublbl}>Hauteur des éléments dans les colonnes</p></div>
                   <div className="flex gap-1">
                     {(["compact", "normal", "relaxed"] as DensityChoice[]).map(d => (
@@ -462,7 +473,7 @@ export default function SettingsPage() {
                 <div className={row}>
                   <div><p className={lbl}>Bandes de navigation latérales</p><p className={sublbl}>Bandes "Dossiers" / "Ma journée" sur les côtés</p></div>
                   <button onClick={() => update("sideTabs", !s.sideTabs)} style={{background: s.sideTabs ? "var(--accent)" : "var(--border-strong)", position:"relative", width:40, height:22, borderRadius:11, cursor:"pointer", border:"none", flexShrink:0, transition:"background 0.2s"}}>
-                    <span style={{position:"absolute", top:3, left: s.sideTabs ? 21 : 3, width:16, height:16, background:"white", borderRadius:"50%", boxShadow:"0 1px 3px rgba(0,0,0,0.2)", transition:"left 0.2s", display:"block"}} />
+                    <span style={{position:"absolute", top:3, left: s.sideTabs ? 21 : 3, width:16, height:16, background:"var(--bg)", borderRadius:"50%", boxShadow:"0 1px 3px rgba(0,0,0,0.2)", transition:"left 0.2s", display:"block"}} />
                   </button>
                 </div>
                 <div className={row}>
@@ -495,7 +506,7 @@ export default function SettingsPage() {
                 <div className={row}>
                   <div><p className={lbl}>Son de complétion</p><p className={sublbl}>Petit bip quand une tâche est marquée réalisée</p></div>
                   <button onClick={() => update("sound", !s.sound)} style={{background: s.sound ? "var(--accent)" : "var(--border-strong)", position:"relative", width:40, height:22, borderRadius:11, cursor:"pointer", border:"none", flexShrink:0, transition:"background 0.2s"}}>
-                    <span style={{position:"absolute", top:3, left: s.sound ? 21 : 3, width:16, height:16, background:"white", borderRadius:"50%", boxShadow:"0 1px 3px rgba(0,0,0,0.2)", transition:"left 0.2s", display:"block"}} />
+                    <span style={{position:"absolute", top:3, left: s.sound ? 21 : 3, width:16, height:16, background:"var(--bg)", borderRadius:"50%", boxShadow:"0 1px 3px rgba(0,0,0,0.2)", transition:"left 0.2s", display:"block"}} />
                   </button>
                 </div>
               </div>
@@ -532,9 +543,9 @@ export default function SettingsPage() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-[13.5px] text-tx">{user.email}</p>
                       {user.emailVerified ? (
-                        <span className="text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 rounded px-1.5 py-0.5">VÉRIFIÉE</span>
+                        <span className="text-[10px] font-semibold text-ok-strong bg-ok-bg-soft border border-ok-border rounded px-1.5 py-0.5">VÉRIFIÉE</span>
                       ) : (
-                        <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">NON VÉRIFIÉE</span>
+                        <span className="text-[10px] font-semibold text-warn bg-warn-bg-soft border border-warn-border-soft rounded px-1.5 py-0.5">NON VÉRIFIÉE</span>
                       )}
                     </div>
 
@@ -553,10 +564,10 @@ export default function SettingsPage() {
                           </button>
                         </div>
                         {verifyState === "sent" && (
-                          <p className="text-[12px] text-green-700 mt-2 leading-relaxed">Lien envoyé à {user.email}. Ouvrez-le, puis revenez cliquer « actualiser ».</p>
+                          <p className="text-[12px] text-ok-strong mt-2 leading-relaxed">Lien envoyé à {user.email}. Ouvrez-le, puis revenez cliquer « actualiser ».</p>
                         )}
                         {verifyState === "error" && (
-                          <p className="text-[12px] text-red-600 mt-2">L&apos;envoi a échoué. Réessayez dans un instant.</p>
+                          <p className="text-[12px] text-danger mt-2">L&apos;envoi a échoué. Réessayez dans un instant.</p>
                         )}
                       </>
                     )}
@@ -599,7 +610,7 @@ export default function SettingsPage() {
                   Une notification s'évacue d'un geste, et la tâche est oubliée. Henri peut donc <strong>revenir à la charge</strong> : tant qu'une tâche avec rappel n'est pas passée « Traité », il renotifie à intervalle régulier, puis le lendemain matin si la journée est finie. Ces réglages valent pour tous vos appareils.
                 </p>
                 {!user && <p className="text-[12.5px] text-tx-3 mt-2">Connectez-vous pour modifier ces réglages.</p>}
-                {policySaved && <p className="text-[12px] text-green-700 mt-2">Enregistré ✓</p>}
+                {policySaved && <p className="text-[12px] text-ok-strong mt-2">Enregistré ✓</p>}
               </div>
 
               <section>
@@ -626,7 +637,7 @@ export default function SettingsPage() {
                   <div className={row}>
                     <div><p className={lbl}>Relancer par défaut</p><p className={sublbl}>S'applique aux nouveaux rappels ; réglable tâche par tâche</p></div>
                     <button disabled={!user} onClick={() => updatePolicy("repeatEnabled", !policy.repeatEnabled)} style={{background: policy.repeatEnabled ? "var(--accent)" : "var(--border-strong)", position:"relative", width:40, height:22, borderRadius:11, cursor: user ? "pointer" : "not-allowed", border:"none", flexShrink:0, transition:"background 0.2s", opacity: user ? 1 : 0.5}}>
-                      <span style={{position:"absolute", top:3, left: policy.repeatEnabled ? 21 : 3, width:16, height:16, background:"white", borderRadius:"50%", boxShadow:"0 1px 3px rgba(0,0,0,0.2)", transition:"left 0.2s", display:"block"}} />
+                      <span style={{position:"absolute", top:3, left: policy.repeatEnabled ? 21 : 3, width:16, height:16, background:"var(--bg)", borderRadius:"50%", boxShadow:"0 1px 3px rgba(0,0,0,0.2)", transition:"left 0.2s", display:"block"}} />
                     </button>
                   </div>
                   <div className={row}>
@@ -667,7 +678,7 @@ export default function SettingsPage() {
                   <div className={row}>
                     <div><p className={lbl}>Récapitulatif quotidien</p><p className={sublbl}>Le soir : ce qu'il reste. Le matin : ce qui n'a pas été fait hier</p></div>
                     <button disabled={!user} onClick={() => updatePolicy("recapEnabled", !policy.recapEnabled)} style={{background: policy.recapEnabled ? "var(--accent)" : "var(--border-strong)", position:"relative", width:40, height:22, borderRadius:11, cursor: user ? "pointer" : "not-allowed", border:"none", flexShrink:0, transition:"background 0.2s", opacity: user ? 1 : 0.5}}>
-                      <span style={{position:"absolute", top:3, left: policy.recapEnabled ? 21 : 3, width:16, height:16, background:"white", borderRadius:"50%", boxShadow:"0 1px 3px rgba(0,0,0,0.2)", transition:"left 0.2s", display:"block"}} />
+                      <span style={{position:"absolute", top:3, left: policy.recapEnabled ? 21 : 3, width:16, height:16, background:"var(--bg)", borderRadius:"50%", boxShadow:"0 1px 3px rgba(0,0,0,0.2)", transition:"left 0.2s", display:"block"}} />
                     </button>
                   </div>
                   <div className={row}>
@@ -712,7 +723,7 @@ export default function SettingsPage() {
                   {currentToken && tokens.some((t) => t.id !== currentToken) && (
                     <div className="flex justify-end pb-1">
                       <button onClick={handleForgetOthers}
-                        className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-red-300 hover:text-red-600 transition-all">
+                        className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-danger-border hover:text-danger transition-all">
                         Oublier tous les autres appareils
                       </button>
                     </div>
@@ -728,12 +739,12 @@ export default function SettingsPage() {
                           <div className="min-w-0">
                             <p className="text-[13.5px] text-tx font-medium flex items-center gap-2 flex-wrap">
                               <span>{name}{os ? ` · ${os}` : ""}</span>
-                              {isCurrent && <span className="text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 rounded px-1.5 py-0.5">Cet appareil</span>}
+                              {isCurrent && <span className="text-[10px] font-semibold text-ok-strong bg-ok-bg-soft border border-ok-border rounded px-1.5 py-0.5">Cet appareil</span>}
                             </p>
                             <p className="text-[11.5px] text-tx-3 mt-0.5">{last ? `Dernière activité le ${last.toLocaleDateString("fr-FR")}` : "Activité inconnue"}</p>
                           </div>
                           <button onClick={() => handleForget(t.id)}
-                            className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-red-300 hover:text-red-600 transition-all shrink-0">
+                            className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-danger-border hover:text-danger transition-all shrink-0">
                             Oublier
                           </button>
                         </div>
@@ -828,7 +839,7 @@ export default function SettingsPage() {
                               Remplacer
                             </button>
                             <button disabled={shortcutBusy} onClick={handleRevokeKey}
-                              className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-red-300 hover:text-red-600 transition-all disabled:opacity-50">
+                              className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-danger-border hover:text-danger transition-all disabled:opacity-50">
                               Retirer
                             </button>
                           </div>
@@ -873,7 +884,7 @@ export default function SettingsPage() {
                           </button>
                           {shortcutLink && (
                             <button disabled={linkBusy} onClick={handleRemoveLink}
-                              className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-red-300 hover:text-red-600 transition-all disabled:opacity-50">
+                              className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-danger-border hover:text-danger transition-all disabled:opacity-50">
                               Retirer
                             </button>
                           )}
@@ -931,7 +942,7 @@ export default function SettingsPage() {
                             <p className="text-[11.5px] text-tx-3 mt-0.5">{t.items.length} tâche{t.items.length > 1 ? "s" : ""} · {expandedTemplate === t.id ? "masquer le détail" : "voir le détail"}</p>
                           </button>
                           <button onClick={() => handleRenameTemplate(t)} className="shrink-0 text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-border-strong hover:text-tx transition-all">Renommer</button>
-                          <button onClick={() => handleDeleteTemplate(t)} className="shrink-0 text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-red-300 hover:text-red-600 transition-all">Supprimer</button>
+                          <button onClick={() => handleDeleteTemplate(t)} className="shrink-0 text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-danger-border hover:text-danger transition-all">Supprimer</button>
                         </div>
                         {expandedTemplate === t.id && (
                           <div className="mt-3 pt-3 border-t border-border space-y-1.5">

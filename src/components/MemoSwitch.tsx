@@ -49,13 +49,13 @@ export default function MemoSwitch({ on, onChange, disabled = false, title }: Pr
       <span
         style={{
           position: "relative", width: 30, height: 17, borderRadius: 9, flexShrink: 0,
-          background: on ? "#374151" : "#d1d5db",
+          background: on ? "var(--text)" : "var(--border-strong)",
           transition: "background 0.15s",
         }}
       >
         <span style={{
           position: "absolute", top: 3, left: on ? 16 : 3, width: 11, height: 11,
-          background: "white", borderRadius: "50%", transition: "left 0.15s", display: "block",
+          background: "var(--bg)", borderRadius: "50%", transition: "left 0.15s", display: "block",
         }} />
       </span>
       <span style={{ fontSize: "12.5px", color: "var(--tx-2)", whiteSpace: "nowrap" }}>Mémo</span>

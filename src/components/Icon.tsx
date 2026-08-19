@@ -1,6 +1,6 @@
 // Composant Icon — inline des SVG monoligne pour qu'ils héritent de currentColor.
 // Style cohérent avec DESIGN.md : trait 1.5px, viewBox 24×24, round caps.
-// Usage : <Icon name="myday" size={16} />  ou  <Icon name="star" size={20} className="text-amber-500" />
+// Usage : <Icon name="myday" size={16} />  ou  <Icon name="star" size={20} className="text-warn-accent" />
 
 import * as React from "react";
 

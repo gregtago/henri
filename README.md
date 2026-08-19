@@ -55,6 +55,13 @@ npm run dev
   plusieurs mois), et le rattrapage de `lastProgressAt` le lit une fois, tant
   qu'il reste des tâches à dater (`fetchProgressEvents`).
 - Un seed est inséré au premier login si aucun dossier n'existe.
+- **Thème clair / sombre / système** : le choix vit dans les préférences locales
+  (`src/lib/settings.ts`, `applyTheme`) et se pose en `data-theme` sur `<html>` ;
+  la table sombre est dans `app/globals.css`. Un script inline de `app/layout.tsx`
+  relit le choix avant le premier rendu pour éviter l'éclair blanc. Corollaire
+  pour tout nouveau code : **aucune couleur en dur**, ni en `style`, ni en classe
+  Tailwind brute — les tokens couvrent les neutres, les statuts et les familles
+  `warn` / `ok` / `danger`.
 - Les sélections "Ma journée" stockent `selectionDate` (Timestamp) pour requêter facilement les 7 derniers jours.
 - Les sélections "Ma journée" stockent aussi `dateTs` (Timestamp à minuit) pour requêter par fenêtre glissante.
 - Les suggestions "À reproposer" listent les tâches vues dans Ma journée sur les 7 derniers jours (hors aujourd'hui), sans évolution de statut sur la période (`lastProgressAt` <= maintenant - 7 jours), non traitées et absentes d'aujourd'hui.

@@ -20,12 +20,95 @@
   --s2-bg: #dbeafe; --s2-fg: #1d4ed8;
   --s3-bg: #dcfce7; --s3-fg: #15803d;
 
+  /* Les trois familles sémantiques — l'échéance qui presse, ce qui est fait,
+   * ce qui casse. Elles étaient écrites en dur dans les composants, ce qui
+   * rendait le thème sombre impossible : un texte ambre foncé sur un fond
+   * ambre clair devient illisible dès que le fond s'inverse. */
+  --warn-bg:        #fef3c7;
+  --warn-bg-soft:   #fffbeb;
+  --warn-border:    #fcd34d;
+  --warn-border-soft:#fde68a;
+  --warn-fg:        #92400e;
+  --warn-fg-strong: #451a03;
+  --warn-accent:    #f59e0b;
+
+  --ok-bg:        #dcfce7;
+  --ok-bg-soft:   #f0fdf4;
+  --ok-border:    #86efac;
+  --ok-fg:        #16a34a;
+  --ok-fg-strong: #166534;
+
+  --danger-bg:     #fee2e2;
+  --danger-bg-soft:#fef2f2;
+  --danger-border: #fecaca;
+  --danger-fg:     #dc2626;
+  --danger-soft:   #ef4444;
+
   --col-w: 280px;
   --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --row-height: 36px;
   --header-h: 44px;
   --r: 4px;
 }
+
+/* ── La nuit ──────────────────────────────────────────────────────────────
+ * Un notaire ouvre Henri le soir, et un écran blanc à 23 h se paie en fatigue.
+ * Le thème se choisit dans Préférences → Apparence (clair, sombre, ou celui du
+ * système), et se pose en un attribut sur <html> : tout le reste suit, parce
+ * que tout le reste passe par ces variables.
+ *
+ * Ce n'est pas un négatif du thème clair. Le fond n'est pas noir mais gris très
+ * sombre et légèrement chaud — un noir pur fait vibrer le texte clair —, et les
+ * couleurs sémantiques sont reprises une à une : l'ambre s'éclaircit au lieu de
+ * s'assombrir, sans quoi l'échéance qui presse deviendrait illisible. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg:            #1a1a19;
+  --bg-subtle:     #212120;
+  --bg-hover:      #2a2a28;
+  --bg-active:     #333331;
+  --border:        #302f2e;
+  --border-strong: #4c4b48;
+  --text:          #edecea;
+  --text-2:        #a3a29d;
+  --text-3:        #706f6b;
+  --accent:        #6f97ff;
+
+  --s0-bg: #2a2a28; --s0-fg: #a3a29d;
+  --s1-bg: #38300f; --s1-fg: #e3b53f;
+  --s2-bg: #17284a; --s2-fg: #7ea8ff;
+  --s3-bg: #14311e; --s3-fg: #61c684;
+
+  --warn-bg:        #38300f;
+  --warn-bg-soft:   #26210b;
+  --warn-border:    #5d4c17;
+  --warn-border-soft:#4a3d12;
+  --warn-fg:        #e9b661;
+  --warn-fg-strong: #ffd79b;
+  --warn-accent:    #d99b23;
+
+  --ok-bg:        #14311e;
+  --ok-bg-soft:   #0f2417;
+  --ok-border:    #2b6741;
+  --ok-fg:        #52c07c;
+  --ok-fg-strong: #8fdda9;
+
+  --danger-bg:     #3a1818;
+  --danger-bg-soft:#2a1212;
+  --danger-border: #5e2727;
+  --danger-fg:     #f26d6d;
+  --danger-soft:   #ef5a5a;
+}
+
+/* Le logo — lettrage noir sur fond transparent. Noir au thème clair, blanc au
+ * thème sombre, et jamais un second fichier : deux fichiers finiraient par
+ * diverger. */
+:root[data-theme="dark"] img[src*="logo-henri"] { filter: invert(1); }
+
+/* Un logo posé sur l'encre — il est déjà renversé au thème clair, il ne doit
+ * pas l'être une seconde fois quand l'encre devient claire. */
+img.logo-on-ink { filter: invert(1); }
+:root[data-theme="dark"] img.logo-on-ink { filter: none; }
 
 * { box-sizing: border-box; }
 
@@ -124,8 +207,8 @@ body {
 
 /* Sélectionné dans la colonne courante (focus actif) — bleu vif */
 .finder-row[data-active="true"] {
-  background: #dbeafe;
-  border-left: 3px solid #2f6eff;
+  background: var(--s2-bg);
+  border-left: 3px solid var(--accent);
   padding-left: 11px;
 }
 .finder-row[data-active="true"] p,
@@ -240,13 +323,13 @@ body {
 
 /* Retirer l'échéance — même forme, couleur d'avertissement. */
 .due-chip-clear {
-  border-color: #fca5a5;
-  color: #dc2626;
+  border-color: var(--danger-border);
+  color: var(--danger-fg);
 }
 
 .due-chip-clear:hover {
-  border-color: #f87171;
-  color: #dc2626;
+  border-color: var(--danger-soft);
+  color: var(--danger-fg);
 }
 
 /* Sur mobile, on vise avec le doigt : la cible grandit. */
@@ -276,7 +359,7 @@ kbd {
   left: 50%;
   transform: translateX(-50%);
   background: var(--text);
-  color: #fff;
+  color: var(--bg);
   font-size: 12.5px;
   padding: 8px 14px;
   border-radius: 6px;
@@ -300,10 +383,10 @@ kbd {
   align-items: center;
   justify-content: space-between;
   padding: 7px 16px;
-  background: #fffbeb;
-  border-bottom: 1px solid #fde68a;
+  background: var(--warn-bg-soft);
+  border-bottom: 1px solid var(--warn-border-soft);
   font-size: 12.5px;
-  color: #92400e;
+  color: var(--warn-fg);
   flex-shrink: 0;
 }
 
@@ -392,15 +475,15 @@ kbd {
 
 /* Panneau "Ma journée" à droite de la vue Dossiers */
 .side-tab-myday {
-  background: #dbeafe;
-  border-left: 1px solid #93c5fd;
+  background: var(--s2-bg);
+  border-left: 1px solid var(--s2-fg);
 }
 .side-tab-myday .side-tab-label {
-  color: #1d4ed8;
+  color: var(--s2-fg);
   transform: rotate(180deg);
 }
 .side-tab-myday:hover {
-  background: #bfdbfe;
+  background: var(--s2-bg);
 }
 
 /* Panneau "Dossiers" à gauche de la vue Ma journée */
@@ -425,7 +508,7 @@ kbd {
     font-family: Georgia, serif;
   }
   #print-candidatures > div {
-    border: 1px solid #ccc;
+    border: 1px solid var(--border);
     border-radius: 8px;
     padding: 16px;
     margin-bottom: 16px;
@@ -455,7 +538,7 @@ kbd {
 .detail-title-input:focus {
   border-color: var(--border-strong);
   box-shadow: 0 2px 10px rgba(0,0,0,0.10);
-  background: #fff;
+  background: var(--bg);
 }
 
 /* ── PANNEAU DÉTAIL : BARRE D'ACTIONS ── */
@@ -524,22 +607,22 @@ kbd {
   color: var(--text);
 }
 .detail-action-btn.detail-action-primary {
-  background: #111827;
-  color: white;
-  border-color: #111827;
+  background: var(--text);
+  color: var(--bg);
+  border-color: var(--text);
 }
 .detail-action-btn.detail-action-primary:hover {
-  background: #374151;
-  border-color: #374151;
-  color: white;
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
 }
 .detail-action-btn.detail-action-danger {
-  color: #ef4444;
-  border-color: #fecaca;
+  color: var(--danger-soft);
+  border-color: var(--danger-border);
 }
 .detail-action-btn.detail-action-danger:hover {
-  background: #fef2f2;
-  border-color: #f87171;
+  background: var(--danger-bg-soft);
+  border-color: var(--danger-soft);
 }
 
 /* ── CALENDRIER ───────────────────────────────────────────────────────────
@@ -550,8 +633,8 @@ kbd {
 
 :root {
   --cal-cols: 26px repeat(5, minmax(0, 1fr)) 68px 68px;
-  --cal-out: #9a6700;      /* teinte « sortant » — reprise du statut Demandé */
-  --cal-late: #ef4444;
+  --cal-out: var(--s1-fg);  /* teinte « sortant » — reprise du statut Demandé */
+  --cal-late: var(--danger-soft);
 }
 
 /* Barre d'outils */
@@ -649,7 +732,7 @@ kbd {
 .cal-band { flex: 1; min-height: 0; overflow-y: auto; }
 /* « À faire » vient en tête (fond légèrement chaud : c'est la bande d'action),
  * « Échéances » ferme la vue. Les noms de classes gardent leur origine. */
-.cal-band-out { background: #fdfcf9; border-bottom: 1px solid var(--border); }
+.cal-band-out { background: var(--warn-bg-soft); border-bottom: 1px solid var(--border); }
 .cal-band-in { background: var(--bg); border-top: 1px solid var(--border); }
 .cal-cell {
   border-right: 1px solid var(--border);
@@ -676,7 +759,7 @@ kbd {
   height: 20px; padding: 0 7px;
   border-radius: 10px;
   background: var(--s1-bg);
-  border: 1px solid #f0dfae;
+  border: 1px solid var(--warn-border-soft);
   color: var(--s1-fg);
   font-size: 11.5px;
   cursor: pointer;
@@ -685,8 +768,8 @@ kbd {
 }
 .cal-bar:hover { box-shadow: 0 0 0 1px var(--border-strong); }
 .cal-bar[data-late="true"] {
-  background: repeating-linear-gradient(135deg, #fef2f2, #fef2f2 5px, #fee2e2 5px, #fee2e2 10px);
-  border-color: #fecaca;
+  background: repeating-linear-gradient(135deg, var(--danger-bg-soft), var(--danger-bg-soft) 5px, var(--danger-bg) 5px, var(--danger-bg) 10px);
+  border-color: var(--danger-border);
   color: var(--cal-late);
 }
 .cal-bar[data-dim="true"] { opacity: 0.35; }
@@ -713,11 +796,11 @@ kbd {
 .cal-chip:hover { background: var(--bg-hover); border-color: var(--border-strong); }
 .cal-chip[data-large="true"] { font-size: 12.5px; padding: 6px 8px; }
 .cal-chip[data-dim="true"] { opacity: 0.3; }
-.cal-chip[data-selected="true"] { background: #dbeafe; border-color: var(--accent); }
-.cal-chip[data-variant="out"] { border-left-color: var(--cal-out); background: #fffdf7; }
+.cal-chip[data-selected="true"] { background: var(--s2-bg); border-color: var(--accent); }
+.cal-chip[data-variant="out"] { border-left-color: var(--cal-out); background: var(--warn-bg-soft); }
 .cal-chip[data-variant="in"] { border-left-color: var(--border-strong); }
 .cal-chip[data-variant="sas"] { border-left-color: var(--cal-late); background: var(--bg); }
-.cal-chip[data-variant="fait"] { border-left-color: #34d399; background: transparent; color: var(--text-2); border-color: transparent; }
+.cal-chip[data-variant="fait"] { border-left-color: var(--ok-fg); background: transparent; color: var(--text-2); border-color: transparent; }
 .cal-chip[data-overdue="true"] { border-left-color: var(--cal-late); }
 .cal-chip[data-reason="rappel"] { border-left-style: dashed; }
 /* Un mémo ne réclame rien : pas de filet coloré, pas de poids visuel. */
@@ -731,10 +814,10 @@ kbd {
 .cal-chip-case { font-size: 10px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40%; }
 .cal-chip-tag {
   font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.05em;
-  color: var(--cal-out); border: 1px solid #f0dfae; background: var(--s1-bg);
+  color: var(--cal-out); border: 1px solid var(--warn-border-soft); background: var(--s1-bg);
   border-radius: 3px; padding: 0 3px; flex-shrink: 0;
 }
-.cal-chip[data-overdue="true"] .cal-chip-tag { color: var(--cal-late); background: #fef2f2; border-color: #fecaca; }
+.cal-chip[data-overdue="true"] .cal-chip-tag { color: var(--cal-late); background: var(--danger-bg-soft); border-color: var(--danger-border); }
 .cal-chip-star { font-size: 9px; flex-shrink: 0; }
 
 /* Vue jour */
@@ -747,7 +830,7 @@ kbd {
   min-height: 34px; padding: 3px 6px 3px 8px;
   border-bottom: 1px dashed var(--border);
 }
-.cal-rail-slot[data-drop="true"] { background: #dbeafe; box-shadow: inset 0 0 0 1px var(--accent); }
+.cal-rail-slot[data-drop="true"] { background: var(--s2-bg); box-shadow: inset 0 0 0 1px var(--accent); }
 .cal-rail-hour { font-size: 10.5px; color: var(--text-3); width: 20px; flex-shrink: 0; padding-top: 3px; }
 .cal-rail-items { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .cal-rail-chip {
@@ -761,7 +844,7 @@ kbd {
 
 .cal-lanes { flex: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); min-width: 0; }
 .cal-lane { display: flex; flex-direction: column; border-right: 1px solid var(--border); min-width: 0; overflow: hidden; }
-.cal-lane[data-variant="out"] { background: #fdfcf9; }
+.cal-lane[data-variant="out"] { background: var(--warn-bg-soft); }
 .cal-lane[data-variant="wait"] { background: var(--bg-subtle); }
 .cal-lane-hint { font-size: 10.5px; color: var(--text-3); padding: 6px 12px 4px; }
 .cal-lane-list { flex: 1; overflow-y: auto; padding: 2px 8px 16px; display: flex; flex-direction: column; gap: 4px; }
@@ -825,7 +908,7 @@ kbd {
   background: var(--bg); color: var(--text-2); cursor: pointer;
 }
 .cal-status-btn:hover { border-color: var(--border-strong); color: var(--text); }
-.cal-status-btn[data-on="true"] { background: var(--text); color: white; border-color: var(--text); }
+.cal-status-btn[data-on="true"] { background: var(--text); color: var(--bg); border-color: var(--text); }
 
 .cal-note-hint {
   font-size: 12.5px; color: var(--text-2); line-height: 1.5;
@@ -836,7 +919,7 @@ kbd {
 
 .cal-toast {
   position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
-  background: var(--text); color: white; font-size: 12.5px;
+  background: var(--text); color: var(--bg); font-size: 12.5px;
   padding: 7px 14px; border-radius: 6px; z-index: 50;
 }
 

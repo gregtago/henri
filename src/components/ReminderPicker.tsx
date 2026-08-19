@@ -7,7 +7,7 @@ import { dueDayReminderAt } from "@/lib/reminderPolicy";
 type Props = {
   value: string | null | undefined;  // ISO timestamp ou null
   onChange: (iso: string | null) => void;
-  themeColor?: string;               // optionnel : couleur d'accent (post-it = #92400e)
+  themeColor?: string;               // optionnel : couleur d'accent (post-it = var(--warn-fg))
   /** Relance pour CE rappel : true/false explicite, null = suivre la préférence globale. */
   repeat?: boolean | null;
   onRepeatChange?: (repeat: boolean) => void;
@@ -42,7 +42,7 @@ type Props = {
 export function ReminderPicker({
   value,
   onChange,
-  themeColor = "#374151",
+  themeColor = "var(--text)",
   repeat,
   onRepeatChange,
   defaultRepeat = true,
@@ -52,7 +52,7 @@ export function ReminderPicker({
 }: Props) {
   const [customOpen, setCustomOpen] = useState(false);
   const repeatOn = repeat === null || repeat === undefined ? defaultRepeat : repeat;
-  const isPostIt = themeColor === "#92400e";
+  const isPostIt = themeColor === "var(--warn-fg)";
 
   const presets = useMemo(() => {
     const now = new Date();
@@ -105,17 +105,17 @@ export function ReminderPicker({
 
   return (
     <div>
-      <p style={{ fontSize: "10px", fontWeight: 700, color: themeColor === "#92400e" ? "#92400e" : "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>
+      <p style={{ fontSize: "10px", fontWeight: 700, color: themeColor === "var(--warn-fg)" ? "var(--warn-fg)" : "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>
         Rappel
       </p>
 
       {value && (
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px", padding: "8px 12px", background: themeColor === "#92400e" ? "rgba(255,255,255,0.6)" : "#f9fafb", borderRadius: "8px", border: `1px solid ${themeColor === "#92400e" ? "#fde68a" : "#e5e7eb"}` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px", padding: "8px 12px", background: themeColor === "var(--warn-fg)" ? "rgba(255,255,255,0.6)" : "var(--bg-subtle)", borderRadius: "8px", border: `1px solid ${themeColor === "var(--warn-fg)" ? "var(--warn-border-soft)" : "var(--border)"}` }}>
           <Icon name="time" size={16} style={{ color: themeColor, flexShrink: 0 }} />
-          <span style={{ fontSize: "13px", color: themeColor === "#92400e" ? "#451a03" : "#111827", flex: 1 }}>{currentLabel}</span>
+          <span style={{ fontSize: "13px", color: themeColor === "var(--warn-fg)" ? "var(--warn-fg-strong)" : "var(--text)", flex: 1 }}>{currentLabel}</span>
           <button
             onClick={() => onChange(null)}
-            style={{ border: "none", background: "transparent", cursor: "pointer", color: "#9ca3af", padding: 0, lineHeight: 0 }}
+            style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--text-3)", padding: 0, lineHeight: 0 }}
             title="Retirer le rappel"
           >
             <Icon name="close" size={14} />
@@ -130,9 +130,9 @@ export function ReminderPicker({
             onClick={() => onChange(p.iso)}
             style={{
               padding: "6px 12px", borderRadius: "20px",
-              border: `1px solid ${themeColor === "#92400e" ? "#fde68a" : "#e5e7eb"}`,
-              background: themeColor === "#92400e" ? "rgba(255,255,255,0.7)" : "white",
-              color: themeColor === "#92400e" ? "#92400e" : "#374151",
+              border: `1px solid ${themeColor === "var(--warn-fg)" ? "var(--warn-border-soft)" : "var(--border)"}`,
+              background: themeColor === "var(--warn-fg)" ? "var(--warn-bg-soft)" : "var(--bg)",
+              color: themeColor === "var(--warn-fg)" ? "var(--warn-fg)" : "var(--text)",
               fontSize: "12px", cursor: "pointer", fontFamily: "inherit",
             }}
           >
@@ -143,9 +143,9 @@ export function ReminderPicker({
           onClick={() => setCustomOpen(p => !p)}
           style={{
             padding: "6px 12px", borderRadius: "20px",
-            border: `1px solid ${themeColor === "#92400e" ? "#fde68a" : "#e5e7eb"}`,
-            background: customOpen ? (themeColor === "#92400e" ? "#fde68a" : "#374151") : (themeColor === "#92400e" ? "rgba(255,255,255,0.7)" : "white"),
-            color: customOpen ? (themeColor === "#92400e" ? "#451a03" : "white") : (themeColor === "#92400e" ? "#92400e" : "#374151"),
+            border: `1px solid ${themeColor === "var(--warn-fg)" ? "var(--warn-border-soft)" : "var(--border)"}`,
+            background: customOpen ? (themeColor === "var(--warn-fg)" ? "var(--warn-border-soft)" : "var(--text)") : (themeColor === "var(--warn-fg)" ? "var(--warn-bg-soft)" : "var(--bg)"),
+            color: customOpen ? (themeColor === "var(--warn-fg)" ? "var(--warn-fg-strong)" : "var(--bg)") : (themeColor === "var(--warn-fg)" ? "var(--warn-fg)" : "var(--text)"),
             fontSize: "12px", cursor: "pointer", fontFamily: "inherit",
           }}
         >
@@ -162,9 +162,9 @@ export function ReminderPicker({
           style={{
             marginTop: "10px", width: "100%", display: "flex", alignItems: "center", gap: "8px",
             padding: "8px 10px", borderRadius: "8px", cursor: "pointer", textAlign: "left",
-            border: `1px solid ${isPostIt ? "#fde68a" : "#e5e7eb"}`,
+            border: `1px solid ${isPostIt ? "var(--warn-border-soft)" : "var(--border)"}`,
             background: repeatOn
-              ? (isPostIt ? "rgba(255,255,255,0.7)" : "#f9fafb")
+              ? (isPostIt ? "var(--warn-bg-soft)" : "var(--bg-subtle)")
               : "transparent",
             fontFamily: "inherit",
           }}
@@ -172,20 +172,20 @@ export function ReminderPicker({
           <span
             style={{
               position: "relative", width: 32, height: 18, borderRadius: 9, flexShrink: 0,
-              background: repeatOn ? (isPostIt ? "#92400e" : "#374151") : "#d1d5db",
+              background: repeatOn ? (isPostIt ? "var(--warn-fg)" : "var(--text)") : "var(--border-strong)",
               transition: "background 0.15s",
             }}
           >
             <span style={{
               position: "absolute", top: 3, left: repeatOn ? 17 : 3, width: 12, height: 12,
-              background: "white", borderRadius: "50%", transition: "left 0.15s", display: "block",
+              background: "var(--bg)", borderRadius: "50%", transition: "left 0.15s", display: "block",
             }} />
           </span>
           <span style={{ minWidth: 0 }}>
-            <span style={{ display: "block", fontSize: "12px", color: isPostIt ? "#451a03" : "#374151" }}>
+            <span style={{ display: "block", fontSize: "12px", color: isPostIt ? "var(--warn-fg-strong)" : "var(--text)" }}>
               Relancer tant que ce n'est pas fait
             </span>
-            <span style={{ display: "block", fontSize: "10.5px", color: isPostIt ? "#92400e" : "#9ca3af", marginTop: "1px" }}>
+            <span style={{ display: "block", fontSize: "10.5px", color: isPostIt ? "var(--warn-fg)" : "var(--text-3)", marginTop: "1px" }}>
               {repeatOn
                 ? `Nouvelle notification ${repeatLabel ?? "toutes les 3 h"}`
                 : "Une seule notification"}
@@ -207,11 +207,11 @@ export function ReminderPicker({
             }}
             style={{
               flex: 1, fontSize: "13px",
-              border: `1px solid ${themeColor === "#92400e" ? "#fde68a" : "#e5e7eb"}`,
+              border: `1px solid ${themeColor === "var(--warn-fg)" ? "var(--warn-border-soft)" : "var(--border)"}`,
               borderRadius: "8px", padding: "8px 10px",
               outline: "none", fontFamily: "inherit",
-              background: themeColor === "#92400e" ? "rgba(255,255,255,0.85)" : "#f9fafb",
-              color: themeColor === "#92400e" ? "#451a03" : "#374151",
+              background: themeColor === "var(--warn-fg)" ? "rgba(255,255,255,0.85)" : "var(--bg-subtle)",
+              color: themeColor === "var(--warn-fg)" ? "var(--warn-fg-strong)" : "var(--text)",
             }}
           />
         </div>

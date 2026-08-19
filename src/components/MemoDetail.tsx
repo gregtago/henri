@@ -104,8 +104,8 @@ export default function MemoDetail({
             title={done ? "Marquer à faire" : "Marquer réalisé"}
             style={{
               width: "22px", height: "22px", borderRadius: "6px",
-              border: done ? "none" : "2px solid #9ca3af",
-              background: done ? "#16a34a" : "white",
+              border: done ? "none" : "2px solid var(--text-3)",
+              background: done ? "var(--ok-fg)" : "var(--bg)",
             }}
           >
             {done && <Icon name="check" size={14} className="text-white" strokeWidth={2.5} />}
@@ -113,7 +113,7 @@ export default function MemoDetail({
           <button
             onClick={() => onPatch({ starred: !task.starred })}
             className="shrink-0 border-none bg-transparent cursor-pointer p-0 leading-none transition-all hover:scale-110"
-            style={{ color: task.starred ? "#f59e0b" : "#d1d5db" }}
+            style={{ color: task.starred ? "var(--warn-accent)" : "var(--border-strong)" }}
             title={task.starred ? "Retirer l'étoile" : "Marquer important"}
           >
             <Icon name="star" size={26} filled={task.starred} strokeWidth={1.75} />

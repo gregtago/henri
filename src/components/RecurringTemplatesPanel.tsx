@@ -101,7 +101,7 @@ export function RecurringTemplatesPanel({ uid }: Props) {
             </button>
             <button
               onClick={() => handleDelete(t.id)}
-              className="text-[12px] font-[inherit] px-2.5 py-1.5 rounded cursor-pointer bg-transparent border border-border text-red-400 hover:border-red-400 transition-all"
+              className="text-[12px] font-[inherit] px-2.5 py-1.5 rounded cursor-pointer bg-transparent border border-border text-danger-soft hover:border-danger-border transition-all"
             >
               ✕
             </button>
