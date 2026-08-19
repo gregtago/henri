@@ -127,6 +127,12 @@ Le raccourci reçoit en retour **une phrase, et c'est son seul accusé de récep
 
 La lecture du texte vit dans `src/lib/quickCapture.ts`, la clé dans `src/lib/shortcutKey.ts`, la route dans `app/api/memo`. La clé n'ouvre que l'écriture d'un mémo — jamais la lecture des dossiers — et se retire d'un bouton.
 
+**L'installer tient en un lien — et ce lien vient d'Apple, pas d'Henri.** Monter le raccourci à la main demande d'assembler cinq actions dans l'éditeur de Raccourcis : personne ne le fait deux fois, beaucoup ne le font pas une, et un outil qu'on n'installe pas ne sert à rien. On aurait donc voulu qu'Henri fabrique le raccourci, clé comprise, et le serve à une adresse à lui. **Apple l'interdit** : depuis iOS 15, un fichier `.shortcut` doit être *signé* pour être importé, la signature réclame les clés d'un appareil Apple, et la brèche qui laissait passer les fichiers non signés a été refermée dès la deuxième bêta. Un fichier hébergé par nos soins serait refusé, qu'on le télécharge depuis Safari ou qu'on l'ouvre par `shortcuts://import-shortcut`. Le seul lien qui installe un raccourci en un geste est le **lien iCloud** que produit l'application Raccourcis quand on partage.
+
+D'où le partage des rôles. **L'office monte le raccourci une seule fois** — un iPhone, cinq minutes, la recette est dans les Préférences — et colle le lien iCloud obtenu : il est publié pour toute l'étude (`app/api/memo/lien`, `config/shortcut`, écriture réservée à l'administrateur, car ce lien commande un bouton affiché à tout le monde). **Chacun l'installe ensuite d'un tap.**
+
+Le raccourci partagé, lui, **ne contient aucune clé** : un lien iCloud est public pour qui l'a, et un secret qui voyagerait dedans serait le secret de tous. À la place, sa première case `Texte` porte le repère `hnr_votre_cle`, que chacun remplace par la sienne après l'installation. C'est le seul geste qui reste — copier sa clé dans les Préférences, la coller dans le raccourci — et il ne se fait qu'une fois.
+
 ### Durée de vie d'un mémo
 
 Un mémo est un pense-bête, pas une archive. Un mémo **coché** et **non rattaché** disparaît définitivement **7 jours après avoir été réalisé**.

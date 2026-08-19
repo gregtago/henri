@@ -17,6 +17,8 @@ import { auth } from "@/lib/firebase";
 import { subscribePushTokens, deletePushToken, subscribeCaseTemplates, renameCaseTemplate, deleteCaseTemplate, subscribeShortcutKey, type PushTokenInfo, type ShortcutKeyInfo } from "@/lib/firestore";
 import type { CaseTemplate } from "@/lib/types";
 import { maskShortcutKey } from "@/lib/shortcutKey";
+import { normalizeShortcutLink } from "@/lib/shortcutLink";
+import { isSuperAdmin } from "@/lib/superAdminClient";
 import { getCurrentToken } from "@/lib/messaging";
 import {
   DEFAULT_REMINDER_POLICY,
@@ -56,6 +58,11 @@ function tsToDate(v: unknown): Date | null {
 
 type Tab = "apparence" | "rappels" | "appareils" | "raccourci" | "modeles" | "aide" | "versions" | "legal";
 
+// Le repère que le raccourci partagé porte à la place d'une clé : chacun le
+// remplace par la sienne après l'avoir installé. Il a la forme d'une clé sans
+// en être une — on voit du premier coup d'œil ce qu'on doit remplacer.
+const KEY_PLACEHOLDER = "hnr_votre_cle";
+
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 const formatHour = (h: number) => `${String(h).padStart(2, "0")}h`;
 
@@ -77,6 +84,10 @@ export default function SettingsPage() {
   const [shortcutShown, setShortcutShown] = useState(false);
   const [shortcutCopied, setShortcutCopied] = useState<string | null>(null);
   const [origin, setOrigin] = useState("");
+  const [shortcutLink, setShortcutLink] = useState<string | null>(null);
+  const [linkDraft, setLinkDraft] = useState("");
+  const [linkBusy, setLinkBusy] = useState(false);
+  const [admin, setAdmin] = useState(false);
 
   useEffect(() => {
     const loaded = loadSettings();
@@ -149,16 +160,19 @@ export default function SettingsPage() {
     return () => unsub();
   }, [user]);
 
-  const callKeyApi = async (method: "POST" | "DELETE") => {
-    if (!user || shortcutBusy) return;
+  const callKeyApi = async (method: "POST" | "DELETE"): Promise<string | null> => {
+    if (!user || shortcutBusy) return null;
     setShortcutBusy(true);
     try {
       const idToken = await user.getIdToken();
       const res = await fetch("/api/memo/key", { method, headers: { authorization: `Bearer ${idToken}` } });
       if (!res.ok) throw new Error(String(res.status));
       setShortcutShown(method === "POST");
+      const data = method === "POST" ? await res.json() : null;
+      return typeof data?.key === "string" ? data.key : null;
     } catch {
       window.alert("L'opération a échoué. Réessayez dans un instant.");
+      return null;
     } finally {
       setShortcutBusy(false);
     }
@@ -184,6 +198,74 @@ export default function SettingsPage() {
       },
       () => window.alert("Copie impossible — sélectionnez le texte à la main.")
     );
+  };
+
+  /**
+   * « Copier ma clé » — le premier geste de l'installation.
+   *
+   * Qui arrive ici pour la première fois n'a pas encore de clé : la créer
+   * derrière le bouton évite de faire commencer l'installation par une
+   * intendance. La copie qui suit une création peut échouer sur Safari, qui
+   * n'accorde le presse-papiers qu'au geste immédiat de l'utilisateur : la clé
+   * est alors dévoilée en clair juste en dessous, à sélectionner à la main.
+   */
+  const handleCopyKey = async () => {
+    if (shortcut?.key) { copyToClipboard(shortcut.key, "cle"); return; }
+    const created = await callKeyApi("POST");
+    if (created) copyToClipboard(created, "cle");
+  };
+
+  // ── Le lien iCloud de l'office ──────────────────────────────────────────
+  //
+  // Un raccourci ne s'installe que par un lien iCloud : Apple exige une
+  // signature qu'aucun serveur ne peut produire (`src/lib/shortcutLink.ts`).
+  // L'office monte donc le raccourci une fois, colle ici le lien obtenu, et
+  // chacun l'installe d'un tap.
+  useEffect(() => {
+    if (!user) { setShortcutLink(null); setAdmin(false); return; }
+    let alive = true;
+    isSuperAdmin(user.uid).then((yes) => { if (alive) setAdmin(yes); }).catch(() => {});
+    user
+      .getIdToken()
+      .then((idToken) => fetch("/api/memo/lien", { headers: { authorization: `Bearer ${idToken}` } }))
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!alive) return;
+        const url = normalizeShortcutLink(data?.url);
+        setShortcutLink(url);
+        setLinkDraft(url ?? "");
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [user]);
+
+  const callLinkApi = async (method: "PUT" | "DELETE", url?: string) => {
+    if (!user || linkBusy) return;
+    setLinkBusy(true);
+    try {
+      const idToken = await user.getIdToken();
+      const res = await fetch("/api/memo/lien", {
+        method,
+        headers: { authorization: `Bearer ${idToken}`, "content-type": "application/json" },
+        body: method === "PUT" ? JSON.stringify({ url }) : undefined,
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? String(res.status));
+      const saved = method === "PUT" ? normalizeShortcutLink(data?.url) : null;
+      setShortcutLink(saved);
+      setLinkDraft(saved ?? "");
+    } catch (err: unknown) {
+      window.alert(err instanceof Error ? err.message : "L'opération a échoué.");
+    } finally {
+      setLinkBusy(false);
+    }
+  };
+
+  const handleSaveLink = () => callLinkApi("PUT", linkDraft.trim());
+
+  const handleRemoveLink = () => {
+    if (!window.confirm("Retirer le lien ? Le bouton d'installation disparaîtra pour tout le monde.")) return;
+    callLinkApi("DELETE");
   };
 
   // Modèles de dossier
@@ -529,77 +611,152 @@ export default function SettingsPage() {
               </div>
 
               {!user ? (
-                <div className="bg-bg border border-border rounded-xl p-5 text-[13px] text-tx-2">Connectez-vous pour créer votre clé.</div>
+                <div className="bg-bg border border-border rounded-xl p-5 text-[13px] text-tx-2">Connectez-vous pour installer le raccourci.</div>
               ) : (
-                <section>
-                  <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-3">Votre clé</h2>
-                  <div className="bg-bg border border-border rounded-xl p-5">
-                    {!shortcut?.key ? (
-                      <>
-                        <p className="text-[13px] text-tx-2 leading-relaxed mb-3">
-                          La clé autorise votre iPhone à ajouter des mémos, et rien d&apos;autre : elle ne donne accès ni aux dossiers ni à leur contenu. Elle se retire d&apos;un bouton.
+                <>
+                  <section>
+                    <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-3">Installer le raccourci</h2>
+                    {shortcutLink ? (
+                      <div className="bg-bg border border-border rounded-xl p-5 space-y-4 text-[13px] text-tx-2 leading-relaxed">
+                        <div>
+                          <p><strong className="text-tx">1.</strong> Copiez votre clé. Le raccourci de l&apos;office n&apos;en contient aucune : chacun y colle la sienne, et la retire quand il veut.</p>
+                          <button disabled={shortcutBusy} onClick={handleCopyKey}
+                            className="mt-2 text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-border-strong transition-all disabled:opacity-50">
+                            {shortcutBusy ? "…" : shortcutCopied === "cle" ? "Copié ✓" : shortcut?.key ? "Copier ma clé" : "Créer et copier ma clé"}
+                          </button>
+                        </div>
+                        <div>
+                          <p><strong className="text-tx">2.</strong> Ajoutez le raccourci. Ce bouton ouvre l&apos;application <strong>Raccourcis</strong> : il n&apos;a de sens que depuis l&apos;iPhone.</p>
+                          <a href={shortcutLink} target="_blank" rel="noreferrer"
+                            className="inline-block mt-2 text-[12px] font-[inherit] bg-tx text-bg border border-tx px-4 py-1.5 rounded cursor-pointer hover:opacity-90 transition-all no-underline">
+                            Ajouter le raccourci à mon iPhone
+                          </a>
+                        </div>
+                        <p><strong className="text-tx">3.</strong> Collez-y votre clé, une fois pour toutes : <strong>Raccourcis</strong> → appui long sur « Mémo Henri » → <strong>Modifier</strong> → dans la case <strong>Texte</strong> tout en haut, remplacez <code className="text-[12px] bg-bg-subtle border border-border rounded px-1 py-0.5">{KEY_PLACEHOLDER}</code> par votre clé → <strong>OK</strong>.</p>
+                        <p><strong className="text-tx">4.</strong> <strong>Réglages</strong> → <strong>Touche Action</strong> → <strong>Raccourci</strong> → choisissez « Mémo Henri ». (Sans touche Action : ajoutez le raccourci à l&apos;écran d&apos;accueil, ou dites « Dis Siri, Mémo Henri ».)</p>
+                        <p className="text-[11.5px] text-tx-3">
+                          Vous lisez ceci sur un ordinateur ? Le bouton n&apos;installera rien ici : rouvrez cette page depuis l&apos;iPhone — Henri, Préférences, Raccourci iPhone.
                         </p>
-                        <button disabled={shortcutBusy} onClick={handleCreateKey}
-                          className="text-[12px] font-[inherit] bg-tx text-bg border border-tx px-4 py-1.5 rounded cursor-pointer hover:opacity-90 transition-all disabled:opacity-50">
-                          {shortcutBusy ? "…" : "Créer la clé"}
-                        </button>
-                      </>
+                      </div>
                     ) : (
-                      <>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <code className="text-[12.5px] text-tx bg-bg-subtle border border-border rounded px-2.5 py-1.5 select-all break-all">
-                            {shortcutShown ? shortcut.key : maskShortcutKey(shortcut.key)}
-                          </code>
-                          <button onClick={() => setShortcutShown(v => !v)}
-                            className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-border-strong transition-all">
-                            {shortcutShown ? "Masquer" : "Afficher"}
-                          </button>
-                          <button onClick={() => copyToClipboard(`Bearer ${shortcut.key}`, "cle")}
-                            className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-border-strong transition-all">
-                            {shortcutCopied === "cle" ? "Copié ✓" : "Copier « Bearer … »"}
-                          </button>
-                        </div>
-                        <p className="text-[11.5px] text-tx-3 mt-2">
-                          Créée le {shortcut.createdAt ? new Date(shortcut.createdAt).toLocaleDateString("fr-FR") : "—"} · à coller une seule fois dans le raccourci, puis à oublier.
-                        </p>
-                        <div className="flex gap-2 mt-4">
-                          <button disabled={shortcutBusy} onClick={handleRotateKey}
-                            className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-border-strong transition-all disabled:opacity-50">
-                            Remplacer
-                          </button>
-                          <button disabled={shortcutBusy} onClick={handleRevokeKey}
-                            className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-red-300 hover:text-red-600 transition-all disabled:opacity-50">
-                            Retirer
-                          </button>
-                        </div>
-                      </>
+                      <div className="bg-bg border border-border rounded-xl p-5 text-[13px] text-tx-2 leading-relaxed">
+                        Le raccourci de l&apos;office n&apos;est pas encore publié.{admin ? " Montez-le une fois depuis votre iPhone — la recette est juste en dessous — puis collez ici son lien iCloud : le bouton d’installation apparaîtra pour tout le monde." : " Votre administrateur doit le monter une fois et publier son lien ; en attendant, la recette manuelle en bas de page fonctionne."}
+                      </div>
                     )}
-                  </div>
-                </section>
-              )}
+                  </section>
 
-              <section>
-                <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-3">Le raccourci, pas à pas</h2>
-                <div className="bg-bg border border-border rounded-xl p-5 space-y-3 text-[13px] text-tx-2 leading-relaxed">
-                  <p><strong className="text-tx">1.</strong> Application <strong>Raccourcis</strong> → <strong>+</strong> → nommez-le « Mémo Henri ».</p>
-                  <p><strong className="text-tx">2.</strong> Action <strong>« Demander une entrée »</strong> — Type : Texte, Invite : « Mémo ».</p>
-                  <p>
-                    <strong className="text-tx">3.</strong> Action <strong>« Obtenir le contenu de »</strong> avec l&apos;adresse ci-dessous, puis, dans « Afficher plus » : Méthode <strong>POST</strong>, En-tête <code className="text-[12px] bg-bg-subtle border border-border rounded px-1 py-0.5">Authorization</code> = la clé copiée ci-dessus (« Bearer … »), Corps de la requête <strong>JSON</strong> avec un champ texte nommé <code className="text-[12px] bg-bg-subtle border border-border rounded px-1 py-0.5">text</code> dont la valeur est la <strong>Entrée fournie</strong> de l&apos;étape 2.
+                  <section>
+                    <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-3">Votre clé</h2>
+                    <div className="bg-bg border border-border rounded-xl p-5">
+                      {!shortcut?.key ? (
+                        <>
+                          <p className="text-[13px] text-tx-2 leading-relaxed mb-3">
+                            La clé autorise votre iPhone à ajouter des mémos, et rien d&apos;autre : elle ne donne accès ni aux dossiers ni à leur contenu. Elle se retire d&apos;un bouton.
+                          </p>
+                          <button disabled={shortcutBusy} onClick={handleCreateKey}
+                            className="text-[12px] font-[inherit] bg-tx text-bg border border-tx px-4 py-1.5 rounded cursor-pointer hover:opacity-90 transition-all disabled:opacity-50">
+                            {shortcutBusy ? "…" : "Créer la clé"}
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <code className="text-[12.5px] text-tx bg-bg-subtle border border-border rounded px-2.5 py-1.5 select-all break-all">
+                              {shortcutShown ? shortcut.key : maskShortcutKey(shortcut.key)}
+                            </code>
+                            <button onClick={() => setShortcutShown(v => !v)}
+                              className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-border-strong transition-all">
+                              {shortcutShown ? "Masquer" : "Afficher"}
+                            </button>
+                            <button onClick={() => copyToClipboard(shortcut.key, "cle")}
+                              className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-border-strong transition-all">
+                              {shortcutCopied === "cle" ? "Copié ✓" : "Copier ma clé"}
+                            </button>
+                          </div>
+                          <p className="text-[11.5px] text-tx-3 mt-2">
+                            Créée le {shortcut.createdAt ? new Date(shortcut.createdAt).toLocaleDateString("fr-FR") : "—"} · à coller une seule fois dans le raccourci, puis à oublier.
+                          </p>
+                          <div className="flex gap-2 mt-4">
+                            <button disabled={shortcutBusy} onClick={handleRotateKey}
+                              className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-border-strong transition-all disabled:opacity-50">
+                              Remplacer
+                            </button>
+                            <button disabled={shortcutBusy} onClick={handleRevokeKey}
+                              className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-red-300 hover:text-red-600 transition-all disabled:opacity-50">
+                              Retirer
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </section>
+
+                  {admin && (
+                    <section>
+                      <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-3">Le raccourci de l&apos;office</h2>
+                      <div className="bg-bg border border-border rounded-xl p-5 space-y-3 text-[13px] text-tx-2 leading-relaxed">
+                        <p className="text-[12px] text-tx-3">
+                          Apple exige qu&apos;un raccourci soit signé pour être installé : aucun serveur ne peut en fabriquer un. Le seul lien qui l&apos;installe en un geste est le <strong>lien iCloud</strong> que produit l&apos;application Raccourcis quand on partage. Il se monte donc une fois, sur un iPhone, et sert ensuite à toute l&apos;étude.
+                        </p>
+                        <p><strong className="text-tx">1.</strong> <strong>Raccourcis</strong> → <strong>+</strong> → nommez-le « Mémo Henri ».</p>
+                        <p><strong className="text-tx">2.</strong> Action <strong>« Texte »</strong> : écrivez-y <code className="text-[12px] bg-bg-subtle border border-border rounded px-1 py-0.5">{KEY_PLACEHOLDER}</code>. C&apos;est la case que chacun remplacera par sa clé — n&apos;y mettez pas la vôtre.</p>
+                        <p><strong className="text-tx">3.</strong> Action <strong>« Demander une entrée »</strong> — Type : Texte, Invite : « Mémo ».</p>
+                        <p>
+                          <strong className="text-tx">4.</strong> Action <strong>« Obtenir le contenu de »</strong> avec l&apos;adresse ci-dessous, puis, dans « Afficher plus » : Méthode <strong>POST</strong>, Corps de la requête <strong>JSON</strong>, et deux champs Texte — <code className="text-[12px] bg-bg-subtle border border-border rounded px-1 py-0.5">key</code> = la variable <strong>Texte</strong> de l&apos;étape 2, <code className="text-[12px] bg-bg-subtle border border-border rounded px-1 py-0.5">text</code> = l&apos;<strong>Entrée fournie</strong> de l&apos;étape 3.
+                        </p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <code className="text-[12.5px] text-tx bg-bg-subtle border border-border rounded px-2.5 py-1.5 select-all break-all">{origin || "https://…"}/api/memo</code>
+                          <button onClick={() => copyToClipboard(`${origin}/api/memo`, "url")}
+                            className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-border-strong transition-all">
+                            {shortcutCopied === "url" ? "Copié ✓" : "Copier l'adresse"}
+                          </button>
+                        </div>
+                        <p><strong className="text-tx">5.</strong> Action <strong>« Afficher une notification »</strong> : pour texte, la variable <strong>Contenu de l&apos;URL</strong> → appuyez dessus → <em>Obtenir la valeur pour la clé</em> → <code className="text-[12px] bg-bg-subtle border border-border rounded px-1 py-0.5">message</code>. C&apos;est l&apos;accusé de réception : « Noté : relancer le syndic (DUPONT · éch. 24/08/2026) ».</p>
+                        <p><strong className="text-tx">6.</strong> <strong>Partager</strong> → <strong>Copier le lien iCloud</strong>, et collez-le ici.</p>
+                        <div className="flex items-center gap-2 flex-wrap pt-1">
+                          <input
+                            type="url"
+                            value={linkDraft}
+                            onChange={(e) => setLinkDraft(e.target.value)}
+                            placeholder="https://www.icloud.com/shortcuts/…"
+                            className="flex-1 min-w-[240px] text-[12.5px] font-[inherit] bg-bg-subtle border border-border rounded px-2.5 py-1.5 text-tx outline-none focus:border-border-strong"
+                          />
+                          <button disabled={linkBusy || !linkDraft.trim()} onClick={handleSaveLink}
+                            className="text-[12px] font-[inherit] bg-tx text-bg border border-tx px-4 py-1.5 rounded cursor-pointer hover:opacity-90 transition-all disabled:opacity-50">
+                            {linkBusy ? "…" : shortcutLink ? "Remplacer" : "Publier"}
+                          </button>
+                          {shortcutLink && (
+                            <button disabled={linkBusy} onClick={handleRemoveLink}
+                              className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-red-300 hover:text-red-600 transition-all disabled:opacity-50">
+                              Retirer
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-[11.5px] text-tx-3">
+                          Le lien commande un bouton affiché à toute l&apos;étude : seul un administrateur peut le poser ou le retirer. Rien d&apos;autre n&apos;est publié — la clé de chacun reste chez lui.
+                        </p>
+                      </div>
+                    </section>
+                  )}
+
+                  <details className="bg-bg border border-border rounded-xl p-5">
+                    <summary className="text-[13px] text-tx-2 cursor-pointer select-none">Le monter à la main, sans passer par le lien</summary>
+                    <div className="space-y-3 text-[13px] text-tx-2 leading-relaxed mt-3">
+                      <p><strong className="text-tx">1.</strong> <strong>Raccourcis</strong> → <strong>+</strong> → nommez-le « Mémo Henri ».</p>
+                      <p><strong className="text-tx">2.</strong> Action <strong>« Demander une entrée »</strong> — Type : Texte, Invite : « Mémo ».</p>
+                      <p>
+                        <strong className="text-tx">3.</strong> Action <strong>« Obtenir le contenu de »</strong> avec <code className="text-[12px] bg-bg-subtle border border-border rounded px-1 py-0.5">{origin || "https://…"}/api/memo</code>, puis « Afficher plus » : Méthode <strong>POST</strong>, Corps <strong>JSON</strong>, deux champs Texte — <code className="text-[12px] bg-bg-subtle border border-border rounded px-1 py-0.5">key</code> = votre clé, <code className="text-[12px] bg-bg-subtle border border-border rounded px-1 py-0.5">text</code> = l&apos;<strong>Entrée fournie</strong>. (La clé peut aussi voyager en en-tête <code className="text-[12px] bg-bg-subtle border border-border rounded px-1 py-0.5">Authorization</code>, sous la forme « Bearer … ».)
+                      </p>
+                      <p><strong className="text-tx">4.</strong> Action <strong>« Afficher une notification »</strong> : variable <strong>Contenu de l&apos;URL</strong> → <em>Obtenir la valeur pour la clé</em> → <code className="text-[12px] bg-bg-subtle border border-border rounded px-1 py-0.5">message</code>.</p>
+                      <p><strong className="text-tx">5.</strong> <strong>Réglages</strong> → <strong>Touche Action</strong> → <strong>Raccourci</strong> → « Mémo Henri ».</p>
+                    </div>
+                  </details>
+
+                  <p className="text-[12px] text-tx-3 leading-relaxed">
+                    Le mémo part dans la journée en cours, sauf échéance à venir — auquel cas il part directement au bon jour, avec son rappel, exactement comme s&apos;il avait été tapé dans Ma journée.
                   </p>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <code className="text-[12.5px] text-tx bg-bg-subtle border border-border rounded px-2.5 py-1.5 select-all break-all">{origin || "https://…"}/api/memo</code>
-                    <button onClick={() => copyToClipboard(`${origin}/api/memo`, "url")}
-                      className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-border-strong transition-all">
-                      {shortcutCopied === "url" ? "Copié ✓" : "Copier l'adresse"}
-                    </button>
-                  </div>
-                  <p><strong className="text-tx">4.</strong> Action <strong>« Afficher une notification »</strong> avec, pour texte, la valeur <code className="text-[12px] bg-bg-subtle border border-border rounded px-1 py-0.5">message</code> du dictionnaire reçu — c&apos;est l&apos;accusé de réception : « Noté : relancer le syndic (DUPONT · éch. 24/08/2026) ».</p>
-                  <p><strong className="text-tx">5.</strong> <strong>Réglages</strong> → <strong>Touche Action</strong> → <strong>Raccourci</strong> → choisissez « Mémo Henri ». (Sans touche Action : ajoutez le raccourci à l&apos;écran d&apos;accueil, ou dites « Dis Siri, Mémo Henri ».)</p>
-                </div>
-                <p className="text-[12px] text-tx-3 mt-2 leading-relaxed">
-                  Le mémo part dans la journée en cours, sauf échéance à venir — auquel cas il part directement au bon jour, avec son rappel, exactement comme s&apos;il avait été tapé dans Ma journée.
-                </p>
-              </section>
+                </>
+              )}
             </div>
           )}
 

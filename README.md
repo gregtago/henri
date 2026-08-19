@@ -170,6 +170,15 @@ npm run dev
   Rien à changer dans les règles Firestore : une collection de premier niveau sans règle est
   refusée par défaut, et le SDK admin ne passe pas par les règles. `allow read, write: if false`
   sur `shortcutKeys/**` reste la déclaration la plus claire si les règles portent un joker.
+  **L'installation passe par un lien iCloud** (`app/api/memo/lien`, `src/lib/shortcutLink.ts`,
+  document `config/shortcut`). Apple exige qu'un `.shortcut` soit signé pour être importé depuis
+  iOS 15 : aucun serveur ne peut en fabriquer un, et le seul lien qui installe en un geste est
+  celui que produit l'application Raccourcis au partage. L'office monte donc le raccourci une
+  fois et publie son lien — écriture réservée à l'administrateur (`superAdmins`), lecture ouverte
+  à tout compte connecté —, chacun l'installe d'un tap depuis les Préférences. Le raccourci
+  partagé **ne porte aucune clé** : sa première case `Texte` contient le repère `hnr_votre_cle`,
+  que chacun remplace par la sienne. La clé peut voyager en en-tête `Authorization` ou dans le
+  corps JSON (`key`) — la route accepte les deux.
 - La vue Calendrier (`/calendrier`) affiche trois bandes, dans l'ordre du cycle d'une tâche :
   « à faire » (ce qu'on réalise ce jour-là), « j'attends » (les demandes sans réponse, en barres
   de durée), « échéances » (ce qui tombe). Une tâche « Traité » quitte les trois bandes et
