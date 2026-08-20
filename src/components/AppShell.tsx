@@ -3810,14 +3810,6 @@ export default function AppShell({ view, onViewChange, active = true }: AppShell
 
             </div>{/* fin .finder-mobile-slider */}
 
-            {/* ── BANDE "MA JOURNÉE" à droite (desktop ; masquée sur mobile via CSS) ── */}
-            {settings.sideTabs && (
-              <button type="button" onClick={() => goToView("myday")} className="side-tab side-tab-myday" title="Aller à Ma journée">
-                <div className="side-tab-inner">
-                  <span className="side-tab-label">Ma journée</span>
-                </div>
-              </button>
-            )}
           </div>{/* fin wrapper colonnes */}
 
         </div>
@@ -3826,15 +3818,6 @@ export default function AppShell({ view, onViewChange, active = true }: AppShell
 
         /* ══ VUE MA JOURNÉE — 2 colonnes ══ */
         <div className="flex flex-1 overflow-hidden bg-bg">
-
-          {/* ── BANDE "DOSSIERS" à gauche ── */}
-          {settings.sideTabs && (
-            <button type="button" onClick={() => goToView("cases")} className="side-tab side-tab-dossiers" title="Retour aux Dossiers">
-              <div className="side-tab-inner">
-                <span className="side-tab-label">Dossiers</span>
-              </div>
-            </button>
-          )}
 
           {/* ── COL SUGGESTIONS : 20% ── */}
           <div className="flex flex-col overflow-hidden bg-bg-subtle" style={{flex:"0 0 20%", boxShadow:"inset -8px 0 12px -4px rgba(0,0,0,0.08)", zIndex:0}}>

@@ -347,6 +347,20 @@ Le piège n'était pas la place perdue, c'était la promesse tenue à moitié : 
 
 **L'en-tête est donc réservé au grand écran** (`hidden md:flex`) : sur téléphone, l'écran commence par le rail des titres, comme Ma journée commence par ses tâches. Le logo n'y perd rien — il n'était déjà montré qu'à partir de `sm`, et la page d'accueil des Préférences le porte en propre.
 
+### L'explication se range derrière un « ? »
+
+Presque chaque onglet des Préférences s'ouvrait sur un pavé encadré qui disait pourquoi le réglage existe : d'où viennent les relances, à quoi sert une clé, ce qu'est un modèle. On le lit une fois. Les cent fois suivantes, il ne fait qu'éloigner le réglage du haut de l'écran — et sur téléphone, l'onglet Rappels commençait par un écran entier de prose avant le premier interrupteur.
+
+**Ce qui s'explique une fois passe donc derrière une pastille « ? »**, posée contre le titre de section (`SectionTitle`, `src/components/InfoModal.tsx`). L'explication reste à un geste, et cesse d'être un péage. Trois règles :
+
+- **la pastille ne remplace pas le réglage, elle remplace le pavé.** Ce qu'un réglage doit dire de lui-même — son nom, sa valeur courante, la phrase grise qui dit sur quoi il agit — reste à l'écran. Ne part derrière le « ? » que ce qui raconte *pourquoi*, et l'histoire du problème que le réglage résout ;
+- **une procédure n'est jamais une explication.** Les étapes numérotées (installer le raccourci, activer la double authentification) restent en clair : on les suit en les lisant, on ne les mémorise pas ;
+- **elle se dessine en 18 px et se touche en 30**, par une marge négative — la zone tactile ne doit pas écarter le titre de son réglage.
+
+Le contenu de la fenêtre peut être **vivant** : le « ? » des relances calcule son exemple sur les réglages en cours (« un rappel à 14h revient à 17h »). C'est ce qui justifie qu'il soit une fenêtre et non une page d'aide — il parle de *votre* réglage, pas du réglage en général.
+
+Là où la place le permet, le même composant s'écrit en toutes lettres plutôt qu'en pastille : les mentions légales ouvrent les **notes de version** par un « voir les notes de version », et le numéro de version de la page d'accueil ouvre la même fenêtre. Elles occupaient un titre du rail pour une lecture par trimestre ; un rail se paie en largeur, et la largeur est ce qui manque au téléphone.
+
 ### Desktop — métaphore Finder à colonnes
 
 La vue principale est un **Miller column browser** : trois colonnes glissantes (Dossiers → Tâches → Sous-tâches) plus un panneau de détail à droite. Une 4ᵉ colonne contextuelle apparaît pour « Ma journée » et « Suggestions ».
