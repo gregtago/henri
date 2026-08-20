@@ -120,9 +120,13 @@ export default function AuthPanel() {
   const btnPrimary = "w-full font-[inherit] text-[13.5px] bg-tx text-bg border-none rounded py-2 cursor-pointer hover:opacity-90 transition-opacity";
   const btnSecondary = "w-full font-[inherit] text-[13.5px] bg-bg border border-border text-tx-2 rounded py-2 cursor-pointer hover:bg-bg-hover hover:text-tx transition-all";
 
+  // La page où l'on arrive porte l'encre : fond plein, carte claire posée
+  // dessus, écriture sombre dedans. La nuit, les deux jetons échangent leurs
+  // rôles d'eux-mêmes — cadre clair, carte sombre — sans une seconde version à
+  // tenir. La carte n'a plus de filet : c'est l'encre qui la détoure.
   return (
-    <div className="min-h-screen flex items-center justify-center bg-bg-subtle">
-      <div className="w-full max-w-sm bg-bg border border-border rounded-xl shadow-sm p-7 space-y-5">
+    <div className="min-h-screen flex items-center justify-center px-5 py-8" style={{ background: "var(--text)" }}>
+      <div className="w-full max-w-sm bg-bg rounded-[20px] shadow-lg p-7 space-y-5">
 
         <div className="flex flex-col items-center text-center space-y-2 pb-1">
           <img src="/logo-henri-new.png" alt="Henri" style={{width:"200px", height:"auto"}} />

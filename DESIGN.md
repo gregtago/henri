@@ -319,9 +319,7 @@ Ce qui ne sert pas au travail se replie. Les rappels de cet appareil, l'installa
 
 La règle qui vaut au-delà de ce rond : **une commande qu'on touche une fois par mois n'a pas à occuper la barre que l'on regarde toute la journée.** Ce qui est fréquent — créer, trier, cocher — garde la place ; le reste se replie derrière un geste.
 
-**Sur téléphone, ce rond n'existe pas** : le compte est devenu la **page d'accueil des Préférences** (`Préférences → Accueil` — c'est sur elle que la page s'ouvre) : le logo, la version, puis l'adresse connectée, les notifications de cet appareil, l'installation, la déconnexion. Le logo y a sa place pour la même raison qu'à l'écran d'attente : on y arrive, on n'y travaille pas.
-
-Elle est aussi **la seule page qui s'inverse** : fond d'encre (`--text`), carte claire posée dessus (`--bg`), écriture sombre dedans. On la reconnaît avant de l'avoir lue, et l'inversion ne coûte rien à maintenir — ce sont les deux mêmes jetons, qui échangent leurs rôles avec le thème : la nuit, la carte devient sombre sur un cadre clair, d'elle-même. Le logo suit la règle de l'encre (`.logo-on-ink`), qui le renverse au thème clair et le laisse tel quel au thème sombre. Il n'était de toute façon qu'un raccourci vers elles, et deux destinations pour la même chose coûtaient au téléphone la seule largeur qui lui manquait — celle des trois noms de la barre du bas. Le geste des rappels de cet appareil, lui, ne vit qu'une fois : `useDeviceReminders` (`src/lib/deviceReminders.ts`), que le rond et l'onglet appellent tous les deux.
+**Sur téléphone, ce rond n'existe pas** : le compte est devenu la **page d'accueil des Préférences** (`Préférences → Accueil` — c'est sur elle que la page s'ouvre) : le logo, la version, puis l'adresse connectée, les notifications de cet appareil, l'installation, la déconnexion. Le logo y a sa place pour la même raison qu'à l'écran d'attente : on y arrive, on n'y travaille pas. Il n'était de toute façon qu'un raccourci vers elles, et deux destinations pour la même chose coûtaient au téléphone la seule largeur qui lui manquait — celle des trois noms de la barre du bas. Le geste des rappels de cet appareil, lui, ne vit qu'une fois : `useDeviceReminders` (`src/lib/deviceReminders.ts`), que le rond et l'onglet appellent tous les deux.
 
 Le logo suit la même règle et **ne figure plus dans l'en-tête du téléphone** : il ne se touche pas, il ne dit rien qu'on ne sache déjà une fois entré, et il occupait la largeur exacte qui manquait au reste. Il tient sa place là où l'on arrive — connexion, invitation, écran d'attente —, pas là où l'on travaille. Sur grand écran, où la place ne manque pas, il reste centré dans la barre du haut.
 
@@ -382,6 +380,12 @@ C'est ce qui a décidé du sort du rond du compte : tant qu'il occupait le bout 
 Le composant ne se positionne pas lui-même : Ma journée l'empile sous sa ligne de saisie, Dossiers et Préférences la font flotter au-dessus du contenu, qui se réserve la hauteur correspondante.
 
 Conséquence sur le haut de l'écran : **il n'y a plus d'en-tête sur téléphone.** Elle ne portait plus qu'un rond — 48 px pour un bouton qu'on touche une fois par jour, au-dessus d'une ligne de titre qui a de la place à revendre. Dossiers commence donc à sa ligne de titre (« Dossiers 12 · tri · + »), et Ma journée par le jour, qui est devenu son titre de liste et défile avec elle.
+
+### La page de connexion — l'encre autour, la carte au clair
+
+**La connexion porte l'encre** (`src/components/AuthPanel.tsx`) : fond plein (`--text`), carte claire posée dessus (`--bg`), écriture sombre dedans, et pas de filet — c'est l'encre qui détoure la carte. C'est le premier écran d'Henri, celui qu'on voit avant d'avoir un compte : il doit se reconnaître avant d'être lu, et il ne se travaille pas.
+
+L'inversion ne coûte rien à tenir : ce sont les deux mêmes jetons, qui échangent leurs rôles avec le thème. **La nuit, le cadre devient clair et la carte sombre, d'elle-même** — pas de seconde version à maintenir. Le logo, lui, suit la règle déjà posée (`img[src*="logo-henri"]` au thème sombre), qui le renverse en blanc sur la carte sombre.
 
 ### L'écran d'attente — le logo, et un sablier
 
