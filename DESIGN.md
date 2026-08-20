@@ -315,9 +315,13 @@ Pas d'échelle Tailwind par défaut hors usage : on respecte les multiples de 2 
 
 Ce qui ne sert pas au travail se replie. Les rappels de cet appareil, l'installation, les Préférences et la déconnexion tenaient cinq boutons en haut à droite de « Dossiers » — et « Ma journée » avait, pour les mêmes choses, un menu tout autre, qui ne menait même pas aux Préférences. Deux grammaires, une barre encombrée à l'endroit précis où l'œil cherche des dossiers.
 
-**Tout tient désormais derrière un rond unique, au même endroit sur chaque écran** (`src/components/AccountMenu.tsx`). Il porte la première lettre de l'adresse connectée : de quoi distinguer d'un coup d'œil le compte de travail du compte d'administration, qui sont deux comptes distincts. Le menu qu'il ouvre dit l'adresse en entier, puis les quatre commandes, dans cet ordre : les rappels sur cet appareil, l'installation (quand elle est possible), les Préférences, la déconnexion.
+**Tout tient désormais derrière un rond unique, en haut à droite du grand écran** (`src/components/AccountMenu.tsx`). Il porte la première lettre de l'adresse connectée : de quoi distinguer d'un coup d'œil le compte de travail du compte d'administration, qui sont deux comptes distincts. Le menu qu'il ouvre dit l'adresse en entier, puis les quatre commandes, dans cet ordre : les rappels sur cet appareil, l'installation (quand elle est possible), les Préférences, la déconnexion.
 
 La règle qui vaut au-delà de ce rond : **une commande qu'on touche une fois par mois n'a pas à occuper la barre que l'on regarde toute la journée.** Ce qui est fréquent — créer, trier, cocher — garde la place ; le reste se replie derrière un geste.
+
+**Sur téléphone, ce rond n'existe pas** : le compte est devenu la **page d'accueil des Préférences** (`Préférences → Accueil` — c'est sur elle que la page s'ouvre) : le logo, la version, puis l'adresse connectée, les notifications de cet appareil, l'installation, la déconnexion. Le logo y a sa place pour la même raison qu'à l'écran d'attente : on y arrive, on n'y travaille pas. Il n'était de toute façon qu'un raccourci vers elles, et deux destinations pour la même chose coûtaient au téléphone la seule largeur qui lui manquait — celle des trois noms de la barre du bas. Le geste des rappels de cet appareil, lui, ne vit qu'une fois : `useDeviceReminders` (`src/lib/deviceReminders.ts`), que le rond et l'onglet appellent tous les deux.
+
+Le logo suit la même règle et **ne figure plus dans l'en-tête du téléphone** : il ne se touche pas, il ne dit rien qu'on ne sache déjà une fois entré, et il occupait la largeur exacte qui manquait au reste. Il tient sa place là où l'on arrive — connexion, invitation, écran d'attente —, pas là où l'on travaille. Sur grand écran, où la place ne manque pas, il reste centré dans la barre du haut.
 
 ### Les réglages — un rail de titres, pas une colonne
 
@@ -357,7 +361,37 @@ Règles propres à cette vue :
 
 ### Mobile
 
-Layout vertical empilé. Pas de colonnes. Un seul écran à la fois (Ma journée / Mémos / Dossiers en onglets bas). Les éléments tactiles font ≥ 30 px de côté, les chips de date sont en pill 20 px de rayon.
+Layout vertical empilé. Pas de colonnes. Un seul écran à la fois, et la barre du bas dit lequel. **Rien en haut** : ce qui se touche est en bas, ce qui se lit commence tout en haut de l'écran. Les éléments tactiles font ≥ 30 px de côté, les chips de date sont en pill 20 px de rayon.
+
+### La barre du bas — trois destinations, une seule pastille encrée
+
+La navigation vivait en haut à gauche, et pas au même endroit selon l'écran : un rond « ☀ » depuis les dossiers, un rond « dossier » depuis la journée, les Préférences enfouies dans le menu du compte. Trois endroits pour trois destinations, et aucun ne disait où l'on se trouve — le haut de l'écran est d'ailleurs le point le plus loin du pouce.
+
+**Les trois destinations tiennent désormais dans une barre en bas** (`src/components/MobileTabs.tsx`) : Ma journée, Dossiers, Préférences. La forme est un segmenté en pastille — filet de 1 px, rayon plein, l'écran courant en pleine encre —, la même grammaire que les chips d'ailleurs dans Henri. Le compte du jour se colle à « Ma journée » : c'est le seul des trois qui change dans la journée, et la seule chose qu'on veut savoir sans y aller.
+
+Trois règles la tiennent :
+
+- **elle dit où l'on est**, ce qu'aucun des ronds ne faisait : la pastille encrée est l'écran courant ;
+- **elle s'efface pendant qu'on écrit** un mémo — le clavier prend déjà la moitié de l'écran, et on ne navigue pas en pleine phrase ;
+- **elle ne coupe jamais un mot, et les trois portent le leur.** Le corps du texte suit l'écran au lieu de sauter d'un palier à l'autre — `clamp(10.5px, 3.1vw, 12px)` sur `.henri-tab` — : 12 px dès 390 px de large, la taille des chips ; 10,5 px sur un écran de 320 px. Mesuré : à 12,5 px fixes, les trois noms réclamaient 367 px pour 356 disponibles sur un iPhone 14, et « Préférences » se coupait en « Préféren ».
+
+C'est ce qui a décidé du sort du rond du compte : tant qu'il occupait le bout de la rangée, les trois noms n'y tenaient à aucune taille lisible. Il est donc devenu un onglet des Préférences, dont il n'était que le raccourci.
+
+Le composant ne se positionne pas lui-même : Ma journée l'empile sous sa ligne de saisie, Dossiers et Préférences la font flotter au-dessus du contenu, qui se réserve la hauteur correspondante.
+
+Conséquence sur le haut de l'écran : **il n'y a plus d'en-tête sur téléphone.** Elle ne portait plus qu'un rond — 48 px pour un bouton qu'on touche une fois par jour, au-dessus d'une ligne de titre qui a de la place à revendre. Dossiers commence donc à sa ligne de titre (« Dossiers 12 · tri · + »), et Ma journée par le jour, qui est devenu son titre de liste et défile avec elle.
+
+### La page de connexion — l'encre autour, la carte au clair
+
+**La connexion porte l'encre** (`src/components/AuthPanel.tsx`) : fond plein (`--text`), carte claire posée dessus (`--bg`), écriture sombre dedans, et pas de filet — c'est l'encre qui détoure la carte. C'est le premier écran d'Henri, celui qu'on voit avant d'avoir un compte : il doit se reconnaître avant d'être lu, et il ne se travaille pas.
+
+L'inversion ne coûte rien à tenir : ce sont les deux mêmes jetons, qui échangent leurs rôles avec le thème. **La nuit, le cadre devient clair et la carte sombre, d'elle-même** — pas de seconde version à maintenir. Le logo, lui, suit la règle déjà posée (`img[src*="logo-henri"]` au thème sombre), qui le renverse en blanc sur la carte sombre.
+
+### L'écran d'attente — le logo, et un sablier
+
+« Chargement… » arrivait sur un écran vide, sans rien qui rappelle où l'on est, et un mot fixe laisse croire à un blocage dès la deuxième seconde. L'écran d'attente (`src/components/LoadingScreen.tsx`) montre donc **le logo, et sous lui un sablier qui se retourne** : le logo dit chez qui l'on est — c'est le seul endroit de l'application où il a encore quelque chose à faire —, le sablier dit que ça vit, sans promettre de durée.
+
+Il ne se montre **qu'au bout de 250 ms** (`.henri-attente`) : une session déjà ouverte se rétablit plus vite que ça, et une attente qui n'a pas eu lieu ne doit pas clignoter. Le sablier fait un tour complet (0 → 180 → 360°) avec deux temps morts — le sable a le temps de couler avant que le verre ne bascule — et s'immobilise sous `prefers-reduced-motion`.
 
 ---
 

@@ -4,6 +4,7 @@ import { onAuthStateChanged, type User } from "firebase/auth";
 import { useCallback, useEffect, useState } from "react";
 import { auth } from "@/lib/firebase";
 import AuthPanel from "@/components/AuthPanel";
+import LoadingScreen from "@/components/LoadingScreen";
 import AppShell from "@/components/AppShell";
 import MobileMyDay from "@/components/MobileMyDay";
 
@@ -90,11 +91,7 @@ export default function HenriApp({ initialView }: { initialView: HenriView }) {
     return () => window.removeEventListener("popstate", onPop);
   }, []);
 
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center text-sm text-tx-2">
-      Chargement...
-    </div>
-  );
+  if (loading) return <LoadingScreen />;
 
   if (!user) return <AuthPanel />;
 

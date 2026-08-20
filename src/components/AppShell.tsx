@@ -87,6 +87,7 @@ import { STATUSES } from "@/lib/types";
 import { RecurrencePicker } from "./RecurrencePicker";
 import MemoDetail from "./MemoDetail";
 import { Icon } from "./Icon";
+import MobileTabs from "./MobileTabs";
 import AccountMenu from "./AccountMenu";
 import CaseTemplatesModal from "./CaseTemplatesModal";
 import MemoComposer, { type MemoDraft } from "./MemoComposer";
@@ -3275,20 +3276,11 @@ export default function AppShell({ view, onViewChange, active = true }: AppShell
     <div className="flex flex-col h-screen overflow-hidden">
 
       {/* ── HEADER ── */}
-      <header className="h-[48px] md:h-[44px] flex items-center px-[16px] border-b border-border bg-bg shrink-0 z-10 relative">
-        {/* Mobile : ☀ Ma journée + logo — à gauche (valeurs en px fixes pour matcher MobileMyDay) */}
-        <div className="md:hidden flex items-center gap-[10px] z-10">
-          <button
-            type="button"
-            onClick={() => goToView("myday")}
-            className="w-[32px] h-[32px] flex items-center justify-center rounded-full border border-border bg-bg-subtle text-tx-2 hover:bg-bg-hover cursor-pointer p-0"
-            title="Ma journée"
-            aria-label="Ma journée"
-          >
-            <Icon name="myday" size={16} />
-          </button>
-          <img src="/logo-henri-new.png" alt="Henri" style={{ height: "24px", width: "auto" }} />
-        </div>
+      {/* Sur téléphone, la barre du haut ne portait plus qu'un rond : 48 px de
+        * hauteur pour un bouton qu'on touche une fois par jour, au-dessus d'une
+        * ligne de titre qui a de la place à revendre. Elle ne sert donc plus
+        * qu'au grand écran ; le compte a rejoint la barre du bas. */}
+      <header className="hidden md:flex h-[44px] items-center px-[16px] border-b border-border bg-bg shrink-0 z-10 relative">
         {/* Liens navigation — gauche (desktop uniquement) */}
         <nav data-tour="nav" className="hidden md:flex gap-0.5 z-10">
           <button
@@ -4688,6 +4680,24 @@ export default function AppShell({ view, onViewChange, active = true }: AppShell
           </div>
         </div>
       )}
+
+      {/* ── BARRE DU BAS (mobile) ──
+        * Les trois destinations, posées là où le pouce tombe. Elle flotte
+        * au-dessus des colonnes, qui se réservent la hauteur qu'il faut
+        * (`.finder-list` dans la requête mobile de globals.css). */}
+      <div
+        className="md:hidden fixed left-3 right-3 z-30"
+        style={{ bottom: "calc(env(safe-area-inset-bottom) + 10px)" }}
+      >
+        <MobileTabs
+          active={isMyDay ? "myday" : "cases"}
+          count={myDayCombined.length}
+          onSelect={tab => {
+            if (tab === "settings") router.push("/settings");
+            else goToView(tab);
+          }}
+        />
+      </div>
 
     </div>
   );

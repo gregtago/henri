@@ -36,13 +36,13 @@ import {
   suggestTasks,
 } from "@/lib/memoTokens";
 import { Icon } from "./Icon";
-import AccountMenu from "./AccountMenu";
 import { ReminderPicker } from "./ReminderPicker";
 import { RecurrencePicker } from "./RecurrencePicker";
 import { useReminderPolicy, describeRepeat, dueDayReminder, dueReminderPatch } from "@/lib/reminderPolicy";
 import MemoSheet, { emptyMemoDraft, type MemoDraft } from "./MemoSheet";
 import MemoSwitch from "./MemoSwitch";
 import DueChips from "./DueChips";
+import MobileTabs from "./MobileTabs";
 
 const STATUSES: Status[] = ["Créé", "Demandé", "Reçu", "Traité"];
 const STATUS_COLORS: Record<string, string> = {
@@ -109,6 +109,9 @@ export default function MobileMyDay({ user, onGoCases }: { user: User; onGoCases
   // UI
   const [detailEntry, setDetailEntry] = useState<SelectionEntry | null>(null);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  // Le temps qu'on écrive un mémo, la barre du bas s'efface : le clavier prend
+  // déjà la moitié de l'écran, et on ne navigue pas en pleine phrase.
+  const [writing, setWriting] = useState(false);
   const [groupMyDay, setGroupMyDay] = useState(false);
   useEffect(() => { try { setGroupMyDay(localStorage.getItem("henri:mydayGroup") === "1"); } catch {} }, []);
   const toggleGroupMyDay = () => setGroupMyDay(g => { const v = !g; try { localStorage.setItem("henri:mydayGroup", v ? "1" : "0"); } catch {} return v; });
@@ -625,49 +628,32 @@ export default function MobileMyDay({ user, onGoCases }: { user: User; onGoCases
   return (
     <div style={{ height: "100dvh", display: "flex", flexDirection: "column", background: "var(--bg-subtle)", overflow: "hidden", position: "relative" }}>
 
-      {/* Header */}
-      <header style={{ background: "var(--bg)", borderBottom: "1px solid var(--border)", height: "48px", padding: "0 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, position: "relative" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          {/* Accès Mes dossiers — haut à gauche */}
-          <button
-            type="button"
-            onClick={goCases}
-            style={{ width: "32px", height: "32px", padding: 0, borderRadius: "50%", border: "1px solid var(--border)", background: "var(--bg-subtle)", color: "var(--text-2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer", fontFamily: "inherit" }}
-            title="Mes dossiers"
-            aria-label="Mes dossiers"
-          >
-            <Icon name="folder" size={16} />
-          </button>
-          <img src="/logo-henri-new.png" alt="Henri" style={{ height: "24px" }} />
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <span style={{ fontSize: "12px", color: "var(--text-2)" }}>
-            {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
-          </span>
-          <AccountMenu
-            uid={user.uid}
-            email={user.email}
-            onNotice={(message) => window.alert(message)}
-          />
-        </div>
-      </header>
+      {/* Liste — plus d'en-tête au-dessus : la navigation et le compte tiennent
+        * dans la barre du bas, et le jour est en tête de liste, d'où il défile
+        * avec elle. Les 48 px que prenait la barre du haut reviennent aux
+        * tâches, qui sont la raison d'être de l'écran. */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "14px 16px 156px" }}>
 
-      {/* Liste */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px 100px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", marginBottom: "12px" }}>
+          <h1 style={{ fontSize: "17px", fontWeight: 600, color: "var(--text)", margin: 0, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {(d => d.charAt(0).toUpperCase() + d.slice(1))(new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }))}
+          </h1>
+          {todayEntries.length > 0 && (
+            <button onClick={toggleGroupMyDay}
+              style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "12px", fontFamily: "inherit", padding: "5px 11px", borderRadius: "16px", border: "1px solid var(--border)", background: groupMyDay ? "var(--text)" : "var(--bg)", color: groupMyDay ? "var(--bg)" : "var(--text)", cursor: "pointer" }}>
+              <Icon name="folder" size={12} /> Par dossier
+            </button>
+          )}
+        </div>
+
         {todayEntries.length === 0 ? (
-          <div style={{ textAlign: "center", marginTop: "80px", color: "var(--text-3)" }}>
+          <div style={{ textAlign: "center", marginTop: "72px", color: "var(--text-3)" }}>
               <p style={{ fontSize: "48px", marginBottom: "16px" }}>☀️</p>
               <p style={{ fontSize: "18px", fontWeight: 600, color: "var(--text)" }}>C'est une belle journée</p>
               <p style={{ fontSize: "14px", marginTop: "8px", color: "var(--text-3)" }}>Ajoutez des tâches via les suggestions 🔭</p>
             </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <button onClick={toggleGroupMyDay}
-                style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "12px", fontFamily: "inherit", padding: "5px 11px", borderRadius: "16px", border: "1px solid var(--border)", background: groupMyDay ? "var(--text)" : "var(--bg)", color: groupMyDay ? "var(--bg)" : "var(--text)", cursor: "pointer" }}>
-                <Icon name="folder" size={12} /> Par dossier
-              </button>
-            </div>
             {displayEntries.map(({ entry, header }) => {
               const title = entry.item?.title ?? entry.floating?.title ?? "";
               const status = entry.item?.status ?? null;
@@ -824,7 +810,7 @@ export default function MobileMyDay({ user, onGoCases }: { user: User; onGoCases
         * un dossier, « @ » une échéance, « > » une tâche du dossier, « ! »
         * l'étoile. On touche une proposition (ou l'espace, s'il n'en reste
         * qu'une), la barre repart à vide, puis on écrit le mémo. */}
-      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "var(--bg)", borderTop: "1px solid var(--border)", padding: "10px 12px 24px", display: "flex", flexDirection: "column", gap: "8px" }}>
+      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "var(--bg)", borderTop: "1px solid var(--border)", padding: "10px 12px calc(env(safe-area-inset-bottom) + 10px)", display: "flex", flexDirection: "column", gap: "8px" }}>
 
         {/* Les propositions du jeton ouvert — au-dessus de la barre, qui ne bouge pas. */}
         {memoToken && !isInstantToken(memoToken) && (
@@ -923,6 +909,8 @@ export default function MobileMyDay({ user, onGoCases }: { user: User; onGoCases
             ref={memoInputRef}
             value={memoText}
             onChange={e => changeMemoText(e.target.value)}
+            onFocus={() => setWriting(true)}
+            onBlur={() => setWriting(false)}
             onKeyDown={async e => {
               // Tant qu'une liste est ouverte, ces touches lui appartiennent :
               // Entrée retient une proposition, elle ne crée pas un mémo qui
@@ -960,6 +948,19 @@ export default function MobileMyDay({ user, onGoCases }: { user: User; onGoCases
           </button>
         </div>
         </div>
+
+        {/* Les trois destinations, sous la barre de saisie — le pouce y est déjà. */}
+        {!writing && (
+          <MobileTabs
+            active="myday"
+            count={todayEntries.length}
+            elevated={false}
+            onSelect={tab => {
+              if (tab === "cases") goCases();
+              else if (tab === "settings") router.push("/settings");
+            }}
+          />
+        )}
       </div>
 
       {/* ── FORMULAIRE DU MÉMO (création) ──

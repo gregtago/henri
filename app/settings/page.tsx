@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   DEFAULT_SETTINGS,
   loadSettings,
@@ -13,13 +14,16 @@ import {
   type SortChoice,
   type ThemeChoice,
 } from "@/lib/settings";
-import { onAuthStateChanged, type User } from "firebase/auth";
+import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { subscribePushTokens, deletePushToken, subscribeCaseTemplates, renameCaseTemplate, deleteCaseTemplate, subscribeShortcutKey, type PushTokenInfo, type ShortcutKeyInfo } from "@/lib/firestore";
 import type { CaseTemplate } from "@/lib/types";
 import { maskShortcutKey } from "@/lib/shortcutKey";
 import { normalizeShortcutLink } from "@/lib/shortcutLink";
 import { isSuperAdmin } from "@/lib/superAdminClient";
+import MobileTabs from "@/components/MobileTabs";
+import InstallButton from "@/components/InstallButton";
+import { useDeviceReminders } from "@/lib/deviceReminders";
 import { mfaStanding } from "@/lib/mfaPolicy";
 import {
   confirmTotpEnrollment,
@@ -68,14 +72,15 @@ function tsToDate(v: unknown): Date | null {
   return null;
 }
 
-type Tab = "apparence" | "securite" | "rappels" | "appareils" | "raccourci" | "modeles" | "aide" | "versions" | "legal";
+type Tab = "accueil" | "apparence" | "securite" | "rappels" | "appareils" | "raccourci" | "modeles" | "aide" | "versions" | "legal";
 
 // L'ordre du rail, et les mots qu'il porte. Du plus courant au plus rare :
 // on lit de gauche à droite, et ce qui dépasse du bord est ce qu'on ouvre le
 // moins souvent.
-const TABS: Tab[] = ["apparence", "securite", "rappels", "appareils", "raccourci", "modeles", "aide", "versions", "legal"];
+const TABS: Tab[] = ["accueil", "apparence", "securite", "rappels", "appareils", "raccourci", "modeles", "aide", "versions", "legal"];
 
 const TAB_LABELS: Record<Tab, string> = {
+  accueil: "Accueil",
   apparence: "Apparence",
   securite: "Sécurité",
   rappels: "Rappels",
@@ -92,13 +97,37 @@ const TAB_LABELS: Record<Tab, string> = {
 // en être une — on voit du premier coup d'œil ce qu'on doit remplacer.
 const KEY_PLACEHOLDER = "hnr_votre_cle";
 
+// Les notes de version — la donnée, plutôt qu'une liste noyée dans le rendu :
+// la page d'accueil des Préférences y lit la version courante, qui est la
+// première de la liste. Une seule source, pas deux à tenir d'accord.
+const VERSIONS: { v: string; date: string; items: string[] }[] = [
+                { v: "Alpha 1.9", date: "Août 2026", items: ["Téléphone : les trois destinations — Ma journée, Dossiers, Préférences — tiennent dans une barre en bas de l'écran, là où tombe le pouce. Celle qui est en pleine encre dit où vous êtes, et Ma journée porte le nombre de lignes du jour", "Téléphone : plus de barre en haut — l'écran commence directement par vos tâches, et Ma journée porte le jour en tête de liste", "Les Préférences s'ouvrent sur une page d'accueil : le logo, la version, votre adresse, les notifications de cet appareil, l'installation et la déconnexion. C'est ce que le rond du compte tenait — il disparaît donc du téléphone ; sur ordinateur, il ne bouge pas", "La page de connexion passe à l'encre : fond plein, carte claire posée dessus. La nuit, c'est l'inverse", "Téléphone : la barre du bas s'efface pendant que vous écrivez un mémo", "L'écran d'ouverture montre le logo et un sablier, au lieu du mot « Chargement »", "Double authentification : elle s'active dès maintenant, sans attendre l'échéance annoncée — Préférences → Sécurité. La connexion demande alors, après le mot de passe, un code à six chiffres lu sur votre téléphone", "Elle se retire du même écran, et l'échéance à laquelle elle sera exigée sur votre compte y est rappelée", "L'adresse du compte se confirme par un courriel de l'Office : c'est le préalable à la double authentification", "L'inscription s'ouvre aux adresses professionnelles du notariat : un lien reçu par courriel remplace l'attente d'une invitation", "Thème sombre : clair, sombre, ou celui de l'appareil — y compris quand il bascule tout seul le soir (Préférences → Apparence)", "Tout ce qui touche au compte tient derrière un rond unique, en haut à droite, au même endroit sur chaque écran : adresse, rappels de cet appareil, installation, Préférences, déconnexion. Ma journée y gagne l'accès aux Préférences", "Préférences : les titres passent en haut, sur un rail que le pouce fait défiler — l'écran entier revient au réglage", "Mes dossiers et Ma journée basculent instantanément : plus d'attente ni d'écran vide entre les deux", "Henri s'ouvre sur ce qu'il sait déjà : vos dossiers restent d'un lancement à l'autre au lieu d'être retéléchargés à chaque fois", "Ma journée, ligne de saisie : « # » désigne le dossier, « @ » l'échéance, « ! » l'importance, « > » la tâche sous laquelle ranger le mémo", "Touche Action de l'iPhone : noter un mémo à la voix ou au clavier sans ouvrir Henri — installation en un lien depuis Préférences → Raccourci iPhone", "Le bandeau d'échéances tient de nouveau sur une ligne sur téléphone", "Nouvelle icône « henri » sur tous les écrans d'accueil"] },
+                { v: "Alpha 1.8", date: "Août 2026", items: ["Poser une échéance propose désormais systématiquement un rappel le jour de l'échéance — sur une tâche comme sur un mémo, à l'ordinateur comme au téléphone", "L'heure de ce rappel se règle dans Préférences → Rappels (9h par défaut), et la proposition peut y être coupée", "Déplacer l'échéance déplace le rappel proposé ; la retirer le retire. Un rappel posé à la main n'est jamais remplacé", "Nouvelle puce « Échéance 09h » sous « Rappel », pour réarmer la proposition après l'avoir retirée"] },
+                { v: "Alpha 1.7", date: "Juillet 2026", items: ["Mobile — Ma journée : mémos et tâches ont désormais la même ligne (case à cocher à gauche) ; la tâche garde son filet d'avancement et une croix pour la retirer de la journée", "Cocher un mémo le fait disparaître de Ma journée : il est réalisé. Un lien discret en bas de la colonne rouvre les mémos réalisés, pour les consulter ou les décocher (ordinateur et téléphone)", "Mobile — cocher une tâche demande où elle en est, puis la retire de Ma journée : elle reste dans son dossier avec son nouveau statut", "Mobile — un mémo se crée et se modifie dans le même écran : mêmes champs, même disposition (étoile, échéance, rappel, dossier, répétition, observations)", "Rattacher un mémo à un dossier ne le transforme plus en tâche : il garde sa case à cocher et s'affiche sous les tâches du dossier", "Un mémo sans dossier s'efface définitivement 7 jours après avoir été réalisé — un pense-bête n'est pas une archive. Un mémo que vous n'avez pas coché, lui, ne disparaît jamais", "Un mémo s'ouvre en cliquant son texte, depuis Ma journée comme depuis la liste des tâches de son dossier"] },
+                { v: "Alpha 1.6", date: "Juillet 2026", items: ["Relances : une tâche avec rappel non traitée fait l'objet d'une nouvelle notification (toutes les 3 h par défaut, jusqu'à 3 fois)", "Une relance reste affichée jusqu'à ce que vous vous en occupiez — plus difficile à balayer qu'un simple rappel", "Pas de relance la nuit : une relance du soir est reportée au lendemain matin", "Récapitulatif du soir (18h) : les tâches de Ma journée encore ouvertes", "Rappel du lendemain (8h) : les tâches de la veille restées non traitées", "Interrupteur « Relancer tant que ce n'est pas fait » sur chaque rappel", "Nouvel onglet Préférences → Rappels : intervalle, nombre de relances, plage horaire, récapitulatifs"] },
+                { v: "Alpha 1.5", date: "Juillet 2026", items: ["Modèles de dossier : enregistrez la liste de tâches d'un dossier sous un nom et réutilisez-la", "Appliquez un modèle à un nouveau dossier (bouton 📋) ou à un dossier existant (« Appliquer un modèle »)", "Gérez vos modèles : renommer, supprimer", "Mini-récap d'avancement sur chaque dossier : 4 compteurs colorés (tâches et sous-tâches) — Créé · Demandé · Reçu · Traité", "Tri des dossiers par charge restante : ce qu'il reste le plus à faire remonte en tête", "Visite guidée interactive : tâches, sous-tâches, import/export, modèles, raccourcis clavier (relançable dans l'Aide)", "Modèle de dossier d'exemple intégré (« Vente immobilière »)", "Pas à pas interactif : créer une tâche, une sous-tâche, puis tout supprimer (dossier d'entraînement) ; bulles d'aide repositionnées près des boutons", "À la création d'un dossier, choix entre dossier vierge ou modèle", "Actions d'un dossier regroupées en deux menus : « Export / Import » et « Modèle »", "Préférences → Modèles : gérer ses modèles (renommer, supprimer, consulter le détail)", "Préférences : navigation par onglets verticaux (colonne à gauche)", "Ma journée : option « grouper par dossier » (desktop et mobile), avec en-têtes de dossier"] },
+                { v: "Alpha 1.4", date: "Juillet 2026", items: ["Rappels par notification désormais fiables : sur ordinateur, et même lorsque Henri est en arrière-plan ou fermé", "Réception des rappels au bon moment rétablie (l'application pouvait auparavant n'afficher aucune notification)", "Installation en application peaufinée : nom « Henri » et icône corrigés", "Aide enrichie : nouvelles rubriques « Rappels » et « Installer l'app »", "Préférences → Appareils : liste des appareils recevant les rappels, avec possibilité d'en retirer"] },
+                { v: "Alpha 1.3", date: "Juin 2026", items: ["« Mes dossiers » désormais accessible sur mobile : navigation en pleine largeur, une colonne à la fois", "Balayez horizontalement (swipe) pour passer de Dossiers → Tâches → Sous-tâches → Détail, et revenir en arrière", "Icône ☀ pour aller à Ma journée, icône dossier pour revenir à Mes dossiers", "En-têtes mobiles uniformisés (logo et icônes)"] },
+                { v: "Alpha 1.2", date: "Juin 2026", items: ["Import de tâches dans un dossier existant et export d'une sélection de tâches", "Installation de l'app sur Chrome et Edge (bouton dédié, icônes, nom corrigé)", "Correction du curseur qui sautait en fin de champ pendant la saisie"] },
+                { v: "Alpha 1.1", date: "Mai 2026", items: ["Rappels par notification, réglables tâche par tâche et mémo par mémo", "Rappels sur ordinateur, y compris lorsque Henri est déjà ouvert devant vous", "Henri s'installe comme une application, et continue de fonctionner sans connexion", "Nouvelles pages de réinitialisation du mot de passe et de confirmation de l'adresse"] },
+                { v: "Alpha 1.0", date: "Mai 2026", items: ["Refonte de la vue mobile : détail tâche et mémo alignés sur l'ordinateur", "Menu compte sur mobile (déconnexion, préférences)", "« À venir » : popover regroupant tâches et mémos à venir", "Nouvelles icônes dans toute l'application", "Lignes et listes de Ma journée affinées", "Désactivation du zoom involontaire sur mobile"] },
+                { v: "Alpha 0.9", date: "Avr. 2026", items: ["Suggestions Ma journée : importantes, en retard, aujourd'hui, récentes", "Fonds colorés sur les tâches selon priorité", "Focus automatique à la création d'un élément", "Recherche de dossier", "Invitations et page d'administration", "Raccourcis clavier, et une encoche pour envoyer un retour"] },
+                { v: "Alpha 0.8", date: "Avr. 2026", items: ["Refonte complète du panneau détail (dossier, tâche, mémo)", "Raccourcis d'échéance (Aujourd'hui, Demain, Dans 1 sem…)", "Étoile ★ pour marquer une tâche importante", "Observations sur les mémos"] },
+                { v: "Alpha 0.7", date: "Avr. 2026", items: ["Ma journée : colonne suggestions", "Mémos : récurrence, rattachement dossier", "Suppression immédiate avec annulation", "Sons (validation, ajout)"] },
+];
+
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 const formatHour = (h: number) => `${String(h).padStart(2, "0")}h`;
 
 export default function SettingsPage() {
+  const router = useRouter();
   const [s, setS] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [saved, setSaved] = useState(false);
-  const [tab, setTab] = useState<Tab>("apparence");
+  // On ouvre sur l'accueil : le rail range le titre courant au bord gauche, et
+  // un onglet placé avant lui partirait hors de l'écran dès l'ouverture. C'est
+  // aussi ce que le rond du compte ouvrait d'un geste, sur téléphone — les
+  // Préférences en héritent, le reste est à un glissement du pouce.
+  const [tab, setTab] = useState<Tab>("accueil");
   const pivotRef = useRef<HTMLElement>(null);
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
   const [aideSection, setAideSection] = useState(0);
@@ -106,6 +135,9 @@ export default function SettingsPage() {
   const [tokens, setTokens] = useState<PushTokenInfo[]>([]);
   const [currentToken, setCurrentToken] = useState<string | null>(null);
   const [notifSupported, setNotifSupported] = useState(true);
+  // Les rappels de cet appareil — le même geste que derrière le rond du compte,
+  // sur grand écran : un seul crochet pour les deux (`src/lib/deviceReminders`).
+  const deviceReminders = useDeviceReminders({ uid: user?.uid ?? "", onNotice: (message) => window.alert(message) });
   const [caseTemplates, setCaseTemplates] = useState<CaseTemplate[]>([]);
   const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
   const [policy, setPolicy] = useState<ReminderPolicy>(DEFAULT_REMINDER_POLICY);
@@ -523,7 +555,91 @@ export default function SettingsPage() {
 
         {/* Contenu */}
         <div className="flex-1 overflow-y-auto" onTouchStart={handleSwipeStart} onTouchEnd={handleSwipeEnd}>
-        <div className={"max-w-4xl mx-auto px-6 py-8 space-y-6"}>
+        <div className={"max-w-4xl mx-auto px-6 pt-8 pb-[104px] md:pb-8 space-y-6"}>
+
+          {/* ── ACCUEIL ──
+            * Là où l'on arrive, et non là où l'on travaille : c'est le seul
+            * endroit de l'application, avec l'écran d'attente et la connexion,
+            * où le logo a encore quelque chose à faire. Dessous, ce que le rond
+            * du compte tenait — qui l'on est, les notifications de cet appareil,
+            * l'installation, la sortie. Et c'est tout. */}
+          {tab === "accueil" && (
+            <div className="space-y-5">
+
+              <div className="flex flex-col items-center gap-2 pt-2 pb-1">
+                <img src="/logo-henri-new.png" alt="Henri" style={{ height: "44px", width: "auto" }} />
+                <p className="text-[11.5px] text-tx-3">{VERSIONS[0].v}</p>
+              </div>
+
+              {!user ? (
+                <div className="bg-bg border border-border rounded-xl p-5 text-[13px] text-tx-2">Connectez-vous pour gérer votre compte.</div>
+              ) : (
+                <div className="bg-bg border border-border rounded-xl px-5">
+
+                  <div className={row}>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="w-9 h-9 shrink-0 rounded-full border border-border bg-bg-subtle text-tx-2 flex items-center justify-center text-[14px] font-medium">
+                        {user.email?.trim()?.[0]?.toUpperCase() ?? ""}
+                      </span>
+                      <div className="min-w-0">
+                        <p className={`${lbl} break-all`}>{user.email}</p>
+                        <p className={sublbl}>Connecté sur cet appareil.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {deviceReminders.status !== "unsupported" && (
+                    <div className={row}>
+                      <div className="min-w-0">
+                        <p className={lbl}>Notifications sur cet appareil</p>
+                        <p className={sublbl}>
+                          {deviceReminders.status === "granted"
+                            ? "Cet appareil reçoit les rappels."
+                            : deviceReminders.status === "denied"
+                              ? "Permission refusée : à rouvrir dans les réglages du navigateur."
+                              : "Cet appareil ne reçoit pas encore les rappels."}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => void deviceReminders.toggle()}
+                        disabled={deviceReminders.busy}
+                        className={`shrink-0 text-[12px] font-[inherit] px-3 py-1.5 rounded cursor-pointer transition-all disabled:opacity-50 ${
+                          deviceReminders.status === "granted"
+                            ? "bg-transparent border border-border text-tx-2 hover:border-danger-border hover:text-danger"
+                            : "bg-tx text-bg border border-tx hover:opacity-90"
+                        }`}
+                      >
+                        {deviceReminders.status === "granted" ? "Désactiver ici" : "Activer ici"}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Le bouton ne se montre que là où l'installation est possible :
+                    * inutile de promettre ce que le navigateur ne sait pas faire. */}
+                  <div className={row}>
+                    <div className="min-w-0">
+                      <p className={lbl}>Installer Henri</p>
+                      <p className={sublbl}>Sur iPhone : « Partager », puis « Sur l'écran d'accueil ».</p>
+                    </div>
+                    <InstallButton className="shrink-0 inline-flex items-center gap-1.5 text-[12px] font-[inherit] px-3 py-1.5 rounded border border-border bg-transparent text-tx-2 cursor-pointer hover:border-border-strong hover:text-tx transition-all" />
+                  </div>
+
+                  <div className={row}>
+                    <div className="min-w-0">
+                      <p className={lbl}>Déconnexion</p>
+                      <p className={sublbl}>Vos dossiers restent, c'est cet appareil qui oublie le compte.</p>
+                    </div>
+                    <button
+                      onClick={() => void signOut(auth)}
+                      className="shrink-0 text-[12px] font-[inherit] px-3 py-1.5 rounded border border-border bg-transparent text-danger cursor-pointer hover:border-danger-border transition-all"
+                    >
+                      Se déconnecter
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {tab === "apparence" && <>
             <section>
@@ -904,7 +1020,7 @@ export default function SettingsPage() {
               <div className="bg-bg border border-border rounded-xl p-5">
                 <p className="text-[14px] font-semibold text-tx mb-1">Appareils recevant les rappels</p>
                 <p className="text-[13px] text-tx-2 leading-relaxed">
-                  Vos rappels sont envoyés à <strong>tous</strong> les appareils listés ici. Retirez-en un pour qu'il cesse de recevoir des notifications. Pour ajouter un appareil, ouvrez Henri dessus, puis le rond de votre compte en haut à droite, et « Activer les rappels ici ».
+                  Vos rappels sont envoyés à <strong>tous</strong> les appareils listés ici. Retirez-en un pour qu'il cesse de recevoir des notifications. Pour ajouter un appareil, ouvrez Henri dessus, puis Préférences → Accueil, et « Activer ici ».
                 </p>
               </div>
 
@@ -914,7 +1030,7 @@ export default function SettingsPage() {
                 <div className="bg-bg border border-border rounded-xl p-5 text-[13px] text-tx-2">Ce navigateur ne sait pas afficher de notifications.</div>
               ) : tokens.length === 0 ? (
                 <div className="bg-bg border border-border rounded-xl p-5 text-[13px] text-tx-2">
-                  Aucun appareil enregistré pour l'instant. Sur l'appareil à ajouter, ouvrez le rond de votre compte, en haut à droite, puis « Activer les rappels ici ».
+                  Aucun appareil enregistré pour l'instant. Sur l'appareil à ajouter, ouvrez Préférences → Accueil, puis « Activer ici ».
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -1271,21 +1387,7 @@ export default function SettingsPage() {
 
           {tab === "versions" && (
             <div className="space-y-4">
-              {[
-                { v: "Alpha 1.9", date: "Août 2026", items: ["Double authentification : elle s'active dès maintenant, sans attendre l'échéance annoncée — Préférences → Sécurité. La connexion demande alors, après le mot de passe, un code à six chiffres lu sur votre téléphone", "Elle se retire du même écran, et l'échéance à laquelle elle sera exigée sur votre compte y est rappelée", "L'adresse du compte se confirme par un courriel de l'Office : c'est le préalable à la double authentification", "L'inscription s'ouvre aux adresses professionnelles du notariat : un lien reçu par courriel remplace l'attente d'une invitation", "Thème sombre : clair, sombre, ou celui de l'appareil — y compris quand il bascule tout seul le soir (Préférences → Apparence)", "Tout ce qui touche au compte tient derrière un rond unique, en haut à droite, au même endroit sur chaque écran : adresse, rappels de cet appareil, installation, Préférences, déconnexion. Ma journée y gagne l'accès aux Préférences", "Préférences : les titres passent en haut, sur un rail que le pouce fait défiler — l'écran entier revient au réglage", "Mes dossiers et Ma journée basculent instantanément : plus d'attente ni d'écran vide entre les deux", "Henri s'ouvre sur ce qu'il sait déjà : vos dossiers restent d'un lancement à l'autre au lieu d'être retéléchargés à chaque fois", "Ma journée, ligne de saisie : « # » désigne le dossier, « @ » l'échéance, « ! » l'importance, « > » la tâche sous laquelle ranger le mémo", "Touche Action de l'iPhone : noter un mémo à la voix ou au clavier sans ouvrir Henri — installation en un lien depuis Préférences → Raccourci iPhone", "Le bandeau d'échéances tient de nouveau sur une ligne sur téléphone", "Nouvelle icône « henri » sur tous les écrans d'accueil"] },
-                { v: "Alpha 1.8", date: "Août 2026", items: ["Poser une échéance propose désormais systématiquement un rappel le jour de l'échéance — sur une tâche comme sur un mémo, à l'ordinateur comme au téléphone", "L'heure de ce rappel se règle dans Préférences → Rappels (9h par défaut), et la proposition peut y être coupée", "Déplacer l'échéance déplace le rappel proposé ; la retirer le retire. Un rappel posé à la main n'est jamais remplacé", "Nouvelle puce « Échéance 09h » sous « Rappel », pour réarmer la proposition après l'avoir retirée"] },
-                { v: "Alpha 1.7", date: "Juillet 2026", items: ["Mobile — Ma journée : mémos et tâches ont désormais la même ligne (case à cocher à gauche) ; la tâche garde son filet d'avancement et une croix pour la retirer de la journée", "Cocher un mémo le fait disparaître de Ma journée : il est réalisé. Un lien discret en bas de la colonne rouvre les mémos réalisés, pour les consulter ou les décocher (ordinateur et téléphone)", "Mobile — cocher une tâche demande où elle en est, puis la retire de Ma journée : elle reste dans son dossier avec son nouveau statut", "Mobile — un mémo se crée et se modifie dans le même écran : mêmes champs, même disposition (étoile, échéance, rappel, dossier, répétition, observations)", "Rattacher un mémo à un dossier ne le transforme plus en tâche : il garde sa case à cocher et s'affiche sous les tâches du dossier", "Un mémo sans dossier s'efface définitivement 7 jours après avoir été réalisé — un pense-bête n'est pas une archive. Un mémo que vous n'avez pas coché, lui, ne disparaît jamais", "Un mémo s'ouvre en cliquant son texte, depuis Ma journée comme depuis la liste des tâches de son dossier"] },
-                { v: "Alpha 1.6", date: "Juillet 2026", items: ["Relances : une tâche avec rappel non traitée fait l'objet d'une nouvelle notification (toutes les 3 h par défaut, jusqu'à 3 fois)", "Une relance reste affichée jusqu'à ce que vous vous en occupiez — plus difficile à balayer qu'un simple rappel", "Pas de relance la nuit : une relance du soir est reportée au lendemain matin", "Récapitulatif du soir (18h) : les tâches de Ma journée encore ouvertes", "Rappel du lendemain (8h) : les tâches de la veille restées non traitées", "Interrupteur « Relancer tant que ce n'est pas fait » sur chaque rappel", "Nouvel onglet Préférences → Rappels : intervalle, nombre de relances, plage horaire, récapitulatifs"] },
-                { v: "Alpha 1.5", date: "Juillet 2026", items: ["Modèles de dossier : enregistrez la liste de tâches d'un dossier sous un nom et réutilisez-la", "Appliquez un modèle à un nouveau dossier (bouton 📋) ou à un dossier existant (« Appliquer un modèle »)", "Gérez vos modèles : renommer, supprimer", "Mini-récap d'avancement sur chaque dossier : 4 compteurs colorés (tâches et sous-tâches) — Créé · Demandé · Reçu · Traité", "Tri des dossiers par charge restante : ce qu'il reste le plus à faire remonte en tête", "Visite guidée interactive : tâches, sous-tâches, import/export, modèles, raccourcis clavier (relançable dans l'Aide)", "Modèle de dossier d'exemple intégré (« Vente immobilière »)", "Pas à pas interactif : créer une tâche, une sous-tâche, puis tout supprimer (dossier d'entraînement) ; bulles d'aide repositionnées près des boutons", "À la création d'un dossier, choix entre dossier vierge ou modèle", "Actions d'un dossier regroupées en deux menus : « Export / Import » et « Modèle »", "Préférences → Modèles : gérer ses modèles (renommer, supprimer, consulter le détail)", "Préférences : navigation par onglets verticaux (colonne à gauche)", "Ma journée : option « grouper par dossier » (desktop et mobile), avec en-têtes de dossier"] },
-                { v: "Alpha 1.4", date: "Juillet 2026", items: ["Rappels par notification désormais fiables : sur ordinateur, et même lorsque Henri est en arrière-plan ou fermé", "Réception des rappels au bon moment rétablie (l'application pouvait auparavant n'afficher aucune notification)", "Installation en application peaufinée : nom « Henri » et icône corrigés", "Aide enrichie : nouvelles rubriques « Rappels » et « Installer l'app »", "Préférences → Appareils : liste des appareils recevant les rappels, avec possibilité d'en retirer"] },
-                { v: "Alpha 1.3", date: "Juin 2026", items: ["« Mes dossiers » désormais accessible sur mobile : navigation en pleine largeur, une colonne à la fois", "Balayez horizontalement (swipe) pour passer de Dossiers → Tâches → Sous-tâches → Détail, et revenir en arrière", "Icône ☀ pour aller à Ma journée, icône dossier pour revenir à Mes dossiers", "En-têtes mobiles uniformisés (logo et icônes)"] },
-                { v: "Alpha 1.2", date: "Juin 2026", items: ["Import de tâches dans un dossier existant et export d'une sélection de tâches", "Installation de l'app sur Chrome et Edge (bouton dédié, icônes, nom corrigé)", "Correction du curseur qui sautait en fin de champ pendant la saisie"] },
-                { v: "Alpha 1.1", date: "Mai 2026", items: ["Rappels par notification, réglables tâche par tâche et mémo par mémo", "Rappels sur ordinateur, y compris lorsque Henri est déjà ouvert devant vous", "Henri s'installe comme une application, et continue de fonctionner sans connexion", "Nouvelles pages de réinitialisation du mot de passe et de confirmation de l'adresse"] },
-                { v: "Alpha 1.0", date: "Mai 2026", items: ["Refonte de la vue mobile : détail tâche et mémo alignés sur l'ordinateur", "Menu compte sur mobile (déconnexion, préférences)", "« À venir » : popover regroupant tâches et mémos à venir", "Nouvelles icônes dans toute l'application", "Lignes et listes de Ma journée affinées", "Désactivation du zoom involontaire sur mobile"] },
-                { v: "Alpha 0.9", date: "Avr. 2026", items: ["Suggestions Ma journée : importantes, en retard, aujourd'hui, récentes", "Fonds colorés sur les tâches selon priorité", "Focus automatique à la création d'un élément", "Recherche de dossier", "Invitations et page d'administration", "Raccourcis clavier, et une encoche pour envoyer un retour"] },
-                { v: "Alpha 0.8", date: "Avr. 2026", items: ["Refonte complète du panneau détail (dossier, tâche, mémo)", "Raccourcis d'échéance (Aujourd'hui, Demain, Dans 1 sem…)", "Étoile ★ pour marquer une tâche importante", "Observations sur les mémos"] },
-                { v: "Alpha 0.7", date: "Avr. 2026", items: ["Ma journée : colonne suggestions", "Mémos : récurrence, rattachement dossier", "Suppression immédiate avec annulation", "Sons (validation, ajout)"] },
-              ].map(({ v, date, items }) => (
+              {VERSIONS.map(({ v, date, items }) => (
                 <div key={v} className="bg-bg border border-border rounded-xl p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-[11px] font-semibold text-tx bg-bg-subtle border border-border rounded px-1.5 py-0.5">{v}</span>
@@ -1329,6 +1431,22 @@ export default function SettingsPage() {
 
         </div>
       </div>
+      </div>
+
+      {/* ── BARRE DU BAS (mobile) ──
+        * Les Préférences sont une destination comme les deux autres : on doit
+        * pouvoir en repartir du pouce, sans remonter chercher « Retour ». */}
+      <div
+        className="md:hidden fixed left-3 right-3 z-30"
+        style={{ bottom: "calc(env(safe-area-inset-bottom) + 10px)" }}
+      >
+        <MobileTabs
+          active="settings"
+          onSelect={tab => {
+            if (tab === "myday") router.push("/my-day");
+            else if (tab === "cases") router.push("/");
+          }}
+        />
       </div>
     </div>
   );

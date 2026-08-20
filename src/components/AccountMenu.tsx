@@ -6,6 +6,7 @@ import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { Icon } from "./Icon";
 import InstallButton from "./InstallButton";
+import { useDeviceReminders, type NotifStatus } from "@/lib/deviceReminders";
 
 /**
  * Le compte, en un seul bouton.
@@ -24,8 +25,6 @@ import InstallButton from "./InstallButton";
  * qui sont désormais deux comptes distincts.
  */
 
-type NotifStatus = "unknown" | "granted" | "denied" | "default" | "unsupported";
-
 type AccountMenuProps = {
   uid: string;
   email: string | null;
@@ -33,27 +32,20 @@ type AccountMenuProps = {
   onNotice: (message: string) => void;
   /** L'écran qui suit l'état des notifications pour son propre compte. */
   onNotifStatusChange?: (status: NotifStatus) => void;
+  /**
+   * De quel côté le menu se déplie. Depuis la barre du bas du téléphone, un
+   * menu qui descend sortirait de l'écran : il monte (`"top"`).
+   */
+  placement?: "bottom" | "top";
 };
 
 const rowClass =
   "flex items-center gap-2 w-full text-left px-3.5 py-2.5 text-[13px] font-[inherit] bg-transparent border-none cursor-pointer text-tx-2 hover:bg-bg-hover transition-colors no-underline";
 
-export default function AccountMenu({ uid, email, onNotice, onNotifStatusChange }: AccountMenuProps) {
+export default function AccountMenu({ uid, email, onNotice, onNotifStatusChange, placement = "bottom" }: AccountMenuProps) {
   const [open, setOpen] = useState(false);
-  const [notifStatus, setNotifStatus] = useState<NotifStatus>("unknown");
-  const [busy, setBusy] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const status: NotifStatus = "Notification" in window ? (Notification.permission as NotifStatus) : "unsupported";
-    setNotifStatus(status);
-    onNotifStatusChange?.(status);
-    // `onNotifStatusChange` n'est lu qu'au montage : le prévenir plus souvent
-    // ferait de cette ligne une boucle de rendu, pour un état qui ne bouge que
-    // sur action de l'utilisateur (ci-dessous, `toggleReminders`).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const { status: notifStatus, busy, toggle } = useDeviceReminders({ uid, onNotice, onStatusChange: onNotifStatusChange });
 
   // Fermeture : un clic ailleurs, ou Échap. Pas de voile transparent — il
   // laisserait passer ce qui se dessine au-dessus de l'en-tête.
@@ -75,43 +67,8 @@ export default function AccountMenu({ uid, email, onNotice, onNotifStatusChange 
     };
   }, [open]);
 
-  const setStatus = (status: NotifStatus) => {
-    setNotifStatus(status);
-    onNotifStatusChange?.(status);
-  };
-
-  const toggleReminders = async () => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      const messaging = await import("@/lib/messaging");
-      if (notifStatus === "granted") {
-        await messaging.disablePushNotifications(uid);
-        // La permission du navigateur, elle, reste accordée : seul le jeton de
-        // cet appareil disparaît. On ne ment donc pas sur l'état du système.
-        onNotice("Rappels désactivés sur cet appareil.");
-      } else {
-        const result = await messaging.enablePushNotifications(uid);
-        if (result.ok) {
-          setStatus("granted");
-          onNotice("Rappels activés sur cet appareil.");
-        } else if (result.reason === "denied") {
-          setStatus("denied");
-          onNotice("Permission refusée : à rouvrir dans les réglages du navigateur.");
-        } else if (result.reason === "no-vapid") {
-          onNotice("Configuration serveur incomplète.");
-        } else if (result.reason === "unsupported") {
-          setStatus("unsupported");
-          onNotice("Sur iPhone, installez d'abord Henri sur l'écran d'accueil.");
-        } else {
-          onNotice("L'activation a échoué. Réessayez dans un instant.");
-        }
-      }
-    } finally {
-      setBusy(false);
-      setOpen(false);
-    }
-  };
+  // Le menu se referme sur le geste, quel qu'en soit le résultat.
+  const toggleReminders = async () => { await toggle(); setOpen(false); };
 
   const initial = email?.trim()?.[0]?.toUpperCase() ?? "";
 
@@ -135,7 +92,9 @@ export default function AccountMenu({ uid, email, onNotice, onNotifStatusChange 
       {open && (
         <div
           role="menu"
-          className="absolute top-[calc(100%+6px)] right-0 min-w-[240px] bg-bg border border-border rounded-xl shadow-lg overflow-hidden z-50"
+          className={`absolute right-0 min-w-[240px] bg-bg border border-border rounded-xl shadow-lg overflow-hidden z-50 ${
+            placement === "top" ? "bottom-[calc(100%+6px)]" : "top-[calc(100%+6px)]"
+          }`}
         >
           <div className="px-3.5 py-3 border-b border-border">
             <p className="text-[10px] font-semibold text-tx-3 uppercase tracking-widest">Connecté</p>
