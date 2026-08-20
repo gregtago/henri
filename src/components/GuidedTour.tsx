@@ -14,6 +14,14 @@ const GAP = 12; // écart bulle ↔ cible
 
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(v, max));
 
+// Un même repère peut exister deux fois — le compte est dans la barre du haut
+// sur grand écran, dans celle du bas sur téléphone, et l'une des deux est
+// masquée. On vise donc celle qui est à l'écran, pas la première du document.
+const findVisible = (selector: string): HTMLElement | null => {
+  const all = Array.from(document.querySelectorAll(selector)) as HTMLElement[];
+  return all.find(el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; }) ?? all[0] ?? null;
+};
+
 /**
  * Visite guidée maison (sans dépendance).
  * - met en surbrillance l'élément ciblé (spotlight) et place la bulle JUSTE à côté
@@ -33,7 +41,7 @@ export default function GuidedTour({ steps, onClose }: { steps: TourStep[]; onCl
   const measure = useCallback(() => {
     const sel = steps[idx]?.selector;
     if (!sel) { setRect(null); return; }
-    const el = document.querySelector(sel) as HTMLElement | null;
+    const el = findVisible(sel);
     const r = el?.getBoundingClientRect();
     setRect(r && r.width > 0 && r.height > 0 ? r : null);
   }, [idx, steps]);
@@ -49,7 +57,7 @@ export default function GuidedTour({ steps, onClose }: { steps: TourStep[]; onCl
   // Suit la cible (défilement, resize, changements de layout).
   useEffect(() => {
     const sel = steps[idx]?.selector;
-    if (sel) (document.querySelector(sel) as HTMLElement | null)?.scrollIntoView({ block: "center", inline: "center" });
+    if (sel) findVisible(sel)?.scrollIntoView({ block: "center", inline: "center" });
     measure();
     const on = () => measure();
     window.addEventListener("resize", on);

@@ -1004,12 +1004,3 @@ kbd {
   .henri-sablier { animation: none; }
 }
 
-/* ── BARRE DU BAS (mobile) ──
- * Les trois mots tiennent côte à côte dès 360 px de large. En dessous, seul
- * l'écran courant garde son nom : les deux autres se réduisent à leur icône,
- * plutôt que de se couper en « Ma j… », qui ne dit plus rien. Le nom du bouton
- * reste lisible aux lecteurs d'écran — c'est l'affichage qui se retire, pas
- * l'information. */
-@media (max-width: 359px) {
-  .henri-tab:not([aria-current="page"]) .henri-tab-label { display: none; }
-}

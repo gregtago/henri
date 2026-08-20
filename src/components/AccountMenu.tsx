@@ -33,12 +33,17 @@ type AccountMenuProps = {
   onNotice: (message: string) => void;
   /** L'écran qui suit l'état des notifications pour son propre compte. */
   onNotifStatusChange?: (status: NotifStatus) => void;
+  /**
+   * De quel côté le menu se déplie. Depuis la barre du bas du téléphone, un
+   * menu qui descend sortirait de l'écran : il monte (`"top"`).
+   */
+  placement?: "bottom" | "top";
 };
 
 const rowClass =
   "flex items-center gap-2 w-full text-left px-3.5 py-2.5 text-[13px] font-[inherit] bg-transparent border-none cursor-pointer text-tx-2 hover:bg-bg-hover transition-colors no-underline";
 
-export default function AccountMenu({ uid, email, onNotice, onNotifStatusChange }: AccountMenuProps) {
+export default function AccountMenu({ uid, email, onNotice, onNotifStatusChange, placement = "bottom" }: AccountMenuProps) {
   const [open, setOpen] = useState(false);
   const [notifStatus, setNotifStatus] = useState<NotifStatus>("unknown");
   const [busy, setBusy] = useState(false);
@@ -135,7 +140,9 @@ export default function AccountMenu({ uid, email, onNotice, onNotifStatusChange 
       {open && (
         <div
           role="menu"
-          className="absolute top-[calc(100%+6px)] right-0 min-w-[240px] bg-bg border border-border rounded-xl shadow-lg overflow-hidden z-50"
+          className={`absolute right-0 min-w-[240px] bg-bg border border-border rounded-xl shadow-lg overflow-hidden z-50 ${
+            placement === "top" ? "bottom-[calc(100%+6px)]" : "top-[calc(100%+6px)]"
+          }`}
         >
           <div className="px-3.5 py-3 border-b border-border">
             <p className="text-[10px] font-semibold text-tx-3 uppercase tracking-widest">Connecté</p>

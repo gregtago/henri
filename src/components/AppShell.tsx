@@ -3276,10 +3276,11 @@ export default function AppShell({ view, onViewChange, active = true }: AppShell
     <div className="flex flex-col h-screen overflow-hidden">
 
       {/* ── HEADER ── */}
-      <header className="h-[48px] md:h-[44px] flex items-center px-[16px] border-b border-border bg-bg shrink-0 z-10 relative">
-        {/* Mobile : rien à gauche. La navigation est passée dans la barre du bas
-          * (☀ Ma journée / Dossiers / Préférences), et le logo avec elle — il
-          * n'apparaît plus qu'à l'ouverture, sur l'écran d'attente. */}
+      {/* Sur téléphone, la barre du haut ne portait plus qu'un rond : 48 px de
+        * hauteur pour un bouton qu'on touche une fois par jour, au-dessus d'une
+        * ligne de titre qui a de la place à revendre. Elle ne sert donc plus
+        * qu'au grand écran ; le compte a rejoint la barre du bas. */}
+      <header className="hidden md:flex h-[44px] items-center px-[16px] border-b border-border bg-bg shrink-0 z-10 relative">
         {/* Liens navigation — gauche (desktop uniquement) */}
         <nav data-tour="nav" className="hidden md:flex gap-0.5 z-10">
           <button
@@ -4691,6 +4692,15 @@ export default function AppShell({ view, onViewChange, active = true }: AppShell
         <MobileTabs
           active={isMyDay ? "myday" : "cases"}
           count={myDayCombined.length}
+          trailing={
+            <AccountMenu
+              uid={user.uid}
+              email={user.email}
+              onNotice={showToast}
+              onNotifStatusChange={setNotifStatus}
+              placement="top"
+            />
+          }
           onSelect={tab => {
             if (tab === "settings") router.push("/settings");
             else goToView(tab);

@@ -315,7 +315,7 @@ Pas d'échelle Tailwind par défaut hors usage : on respecte les multiples de 2 
 
 Ce qui ne sert pas au travail se replie. Les rappels de cet appareil, l'installation, les Préférences et la déconnexion tenaient cinq boutons en haut à droite de « Dossiers » — et « Ma journée » avait, pour les mêmes choses, un menu tout autre, qui ne menait même pas aux Préférences. Deux grammaires, une barre encombrée à l'endroit précis où l'œil cherche des dossiers.
 
-**Tout tient désormais derrière un rond unique, au même endroit sur chaque écran** (`src/components/AccountMenu.tsx`). Il porte la première lettre de l'adresse connectée : de quoi distinguer d'un coup d'œil le compte de travail du compte d'administration, qui sont deux comptes distincts. Le menu qu'il ouvre dit l'adresse en entier, puis les quatre commandes, dans cet ordre : les rappels sur cet appareil, l'installation (quand elle est possible), les Préférences, la déconnexion.
+**Tout tient désormais derrière un rond unique, au même endroit sur chaque écran** (`src/components/AccountMenu.tsx`) — en haut à droite sur grand écran, au bout de la barre du bas sur téléphone, où il se déplie vers le haut (`placement="top"`). Il porte la première lettre de l'adresse connectée : de quoi distinguer d'un coup d'œil le compte de travail du compte d'administration, qui sont deux comptes distincts. Le menu qu'il ouvre dit l'adresse en entier, puis les quatre commandes, dans cet ordre : les rappels sur cet appareil, l'installation (quand elle est possible), les Préférences, la déconnexion.
 
 La règle qui vaut au-delà de ce rond : **une commande qu'on touche une fois par mois n'a pas à occuper la barre que l'on regarde toute la journée.** Ce qui est fréquent — créer, trier, cocher — garde la place ; le reste se replie derrière un geste.
 
@@ -359,7 +359,7 @@ Règles propres à cette vue :
 
 ### Mobile
 
-Layout vertical empilé. Pas de colonnes. Un seul écran à la fois, et la barre du bas dit lequel. Les éléments tactiles font ≥ 30 px de côté, les chips de date sont en pill 20 px de rayon.
+Layout vertical empilé. Pas de colonnes. Un seul écran à la fois, et la barre du bas dit lequel. **Rien en haut** : ce qui se touche est en bas, ce qui se lit commence tout en haut de l'écran. Les éléments tactiles font ≥ 30 px de côté, les chips de date sont en pill 20 px de rayon.
 
 ### La barre du bas — trois destinations, une seule pastille encrée
 
@@ -371,11 +371,13 @@ Trois règles la tiennent :
 
 - **elle dit où l'on est**, ce qu'aucun des ronds ne faisait : la pastille encrée est l'écran courant ;
 - **elle s'efface pendant qu'on écrit** un mémo — le clavier prend déjà la moitié de l'écran, et on ne navigue pas en pleine phrase ;
-- **elle ne coupe jamais un mot.** Sous 360 px de large, les deux destinations qu'on ne regarde pas se réduisent à leur icône plutôt que d'afficher « Ma j… » (`.henri-tab-label`, `app/globals.css`). Le nom reste lisible aux lecteurs d'écran.
+- **elle ne coupe jamais un mot.** Seul l'écran courant porte son nom ; les deux autres se tiennent à leur icône. Trois mots, un compte et le rond du compte ne tiennent pas ensemble sur 390 px sans se couper en « Ma jou… », et un mot coupé ne dit plus rien. Les trois icônes sont déjà le vocabulaire de l'application — le soleil de Ma journée, le dossier, la roue —, et le nom reste annoncé aux lecteurs d'écran (`aria-label`).
+
+Au bout de la rangée, **le rond du compte**, dans sa propre pastille (`trailing`) : c'est la disposition d'un segmenté suivi d'un bouton séparé. Il garde la même place sur les trois écrans, pour que la pastille ne change pas de largeur quand on passe de l'un à l'autre.
 
 Le composant ne se positionne pas lui-même : Ma journée l'empile sous sa ligne de saisie, Dossiers et Préférences la font flotter au-dessus du contenu, qui se réserve la hauteur correspondante.
 
-Conséquence sur le haut de l'écran : **plus de navigation ni de logo dans l'en-tête mobile.** Ma journée y garde le jour et le rond du compte, Dossiers le seul rond du compte.
+Conséquence sur le haut de l'écran : **il n'y a plus d'en-tête sur téléphone.** Elle ne portait plus qu'un rond — 48 px pour un bouton qu'on touche une fois par jour, au-dessus d'une ligne de titre qui a de la place à revendre. Dossiers commence donc à sa ligne de titre (« Dossiers 12 · tri · + »), et Ma journée par le jour, qui est devenu son titre de liste et défile avec elle.
 
 ### L'écran d'attente — le logo, et un sablier
 

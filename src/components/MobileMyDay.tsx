@@ -629,41 +629,32 @@ export default function MobileMyDay({ user, onGoCases }: { user: User; onGoCases
   return (
     <div style={{ height: "100dvh", display: "flex", flexDirection: "column", background: "var(--bg-subtle)", overflow: "hidden", position: "relative" }}>
 
-      {/* Header */}
-      <header style={{ background: "var(--bg)", borderBottom: "1px solid var(--border)", height: "48px", padding: "0 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, position: "relative" }}>
-        {/* La navigation est passée en bas ; le haut ne garde que le jour et le
-          * compte. Le logo n'y sert plus à rien — on sait chez qui on est, et
-          * il a désormais sa place à l'ouverture, sur l'écran d'attente. */}
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
-          <span style={{ fontSize: "13px", color: "var(--text)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {(d => d.charAt(0).toUpperCase() + d.slice(1))(new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }))}
-          </span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <AccountMenu
-            uid={user.uid}
-            email={user.email}
-            onNotice={(message) => window.alert(message)}
-          />
-        </div>
-      </header>
+      {/* Liste — plus d'en-tête au-dessus : la navigation et le compte tiennent
+        * dans la barre du bas, et le jour est en tête de liste, d'où il défile
+        * avec elle. Les 48 px que prenait la barre du haut reviennent aux
+        * tâches, qui sont la raison d'être de l'écran. */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "14px 16px 156px" }}>
 
-      {/* Liste */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px 156px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", marginBottom: "12px" }}>
+          <h1 style={{ fontSize: "17px", fontWeight: 600, color: "var(--text)", margin: 0, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {(d => d.charAt(0).toUpperCase() + d.slice(1))(new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }))}
+          </h1>
+          {todayEntries.length > 0 && (
+            <button onClick={toggleGroupMyDay}
+              style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "12px", fontFamily: "inherit", padding: "5px 11px", borderRadius: "16px", border: "1px solid var(--border)", background: groupMyDay ? "var(--text)" : "var(--bg)", color: groupMyDay ? "var(--bg)" : "var(--text)", cursor: "pointer" }}>
+              <Icon name="folder" size={12} /> Par dossier
+            </button>
+          )}
+        </div>
+
         {todayEntries.length === 0 ? (
-          <div style={{ textAlign: "center", marginTop: "80px", color: "var(--text-3)" }}>
+          <div style={{ textAlign: "center", marginTop: "72px", color: "var(--text-3)" }}>
               <p style={{ fontSize: "48px", marginBottom: "16px" }}>☀️</p>
               <p style={{ fontSize: "18px", fontWeight: 600, color: "var(--text)" }}>C'est une belle journée</p>
               <p style={{ fontSize: "14px", marginTop: "8px", color: "var(--text-3)" }}>Ajoutez des tâches via les suggestions 🔭</p>
             </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <button onClick={toggleGroupMyDay}
-                style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "12px", fontFamily: "inherit", padding: "5px 11px", borderRadius: "16px", border: "1px solid var(--border)", background: groupMyDay ? "var(--text)" : "var(--bg)", color: groupMyDay ? "var(--bg)" : "var(--text)", cursor: "pointer" }}>
-                <Icon name="folder" size={12} /> Par dossier
-              </button>
-            </div>
             {displayEntries.map(({ entry, header }) => {
               const title = entry.item?.title ?? entry.floating?.title ?? "";
               const status = entry.item?.status ?? null;
@@ -965,6 +956,14 @@ export default function MobileMyDay({ user, onGoCases }: { user: User; onGoCases
             active="myday"
             count={todayEntries.length}
             elevated={false}
+            trailing={
+              <AccountMenu
+                uid={user.uid}
+                email={user.email}
+                onNotice={(message) => window.alert(message)}
+                placement="top"
+              />
+            }
             onSelect={tab => {
               if (tab === "cases") goCases();
               else if (tab === "settings") router.push("/settings");
