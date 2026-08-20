@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { loadSettings, applySettings, type UserSettings, DEFAULT_SETTINGS } from "@/lib/settings";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import type { HenriView } from "./HenriApp";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { Timestamp, addDoc, collection } from "firebase/firestore";
 import {
@@ -163,7 +164,18 @@ type ParentOption = {
   caseId?: string;
 };
 
-export default function AppShell() {
+type AppShellProps = {
+  /** Vue affichée. Donnée par le parent, qui bascule sans navigation ; à
+   *  défaut, on la lit dans l'URL (`/my-day`). */
+  view?: HenriView;
+  /** Bascule vers l'autre vue. À défaut, on navigue pour de bon. */
+  onViewChange?: (view: HenriView) => void;
+  /** Faux quand la coquille est montée mais masquée (mobile, vue Ma journée
+   *  par-dessus) : elle ne doit alors ni capter le clavier ni ouvrir de visite. */
+  active?: boolean;
+};
+
+export default function AppShell({ view, onViewChange, active = true }: AppShellProps = {}) {
   const [user, setUser] = useState<User | null>(null);
   // Réglages de relance (Préférences → Rappels) : servent de valeur par défaut
   // à l'interrupteur « Relancer tant que ce n'est pas fait ».
@@ -295,7 +307,13 @@ export default function AppShell() {
 
   const pathname = usePathname();
   const router = useRouter();
-  const isMyDay = pathname === "/my-day";
+  const isMyDay = view ? view === "myday" : pathname === "/my-day";
+  // Passer d'une vue à l'autre : une bascule d'état quand le parent nous la
+  // tend, une vraie navigation sinon.
+  const goToView = useCallback((next: HenriView) => {
+    if (onViewChange) { onViewChange(next); return; }
+    router.push(next === "myday" ? "/my-day" : "/");
+  }, [onViewChange, router]);
 
   const todayKey = getTodayKey();
   const yesterdayKey = getYesterdayKey();
@@ -510,7 +528,7 @@ export default function AppShell() {
   // Lancement d'une visite / d'un pas à pas demandé depuis les Préférences (flag localStorage).
   const tourFlagChecked = useRef(false);
   useEffect(() => {
-    if (!user || tourFlagChecked.current || typeof window === "undefined") return;
+    if (!user || !active || tourFlagChecked.current || typeof window === "undefined") return;
     tourFlagChecked.current = true;
     if (localStorage.getItem("henri:startTour") === "1") {
       localStorage.removeItem("henri:startTour");
@@ -520,7 +538,7 @@ export default function AppShell() {
       setTourIsWalkthrough(true);
       setActiveTour(buildWalkthroughSteps());
     }
-  }, [user, buildWalkthroughSteps]);
+  }, [user, active, buildWalkthroughSteps]);
 
   // Préférence « grouper Ma journée par dossier » (partagée avec la vue mobile).
   useEffect(() => {
@@ -2011,6 +2029,10 @@ export default function AppShell() {
 
   const handleKeyDown = useCallback(
     async (event: KeyboardEvent) => {
+      // Masquée derrière Ma journée (mobile) : le clavier ne nous regarde pas.
+      if (!active) {
+        return;
+      }
       if (isEditableElement(event.target)) {
         return;
       }
@@ -2139,9 +2161,7 @@ export default function AppShell() {
       if (event.key === "Tab") {
         event.preventDefault();
         // Tab : basculer entre Dossiers et Ma journée
-        if (typeof window !== "undefined") {
-          window.location.href = isMyDay ? "/" : "/my-day";
-        }
+        goToView(isMyDay ? "cases" : "myday");
         return;
       }
       // S → focus recherche dossier
@@ -2285,7 +2305,10 @@ export default function AppShell() {
       itemsListRef,
       subitemsListRef,
       detailTitleRef,
-      detailCaseRef
+      detailCaseRef,
+      active,
+      isMyDay,
+      goToView
     ]
   );
 
@@ -3013,8 +3036,8 @@ export default function AppShell() {
                       itemId: detailItem.level === 3 && parentItem ? parentItem.id : detailItem.id,
                       subItemId: detailItem.level === 3 ? detailItem.id : null,
                     }));
-                    // Naviguer vers la vue Dossiers
-                    router.push("/");
+                    // Revenir à la vue Dossiers
+                    goToView("cases");
                   };
                   return (
                     <button onClick={navigateTo}
@@ -3255,35 +3278,37 @@ export default function AppShell() {
       <header className="h-[48px] md:h-[44px] flex items-center px-[16px] border-b border-border bg-bg shrink-0 z-10 relative">
         {/* Mobile : ☀ Ma journée + logo — à gauche (valeurs en px fixes pour matcher MobileMyDay) */}
         <div className="md:hidden flex items-center gap-[10px] z-10">
-          <Link
-            href="/my-day"
-            className="w-[32px] h-[32px] flex items-center justify-center rounded-full border border-border bg-bg-subtle text-tx-2 hover:bg-bg-hover"
-            style={{ textDecoration: "none" }}
+          <button
+            type="button"
+            onClick={() => goToView("myday")}
+            className="w-[32px] h-[32px] flex items-center justify-center rounded-full border border-border bg-bg-subtle text-tx-2 hover:bg-bg-hover cursor-pointer p-0"
             title="Ma journée"
             aria-label="Ma journée"
           >
             <Icon name="myday" size={16} />
-          </Link>
+          </button>
           <img src="/logo-henri-new.png" alt="Henri" style={{ height: "24px", width: "auto" }} />
         </div>
         {/* Liens navigation — gauche (desktop uniquement) */}
         <nav data-tour="nav" className="hidden md:flex gap-0.5 z-10">
-          <Link
-            href="/"
-            className={`text-[13px] px-2.5 py-1 rounded border-none bg-transparent cursor-pointer transition-all ${
+          <button
+            type="button"
+            onClick={() => goToView("cases")}
+            className={`font-[inherit] text-[13px] px-2.5 py-1 rounded border-none bg-transparent cursor-pointer transition-all ${
               !isMyDay ? "bg-bg-active text-tx font-medium" : "text-tx-2 hover:bg-bg-hover hover:text-tx"
             }`}
           >
             Dossiers
-          </Link>
-          <Link
-            href="/my-day"
-            className={`text-[13px] px-2.5 py-1 rounded border-none bg-transparent cursor-pointer transition-all ${
+          </button>
+          <button
+            type="button"
+            onClick={() => goToView("myday")}
+            className={`font-[inherit] text-[13px] px-2.5 py-1 rounded border-none bg-transparent cursor-pointer transition-all ${
               isMyDay ? "bg-bg-active text-tx font-medium" : "text-tx-2 hover:bg-bg-hover hover:text-tx"
             }`}
           >
             Ma journée
-          </Link>
+          </button>
           <Link
             href="/calendrier"
             className="text-[13px] px-2.5 py-1 rounded border-none bg-transparent cursor-pointer transition-all text-tx-2 hover:bg-bg-hover hover:text-tx"
@@ -3795,11 +3820,11 @@ export default function AppShell() {
 
             {/* ── BANDE "MA JOURNÉE" à droite (desktop ; masquée sur mobile via CSS) ── */}
             {settings.sideTabs && (
-              <Link href="/my-day" className="side-tab side-tab-myday" title="Aller à Ma journée">
+              <button type="button" onClick={() => goToView("myday")} className="side-tab side-tab-myday" title="Aller à Ma journée">
                 <div className="side-tab-inner">
                   <span className="side-tab-label">Ma journée</span>
                 </div>
-              </Link>
+              </button>
             )}
           </div>{/* fin wrapper colonnes */}
 
@@ -3812,11 +3837,11 @@ export default function AppShell() {
 
           {/* ── BANDE "DOSSIERS" à gauche ── */}
           {settings.sideTabs && (
-            <Link href="/" className="side-tab side-tab-dossiers" title="Retour aux Dossiers">
+            <button type="button" onClick={() => goToView("cases")} className="side-tab side-tab-dossiers" title="Retour aux Dossiers">
               <div className="side-tab-inner">
                 <span className="side-tab-label">Dossiers</span>
               </div>
-            </Link>
+            </button>
           )}
 
           {/* ── COL SUGGESTIONS : 20% ── */}

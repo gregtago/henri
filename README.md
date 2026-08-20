@@ -42,6 +42,20 @@ npm run dev
   - `users/{uid}/pushTokens` (appareils recevant les notifications)
   - `users/{uid}/settings/reminders` (réglages de relance, lus par les Cloud Functions)
   - `users/{uid}/reminderDigests` (garde anti-doublon des récapitulatifs quotidiens)
+- **Mes dossiers et Ma journée : deux adresses, une seule page.** `/` et
+  `/my-day` mènent toujours aux deux vues — les liens, les notifications et le
+  raccourci de l'écran d'accueil (`start_url`) restent valables —, mais les deux
+  routes rendent le même composant (`src/components/HenriApp.tsx`). Passer de
+  l'une à l'autre n'est donc plus une navigation : c'est un état. Rien ne se
+  démonte, rien ne se rabonne à Firestore, et la bascule est immédiate là où
+  elle laissait auparavant un écran vide le temps que la page d'en face se
+  remonte. L'URL suit quand même (`history.pushState`, que Next intercepte pour
+  accorder son routeur sans rejouer la route) : la barre d'adresse reste juste,
+  un rechargement retombe sur la vue qu'on regardait, et le geste « retour »
+  ramène à la précédente. Sur mobile, où les deux vues sont deux composants
+  distincts (`AppShell` et `MobileMyDay`), celui qu'on ne regarde pas se monte
+  quand même une fois l'écran peint, masqué : c'est ce montage d'avance qui rend
+  la toute première bascule aussi vive que les suivantes.
 - **Ce qui se charge au lancement, et ce qui attend.** La base garde son cache
   sur le disque (`persistentLocalCache`, `src/lib/firebase.ts`) : au lancement
   suivant l'écran se peint depuis IndexedDB, puis le réseau corrige ce qui a
