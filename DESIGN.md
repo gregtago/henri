@@ -355,8 +355,8 @@ Presque chaque onglet des Préférences s'ouvrait sur un pavé encadré qui disa
 
 - **la pastille ne remplace pas le réglage, elle remplace le pavé.** Ce qu'un réglage doit dire de lui-même — son nom, sa valeur courante, la phrase grise qui dit sur quoi il agit — reste à l'écran. Ne part derrière le « ? » que ce qui raconte *pourquoi*, et l'histoire du problème que le réglage résout ;
 - **une procédure n'est jamais une explication.** Les étapes numérotées (installer le raccourci, activer la double authentification) restent en clair : on les suit en les lisant, on ne les mémorise pas ;
-- **elle se dessine en 18 px et se touche en 30**, par une marge négative — la zone tactile ne doit pas écarter le titre de son réglage ;
-- **elle ne s'affiche pas sur téléphone** (`hidden md:inline-flex`). L'écran y est trop étroit pour porter, contre chaque titre, un signe qui ne règle rien — et c'est là qu'on vient changer un réglage qu'on connaît déjà, pas l'apprendre. Les mots, eux, restent à toutes les largeurs : un « en savoir plus » écrit en toutes lettres n'est pas une pastille.
+- **elle se dessine en 18 px et se touche en 30** — 34 sous un doigt —, par une marge négative : la zone tactile ne doit pas écarter le titre de son réglage ;
+- **elle vaut à toutes les largeurs.** C'est sur téléphone que le pavé de texte coûtait le plus cher, et c'est là qu'on ouvre le plus souvent les Préférences pour la première fois : lui retirer l'explication reviendrait à ne la donner qu'à ceux qui en ont le moins besoin. Le seul « ? » qui ne survit pas au téléphone est celui des **raccourcis clavier**, et pour une autre raison — un téléphone n'a pas de clavier.
 
 Le contenu de la fenêtre peut être **vivant** : le « ? » des relances calcule son exemple sur les réglages en cours (« un rappel à 14h revient à 17h »). C'est ce qui justifie qu'il soit une fenêtre et non une page d'aide — il parle de *votre* réglage, pas du réglage en général.
 
