@@ -13,12 +13,13 @@
 
 const AUTH_APPS: { name: string; url: string }[] = [
   { name: "Google Authenticator", url: "https://support.google.com/accounts/answer/1066447" },
+  { name: "Microsoft Authenticator", url: "https://www.microsoft.com/fr-fr/security/mobile-authenticator/microsoft-authenticator" },
   { name: "1Password", url: "https://1password.com/downloads/" },
   { name: "Bitwarden", url: "https://bitwarden.com/download/" },
 ];
 
 /**
- * « Google Authenticator, 1Password, Bitwarden… », chacun cliquable.
+ * Les quatre noms, chacun cliquable.
  *
  * Rendu en fragment, sans ponctuation autour : la phrase qui l'appelle garde
  * la main sur ce qui précède et ce qui suit.
