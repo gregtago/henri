@@ -10,6 +10,7 @@ import {
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import Link from "next/link";
+import LoadingScreen from "@/components/LoadingScreen";
 
 function ActionContent() {
   const params = useSearchParams();
@@ -207,11 +208,7 @@ function ActionContent() {
 
 export default function AuthActionPage() {
   return (
-    <Suspense fallback={
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-subtle)" }}>
-        <p style={{ color: "var(--text-2)" }}>Chargement…</p>
-      </div>
-    }>
+    <Suspense fallback={<LoadingScreen />}>
       <ActionContent />
     </Suspense>
   );

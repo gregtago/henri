@@ -319,6 +319,8 @@ Ce qui ne sert pas au travail se replie. Les rappels de cet appareil, l'installa
 
 La règle qui vaut au-delà de ce rond : **une commande qu'on touche une fois par mois n'a pas à occuper la barre que l'on regarde toute la journée.** Ce qui est fréquent — créer, trier, cocher — garde la place ; le reste se replie derrière un geste.
 
+Le logo suit la même règle et **ne figure plus dans l'en-tête du téléphone** : il ne se touche pas, il ne dit rien qu'on ne sache déjà une fois entré, et il occupait la largeur exacte qui manquait au reste. Il tient sa place là où l'on arrive — connexion, invitation, écran d'attente —, pas là où l'on travaille. Sur grand écran, où la place ne manque pas, il reste centré dans la barre du haut.
+
 ### Les réglages — un rail de titres, pas une colonne
 
 Les Préférences s'ouvraient sur une colonne d'onglets verticale : un quart de la largeur pour neuf mots, et autant de moins pour ce qu'on est venu régler — sur un téléphone, la moitié de l'écran.
@@ -357,7 +359,29 @@ Règles propres à cette vue :
 
 ### Mobile
 
-Layout vertical empilé. Pas de colonnes. Un seul écran à la fois (Ma journée / Mémos / Dossiers en onglets bas). Les éléments tactiles font ≥ 30 px de côté, les chips de date sont en pill 20 px de rayon.
+Layout vertical empilé. Pas de colonnes. Un seul écran à la fois, et la barre du bas dit lequel. Les éléments tactiles font ≥ 30 px de côté, les chips de date sont en pill 20 px de rayon.
+
+### La barre du bas — trois destinations, une seule pastille encrée
+
+La navigation vivait en haut à gauche, et pas au même endroit selon l'écran : un rond « ☀ » depuis les dossiers, un rond « dossier » depuis la journée, les Préférences enfouies dans le menu du compte. Trois endroits pour trois destinations, et aucun ne disait où l'on se trouve — le haut de l'écran est d'ailleurs le point le plus loin du pouce.
+
+**Les trois destinations tiennent désormais dans une barre en bas** (`src/components/MobileTabs.tsx`) : Ma journée, Dossiers, Préférences. La forme est un segmenté en pastille — filet de 1 px, rayon plein, l'écran courant en pleine encre —, la même grammaire que les chips d'ailleurs dans Henri. Le compte du jour se colle à « Ma journée » : c'est le seul des trois qui change dans la journée, et la seule chose qu'on veut savoir sans y aller.
+
+Trois règles la tiennent :
+
+- **elle dit où l'on est**, ce qu'aucun des ronds ne faisait : la pastille encrée est l'écran courant ;
+- **elle s'efface pendant qu'on écrit** un mémo — le clavier prend déjà la moitié de l'écran, et on ne navigue pas en pleine phrase ;
+- **elle ne coupe jamais un mot.** Sous 360 px de large, les deux destinations qu'on ne regarde pas se réduisent à leur icône plutôt que d'afficher « Ma j… » (`.henri-tab-label`, `app/globals.css`). Le nom reste lisible aux lecteurs d'écran.
+
+Le composant ne se positionne pas lui-même : Ma journée l'empile sous sa ligne de saisie, Dossiers et Préférences la font flotter au-dessus du contenu, qui se réserve la hauteur correspondante.
+
+Conséquence sur le haut de l'écran : **plus de navigation ni de logo dans l'en-tête mobile.** Ma journée y garde le jour et le rond du compte, Dossiers le seul rond du compte.
+
+### L'écran d'attente — le logo, et un sablier
+
+« Chargement… » arrivait sur un écran vide, sans rien qui rappelle où l'on est, et un mot fixe laisse croire à un blocage dès la deuxième seconde. L'écran d'attente (`src/components/LoadingScreen.tsx`) montre donc **le logo, et sous lui un sablier qui se retourne** : le logo dit chez qui l'on est — c'est le seul endroit de l'application où il a encore quelque chose à faire —, le sablier dit que ça vit, sans promettre de durée.
+
+Il ne se montre **qu'au bout de 250 ms** (`.henri-attente`) : une session déjà ouverte se rétablit plus vite que ça, et une attente qui n'a pas eu lieu ne doit pas clignoter. Le sablier fait un tour complet (0 → 180 → 360°) avec deux temps morts — le sable a le temps de couler avant que le verre ne bascule — et s'immobilise sous `prefers-reduced-motion`.
 
 ---
 

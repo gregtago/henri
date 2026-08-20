@@ -4,6 +4,7 @@ import { onAuthStateChanged, type User } from "firebase/auth";
 import { useEffect, useState } from "react";
 import { auth } from "@/lib/firebase";
 import AuthPanel from "@/components/AuthPanel";
+import LoadingScreen from "@/components/LoadingScreen";
 import CalendarShell from "@/components/CalendarShell";
 
 export default function CalendrierPage() {
@@ -18,13 +19,7 @@ export default function CalendrierPage() {
     return () => unsub();
   }, []);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-sm text-tx-2">
-        Chargement...
-      </div>
-    );
-  }
+  if (loading) return <LoadingScreen />;
 
   if (!user) return <AuthPanel />;
   return <CalendarShell user={user} />;

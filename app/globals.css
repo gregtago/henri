@@ -422,6 +422,13 @@ kbd {
 
   /* Éléments masqués sur mobile (archives, import…) — !important pour primer sur les classes composants */
   .mobile-hide { display: none !important; }
+
+  /* La barre du bas flotte au-dessus des colonnes : chaque zone qui défile se
+   * réserve sa hauteur, sinon la dernière ligne se lit à travers la barre. */
+  .finder-column > .finder-list,
+  .finder-detail > .overflow-y-auto {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom));
+  }
 }
 
 @media (min-width: 768px) {
@@ -970,4 +977,39 @@ kbd {
   color: var(--text);
   font-weight: 600;
   border-bottom-color: var(--text);
+}
+
+/* ── ÉCRAN D'ATTENTE ──
+ * Le logo, et sous lui un sablier qui se retourne. Deux temps morts dans le
+ * cycle : le sable a le temps de couler avant que le verre ne bascule, et le
+ * tour complet (0 → 180 → 360) évite le retour brusque d'une simple boucle.
+ * L'écran lui-même n'apparaît qu'au bout de 250 ms : une session déjà ouverte
+ * se rétablit plus vite que ça, et il ne faut pas qu'on voie clignoter une
+ * attente qui n'a pas eu lieu. */
+@keyframes henri-sablier {
+  0%, 30%   { transform: rotate(0deg); }
+  45%, 75%  { transform: rotate(180deg); }
+  90%, 100% { transform: rotate(360deg); }
+}
+
+@keyframes henri-attente {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.henri-sablier { animation: henri-sablier 3.2s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
+.henri-attente { animation: henri-attente 0.35s ease 0.25s both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .henri-sablier { animation: none; }
+}
+
+/* ── BARRE DU BAS (mobile) ──
+ * Les trois mots tiennent côte à côte dès 360 px de large. En dessous, seul
+ * l'écran courant garde son nom : les deux autres se réduisent à leur icône,
+ * plutôt que de se couper en « Ma j… », qui ne dit plus rien. Le nom du bouton
+ * reste lisible aux lecteurs d'écran — c'est l'affichage qui se retire, pas
+ * l'information. */
+@media (max-width: 359px) {
+  .henri-tab:not([aria-current="page"]) .henri-tab-label { display: none; }
 }
