@@ -3,9 +3,16 @@
 import { useState } from "react";
 import {
   signInWithEmailAndPassword,
+  type MultiFactorResolver,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { SIGNUP_DOMAIN } from "@/lib/signupDomain";
+import {
+  completeSignInWithCode,
+  mfaMessage,
+  needsSecondFactor,
+  secondFactorResolver,
+} from "@/lib/mfa";
 
 export default function AuthPanel() {
   const [email, setEmail] = useState("");
@@ -15,14 +22,47 @@ export default function AuthPanel() {
   const [mode, setMode] = useState<"login" | "reset" | "signup">("login");
   const [signupSent, setSignupSent] = useState(false);
   const [signupLoading, setSignupLoading] = useState(false);
+  const [resolver, setResolver] = useState<MultiFactorResolver | null>(null);
+  const [code, setCode] = useState("");
+  const [codeLoading, setCodeLoading] = useState(false);
 
+  // Un compte protégé par un second facteur ne se connecte pas en une fois :
+  // le mot de passe accepté, Firebase interrompt la connexion et réclame le
+  // code. Ce n'est donc pas un échec — c'est la deuxième moitié du geste, et
+  // l'écran demande simplement les six chiffres.
   const handleEmailLogin = async () => {
     setError(null);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-    } catch {
+    } catch (err) {
+      if (needsSecondFactor(err)) {
+        setResolver(secondFactorResolver(auth, err));
+        setCode("");
+        return;
+      }
       setError("Connexion impossible. Vérifiez vos identifiants.");
     }
+  };
+
+  const handleSecondFactor = async () => {
+    if (!resolver || codeLoading) return;
+    if (code.trim().length < 6) { setError("Le code compte six chiffres."); return; }
+    setError(null);
+    setCodeLoading(true);
+    try {
+      await completeSignInWithCode(resolver, code);
+    } catch (err) {
+      setError(mfaMessage(err));
+    } finally {
+      setCodeLoading(false);
+    }
+  };
+
+  const handleCancelSecondFactor = () => {
+    setResolver(null);
+    setCode("");
+    setError(null);
+    setPassword("");
   };
 
   const handleReset = async () => {
@@ -89,7 +129,36 @@ export default function AuthPanel() {
           <p className="text-[13.5px] text-tx-3 leading-snug">Une nouvelle manière de piloter vos dossiers.</p>
         </div>
 
-        {mode === "login" ? (
+        {resolver ? (
+          <>
+            <div className="space-y-2.5">
+              <p className="text-[13px] text-tx-2">
+                Votre compte demande un second code. Ouvrez votre application d&apos;authentification et recopiez les six chiffres qu&apos;elle affiche.
+              </p>
+              <input
+                className={`${inputClass} text-[15px] tracking-[0.3em]`}
+                placeholder="123456"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                value={code}
+                onChange={(e) => { setCode(e.target.value.replace(/\D/g, "").slice(0, 6)); setError(null); }}
+                onKeyDown={(e) => e.key === "Enter" && handleSecondFactor()}
+                autoFocus
+              />
+              <button className={btnPrimary} disabled={codeLoading || code.length < 6} onClick={handleSecondFactor}>
+                {codeLoading ? "Vérification…" : "Se connecter"}
+              </button>
+            </div>
+
+            <button
+              className="text-[12px] text-tx-3 bg-transparent border-none cursor-pointer hover:text-tx-2 underline"
+              onClick={handleCancelSecondFactor}
+            >
+              ← Retour à la connexion
+            </button>
+          </>
+        ) : mode === "login" ? (
           <>
             <div className="space-y-2.5">
               <input

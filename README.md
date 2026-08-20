@@ -238,8 +238,9 @@ npm run dev
   la seule date de création du compte, rien n'est stocké. Comptes ouverts avant l'annonce →
   une date commune, le **1er octobre 2026**. Comptes créés après → **trois mois** chacun à
   compter de sa création. `MFA_POLICY.enforced` est le garde-fou : tant qu'il est faux, la
-  politique **s'annonce sans jamais bloquer** — c'est ce qui permet de la déployer avant que
-  le TOTP ne soit disponible (il demande Identity Platform) sans verrouiller personne dehors.
+  politique **s'annonce sans jamais bloquer**. Elle n'a jamais empêché de s'équiper avant :
+  l'inscription est **volontaire et ouverte dès aujourd'hui** (ci-dessous), l'échéance ne dit
+  qu'à partir de quand le second facteur sera exigé.
 
 ## Comptes : adresse vérifiée, puis second facteur
 
@@ -254,12 +255,24 @@ npm run dev
   dans la requête — sinon la route deviendrait un moyen d'expédier du courrier depuis
   l'adresse de l'Office vers n'importe qui. Le retour du clic est déjà traité par
   `/auth/action` (cas `verifyEmail`).
-- Préférences → **Sécurité** : l'état de l'adresse, l'envoi du lien, et l'endroit où
-  l'inscription du second facteur viendra se poser.
+- Préférences → **Sécurité** : l'état de l'adresse, l'envoi du lien, et l'inscription du
+  second facteur.
 - **La vérification commande le TOTP** : Identity Platform refuse d'inscrire un second
   facteur tant que l'adresse n'est pas vérifiée — sans quoi il suffirait de s'inscrire avec
-  l'adresse d'un autre pour l'enfermer dehors avec son propre téléphone. Le TOTP demande en
-  outre l'activation d'Identity Platform sur le projet.
+  l'adresse d'un autre pour l'enfermer dehors avec son propre téléphone. L'écran ne propose
+  donc l'activation qu'une fois l'adresse confirmée.
+- **L'inscription volontaire** (`src/lib/mfa.ts`) : `startTotpEnrollment` fabrique la clé,
+  l'écran l'offre de deux façons — un lien `otpauth://` (touché depuis un téléphone, il range
+  le compte dans l'application d'authentification) et la clé en clair, en groupes de quatre,
+  pour la saisie à la main depuis un ordinateur. Rien n'est inscrit tant que le premier code
+  n'est pas confirmé : renoncer en cours de route ne laisse aucune trace. `AuthPanel` traite
+  ensuite `auth/multi-factor-auth-required` — le mot de passe accepté, l'écran demande les six
+  chiffres et termine la connexion (`completeSignInWithCode`). Sans cette moitié-là, s'équiper
+  reviendrait à se verrouiller dehors.
+- **Aucun code d'erreur ne remonte à l'écran** : `mfaMessage` les traduit en phrases qui
+  disent quoi faire ensuite (code périmé, connexion trop ancienne, adresse non confirmée…).
+  Le TOTP demande par ailleurs l'activation d'Identity Platform sur le projet ; tant qu'elle
+  manque, l'écran dit simplement que la double authentification n'est pas encore ouverte.
 
 ## Administration
 
