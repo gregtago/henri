@@ -4670,7 +4670,7 @@ export default function AppShell({ view, onViewChange, active = true }: AppShell
         * (`.finder-list` dans la requête mobile de globals.css). */}
       <div
         className="md:hidden fixed left-3 right-3 z-30"
-        style={{ bottom: "calc(env(safe-area-inset-bottom) + 10px)" }}
+        style={{ bottom: "calc(env(safe-area-inset-bottom) + 18px)" }}
       >
         <MobileTabs
           active={isMyDay ? "myday" : "cases"}

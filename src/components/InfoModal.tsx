@@ -12,6 +12,12 @@ import { useEffect, useState, type ReactNode } from "react";
  *
  * L'explication passe donc derrière un point d'interrogation, ou un « en
  * savoir plus » : elle reste à un geste, et cesse d'être un péage.
+ *
+ * Sur téléphone, la pastille ne s'affiche pas du tout. L'écran y est trop
+ * étroit pour porter, à côté de chaque titre, un signe qui ne règle rien —
+ * et c'est là qu'on vient changer un réglage qu'on connaît déjà, pas
+ * l'apprendre. Les mots, eux, restent : un « en savoir plus » écrit en toutes
+ * lettres se lit à toutes les largeurs.
  */
 
 /** La fenêtre elle-même, quand le parent commande son ouverture. */
@@ -74,7 +80,7 @@ type Props = {
  *
  * La pastille se dessine en 18 px mais se touche en 30, comme tout ce qui se
  * touche dans Henri : la marge négative rend au texte la place que la zone
- * tactile lui prend.
+ * tactile lui prend. Elle est réservée au grand écran — voir plus haut.
  */
 export default function InfoButton({ title, label, children }: Props) {
   const [open, setOpen] = useState(false);
@@ -92,7 +98,7 @@ export default function InfoButton({ title, label, children }: Props) {
           onClick={() => setOpen(true)}
           aria-label={`En savoir plus : ${title}`}
           title={title}
-          className="group shrink-0 inline-flex items-center justify-center w-[30px] h-[30px] -m-[6px] bg-transparent border-none p-0 cursor-pointer"
+          className="group shrink-0 hidden md:inline-flex items-center justify-center w-[30px] h-[30px] -m-[6px] bg-transparent border-none p-0 cursor-pointer"
         >
           <span className="inline-flex items-center justify-center w-[18px] h-[18px] rounded-full border border-border text-[11px] leading-none text-tx-3 group-hover:border-border-strong group-hover:text-tx transition-colors">?</span>
         </button>

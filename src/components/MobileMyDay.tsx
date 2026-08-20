@@ -810,7 +810,7 @@ export default function MobileMyDay({ user, onGoCases }: { user: User; onGoCases
         * un dossier, « @ » une échéance, « > » une tâche du dossier, « ! »
         * l'étoile. On touche une proposition (ou l'espace, s'il n'en reste
         * qu'une), la barre repart à vide, puis on écrit le mémo. */}
-      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "var(--bg)", borderTop: "1px solid var(--border)", padding: "10px 12px calc(env(safe-area-inset-bottom) + 10px)", display: "flex", flexDirection: "column", gap: "8px" }}>
+      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "var(--bg)", borderTop: "1px solid var(--border)", padding: "10px 12px calc(env(safe-area-inset-bottom) + 18px)", display: "flex", flexDirection: "column", gap: "8px" }}>
 
         {/* Les propositions du jeton ouvert — au-dessus de la barre, qui ne bouge pas. */}
         {memoToken && !isInstantToken(memoToken) && (
