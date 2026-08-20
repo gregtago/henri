@@ -339,7 +339,28 @@ Le piège n'était pas la place perdue, c'était la promesse tenue à moitié : 
 
 **Apparence écrit donc au geste, comme les autres**, et le bouton disparaît plutôt que de se répandre sur les neuf autres onglets, où il n'aurait rien eu à enregistrer. À sa place, le même « Enregistré ✓ » discret que les Rappels affichent : il paraît une seconde et s'efface, il confirme sans rien réclamer.
 
-**« Réinitialiser » reste**, seul dans l'en-tête : c'est une action, pas une confirmation — la seule commande de cet onglet qui fasse quelque chose qu'un réglage ne fait pas.
+**« Réinitialiser » reste** : c'est une action, pas une confirmation — la seule commande de cet onglet qui fasse quelque chose qu'un réglage ne fait pas. Elle se tient avec le « Enregistré ✓ » **dans le contenu de l'onglet**, en tête des sections, et non dans l'en-tête : celui-ci n'existe pas sur téléphone (voir ci-dessous), et une commande qui ne vit que sur grand écran est une commande que le téléphone n'a pas.
+
+### Les Préférences n'ont pas de barre en haut sur téléphone
+
+« Rien en haut » vaut pour les Préférences comme pour le reste : elles gardaient pourtant une barre de 44 px portant « ← Retour » — et ce retour ne menait qu'aux dossiers, là où la barre du bas emmène déjà d'un pouce, sans remonter au point le plus loin de la main. Un mot en double, payé d'une barre entière, et le seul écran d'Henri à en garder une.
+
+**L'en-tête est donc réservé au grand écran** (`hidden md:flex`) : sur téléphone, l'écran commence par le rail des titres, comme Ma journée commence par ses tâches. Le logo n'y perd rien — il n'était déjà montré qu'à partir de `sm`, et la page d'accueil des Préférences le porte en propre.
+
+### L'explication se range derrière un « ? »
+
+Presque chaque onglet des Préférences s'ouvrait sur un pavé encadré qui disait pourquoi le réglage existe : d'où viennent les relances, à quoi sert une clé, ce qu'est un modèle. On le lit une fois. Les cent fois suivantes, il ne fait qu'éloigner le réglage du haut de l'écran — et sur téléphone, l'onglet Rappels commençait par un écran entier de prose avant le premier interrupteur.
+
+**Ce qui s'explique une fois passe donc derrière une pastille « ? »**, posée contre le titre de section (`SectionTitle`, `src/components/InfoModal.tsx`). L'explication reste à un geste, et cesse d'être un péage. Trois règles :
+
+- **la pastille ne remplace pas le réglage, elle remplace le pavé.** Ce qu'un réglage doit dire de lui-même — son nom, sa valeur courante, la phrase grise qui dit sur quoi il agit — reste à l'écran. Ne part derrière le « ? » que ce qui raconte *pourquoi*, et l'histoire du problème que le réglage résout ;
+- **une procédure n'est jamais une explication.** Les étapes numérotées (installer le raccourci, activer la double authentification) restent en clair : on les suit en les lisant, on ne les mémorise pas ;
+- **elle se dessine en 18 px et se touche en 30**, par une marge négative — la zone tactile ne doit pas écarter le titre de son réglage ;
+- **elle ne s'affiche pas sur téléphone** (`hidden md:inline-flex`). L'écran y est trop étroit pour porter, contre chaque titre, un signe qui ne règle rien — et c'est là qu'on vient changer un réglage qu'on connaît déjà, pas l'apprendre. Les mots, eux, restent à toutes les largeurs : un « en savoir plus » écrit en toutes lettres n'est pas une pastille.
+
+Le contenu de la fenêtre peut être **vivant** : le « ? » des relances calcule son exemple sur les réglages en cours (« un rappel à 14h revient à 17h »). C'est ce qui justifie qu'il soit une fenêtre et non une page d'aide — il parle de *votre* réglage, pas du réglage en général.
+
+Là où la place le permet, le même composant s'écrit en toutes lettres plutôt qu'en pastille : les mentions légales ouvrent les **notes de version** par un « voir les notes de version », et le numéro de version de la page d'accueil ouvre la même fenêtre. Elles occupaient un titre du rail pour une lecture par trimestre ; un rail se paie en largeur, et la largeur est ce qui manque au téléphone.
 
 ### Desktop — métaphore Finder à colonnes
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -23,6 +23,7 @@ import { normalizeShortcutLink } from "@/lib/shortcutLink";
 import { isSuperAdmin } from "@/lib/superAdminClient";
 import MobileTabs from "@/components/MobileTabs";
 import InstallButton from "@/components/InstallButton";
+import InfoButton, { InfoModal } from "@/components/InfoModal";
 import { useDeviceReminders } from "@/lib/deviceReminders";
 import { mfaStanding } from "@/lib/mfaPolicy";
 import {
@@ -72,12 +73,12 @@ function tsToDate(v: unknown): Date | null {
   return null;
 }
 
-type Tab = "accueil" | "apparence" | "securite" | "rappels" | "appareils" | "raccourci" | "modeles" | "aide" | "versions" | "legal";
+type Tab = "accueil" | "apparence" | "securite" | "rappels" | "appareils" | "raccourci" | "modeles" | "aide" | "legal";
 
 // L'ordre du rail, et les mots qu'il porte. Du plus courant au plus rare :
 // on lit de gauche à droite, et ce qui dépasse du bord est ce qu'on ouvre le
 // moins souvent.
-const TABS: Tab[] = ["accueil", "apparence", "securite", "rappels", "appareils", "raccourci", "modeles", "aide", "versions", "legal"];
+const TABS: Tab[] = ["accueil", "apparence", "securite", "rappels", "appareils", "raccourci", "modeles", "aide", "legal"];
 
 const TAB_LABELS: Record<Tab, string> = {
   accueil: "Accueil",
@@ -88,7 +89,6 @@ const TAB_LABELS: Record<Tab, string> = {
   raccourci: "Raccourci iPhone",
   modeles: "Modèles",
   aide: "Aide",
-  versions: "Notes de version",
   legal: "Mentions légales",
 };
 
@@ -101,7 +101,7 @@ const KEY_PLACEHOLDER = "hnr_votre_cle";
 // la page d'accueil des Préférences y lit la version courante, qui est la
 // première de la liste. Une seule source, pas deux à tenir d'accord.
 const VERSIONS: { v: string; date: string; items: string[] }[] = [
-                { v: "Alpha 1.9", date: "Août 2026", items: ["Préférences → Apparence : police, taille, thème et densité s'enregistrent dès le clic, comme les autres réglages — le bouton « Enregistrer » disparaît, un « Enregistré ✓ » le remplace. Un réglage posé ne se perd plus en quittant la page", "Téléphone : les trois destinations — Ma journée, Dossiers, Préférences — tiennent dans une barre en bas de l'écran, là où tombe le pouce. Celle qui est en pleine encre dit où vous êtes, et Ma journée porte le nombre de lignes du jour", "Téléphone : plus de barre en haut — l'écran commence directement par vos tâches, et Ma journée porte le jour en tête de liste", "Les Préférences s'ouvrent sur une page d'accueil : le logo, la version, votre adresse, les notifications de cet appareil, l'installation et la déconnexion. C'est ce que le rond du compte tenait — il disparaît donc du téléphone ; sur ordinateur, il ne bouge pas", "La page de connexion passe à l'encre : fond plein, carte claire posée dessus. La nuit, c'est l'inverse", "Téléphone : la barre du bas s'efface pendant que vous écrivez un mémo", "L'écran d'ouverture montre le logo et un sablier, au lieu du mot « Chargement »", "Double authentification : elle s'active dès maintenant, sans attendre l'échéance annoncée — Préférences → Sécurité. La connexion demande alors, après le mot de passe, un code à six chiffres lu sur votre téléphone", "Elle se retire du même écran, et l'échéance à laquelle elle sera exigée sur votre compte y est rappelée", "L'adresse du compte se confirme par un courriel de l'Office : c'est le préalable à la double authentification", "L'inscription s'ouvre aux adresses professionnelles du notariat : un lien reçu par courriel remplace l'attente d'une invitation", "Thème sombre : clair, sombre, ou celui de l'appareil — y compris quand il bascule tout seul le soir (Préférences → Apparence)", "Tout ce qui touche au compte tient derrière un rond unique, en haut à droite, au même endroit sur chaque écran : adresse, rappels de cet appareil, installation, Préférences, déconnexion. Ma journée y gagne l'accès aux Préférences", "Préférences : les titres passent en haut, sur un rail que le pouce fait défiler — l'écran entier revient au réglage", "Mes dossiers et Ma journée basculent instantanément : plus d'attente ni d'écran vide entre les deux", "Henri s'ouvre sur ce qu'il sait déjà : vos dossiers restent d'un lancement à l'autre au lieu d'être retéléchargés à chaque fois", "Ma journée, ligne de saisie : « # » désigne le dossier, « @ » l'échéance, « ! » l'importance, « > » la tâche sous laquelle ranger le mémo", "Touche Action de l'iPhone : noter un mémo à la voix ou au clavier sans ouvrir Henri — installation en un lien depuis Préférences → Raccourci iPhone", "Le bandeau d'échéances tient de nouveau sur une ligne sur téléphone", "Nouvelle icône « henri » sur tous les écrans d'accueil"] },
+                { v: "Alpha 1.9", date: "Août 2026", items: ["Téléphone : la barre du bas se pose un peu plus haut, à distance du bord de l'écran", "Préférences, sur ordinateur : les explications se rangent derrière une pastille « ? », contre le titre de chaque section — on les ouvre quand on en a besoin, elles ne barrent plus l'écran avant le premier réglage. Sur téléphone, il ne reste que les réglages", "Les notes de version quittent le rail des titres : elles s'ouvrent depuis les mentions légales, et depuis le numéro de version de la page d'accueil", "Les bandes verticales « Dossiers » et « Ma journée » sur les côtés de l'écran disparaissent, ainsi que leur réglage", "Préférences → Apparence : l'aperçu de texte disparaît — l'écran entier change déjà sous vos yeux", "Préférences : plus de barre « Retour » en haut sur téléphone — la barre du bas y va déjà, d'un pouce", "Préférences → Apparence : police, taille, thème et densité s'enregistrent dès le clic, comme les autres réglages — le bouton « Enregistrer » disparaît, un « Enregistré ✓ » le remplace. Un réglage posé ne se perd plus en quittant la page", "Téléphone : les trois destinations — Ma journée, Dossiers, Préférences — tiennent dans une barre en bas de l'écran, là où tombe le pouce. Celle qui est en pleine encre dit où vous êtes, et Ma journée porte le nombre de lignes du jour", "Téléphone : plus de barre en haut — l'écran commence directement par vos tâches, et Ma journée porte le jour en tête de liste", "Les Préférences s'ouvrent sur une page d'accueil : le logo, la version, votre adresse, les notifications de cet appareil, l'installation et la déconnexion. C'est ce que le rond du compte tenait — il disparaît donc du téléphone ; sur ordinateur, il ne bouge pas", "La page de connexion passe à l'encre : fond plein, carte claire posée dessus. La nuit, c'est l'inverse", "Téléphone : la barre du bas s'efface pendant que vous écrivez un mémo", "L'écran d'ouverture montre le logo et un sablier, au lieu du mot « Chargement »", "Double authentification : elle s'active dès maintenant, sans attendre l'échéance annoncée — Préférences → Sécurité. La connexion demande alors, après le mot de passe, un code à six chiffres lu sur votre téléphone", "Elle se retire du même écran, et l'échéance à laquelle elle sera exigée sur votre compte y est rappelée", "L'adresse du compte se confirme par un courriel de l'Office : c'est le préalable à la double authentification", "L'inscription s'ouvre aux adresses professionnelles du notariat : un lien reçu par courriel remplace l'attente d'une invitation", "Thème sombre : clair, sombre, ou celui de l'appareil — y compris quand il bascule tout seul le soir (Préférences → Apparence)", "Tout ce qui touche au compte tient derrière un rond unique, en haut à droite, au même endroit sur chaque écran : adresse, rappels de cet appareil, installation, Préférences, déconnexion. Ma journée y gagne l'accès aux Préférences", "Préférences : les titres passent en haut, sur un rail que le pouce fait défiler — l'écran entier revient au réglage", "Mes dossiers et Ma journée basculent instantanément : plus d'attente ni d'écran vide entre les deux", "Henri s'ouvre sur ce qu'il sait déjà : vos dossiers restent d'un lancement à l'autre au lieu d'être retéléchargés à chaque fois", "Ma journée, ligne de saisie : « # » désigne le dossier, « @ » l'échéance, « ! » l'importance, « > » la tâche sous laquelle ranger le mémo", "Touche Action de l'iPhone : noter un mémo à la voix ou au clavier sans ouvrir Henri — installation en un lien depuis Préférences → Raccourci iPhone", "Le bandeau d'échéances tient de nouveau sur une ligne sur téléphone", "Nouvelle icône « henri » sur tous les écrans d'accueil"] },
                 { v: "Alpha 1.8", date: "Août 2026", items: ["Poser une échéance propose désormais systématiquement un rappel le jour de l'échéance — sur une tâche comme sur un mémo, à l'ordinateur comme au téléphone", "L'heure de ce rappel se règle dans Préférences → Rappels (9h par défaut), et la proposition peut y être coupée", "Déplacer l'échéance déplace le rappel proposé ; la retirer le retire. Un rappel posé à la main n'est jamais remplacé", "Nouvelle puce « Échéance 09h » sous « Rappel », pour réarmer la proposition après l'avoir retirée"] },
                 { v: "Alpha 1.7", date: "Juillet 2026", items: ["Mobile — Ma journée : mémos et tâches ont désormais la même ligne (case à cocher à gauche) ; la tâche garde son filet d'avancement et une croix pour la retirer de la journée", "Cocher un mémo le fait disparaître de Ma journée : il est réalisé. Un lien discret en bas de la colonne rouvre les mémos réalisés, pour les consulter ou les décocher (ordinateur et téléphone)", "Mobile — cocher une tâche demande où elle en est, puis la retire de Ma journée : elle reste dans son dossier avec son nouveau statut", "Mobile — un mémo se crée et se modifie dans le même écran : mêmes champs, même disposition (étoile, échéance, rappel, dossier, répétition, observations)", "Rattacher un mémo à un dossier ne le transforme plus en tâche : il garde sa case à cocher et s'affiche sous les tâches du dossier", "Un mémo sans dossier s'efface définitivement 7 jours après avoir été réalisé — un pense-bête n'est pas une archive. Un mémo que vous n'avez pas coché, lui, ne disparaît jamais", "Un mémo s'ouvre en cliquant son texte, depuis Ma journée comme depuis la liste des tâches de son dossier"] },
                 { v: "Alpha 1.6", date: "Juillet 2026", items: ["Relances : une tâche avec rappel non traitée fait l'objet d'une nouvelle notification (toutes les 3 h par défaut, jusqu'à 3 fois)", "Une relance reste affichée jusqu'à ce que vous vous en occupiez — plus difficile à balayer qu'un simple rappel", "Pas de relance la nuit : une relance du soir est reportée au lendemain matin", "Récapitulatif du soir (18h) : les tâches de Ma journée encore ouvertes", "Rappel du lendemain (8h) : les tâches de la veille restées non traitées", "Interrupteur « Relancer tant que ce n'est pas fait » sur chaque rappel", "Nouvel onglet Préférences → Rappels : intervalle, nombre de relances, plage horaire, récapitulatifs"] },
@@ -118,6 +118,44 @@ const VERSIONS: { v: string; date: string; items: string[] }[] = [
 
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 const formatHour = (h: number) => `${String(h).padStart(2, "0")}h`;
+
+/**
+ * Le titre d'une section, et — quand il y a quelque chose à dire — la pastille
+ * qui le dit. Défini ici, hors du composant : la fenêtre ouverte doit survivre
+ * au réglage qu'on change derrière elle.
+ */
+function SectionTitle({ children, help }: { children: ReactNode; help?: { title: string; body: ReactNode } }) {
+  return (
+    <div className="flex items-center gap-2.5 mb-3">
+      <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest">{children}</h2>
+      {help && <InfoButton title={help.title}>{help.body}</InfoButton>}
+    </div>
+  );
+}
+
+/** Le corps de la fenêtre des notes de version : la liste, telle quelle. */
+function VersionNotes() {
+  return (
+    <>
+      {VERSIONS.map(({ v, date, items }) => (
+        <div key={v} className="border border-border rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-[11px] font-semibold text-tx bg-bg-subtle border border-border rounded px-1.5 py-0.5">{v}</span>
+            <span className="text-[11px] text-tx-3">{date}</span>
+          </div>
+          <ul className="space-y-1">
+            {items.map(item => (
+              <li key={item} className="flex items-start gap-1.5">
+                <span className="text-tx-3 text-[10px] mt-0.5">•</span>
+                <span className="text-[12px] text-tx-2">{item}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </>
+  );
+}
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -162,6 +200,9 @@ export default function SettingsPage() {
   const [mfaError, setMfaError] = useState<string | null>(null);
   const [mfaKeyCopied, setMfaKeyCopied] = useState(false);
   const [mfaJustEnrolled, setMfaJustEnrolled] = useState(false);
+  // Les notes de version ne valent pas un onglet du rail : on les ouvre depuis
+  // le numéro de version, et depuis les mentions légales.
+  const [showVersions, setShowVersions] = useState(false);
 
   useEffect(() => {
     const loaded = loadSettings();
@@ -536,8 +577,12 @@ export default function SettingsPage() {
   return (
     <div className="h-screen bg-bg-subtle flex flex-col">
 
-      {/* Header */}
-      <header className="h-[44px] flex items-center justify-between px-5 border-b border-border bg-bg shrink-0 relative">
+      {/* ── EN-TÊTE (grand écran seulement) ──
+        * « Retour » et le logo ne mènent qu'aux dossiers, et le téléphone y va
+        * déjà par la barre du bas — d'un pouce, sans remonter. La barre du haut
+        * ne portait donc plus, sur téléphone, qu'un mot en double : elle
+        * disparaît, comme sur Ma journée, et l'écran commence par les titres. */}
+      <header className="hidden md:flex h-[44px] items-center justify-between px-5 border-b border-border bg-bg shrink-0 relative">
         <div className="flex items-center gap-3 z-10">
           <span className="text-[13px] text-tx-2 select-none">← <Link href="/" className="hover:text-tx transition-colors">Retour</Link></span>
         </div>
@@ -545,12 +590,6 @@ export default function SettingsPage() {
           <Link href="/" className="pointer-events-auto">
             <img src="/logo-henri-new.png" alt="Henri" style={{height:"28px", width:"auto"}} />
           </Link>
-        </div>
-        <div className="z-10 flex gap-2">
-          {tab === "apparence" && <>
-            <span aria-live="polite" className={`self-center text-[12px] text-ok-strong transition-opacity ${saved ? "opacity-100" : "opacity-0"}`}>Enregistré ✓</span>
-            <button onClick={handleReset} className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-3 px-3 py-1.5 rounded cursor-pointer hover:border-border-strong hover:text-tx-2 transition-all">Réinitialiser</button>
-          </>}
         </div>
       </header>
 
@@ -567,7 +606,7 @@ export default function SettingsPage() {
 
         {/* Contenu */}
         <div className="flex-1 overflow-y-auto" onTouchStart={handleSwipeStart} onTouchEnd={handleSwipeEnd}>
-        <div className={"max-w-4xl mx-auto px-6 pt-8 pb-[104px] md:pb-8 space-y-6"}>
+        <div className={"max-w-4xl mx-auto px-6 pt-8 pb-[112px] md:pb-8 space-y-6"}>
 
           {/* ── ACCUEIL ──
             * Là où l'on arrive, et non là où l'on travaille : c'est le seul
@@ -580,7 +619,9 @@ export default function SettingsPage() {
 
               <div className="flex flex-col items-center gap-2 pt-2 pb-1">
                 <img src="/logo-henri-new.png" alt="Henri" style={{ height: "44px", width: "auto" }} />
-                <p className="text-[11.5px] text-tx-3">{VERSIONS[0].v}</p>
+                <button onClick={() => setShowVersions(true)} className="text-[11.5px] font-[inherit] text-tx-3 bg-transparent border-none p-0 cursor-pointer underline underline-offset-2 hover:text-tx-2 transition-colors">
+                  {VERSIONS[0].v}
+                </button>
               </div>
 
               {!user ? (
@@ -654,6 +695,15 @@ export default function SettingsPage() {
           )}
 
           {tab === "apparence" && <>
+            {/* Les deux commandes de l'onglet vivent dans le contenu, et non
+              * dans l'en-tête : celui-ci n'existe plus sur téléphone, et une
+              * commande qui ne vit que sur grand écran est une commande que le
+              * téléphone n'a pas. */}
+            <div className="flex items-center justify-end gap-3">
+              <span aria-live="polite" className={`text-[12px] text-ok-strong transition-opacity ${saved ? "opacity-100" : "opacity-0"}`}>Enregistré ✓</span>
+              <button onClick={handleReset} className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-3 px-3 py-1.5 rounded cursor-pointer hover:border-border-strong hover:text-tx-2 transition-all">Réinitialiser</button>
+            </div>
+
             <section>
               <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-3">Apparence</h2>
               <div className="bg-bg border border-border rounded-xl overflow-hidden px-4">
@@ -698,14 +748,8 @@ export default function SettingsPage() {
             </section>
 
             <section>
-              <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-3">Navigation</h2>
+              <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-3">Comportement</h2>
               <div className="bg-bg border border-border rounded-xl overflow-hidden px-4">
-                <div className={row}>
-                  <div><p className={lbl}>Bandes de navigation latérales</p><p className={sublbl}>Bandes "Dossiers" / "Ma journée" sur les côtés</p></div>
-                  <button onClick={() => update("sideTabs", !s.sideTabs)} style={{background: s.sideTabs ? "var(--accent)" : "var(--border-strong)", position:"relative", width:40, height:22, borderRadius:11, cursor:"pointer", border:"none", flexShrink:0, transition:"background 0.2s"}}>
-                    <span style={{position:"absolute", top:3, left: s.sideTabs ? 21 : 3, width:16, height:16, background:"var(--bg)", borderRadius:"50%", boxShadow:"0 1px 3px rgba(0,0,0,0.2)", transition:"left 0.2s", display:"block"}} />
-                  </button>
-                </div>
                 <div className={row}>
                   <div><p className={lbl}>Tri des dossiers par défaut</p><p className={sublbl}>Appliqué à l'ouverture</p></div>
                   <div className="flex items-center gap-2">
@@ -719,12 +763,6 @@ export default function SettingsPage() {
                     </button>
                   </div>
                 </div>
-              </div>
-            </section>
-
-            <section>
-              <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-3">Comportement</h2>
-              <div className="bg-bg border border-border rounded-xl overflow-hidden px-4">
                 <div className={row}>
                   <div><p className={lbl}>Délai avant suppression</p><p className={sublbl}>Fenêtre d'annulation après suppression</p></div>
                   <div className="flex gap-1">
@@ -742,33 +780,21 @@ export default function SettingsPage() {
               </div>
             </section>
 
-            <section>
-              <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-3">Aperçu</h2>
-              <div className="bg-bg border border-border rounded-xl p-5 space-y-2" style={{ fontFamily: "var(--font-ui)", fontSize: `${s.textSize}px` }}>
-                <p className="font-semibold text-tx" style={{ fontSize: `${s.textSize + 4}px` }}>Succession Martin</p>
-                <div className="flex items-center gap-2">
-                  <span className="status-badge status-badge-1">Demandé</span>
-                  <span className="text-tx-3" style={{ fontSize: `${s.textSize - 2}px` }}>Éch. 19/04/2026</span>
-                </div>
-                <p className="text-tx-2" style={{ height: `${s.density === "compact" ? 28 : s.density === "normal" ? 36 : 44}px`, display: "flex", alignItems: "center" }}>Contacter les héritiers avant l'échéance fiscale</p>
-              </div>
-            </section>
           </>}
 
           {tab === "securite" && (
             <div className="space-y-4">
-              <div className="bg-bg border border-border rounded-xl p-5">
-                <p className="text-[14px] font-semibold text-tx mb-1">Votre adresse</p>
-                <p className="text-[13px] text-tx-2 leading-relaxed">
-                  Confirmer votre adresse prouve qu'elle est bien la vôtre. C'est aussi la <strong>condition préalable à la double authentification</strong> : tant qu'elle n'est pas confirmée, elle ne peut pas être protégée.
-                </p>
-              </div>
-
               {!user ? (
                 <div className="bg-bg border border-border rounded-xl p-5 text-[13px] text-tx-2">Connectez-vous pour gérer votre compte.</div>
               ) : (
                 <section>
-                  <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-3">Adresse du compte</h2>
+                  <SectionTitle help={{
+                    title: "Confirmer l'adresse du compte",
+                    body: <>
+                      <p>Henri envoie un lien à l&apos;adresse de votre compte ; l&apos;ouvrir prouve qu&apos;elle est bien la vôtre.</p>
+                      <p>C&apos;est aussi la <strong className="text-tx">condition préalable à la double authentification</strong> : tant qu&apos;une adresse n&apos;est pas confirmée, elle ne peut pas être protégée — sans quoi n&apos;importe qui pourrait s&apos;inscrire avec l&apos;adresse d&apos;un autre et l&apos;enfermer dehors avec son propre téléphone.</p>
+                    </>,
+                  }}>Adresse du compte</SectionTitle>
                   <div className="bg-bg border border-border rounded-xl p-5">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-[13.5px] text-tx">{user.email}</p>
@@ -806,12 +832,15 @@ export default function SettingsPage() {
               )}
 
               <section>
-                <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-3">Double authentification</h2>
+                <SectionTitle help={{
+                  title: "La double authentification",
+                  body: <>
+                    <p>Un mot de passe garde seul des dossiers couverts par le secret professionnel. La double authentification demande, en plus, un <strong className="text-tx">code à six chiffres</strong> lu sur votre téléphone dans une application d&apos;authentification (Google Authenticator, 1Password, Bitwarden…). Un mot de passe deviné ne suffit alors plus à entrer.</p>
+                    <p>Ces six chiffres changent toutes les 30 secondes. Gardez l&apos;application d&apos;authentification sur un téléphone dont vous ne vous séparez pas : c&apos;est elle, désormais, qui ouvre la porte avec votre mot de passe. En cas de perte, l&apos;Office peut retirer le second facteur de votre compte.</p>
+                    <p>Tant que le premier code n&apos;est pas confirmé, rien n&apos;est activé : renoncer en cours de route est sans conséquence.</p>
+                  </>,
+                }}>Double authentification</SectionTitle>
                 <div className="bg-bg border border-border rounded-xl p-5 text-[13px] text-tx-2 leading-relaxed space-y-3">
-                  <p>
-                    Un mot de passe garde seul des dossiers couverts par le secret professionnel. La double authentification demande, en plus, un <strong className="text-tx">code à six chiffres</strong> lu sur votre téléphone dans une application d&apos;authentification (Google Authenticator, 1Password, Bitwarden…). Un mot de passe deviné ne suffit alors plus à entrer.
-                  </p>
-
                   {(() => {
                     // L'échéance se calcule : elle ne dépend que de la date de
                     // création du compte (voir mfaPolicy.ts). Un compte déjà
@@ -855,14 +884,9 @@ export default function SettingsPage() {
                           </button>
                         </div>
                       ))}
-                      <p className="text-[11.5px] text-tx-3">
-                        Gardez l&apos;application d&apos;authentification sur un téléphone dont vous ne vous séparez pas : c&apos;est elle, désormais, qui ouvre la porte avec votre mot de passe. En cas de perte, l&apos;Office peut retirer le second facteur de votre compte.
-                      </p>
                     </div>
                   ) : !user.emailVerified ? (
-                    <p className="text-tx-3">
-                      Confirmez d&apos;abord votre adresse, juste au-dessus : sans cela, n&apos;importe qui pourrait s&apos;inscrire avec l&apos;adresse d&apos;un autre et l&apos;enfermer dehors avec son propre téléphone.
-                    </p>
+                    <p className="text-tx-3">Confirmez d&apos;abord votre adresse, juste au-dessus.</p>
                   ) : !mfaSecret ? (
                     /* Rien d'inscrit : un bouton, et rien d'autre à comprendre. */
                     <div className="pt-1">
@@ -930,17 +954,22 @@ export default function SettingsPage() {
 
           {tab === "rappels" && (
             <div className="space-y-6">
-              <div className="bg-bg border border-border rounded-xl p-5">
-                <p className="text-[14px] font-semibold text-tx mb-1">Relances</p>
-                <p className="text-[13px] text-tx-2 leading-relaxed">
-                  Une notification s'évacue d'un geste, et la tâche est oubliée. Henri peut donc <strong>revenir à la charge</strong> : tant qu'une tâche avec rappel n'est pas passée « Traité », il renotifie à intervalle régulier, puis le lendemain matin si la journée est finie. Ces réglages valent pour tous vos appareils.
-                </p>
-                {!user && <p className="text-[12.5px] text-tx-3 mt-2">Connectez-vous pour modifier ces réglages.</p>}
-                {policySaved && <p className="text-[12px] text-ok-strong mt-2">Enregistré ✓</p>}
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[12px] text-tx-3">{user ? "Ces réglages valent pour tous vos appareils." : "Connectez-vous pour modifier ces réglages."}</p>
+                <span aria-live="polite" className={`text-[12px] text-ok-strong transition-opacity ${policySaved ? "opacity-100" : "opacity-0"}`}>Enregistré ✓</span>
               </div>
 
               <section>
-                <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-3">Rappel du jour de l&apos;échéance</h2>
+                <SectionTitle help={{
+                  title: "Le rappel du jour de l'échéance",
+                  body: <>
+                    <p>Poser une échéance et poser un rappel étaient deux gestes, et le second se perdait : on datait une pièce pour le 12, et le 12 personne ne prévenait. Une échéance sans rappel est une intention, pas un engagement.</p>
+                    <p>{policy.dueReminderHour < 0
+                      ? <>Aucun rappel n&apos;est proposé avec les échéances : à poser à la main, tâche par tâche.</>
+                      : <>Dès qu&apos;une échéance est posée, Henri arme un rappel <strong className="font-medium text-tx">le jour même à {formatHour(policy.dueReminderHour)}</strong> — sur une tâche comme sur un mémo. Il apparaît aussitôt sous « Rappel » et se retire d&apos;un clic.</>}</p>
+                    <p>Un rappel que vous avez choisi vous-même n&apos;est jamais remplacé, et rien n&apos;est proposé pour une heure déjà passée.</p>
+                  </>,
+                }}>Rappel du jour de l&apos;échéance</SectionTitle>
                 <div className="bg-bg border border-border rounded-xl overflow-hidden px-4">
                   <div className={row}>
                     <div><p className={lbl}>Heure du rappel</p><p className={sublbl}>Posé d&apos;avance à chaque échéance ; retirable tâche par tâche</p></div>
@@ -950,15 +979,19 @@ export default function SettingsPage() {
                     </select>
                   </div>
                 </div>
-                <p className="text-[12px] text-tx-3 mt-2 leading-relaxed">
-                  {policy.dueReminderHour < 0
-                    ? <>Aucun rappel n&apos;est proposé avec les échéances : à poser à la main, tâche par tâche.</>
-                    : <>Dès qu&apos;une échéance est posée, Henri arme un rappel <strong className="font-medium text-tx-2">le jour même à {formatHour(policy.dueReminderHour)}</strong> — sur une tâche comme sur un mémo. Il apparaît aussitôt sous « Rappel » et se retire d&apos;un clic. Un rappel que vous avez choisi vous-même n&apos;est jamais remplacé, et rien n&apos;est proposé pour une heure déjà passée.</>}
-                </p>
               </section>
 
               <section>
-                <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-3">Relance des rappels</h2>
+                <SectionTitle help={{
+                  title: "Pourquoi Henri revient à la charge",
+                  body: <>
+                    <p>Une notification s&apos;évacue d&apos;un geste, et la tâche est oubliée. Henri renotifie donc à intervalle régulier tant qu&apos;une tâche avec rappel n&apos;est pas passée « Traité », puis le lendemain matin si la journée est finie.</p>
+                    <p>Exemple, avec vos réglages actuels : un rappel à 14h non traité revient {14 + policy.repeatIntervalHours >= policy.dayEndHour
+                      ? `le lendemain à ${formatHour(policy.dayStartHour)}`
+                      : `à ${formatHour(14 + policy.repeatIntervalHours)}`}, et ainsi de suite jusqu&apos;à {policy.repeatMax} relance{policy.repeatMax > 1 ? "s" : ""} — sauf si vous passez la tâche « Traité » entre-temps.</p>
+                    <p>Une relance reste affichée jusqu&apos;à ce que vous vous en occupiez, contrairement au premier rappel. L&apos;interrupteur « Relancer tant que ce n&apos;est pas fait », sous les présets de rappel, la coupe pour une tâche donnée.</p>
+                  </>,
+                }}>Relance des rappels</SectionTitle>
                 <div className="bg-bg border border-border rounded-xl overflow-hidden px-4">
                   <div className={row}>
                     <div><p className={lbl}>Relancer par défaut</p><p className={sublbl}>S'applique aux nouveaux rappels ; réglable tâche par tâche</p></div>
@@ -991,15 +1024,13 @@ export default function SettingsPage() {
                     </select>
                   </div>
                 </div>
-                <p className="text-[12px] text-tx-3 mt-2 leading-relaxed">
-                  Exemple : un rappel à 14h non traité revient {14 + policy.repeatIntervalHours >= policy.dayEndHour
-                    ? `le lendemain à ${formatHour(policy.dayStartHour)}`
-                    : `à ${formatHour(14 + policy.repeatIntervalHours)}`}, et ainsi de suite jusqu'à {policy.repeatMax} relance{policy.repeatMax > 1 ? "s" : ""} — sauf si vous passez la tâche « Traité » entre-temps.
-                </p>
               </section>
 
               <section>
-                <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-3">Récapitulatif des tâches non traitées</h2>
+                <SectionTitle help={{
+                  title: "Le récapitulatif du soir et du matin",
+                  body: <p>Le récapitulatif ne dépend pas des rappels : il couvre <em>toutes</em> les tâches de Ma journée, même celles pour lesquelles vous n&apos;aviez posé aucun rappel. Le soir, ce qu&apos;il reste ; le matin, ce qui n&apos;a pas été fait la veille.</p>,
+                }}>Récapitulatif des tâches non traitées</SectionTitle>
                 <div className="bg-bg border border-border rounded-xl overflow-hidden px-4">
                   <div className={row}>
                     <div><p className={lbl}>Récapitulatif quotidien</p><p className={sublbl}>Le soir : ce qu'il reste. Le matin : ce qui n'a pas été fait hier</p></div>
@@ -1020,21 +1051,19 @@ export default function SettingsPage() {
                     </select>
                   </div>
                 </div>
-                <p className="text-[12px] text-tx-3 mt-2 leading-relaxed">
-                  Le récapitulatif ne dépend pas des rappels : il couvre <em>toutes</em> les tâches de Ma journée, même celles pour lesquelles vous n'aviez posé aucun rappel.
-                </p>
               </section>
             </div>
           )}
 
           {tab === "appareils" && (
             <div className="space-y-4">
-              <div className="bg-bg border border-border rounded-xl p-5">
-                <p className="text-[14px] font-semibold text-tx mb-1">Appareils recevant les rappels</p>
-                <p className="text-[13px] text-tx-2 leading-relaxed">
-                  Vos rappels sont envoyés à <strong>tous</strong> les appareils listés ici. Retirez-en un pour qu'il cesse de recevoir des notifications. Pour ajouter un appareil, ouvrez Henri dessus, puis Préférences → Accueil, et « Activer ici ».
-                </p>
-              </div>
+              <SectionTitle help={{
+                title: "Les appareils qui reçoivent vos rappels",
+                body: <>
+                  <p>Vos rappels partent vers <strong className="text-tx">tous</strong> les appareils listés ici. En retirer un le fait cesser de notifier, sans rien changer aux rappels eux-mêmes.</p>
+                  <p>Pour en ajouter un : ouvrez Henri dessus, puis Préférences → Accueil, et « Activer ici ». C&apos;est à refaire sur chaque navigateur ou appareil où vous voulez être prévenu.</p>
+                </>,
+              }}>Appareils recevant les rappels</SectionTitle>
 
               {!user ? (
                 <div className="bg-bg border border-border rounded-xl p-5 text-[13px] text-tx-2">Connectez-vous pour gérer vos appareils.</div>
@@ -1083,26 +1112,24 @@ export default function SettingsPage() {
 
           {tab === "raccourci" && (
             <div className="space-y-4">
-              <div className="bg-bg border border-border rounded-xl p-5">
-                <p className="text-[14px] font-semibold text-tx mb-1">Noter un mémo sans ouvrir Henri</p>
-                <p className="text-[13px] text-tx-2 leading-relaxed">
-                  Un mémo naît rarement devant l&apos;écran : il naît dans un couloir, au téléphone, en sortant d&apos;un rendez-vous. La <strong>touche Action</strong> de l&apos;iPhone (ou l&apos;écran verrouillé, ou « Dis Siri ») peut ouvrir un champ, et ce que vous y tapez ou dictez arrive directement dans <strong>Ma journée</strong> — sans déverrouiller l&apos;application, sans l&apos;ouvrir du tout.
-                </p>
-                <p className="text-[13px] text-tx-2 leading-relaxed mt-2">
-                  Les jetons de la ligne de saisie fonctionnent aussi : <code className="text-[12px] bg-bg-subtle border border-border rounded px-1 py-0.5">#dupont @lundi ! relancer le syndic</code>. Un jeton dont la requête laisse un doute revient dans le titre du mémo plutôt que d&apos;être deviné — vous le corrigez d&apos;un geste dans Ma journée. Une ligne = un mémo.
-                </p>
-              </div>
 
               {!user ? (
                 <div className="bg-bg border border-border rounded-xl p-5 text-[13px] text-tx-2">Connectez-vous pour installer le raccourci.</div>
               ) : (
                 <>
                   <section>
-                    <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-3">Installer le raccourci</h2>
+                    <SectionTitle help={{
+                      title: "Noter un mémo sans ouvrir Henri",
+                      body: <>
+                        <p>Un mémo naît rarement devant l&apos;écran : il naît dans un couloir, au téléphone, en sortant d&apos;un rendez-vous. La <strong className="text-tx">touche Action</strong> de l&apos;iPhone (ou l&apos;écran verrouillé, ou « Dis Siri ») ouvre un champ, et ce que vous y tapez ou dictez arrive directement dans <strong className="text-tx">Ma journée</strong> — sans déverrouiller l&apos;application, sans l&apos;ouvrir du tout.</p>
+                        <p>Les jetons de la ligne de saisie fonctionnent aussi : <code className="text-[12px] bg-bg-subtle border border-border rounded px-1 py-0.5">#dupont @lundi ! relancer le syndic</code>. Un jeton dont la requête laisse un doute revient dans le titre du mémo plutôt que d&apos;être deviné — vous le corrigez d&apos;un geste dans Ma journée. Une ligne = un mémo.</p>
+                        <p>Le mémo part dans la journée en cours, sauf échéance à venir — auquel cas il part directement au bon jour, avec son rappel, exactement comme s&apos;il avait été tapé dans Ma journée.</p>
+                      </>,
+                    }}>Installer le raccourci</SectionTitle>
                     {shortcutLink ? (
                       <div className="bg-bg border border-border rounded-xl p-5 space-y-4 text-[13px] text-tx-2 leading-relaxed">
                         <div>
-                          <p><strong className="text-tx">1.</strong> Copiez votre clé. Le raccourci de l&apos;office n&apos;en contient aucune : chacun y colle la sienne, et la retire quand il veut.</p>
+                          <p><strong className="text-tx">1.</strong> Copiez votre clé.</p>
                           <button disabled={shortcutBusy} onClick={handleCopyKey}
                             className="mt-2 text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-border-strong transition-all disabled:opacity-50">
                             {shortcutBusy ? "…" : shortcutCopied === "cle" ? "Copié ✓" : shortcut?.key ? "Copier ma clé" : "Créer et copier ma clé"}
@@ -1129,13 +1156,16 @@ export default function SettingsPage() {
                   </section>
 
                   <section>
-                    <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-3">Votre clé</h2>
+                    <SectionTitle help={{
+                      title: "Votre clé",
+                      body: <>
+                        <p>La clé autorise votre iPhone à ajouter des mémos, et rien d&apos;autre : elle ne donne accès ni aux dossiers ni à leur contenu. Elle se retire d&apos;un bouton.</p>
+                        <p>Le raccourci de l&apos;office n&apos;en contient aucune — un lien iCloud est public pour qui l&apos;a, et un secret qui voyagerait dedans serait le secret de tous. Chacun y colle la sienne après l&apos;avoir installé, une seule fois.</p>
+                      </>,
+                    }}>Votre clé</SectionTitle>
                     <div className="bg-bg border border-border rounded-xl p-5">
                       {!shortcut?.key ? (
                         <>
-                          <p className="text-[13px] text-tx-2 leading-relaxed mb-3">
-                            La clé autorise votre iPhone à ajouter des mémos, et rien d&apos;autre : elle ne donne accès ni aux dossiers ni à leur contenu. Elle se retire d&apos;un bouton.
-                          </p>
                           <button disabled={shortcutBusy} onClick={handleCreateKey}
                             className="text-[12px] font-[inherit] bg-tx text-bg border border-tx px-4 py-1.5 rounded cursor-pointer hover:opacity-90 transition-all disabled:opacity-50">
                             {shortcutBusy ? "…" : "Créer la clé"}
@@ -1176,11 +1206,14 @@ export default function SettingsPage() {
 
                   {admin && (
                     <section>
-                      <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-3">Le raccourci de l&apos;office</h2>
+                      <SectionTitle help={{
+                        title: "Le raccourci de l'office",
+                        body: <>
+                          <p>Un raccourci ne s&apos;installe que par le <strong className="text-tx">lien iCloud</strong> que produit l&apos;application Raccourcis quand on partage : Henri ne peut pas en fabriquer un. Il se monte donc une fois, sur un iPhone, et sert ensuite à toute l&apos;étude.</p>
+                          <p>Le lien commande un bouton affiché à toute l&apos;étude : seul un administrateur peut le poser ou le retirer. Rien d&apos;autre n&apos;est publié — la clé de chacun reste chez lui.</p>
+                        </>,
+                      }}>Le raccourci de l&apos;office</SectionTitle>
                       <div className="bg-bg border border-border rounded-xl p-5 space-y-3 text-[13px] text-tx-2 leading-relaxed">
-                        <p className="text-[12px] text-tx-3">
-                          Un raccourci ne s&apos;installe que par le <strong>lien iCloud</strong> que produit l&apos;application Raccourcis quand on partage : Henri ne peut pas en fabriquer un. Il se monte donc une fois, sur un iPhone, et sert ensuite à toute l&apos;étude.
-                        </p>
                         <p><strong className="text-tx">1.</strong> <strong>Raccourcis</strong> → <strong>+</strong> → nommez-le « Mémo Henri ».</p>
                         <p><strong className="text-tx">2.</strong> Action <strong>« Texte »</strong> : écrivez-y <code className="text-[12px] bg-bg-subtle border border-border rounded px-1 py-0.5">{KEY_PLACEHOLDER}</code>. C&apos;est la case que chacun remplacera par sa clé — n&apos;y mettez pas la vôtre.</p>
                         <p><strong className="text-tx">3.</strong> Action <strong>« Demander une entrée »</strong> — Type : Texte, Invite : « Mémo ».</p>
@@ -1215,9 +1248,6 @@ export default function SettingsPage() {
                             </button>
                           )}
                         </div>
-                        <p className="text-[11.5px] text-tx-3">
-                          Le lien commande un bouton affiché à toute l&apos;étude : seul un administrateur peut le poser ou le retirer. Rien d&apos;autre n&apos;est publié — la clé de chacun reste chez lui.
-                        </p>
                       </div>
                     </section>
                   )}
@@ -1235,9 +1265,6 @@ export default function SettingsPage() {
                     </div>
                   </details>
 
-                  <p className="text-[12px] text-tx-3 leading-relaxed">
-                    Le mémo part dans la journée en cours, sauf échéance à venir — auquel cas il part directement au bon jour, avec son rappel, exactement comme s&apos;il avait été tapé dans Ma journée.
-                  </p>
                 </>
               )}
             </div>
@@ -1245,12 +1272,14 @@ export default function SettingsPage() {
 
           {tab === "modeles" && (
             <div className="space-y-4">
-              <div className="bg-bg border border-border rounded-xl p-5">
-                <p className="text-[14px] font-semibold text-tx mb-1">Modèles de dossier</p>
-                <p className="text-[13px] text-tx-2 leading-relaxed">
-                  Un modèle est une liste de tâches réutilisable pour pré-remplir un dossier. Pour en créer un : ouvrez un dossier, puis « Modèle → Enregistrer comme modèle ». Pour l'utiliser : bouton + « Nouveau dossier », ou « Modèle → Appliquer un modèle » dans un dossier existant.
-                </p>
-              </div>
+              <SectionTitle help={{
+                title: "Les modèles de dossier",
+                body: <>
+                  <p>Un modèle est une liste de tâches type — une trame « Vente immobilière », par exemple — réutilisable pour pré-remplir un dossier. Seule la structure est enregistrée : ni statuts, ni échéances.</p>
+                  <p><strong className="text-tx">En créer un :</strong> ouvrez un dossier, puis « Modèle → Enregistrer comme modèle ».</p>
+                  <p><strong className="text-tx">L&apos;utiliser :</strong> le bouton + « Nouveau dossier » le propose à la création ; « Modèle → Appliquer un modèle » ajoute ses tâches à un dossier existant.</p>
+                </>,
+              }}>Modèles de dossier</SectionTitle>
 
               {!user ? (
                 <div className="bg-bg border border-border rounded-xl p-5 text-[13px] text-tx-2">Connectez-vous pour gérer vos modèles.</div>
@@ -1397,27 +1426,6 @@ export default function SettingsPage() {
             </>
           )}
 
-          {tab === "versions" && (
-            <div className="space-y-4">
-              {VERSIONS.map(({ v, date, items }) => (
-                <div key={v} className="bg-bg border border-border rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-[11px] font-semibold text-tx bg-bg-subtle border border-border rounded px-1.5 py-0.5">{v}</span>
-                    <span className="text-[11px] text-tx-3">{date}</span>
-                  </div>
-                  <ul className="space-y-1">
-                    {items.map(item => (
-                      <li key={item} className="flex items-start gap-1.5">
-                        <span className="text-tx-3 text-[10px] mt-0.5">•</span>
-                        <span className="text-[12px] text-tx-2">{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          )}
-
           {tab === "legal" && (
             <div className="bg-bg border border-border rounded-xl p-5 space-y-4 text-[13px] text-tx-2 leading-relaxed">
               <div>
@@ -1437,6 +1445,12 @@ export default function SettingsPage() {
                 <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1">Accès</p>
                 <p>L'accès à Henri est réservé aux personnes ayant reçu une invitation. Toute utilisation non autorisée est interdite.</p>
               </div>
+              <div>
+                <p className="text-[10px] font-medium text-tx-3 uppercase tracking-widest mb-1">Version</p>
+                <p>
+                  Henri {VERSIONS[0].v} — <button onClick={() => setShowVersions(true)} className="text-[13px] font-[inherit] text-accent bg-transparent border-none p-0 cursor-pointer underline hover:opacity-80 transition-opacity">voir les notes de version</button>
+                </p>
+              </div>
               <p className="text-[11px] text-tx-3 pt-1">© {new Date().getFullYear()} Grégoire TAGOT — Henri version Alpha</p>
             </div>
           )}
@@ -1445,12 +1459,18 @@ export default function SettingsPage() {
       </div>
       </div>
 
+      {showVersions && (
+        <InfoModal title="Notes de version" onClose={() => setShowVersions(false)}>
+          <VersionNotes />
+        </InfoModal>
+      )}
+
       {/* ── BARRE DU BAS (mobile) ──
         * Les Préférences sont une destination comme les deux autres : on doit
         * pouvoir en repartir du pouce, sans remonter chercher « Retour ». */}
       <div
         className="md:hidden fixed left-3 right-3 z-30"
-        style={{ bottom: "calc(env(safe-area-inset-bottom) + 10px)" }}
+        style={{ bottom: "calc(env(safe-area-inset-bottom) + 18px)" }}
       >
         <MobileTabs
           active="settings"

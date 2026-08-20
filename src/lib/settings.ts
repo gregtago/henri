@@ -18,7 +18,6 @@ export interface UserSettings {
   font: FontChoice;
   density: DensityChoice;
   textSize: number;          // 12 | 13 | 14 | 15
-  sideTabs: boolean;
   deleteDelay: number;       // secondes : 3 | 5 | 10 | 15
   sound: boolean;
   defaultSort: SortChoice;
@@ -30,7 +29,6 @@ export const DEFAULT_SETTINGS: UserSettings = {
   font: "inter",
   density: "normal",
   textSize: 13,
-  sideTabs: true,
   deleteDelay: 5,
   sound: true,
   defaultSort: "title",
