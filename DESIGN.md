@@ -339,7 +339,13 @@ Le piège n'était pas la place perdue, c'était la promesse tenue à moitié : 
 
 **Apparence écrit donc au geste, comme les autres**, et le bouton disparaît plutôt que de se répandre sur les neuf autres onglets, où il n'aurait rien eu à enregistrer. À sa place, le même « Enregistré ✓ » discret que les Rappels affichent : il paraît une seconde et s'efface, il confirme sans rien réclamer.
 
-**« Réinitialiser » reste**, seul dans l'en-tête : c'est une action, pas une confirmation — la seule commande de cet onglet qui fasse quelque chose qu'un réglage ne fait pas.
+**« Réinitialiser » reste** : c'est une action, pas une confirmation — la seule commande de cet onglet qui fasse quelque chose qu'un réglage ne fait pas. Elle se tient avec le « Enregistré ✓ » **dans le contenu de l'onglet**, en tête des sections, et non dans l'en-tête : celui-ci n'existe pas sur téléphone (voir ci-dessous), et une commande qui ne vit que sur grand écran est une commande que le téléphone n'a pas.
+
+### Les Préférences n'ont pas de barre en haut sur téléphone
+
+« Rien en haut » vaut pour les Préférences comme pour le reste : elles gardaient pourtant une barre de 44 px portant « ← Retour » — et ce retour ne menait qu'aux dossiers, là où la barre du bas emmène déjà d'un pouce, sans remonter au point le plus loin de la main. Un mot en double, payé d'une barre entière, et le seul écran d'Henri à en garder une.
+
+**L'en-tête est donc réservé au grand écran** (`hidden md:flex`) : sur téléphone, l'écran commence par le rail des titres, comme Ma journée commence par ses tâches. Le logo n'y perd rien — il n'était déjà montré qu'à partir de `sm`, et la page d'accueil des Préférences le porte en propre.
 
 ### Desktop — métaphore Finder à colonnes
 

@@ -536,8 +536,12 @@ export default function SettingsPage() {
   return (
     <div className="h-screen bg-bg-subtle flex flex-col">
 
-      {/* Header */}
-      <header className="h-[44px] flex items-center justify-between px-5 border-b border-border bg-bg shrink-0 relative">
+      {/* ── EN-TÊTE (grand écran seulement) ──
+        * « Retour » et le logo ne mènent qu'aux dossiers, et le téléphone y va
+        * déjà par la barre du bas — d'un pouce, sans remonter. La barre du haut
+        * ne portait donc plus, sur téléphone, qu'un mot en double : elle
+        * disparaît, comme sur Ma journée, et l'écran commence par les titres. */}
+      <header className="hidden md:flex h-[44px] items-center justify-between px-5 border-b border-border bg-bg shrink-0 relative">
         <div className="flex items-center gap-3 z-10">
           <span className="text-[13px] text-tx-2 select-none">← <Link href="/" className="hover:text-tx transition-colors">Retour</Link></span>
         </div>
@@ -545,12 +549,6 @@ export default function SettingsPage() {
           <Link href="/" className="pointer-events-auto">
             <img src="/logo-henri-new.png" alt="Henri" style={{height:"28px", width:"auto"}} />
           </Link>
-        </div>
-        <div className="z-10 flex gap-2">
-          {tab === "apparence" && <>
-            <span aria-live="polite" className={`self-center text-[12px] text-ok-strong transition-opacity ${saved ? "opacity-100" : "opacity-0"}`}>Enregistré ✓</span>
-            <button onClick={handleReset} className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-3 px-3 py-1.5 rounded cursor-pointer hover:border-border-strong hover:text-tx-2 transition-all">Réinitialiser</button>
-          </>}
         </div>
       </header>
 
@@ -654,6 +652,15 @@ export default function SettingsPage() {
           )}
 
           {tab === "apparence" && <>
+            {/* Les deux commandes de l'onglet vivent dans le contenu, et non
+              * dans l'en-tête : celui-ci n'existe plus sur téléphone, et une
+              * commande qui ne vit que sur grand écran est une commande que le
+              * téléphone n'a pas. */}
+            <div className="flex items-center justify-end gap-3">
+              <span aria-live="polite" className={`text-[12px] text-ok-strong transition-opacity ${saved ? "opacity-100" : "opacity-0"}`}>Enregistré ✓</span>
+              <button onClick={handleReset} className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-3 px-3 py-1.5 rounded cursor-pointer hover:border-border-strong hover:text-tx-2 transition-all">Réinitialiser</button>
+            </div>
+
             <section>
               <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-3">Apparence</h2>
               <div className="bg-bg border border-border rounded-xl overflow-hidden px-4">
