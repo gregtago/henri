@@ -8,12 +8,14 @@
 // c'est-à-dire à ceux qui s'équiperaient de toute façon. Le jour dit, les
 // autres découvriraient une porte fermée.
 //
-// Cet écran vient donc au-devant, une fois l'adresse confirmée, et il porte la
-// seule chose qui rende la demande recevable : **la date**, et ce qu'il reste
-// avant elle. « Plus tard » est un vrai bouton, qui entre dans l'application —
-// rien ici ne bloque. C'est `mfaNudge.ts` qui décide du rythme auquel l'écran
-// revient : espacé tant qu'il reste des mois, quotidien la dernière semaine,
-// à chaque ouverture une fois la date passée.
+// Cet écran vient donc au-devant, une fois l'adresse confirmée, et il porte
+// deux informations, sans commentaire : **ce que le second facteur change à la
+// connexion**, et **la date** à laquelle il sera demandé. Pas d'argumentaire,
+// pas de leçon sur ce qu'un mot de passe protège — le lecteur décide. « Plus tard » est un
+// vrai bouton, qui entre dans l'application — rien ici ne bloque. C'est
+// `mfaNudge.ts` qui décide du rythme auquel l'écran revient : espacé tant
+// qu'il reste des mois, quotidien la dernière semaine, à chaque ouverture une
+// fois la date passée.
 
 import { useRouter } from "next/navigation";
 import type { MfaStanding } from "@/lib/mfaPolicy";
@@ -39,23 +41,20 @@ export default function MfaSuggestion({ standing, onLater }: { standing: MfaStan
 
         <div className="space-y-2.5">
           <p className="text-[13px] text-tx-2 leading-relaxed">
-            Un mot de passe garde seul des dossiers couverts par le secret professionnel. La double authentification demande, en plus, un <strong className="text-tx">code à six chiffres</strong> lu sur votre téléphone. Un mot de passe deviné ne suffit alors plus à entrer.
+            À la connexion, Henri demandera un <strong className="text-tx">code à six chiffres</strong> lu sur votre téléphone, en plus du mot de passe. Le code vient d&apos;une application d&apos;authentification — Google Authenticator, 1Password, Bitwarden…
           </p>
 
-          {/* L'échéance : la seule chose qui rende la demande recevable. */}
+          {/* L'échéance, telle quelle : une date, et ce qu'il reste avant. */}
           <div className="bg-bg-subtle border border-border rounded-lg px-4 py-3">
             {standing.state === "pending" ? (
               <p className="text-[12.5px] text-tx-2 leading-relaxed">
-                Elle sera demandée sur votre compte à partir du <strong className="text-tx">{when}</strong> — dans {standing.daysLeft} jour{standing.daysLeft > 1 ? "s" : ""}.
+                Demandée sur votre compte à partir du <strong className="text-tx">{when}</strong> — dans {standing.daysLeft} jour{standing.daysLeft > 1 ? "s" : ""}.
               </p>
             ) : (
               <p className="text-[12.5px] text-tx-2 leading-relaxed">
-                Elle est attendue sur votre compte depuis le <strong className="text-tx">{when}</strong>.
+                Demandée sur votre compte depuis le <strong className="text-tx">{when}</strong>.
               </p>
             )}
-            <p className="text-[11.5px] text-tx-3 leading-relaxed mt-1">
-              Deux minutes suffisent, et il vaut mieux les prendre aujourd&apos;hui qu&apos;un matin de signature.
-            </p>
           </div>
         </div>
 

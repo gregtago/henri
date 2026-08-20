@@ -2,24 +2,23 @@
 
 // L'adresse se confirme avant d'entrer.
 //
-// Henri garde des dossiers couverts par le secret professionnel, et le seul
-// lien entre un compte et une personne, c'est son adresse. Tant que personne
-// n'a prouvé qu'il la relève, ce lien n'est qu'une déclaration : n'importe qui
-// pouvait s'inscrire avec l'adresse d'un confrère.
+// Le seul lien entre un compte et une personne, c'est son adresse. Tant que
+// personne n'a prouvé qu'il la relève, ce lien n'est qu'une déclaration : rien
+// n'empêchait de s'inscrire avec l'adresse d'un confrère.
 //
-// La confirmation commande aussi la suite. Identity Platform refuse d'inscrire
-// un second facteur tant que l'adresse n'est pas vérifiée — sans quoi on
-// s'inscrirait avec l'adresse d'un autre puis on l'enfermerait dehors avec son
-// propre téléphone. La double authentification devenant obligatoire à
-// l'échéance de chaque compte (`mfaPolicy.ts`), une adresse non confirmée est
-// une porte qui se fermera toute seule le jour dit. Autant la régler
-// maintenant, en une minute, plutôt qu'un matin de signature.
+// La confirmation commande aussi la suite : Identity Platform refuse
+// d'inscrire un second facteur tant que l'adresse n'est pas vérifiée. La
+// double authentification devenant obligatoire à l'échéance de chaque compte
+// (`mfaPolicy.ts`), une adresse non confirmée est une porte qui se fermera
+// d'elle-même le jour dit.
 //
-// D'où cet écran, qui **barre la route** au lieu de conseiller. Il n'est pas
-// une punition : le courriel part tout seul en arrivant, l'écran se déverrouille
-// de lui-même dès que le lien est ouvert — même dans un autre onglet, même sur
-// le téléphone —, et « Se déconnecter » reste offert à qui s'est trompé
-// d'adresse. On ne laisse jamais quelqu'un devant une porte sans poignée.
+// D'où cet écran, le seul des deux qui barre la route. Trois choses le rendent
+// tenable : le courriel part tout seul en arrivant, l'écran se déverrouille de
+// lui-même dès que le lien est ouvert — autre onglet, téléphone, peu importe —,
+// et « me déconnecter » reste offert à qui s'est trompé d'adresse.
+//
+// L'écran dit quoi faire, et rien d'autre : ni pourquoi c'est important, ni ce
+// qu'un notaire doit à ses dossiers. Il le sait.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { signOut, type User } from "firebase/auth";
@@ -134,9 +133,6 @@ export default function VerifyEmailGate({ user, onVerified }: { user: User; onVe
           </p>
           <p className="text-[13px] text-tx-2 leading-relaxed">
             Ouvrez-le : cet écran se retire de lui-même, ici comme sur votre téléphone.
-          </p>
-          <p className="text-[12px] text-tx-3 leading-relaxed">
-            Henri garde des dossiers couverts par le secret professionnel. Confirmer votre adresse prouve qu&apos;elle est bien la vôtre — et c&apos;est le préalable à la double authentification.
           </p>
         </div>
 
