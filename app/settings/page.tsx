@@ -20,7 +20,17 @@ import type { CaseTemplate } from "@/lib/types";
 import { maskShortcutKey } from "@/lib/shortcutKey";
 import { normalizeShortcutLink } from "@/lib/shortcutLink";
 import { isSuperAdmin } from "@/lib/superAdminClient";
-import { MFA_POLICY, mfaStanding } from "@/lib/mfaPolicy";
+import { mfaStanding } from "@/lib/mfaPolicy";
+import {
+  confirmTotpEnrollment,
+  enrolledFactors,
+  formatSecretKey,
+  mfaMessage,
+  removeSecondFactor,
+  startTotpEnrollment,
+  totpLink,
+} from "@/lib/mfa";
+import type { MultiFactorInfo, TotpSecret } from "firebase/auth";
 import { getCurrentToken } from "@/lib/messaging";
 import {
   DEFAULT_REMINDER_POLICY,
@@ -110,6 +120,13 @@ export default function SettingsPage() {
   const [linkBusy, setLinkBusy] = useState(false);
   const [admin, setAdmin] = useState(false);
   const [verifyState, setVerifyState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [factors, setFactors] = useState<MultiFactorInfo[]>([]);
+  const [mfaSecret, setMfaSecret] = useState<TotpSecret | null>(null);
+  const [mfaCode, setMfaCode] = useState("");
+  const [mfaBusy, setMfaBusy] = useState(false);
+  const [mfaError, setMfaError] = useState<string | null>(null);
+  const [mfaKeyCopied, setMfaKeyCopied] = useState(false);
+  const [mfaJustEnrolled, setMfaJustEnrolled] = useState(false);
 
   useEffect(() => {
     const loaded = loadSettings();
@@ -195,10 +212,10 @@ export default function SettingsPage() {
 
   // ── Vérification de l'adresse ───────────────────────────────────────────
   //
-  // Elle ne sert pas qu'à faire joli : Identity Platform refuse d'inscrire un
-  // second facteur (TOTP) tant que l'adresse n'est pas vérifiée. C'est donc la
-  // première marche de la double authentification, et elle vit ici, dans
-  // l'onglet où celle-ci se réglera.
+  // Elle ne sert pas qu'à faire joli : aucun second facteur ne peut être
+  // inscrit tant que l'adresse n'est pas vérifiée. C'est donc la première
+  // marche de la double authentification, et elle vit ici, dans l'onglet où
+  // celle-ci se règle.
   const handleSendVerification = async () => {
     if (!user || verifyState === "sending") return;
     setVerifyState("sending");
@@ -218,6 +235,91 @@ export default function SettingsPage() {
     if (!user) return;
     await user.reload().catch(() => {});
     setUser(auth.currentUser);
+  };
+
+  // ── Double authentification ─────────────────────────────────────────────
+  //
+  // Elle s'inscrit **volontairement**, dès aujourd'hui : l'échéance de la
+  // politique dit à partir de quand elle sera exigée, elle n'a jamais
+  // empêché de s'équiper avant. Qui veut protéger ses dossiers ce soir le
+  // fait ce soir.
+  //
+  // Trois états, et un seul écran : rien d'inscrit (un bouton), une clé en
+  // attente de son premier code (la clé et le champ), un facteur inscrit
+  // (sa date, et de quoi le retirer). Renoncer en cours de route ne laisse
+  // aucune trace — la clé n'est inscrite qu'une fois le code confirmé.
+  useEffect(() => {
+    setFactors(enrolledFactors(user));
+    setMfaSecret(null);
+    setMfaCode("");
+    setMfaError(null);
+  }, [user]);
+
+  const handleStartMfa = async () => {
+    if (!user || mfaBusy) return;
+    setMfaBusy(true);
+    setMfaError(null);
+    try {
+      setMfaSecret(await startTotpEnrollment(user));
+      setMfaCode("");
+    } catch (err) {
+      setMfaError(mfaMessage(err));
+    } finally {
+      setMfaBusy(false);
+    }
+  };
+
+  const handleCancelMfa = () => {
+    setMfaSecret(null);
+    setMfaCode("");
+    setMfaError(null);
+  };
+
+  const handleConfirmMfa = async () => {
+    if (!user || !mfaSecret || mfaBusy) return;
+    if (mfaCode.trim().length < 6) { setMfaError("Le code compte six chiffres."); return; }
+    setMfaBusy(true);
+    setMfaError(null);
+    try {
+      const { name, os } = describeDevice(navigator.userAgent);
+      await confirmTotpEnrollment(user, mfaSecret, mfaCode, os ? `${name} · ${os}` : name);
+      await user.reload().catch(() => {});
+      setFactors(enrolledFactors(auth.currentUser));
+      setMfaSecret(null);
+      setMfaCode("");
+      setMfaJustEnrolled(true);
+      setTimeout(() => setMfaJustEnrolled(false), 6000);
+    } catch (err) {
+      setMfaError(mfaMessage(err));
+    } finally {
+      setMfaBusy(false);
+    }
+  };
+
+  const handleCopyMfaKey = (key: string) => {
+    navigator.clipboard?.writeText(key).then(
+      () => {
+        setMfaKeyCopied(true);
+        setTimeout(() => setMfaKeyCopied(false), 1800);
+      },
+      () => window.alert("Copie impossible — sélectionnez la clé à la main.")
+    );
+  };
+
+  const handleRemoveMfa = async (factor: MultiFactorInfo) => {
+    if (!user || mfaBusy) return;
+    if (!window.confirm("Retirer la double authentification ? Votre mot de passe gardera seul vos dossiers.")) return;
+    setMfaBusy(true);
+    setMfaError(null);
+    try {
+      await removeSecondFactor(user, factor.uid);
+      await user.reload().catch(() => {});
+      setFactors(enrolledFactors(auth.currentUser));
+    } catch (err) {
+      setMfaError(mfaMessage(err));
+    } finally {
+      setMfaBusy(false);
+    }
   };
 
   // ── Raccourci iPhone ────────────────────────────────────────────────────
@@ -530,7 +632,7 @@ export default function SettingsPage() {
               <div className="bg-bg border border-border rounded-xl p-5">
                 <p className="text-[14px] font-semibold text-tx mb-1">Votre adresse</p>
                 <p className="text-[13px] text-tx-2 leading-relaxed">
-                  Confirmer votre adresse prouve qu'elle est bien la vôtre. C'est aussi la <strong>condition préalable à la double authentification</strong> : sans adresse vérifiée, aucun second facteur ne peut être inscrit — sans quoi il suffirait de s'inscrire avec l'adresse d'un autre pour l'enfermer dehors avec son propre téléphone.
+                  Confirmer votre adresse prouve qu'elle est bien la vôtre. C'est aussi la <strong>condition préalable à la double authentification</strong> : tant qu'elle n'est pas confirmée, elle ne peut pas être protégée.
                 </p>
               </div>
 
@@ -577,26 +679,122 @@ export default function SettingsPage() {
 
               <section>
                 <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-3">Double authentification</h2>
-                <div className="bg-bg border border-border rounded-xl p-5 text-[13px] text-tx-2 leading-relaxed space-y-2">
+                <div className="bg-bg border border-border rounded-xl p-5 text-[13px] text-tx-2 leading-relaxed space-y-3">
                   <p>
-                    Un mot de passe garde seul des dossiers couverts par le secret professionnel. Henri demandera donc, en plus, un <strong className="text-tx">code à six chiffres</strong> lu dans une application d&apos;authentification (Google Authenticator, 1Password, Bitwarden…).
+                    Un mot de passe garde seul des dossiers couverts par le secret professionnel. La double authentification demande, en plus, un <strong className="text-tx">code à six chiffres</strong> lu sur votre téléphone dans une application d&apos;authentification (Google Authenticator, 1Password, Bitwarden…). Un mot de passe deviné ne suffit alors plus à entrer.
                   </p>
+
                   {(() => {
                     // L'échéance se calcule : elle ne dépend que de la date de
-                    // création du compte (voir mfaPolicy.ts).
-                    const standing = mfaStanding({ enrolled: false, creationTime: user?.metadata?.creationTime });
+                    // création du compte (voir mfaPolicy.ts). Un compte déjà
+                    // équipé n'a plus d'échéance à lire.
+                    const standing = mfaStanding({
+                      enrolled: factors.length > 0,
+                      creationTime: user?.metadata?.creationTime,
+                    });
                     if (standing.state !== "pending" && standing.state !== "due") return null;
                     const when = standing.deadline.toLocaleDateString("fr-FR");
                     return (
                       <p>
-                        Pour votre compte, l&apos;échéance est le <strong className="text-tx">{when}</strong>
-                        {standing.state === "pending" ? <> — dans {standing.daysLeft} jour{standing.daysLeft > 1 ? "s" : ""}.</> : <>.</>}
+                        Elle sera demandée sur votre compte à partir du <strong className="text-tx">{when}</strong>
+                        {standing.state === "pending" ? <> — dans {standing.daysLeft} jour{standing.daysLeft > 1 ? "s" : ""}. Rien ne vous empêche de l&apos;activer dès aujourd&apos;hui.</> : <>.</>}
                       </p>
                     );
                   })()}
-                  <p className="text-tx-3">
-                    L&apos;inscription se règlera ici même. Elle demande une adresse vérifiée — ci-dessus — et l&apos;activation d&apos;Identity Platform sur le projet Firebase{MFA_POLICY.enforced ? "" : " ; d'ici là, rien n'est bloqué"}.
-                  </p>
+
+                  {!user ? (
+                    <p className="text-tx-3">Connectez-vous pour l&apos;activer.</p>
+                  ) : factors.length > 0 ? (
+                    /* Déjà équipé : ce qui est inscrit, et de quoi le retirer. */
+                    <div className="space-y-3 pt-1">
+                      {mfaJustEnrolled && (
+                        <p className="text-[12.5px] text-ok-strong">C&apos;est fait ✓ Votre compte demande désormais un code à la connexion.</p>
+                      )}
+                      {factors.map((f) => (
+                        <div key={f.uid} className="flex items-center justify-between gap-3 flex-wrap border border-border rounded-lg px-4 py-3 bg-bg-subtle">
+                          <div className="min-w-0">
+                            <p className="text-[13px] text-tx font-medium flex items-center gap-2 flex-wrap">
+                              <span>{f.displayName || "Application d'authentification"}</span>
+                              <span className="text-[10px] font-semibold text-ok-strong bg-ok-bg-soft border border-ok-border rounded px-1.5 py-0.5">ACTIVE</span>
+                            </p>
+                            <p className="text-[11.5px] text-tx-3 mt-0.5">
+                              {f.enrollmentTime ? `Activée le ${new Date(f.enrollmentTime).toLocaleDateString("fr-FR")}` : "Activée"}
+                            </p>
+                          </div>
+                          <button disabled={mfaBusy} onClick={() => handleRemoveMfa(f)}
+                            className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-danger-border hover:text-danger transition-all disabled:opacity-50 shrink-0">
+                            Retirer
+                          </button>
+                        </div>
+                      ))}
+                      <p className="text-[11.5px] text-tx-3">
+                        Gardez l&apos;application d&apos;authentification sur un téléphone dont vous ne vous séparez pas : c&apos;est elle, désormais, qui ouvre la porte avec votre mot de passe. En cas de perte, l&apos;Office peut retirer le second facteur de votre compte.
+                      </p>
+                    </div>
+                  ) : !user.emailVerified ? (
+                    <p className="text-tx-3">
+                      Confirmez d&apos;abord votre adresse, juste au-dessus : sans cela, n&apos;importe qui pourrait s&apos;inscrire avec l&apos;adresse d&apos;un autre et l&apos;enfermer dehors avec son propre téléphone.
+                    </p>
+                  ) : !mfaSecret ? (
+                    /* Rien d'inscrit : un bouton, et rien d'autre à comprendre. */
+                    <div className="pt-1">
+                      <button disabled={mfaBusy} onClick={handleStartMfa}
+                        className="text-[12px] font-[inherit] bg-tx text-bg border border-tx px-4 py-1.5 rounded cursor-pointer hover:opacity-90 transition-all disabled:opacity-50">
+                        {mfaBusy ? "…" : "Activer la double authentification"}
+                      </button>
+                    </div>
+                  ) : (
+                    /* Une clé en attente de son premier code. Tant qu'il n'est
+                       pas confirmé, rien n'est inscrit : renoncer ici est sans
+                       conséquence. */
+                    <div className="space-y-4 pt-1">
+                      <div>
+                        <p><strong className="text-tx">1.</strong> Depuis votre téléphone, touchez ce bouton : votre application d&apos;authentification s&apos;ouvre et retient le compte.</p>
+                        <a href={totpLink(mfaSecret, user.email)}
+                          className="inline-block mt-2 text-[12px] font-[inherit] bg-tx text-bg border border-tx px-4 py-1.5 rounded cursor-pointer hover:opacity-90 transition-all no-underline">
+                          Ouvrir mon application d&apos;authentification
+                        </a>
+                        <p className="text-[11.5px] text-tx-3 mt-2">
+                          Sur un ordinateur, ce bouton ne mène nulle part : saisissez plutôt la clé ci-dessous dans l&apos;application de votre téléphone (« Saisir une clé de configuration »).
+                        </p>
+                        <div className="flex items-center gap-2 flex-wrap mt-2">
+                          <code className="text-[12.5px] text-tx bg-bg-subtle border border-border rounded px-2.5 py-1.5 select-all break-all tracking-wider">
+                            {formatSecretKey(mfaSecret.secretKey)}
+                          </code>
+                          <button onClick={() => handleCopyMfaKey(mfaSecret.secretKey)}
+                            className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-border-strong transition-all">
+                            {mfaKeyCopied ? "Copié ✓" : "Copier la clé"}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <p><strong className="text-tx">2.</strong> Recopiez ici le code que l&apos;application affiche. Il change toutes les 30 secondes.</p>
+                        <div className="flex items-center gap-2 flex-wrap mt-2">
+                          <input
+                            inputMode="numeric"
+                            autoComplete="one-time-code"
+                            maxLength={6}
+                            placeholder="123456"
+                            value={mfaCode}
+                            onChange={(e) => { setMfaCode(e.target.value.replace(/\D/g, "").slice(0, 6)); setMfaError(null); }}
+                            onKeyDown={(e) => e.key === "Enter" && handleConfirmMfa()}
+                            className="w-[120px] text-[15px] font-[inherit] tracking-[0.3em] bg-bg-subtle border border-border rounded px-3 py-1.5 text-tx outline-none focus:border-border-strong"
+                          />
+                          <button disabled={mfaBusy || mfaCode.length < 6} onClick={handleConfirmMfa}
+                            className="text-[12px] font-[inherit] bg-tx text-bg border border-tx px-4 py-1.5 rounded cursor-pointer hover:opacity-90 transition-all disabled:opacity-50">
+                            {mfaBusy ? "…" : "Confirmer"}
+                          </button>
+                          <button disabled={mfaBusy} onClick={handleCancelMfa}
+                            className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-border-strong transition-all disabled:opacity-50">
+                            Renoncer
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {mfaError && <p className="text-[12px] text-danger">{mfaError}</p>}
                 </div>
               </section>
             </div>
@@ -706,17 +904,17 @@ export default function SettingsPage() {
               <div className="bg-bg border border-border rounded-xl p-5">
                 <p className="text-[14px] font-semibold text-tx mb-1">Appareils recevant les rappels</p>
                 <p className="text-[13px] text-tx-2 leading-relaxed">
-                  Vos rappels sont envoyés à <strong>tous</strong> les appareils listés ici. Retirez-en un pour qu'il cesse de recevoir des notifications. Pour ajouter un appareil, ouvrez Henri dessus et activez « Rappels » dans l'en-tête.
+                  Vos rappels sont envoyés à <strong>tous</strong> les appareils listés ici. Retirez-en un pour qu'il cesse de recevoir des notifications. Pour ajouter un appareil, ouvrez Henri dessus, puis le rond de votre compte en haut à droite, et « Activer les rappels ici ».
                 </p>
               </div>
 
               {!user ? (
                 <div className="bg-bg border border-border rounded-xl p-5 text-[13px] text-tx-2">Connectez-vous pour gérer vos appareils.</div>
               ) : !notifSupported ? (
-                <div className="bg-bg border border-border rounded-xl p-5 text-[13px] text-tx-2">Ce navigateur ne supporte pas les notifications push.</div>
+                <div className="bg-bg border border-border rounded-xl p-5 text-[13px] text-tx-2">Ce navigateur ne sait pas afficher de notifications.</div>
               ) : tokens.length === 0 ? (
                 <div className="bg-bg border border-border rounded-xl p-5 text-[13px] text-tx-2">
-                  Aucun appareil enregistré pour l'instant. Activez « Rappels » (bouton en haut de l'application) sur un appareil pour l'ajouter ici.
+                  Aucun appareil enregistré pour l'instant. Sur l'appareil à ajouter, ouvrez le rond de votre compte, en haut à droite, puis « Activer les rappels ici ».
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -853,7 +1051,7 @@ export default function SettingsPage() {
                       <h2 className="text-[11px] font-medium text-tx-3 uppercase tracking-widest mb-3">Le raccourci de l&apos;office</h2>
                       <div className="bg-bg border border-border rounded-xl p-5 space-y-3 text-[13px] text-tx-2 leading-relaxed">
                         <p className="text-[12px] text-tx-3">
-                          Apple exige qu&apos;un raccourci soit signé pour être installé : aucun serveur ne peut en fabriquer un. Le seul lien qui l&apos;installe en un geste est le <strong>lien iCloud</strong> que produit l&apos;application Raccourcis quand on partage. Il se monte donc une fois, sur un iPhone, et sert ensuite à toute l&apos;étude.
+                          Un raccourci ne s&apos;installe que par le <strong>lien iCloud</strong> que produit l&apos;application Raccourcis quand on partage : Henri ne peut pas en fabriquer un. Il se monte donc une fois, sur un iPhone, et sert ensuite à toute l&apos;étude.
                         </p>
                         <p><strong className="text-tx">1.</strong> <strong>Raccourcis</strong> → <strong>+</strong> → nommez-le « Mémo Henri ».</p>
                         <p><strong className="text-tx">2.</strong> Action <strong>« Texte »</strong> : écrivez-y <code className="text-[12px] bg-bg-subtle border border-border rounded px-1 py-0.5">{KEY_PLACEHOLDER}</code>. C&apos;est la case que chacun remplacera par sa clé — n&apos;y mettez pas la vôtre.</p>
@@ -902,7 +1100,7 @@ export default function SettingsPage() {
                       <p><strong className="text-tx">1.</strong> <strong>Raccourcis</strong> → <strong>+</strong> → nommez-le « Mémo Henri ».</p>
                       <p><strong className="text-tx">2.</strong> Action <strong>« Demander une entrée »</strong> — Type : Texte, Invite : « Mémo ».</p>
                       <p>
-                        <strong className="text-tx">3.</strong> Action <strong>« Obtenir le contenu de »</strong> avec <code className="text-[12px] bg-bg-subtle border border-border rounded px-1 py-0.5">{origin || "https://…"}/api/memo</code>, puis « Afficher plus » : Méthode <strong>POST</strong>, Corps <strong>JSON</strong>, deux champs Texte — <code className="text-[12px] bg-bg-subtle border border-border rounded px-1 py-0.5">key</code> = votre clé, <code className="text-[12px] bg-bg-subtle border border-border rounded px-1 py-0.5">text</code> = l&apos;<strong>Entrée fournie</strong>. (La clé peut aussi voyager en en-tête <code className="text-[12px] bg-bg-subtle border border-border rounded px-1 py-0.5">Authorization</code>, sous la forme « Bearer … ».)
+                        <strong className="text-tx">3.</strong> Action <strong>« Obtenir le contenu de »</strong> avec <code className="text-[12px] bg-bg-subtle border border-border rounded px-1 py-0.5">{origin || "https://…"}/api/memo</code>, puis « Afficher plus » : Méthode <strong>POST</strong>, Corps <strong>JSON</strong>, deux champs Texte — <code className="text-[12px] bg-bg-subtle border border-border rounded px-1 py-0.5">key</code> = votre clé, <code className="text-[12px] bg-bg-subtle border border-border rounded px-1 py-0.5">text</code> = l&apos;<strong>Entrée fournie</strong>.
                       </p>
                       <p><strong className="text-tx">4.</strong> Action <strong>« Afficher une notification »</strong> : variable <strong>Contenu de l&apos;URL</strong> → <em>Obtenir la valeur pour la clé</em> → <code className="text-[12px] bg-bg-subtle border border-border rounded px-1 py-0.5">message</code>.</p>
                       <p><strong className="text-tx">5.</strong> <strong>Réglages</strong> → <strong>Touche Action</strong> → <strong>Raccourci</strong> → « Mémo Henri ».</p>
@@ -991,7 +1189,8 @@ export default function SettingsPage() {
                 ["📲", "Installer l'app"],
                 ["📤", "Export & import"],
                 ["📋", "Modèles"],
-                ["⌨", "Raccourcis clavier"]].map(([icon, label], i) => (
+                ["⌨", "Raccourcis clavier"],
+                ["🔒", "Sécurité"]].map(([icon, label], i) => (
                   <button key={i} onClick={() => setAideSection(i)}
                     className={`text-left px-4 py-2.5 text-[13px] font-[inherit] border-none cursor-pointer transition-colors flex items-center gap-2 ${aideSection === i ? "bg-bg font-semibold text-tx border-r-2 border-tx" : "bg-transparent text-tx-2 hover:text-tx hover:bg-bg"}`}
                     style={{ borderRight: aideSection === i ? "2px solid var(--text)" : "2px solid transparent" }}>
@@ -1029,15 +1228,15 @@ export default function SettingsPage() {
                 },
                 {
                   icon: "🔔", title: "Rappels",
-                  items: [{t: "Poser un rappel", c: "Depuis le panneau de détail d'une tâche ou d'un mémo, ouvrez « Rappel » et choisissez un moment : Dans 1h, Demain 9h, ou une date et une heure personnalisées. Henri vous préviendra au moment voulu, même si vous avez quitté l'application."}, {t: "Le rappel du jour de l'échéance", c: "Poser une échéance suffit : Henri arme aussitôt un rappel pour le jour même, à 9h par défaut. Il s'affiche sous « Rappel » et se retire d'un clic s'il n'a pas lieu d'être. Déplacer l'échéance déplace le rappel avec elle ; un rappel que vous avez choisi vous-même n'est jamais remplacé. L'heure se règle — ou la proposition se coupe — dans Préférences → Rappels."}, {t: "Activer les notifications", c: "Cliquez une fois sur « Rappels » dans l'en-tête pour autoriser les notifications sur cet appareil — le bouton passe au vert « Rappels ✓ ». À refaire sur chaque navigateur ou appareil où vous souhaitez être prévenu."}, {t: "Comment arrivent les rappels", c: "À l'échéance, vous recevez une notification. Si Henri est ouvert devant vous, un bandeau discret s'affiche dans l'application ; s'il est en arrière-plan ou fermé (navigateur toujours ouvert), c'est une véritable notification système. Un clic sur la notification ouvre Ma journée."}, {t: "Les relances : une notification qui revient", c: "Une notification s'évacue d'un geste — et la tâche est oubliée. Henri revient donc à la charge : tant que la tâche n'est pas passée « Traité », il renotifie toutes les 3 heures (jusqu'à 3 fois par défaut). Une relance reste affichée à l'écran jusqu'à ce que vous la traitiez, contrairement au premier rappel. L'interrupteur « Relancer tant que ce n'est pas fait », sous les présets de rappel, permet de couper la relance pour une tâche donnée."}, {t: "Les relances de nuit", c: "Aucune relance entre 20h et 8h : une relance qui tomberait le soir est reportée au lendemain matin. C'est ainsi qu'une tâche du jour J vous revient le lendemain. Ces horaires se règlent dans Préférences → Rappels."}, {t: "Le récapitulatif du soir et du matin", c: "Indépendamment des rappels, Henri envoie chaque soir à 18h la liste des tâches de Ma journée encore ouvertes, et le lendemain à 8h celles de la veille restées non traitées. Il couvre toutes les tâches du jour, même celles sans rappel. Réglable ou désactivable dans Préférences → Rappels."}]
+                  items: [{t: "Poser un rappel", c: "Depuis le panneau de détail d'une tâche ou d'un mémo, ouvrez « Rappel » et choisissez un moment : Dans 1h, Demain 9h, ou une date et une heure personnalisées. Henri vous préviendra au moment voulu, même si vous avez quitté l'application."}, {t: "Le rappel du jour de l'échéance", c: "Poser une échéance suffit : Henri arme aussitôt un rappel pour le jour même, à 9h par défaut. Il s'affiche sous « Rappel » et se retire d'un clic s'il n'a pas lieu d'être. Déplacer l'échéance déplace le rappel avec elle ; un rappel que vous avez choisi vous-même n'est jamais remplacé. L'heure se règle — ou la proposition se coupe — dans Préférences → Rappels."}, {t: "Activer les notifications", c: "Ouvrez le rond de votre compte, en haut à droite, puis « Activer les rappels ici » : l'appareil demande son autorisation, et la ligne indique ensuite « Rappels sur cet appareil ». À refaire sur chaque navigateur ou appareil où vous souhaitez être prévenu."}, {t: "Comment arrivent les rappels", c: "À l'échéance, vous recevez une notification. Si Henri est ouvert devant vous, un bandeau discret s'affiche dans l'application ; s'il est en arrière-plan ou fermé (navigateur toujours ouvert), c'est une véritable notification système. Un clic sur la notification ouvre Ma journée."}, {t: "Les relances : une notification qui revient", c: "Une notification s'évacue d'un geste — et la tâche est oubliée. Henri revient donc à la charge : tant que la tâche n'est pas passée « Traité », il renotifie toutes les 3 heures (jusqu'à 3 fois par défaut). Une relance reste affichée à l'écran jusqu'à ce que vous la traitiez, contrairement au premier rappel. L'interrupteur « Relancer tant que ce n'est pas fait », sous les présets de rappel, permet de couper la relance pour une tâche donnée."}, {t: "Les relances de nuit", c: "Aucune relance entre 20h et 8h : une relance qui tomberait le soir est reportée au lendemain matin. C'est ainsi qu'une tâche du jour J vous revient le lendemain. Ces horaires se règlent dans Préférences → Rappels."}, {t: "Le récapitulatif du soir et du matin", c: "Indépendamment des rappels, Henri envoie chaque soir à 18h la liste des tâches de Ma journée encore ouvertes, et le lendemain à 8h celles de la veille restées non traitées. Il couvre toutes les tâches du jour, même celles sans rappel. Réglable ou désactivable dans Préférences → Rappels."}]
                 },
                 {
                   icon: "📲", title: "Installer l'app",
-                  items: [{t: "Sur ordinateur (Chrome / Edge)", c: "Cliquez sur « Installer l'app » dans l'en-tête, ou sur l'icône d'installation dans la barre d'adresse. Henri s'ouvre alors dans sa propre fenêtre, avec une icône dans la barre des tâches — comme un logiciel classique, sans passer par un magasin d'applications."}, {t: "Sur mobile", c: "Sur Android (Chrome) : menu ⋮ → « Installer l'application ». Sur iPhone / iPad (Safari) : bouton Partager → « Sur l'écran d'accueil »."}, {t: "Pourquoi l'installer", c: "L'application installée démarre plus vite, s'affiche en plein écran et reçoit les rappels de façon plus fiable. Les mises à jour sont automatiques : rien à réinstaller."}]
+                  items: [{t: "Sur ordinateur (Chrome / Edge)", c: "Ouvrez le rond de votre compte, en haut à droite, puis « Installer l'application » — ou cliquez sur l'icône d'installation dans la barre d'adresse. Henri s'ouvre alors dans sa propre fenêtre, avec une icône dans la barre des tâches, comme un logiciel classique."}, {t: "Sur mobile", c: "Sur Android (Chrome) : menu ⋮ → « Installer l'application ». Sur iPhone / iPad (Safari) : bouton Partager → « Sur l'écran d'accueil »."}, {t: "Pourquoi l'installer", c: "L'application installée démarre plus vite, s'affiche en plein écran et reçoit les rappels de façon plus fiable. Les mises à jour sont automatiques : rien à réinstaller."}]
                 },
                 {
                   icon: "📤", title: "Export & import",
-                  items: [{t: "Exporter un dossier", c: "Depuis le panneau de détail d'un dossier, le bouton Exporter JSON génère un fichier contenant la structure complète : toutes ses tâches, sous-tâches, statuts, commentaires et échéances."}, {t: "Importer et réutiliser", c: "Le lien Importer un dossier en bas de la colonne Dossiers permet de recréer une structure complète depuis un fichier JSON. Idéal pour dupliquer un dossier modèle à chaque nouvelle affaire du même type."}, {t: "Voir aussi : Modèles", c: "Plus simple que l'export/import pour réutiliser une trame : la rubrique « Modèles » ci-dessous permet d'enregistrer les tâches d'un dossier et de les réappliquer en un clic."}]
+                  items: [{t: "Exporter un dossier", c: "Depuis le panneau de détail d'un dossier, « Exporter le dossier » enregistre un fichier contenant tout ce qu'il porte : ses tâches, ses sous-tâches, leurs statuts, leurs commentaires et leurs échéances."}, {t: "Importer et réutiliser", c: "Le lien « Importer » en bas de la colonne Dossiers recrée un dossier entier depuis un fichier ainsi exporté ; « Importer des tâches », depuis un dossier ouvert, y ajoute celles d'un autre. Idéal pour reprendre une trame à chaque nouvelle affaire du même type."}, {t: "Voir aussi : Modèles", c: "Plus simple que l'export/import pour réutiliser une trame : la rubrique « Modèles » ci-dessous permet d'enregistrer les tâches d'un dossier et de les réappliquer en un clic."}]
                 },
                 {
                   icon: "📋", title: "Modèles",
@@ -1046,6 +1245,10 @@ export default function SettingsPage() {
                 {
                   icon: "⌨", title: "Raccourcis clavier",
                   items: [{t: "Une lettre par nature", c: "D : dossier · T : tâche · Shift+T : sous-tâche · M : mémo. Chaque touche crée exactement ce qu'elle nomme, dans le dossier courant — plus besoin de savoir quelle colonne est active."}, {t: "Éditer", c: "Espace : renommer · Entrée : valider · Échap : annuler"}, {t: "Actions", c: "A : ajouter à Ma journée · I : ouvrir/fermer le détail · R : rattacher une tâche · ⌫ : supprimer"}, {t: "Navigation et statuts", c: "← → : naviguer entre colonnes · ↑ ↓ : déplacer la sélection · 1–4 : changer le statut (Créée / Demandé / Reçu / Traité)"}]
+                },
+                {
+                  icon: "🔒", title: "Sécurité",
+                  items: [{t: "Confirmer votre adresse", c: "Dans Préférences → Sécurité, Henri vous envoie un lien à l'adresse de votre compte. L'ouvrir prouve que cette adresse est bien la vôtre. C'est aussi ce qui permet d'activer la double authentification."}, {t: "La double authentification", c: "Un mot de passe garde seul des dossiers couverts par le secret professionnel. Avec la double authentification, la connexion demande en plus un code à six chiffres, lu sur votre téléphone dans une application d'authentification (Google Authenticator, 1Password, Bitwarden…). Un mot de passe deviné ne suffit alors plus à entrer."}, {t: "L'activer dès aujourd'hui", c: "Préférences → Sécurité → « Activer la double authentification ». Depuis un téléphone, un bouton range le compte dans votre application d'authentification ; depuis un ordinateur, vous recopiez la clé affichée. Confirmez ensuite avec le premier code, et c'est fait. Tant que ce code n'est pas confirmé, rien n'est activé : renoncer en cours de route est sans conséquence."}, {t: "Se connecter ensuite", c: "Après votre mot de passe, Henri demande les six chiffres du moment — ils changent toutes les 30 secondes. Gardez l'application d'authentification sur un téléphone dont vous ne vous séparez pas ; en cas de perte, l'Office peut retirer le second facteur de votre compte."}]
                 }].map((section, i) => aideSection !== i ? null : (
                   <div key={i} className="space-y-6">
                     <div className="flex items-center gap-3 pb-4 border-b border-border">
@@ -1069,18 +1272,19 @@ export default function SettingsPage() {
           {tab === "versions" && (
             <div className="space-y-4">
               {[
+                { v: "Alpha 1.9", date: "Août 2026", items: ["Double authentification : elle s'active dès maintenant, sans attendre l'échéance annoncée — Préférences → Sécurité. La connexion demande alors, après le mot de passe, un code à six chiffres lu sur votre téléphone", "Elle se retire du même écran, et l'échéance à laquelle elle sera exigée sur votre compte y est rappelée", "L'adresse du compte se confirme par un courriel de l'Office : c'est le préalable à la double authentification", "L'inscription s'ouvre aux adresses professionnelles du notariat : un lien reçu par courriel remplace l'attente d'une invitation", "Thème sombre : clair, sombre, ou celui de l'appareil — y compris quand il bascule tout seul le soir (Préférences → Apparence)", "Tout ce qui touche au compte tient derrière un rond unique, en haut à droite, au même endroit sur chaque écran : adresse, rappels de cet appareil, installation, Préférences, déconnexion. Ma journée y gagne l'accès aux Préférences", "Préférences : les titres passent en haut, sur un rail que le pouce fait défiler — l'écran entier revient au réglage", "Mes dossiers et Ma journée basculent instantanément : plus d'attente ni d'écran vide entre les deux", "Henri s'ouvre sur ce qu'il sait déjà : vos dossiers restent d'un lancement à l'autre au lieu d'être retéléchargés à chaque fois", "Ma journée, ligne de saisie : « # » désigne le dossier, « @ » l'échéance, « ! » l'importance, « > » la tâche sous laquelle ranger le mémo", "Touche Action de l'iPhone : noter un mémo à la voix ou au clavier sans ouvrir Henri — installation en un lien depuis Préférences → Raccourci iPhone", "Le bandeau d'échéances tient de nouveau sur une ligne sur téléphone", "Nouvelle icône « henri » sur tous les écrans d'accueil"] },
                 { v: "Alpha 1.8", date: "Août 2026", items: ["Poser une échéance propose désormais systématiquement un rappel le jour de l'échéance — sur une tâche comme sur un mémo, à l'ordinateur comme au téléphone", "L'heure de ce rappel se règle dans Préférences → Rappels (9h par défaut), et la proposition peut y être coupée", "Déplacer l'échéance déplace le rappel proposé ; la retirer le retire. Un rappel posé à la main n'est jamais remplacé", "Nouvelle puce « Échéance 09h » sous « Rappel », pour réarmer la proposition après l'avoir retirée"] },
                 { v: "Alpha 1.7", date: "Juillet 2026", items: ["Mobile — Ma journée : mémos et tâches ont désormais la même ligne (case à cocher à gauche) ; la tâche garde son filet d'avancement et une croix pour la retirer de la journée", "Cocher un mémo le fait disparaître de Ma journée : il est réalisé. Un lien discret en bas de la colonne rouvre les mémos réalisés, pour les consulter ou les décocher (ordinateur et téléphone)", "Mobile — cocher une tâche demande où elle en est, puis la retire de Ma journée : elle reste dans son dossier avec son nouveau statut", "Mobile — un mémo se crée et se modifie dans le même écran : mêmes champs, même disposition (étoile, échéance, rappel, dossier, répétition, observations)", "Rattacher un mémo à un dossier ne le transforme plus en tâche : il garde sa case à cocher et s'affiche sous les tâches du dossier", "Un mémo sans dossier s'efface définitivement 7 jours après avoir été réalisé — un pense-bête n'est pas une archive. Un mémo que vous n'avez pas coché, lui, ne disparaît jamais", "Un mémo s'ouvre en cliquant son texte, depuis Ma journée comme depuis la liste des tâches de son dossier"] },
                 { v: "Alpha 1.6", date: "Juillet 2026", items: ["Relances : une tâche avec rappel non traitée fait l'objet d'une nouvelle notification (toutes les 3 h par défaut, jusqu'à 3 fois)", "Une relance reste affichée jusqu'à ce que vous vous en occupiez — plus difficile à balayer qu'un simple rappel", "Pas de relance la nuit : une relance du soir est reportée au lendemain matin", "Récapitulatif du soir (18h) : les tâches de Ma journée encore ouvertes", "Rappel du lendemain (8h) : les tâches de la veille restées non traitées", "Interrupteur « Relancer tant que ce n'est pas fait » sur chaque rappel", "Nouvel onglet Préférences → Rappels : intervalle, nombre de relances, plage horaire, récapitulatifs"] },
-                { v: "Alpha 1.5", date: "Juillet 2026", items: ["Modèles de dossier : enregistrez la liste de tâches d'un dossier sous un nom et réutilisez-la", "Appliquez un modèle à un nouveau dossier (bouton 📋) ou à un dossier existant (« Appliquer un modèle »)", "Gérez vos modèles : renommer, supprimer", "Mini-récap d'avancement sur chaque dossier : 4 compteurs colorés (tâches et sous-tâches) — Créé · Demandé · Reçu · Traité", "Tri des dossiers par « charge restante » (Créé=2, Demandé=1, Reçu=0,5, Traité=0)", "Visite guidée interactive : tâches, sous-tâches, import/export, modèles, raccourcis clavier (relançable dans l'Aide)", "Modèle de dossier d'exemple intégré (« Vente immobilière »)", "Pas à pas interactif : créer une tâche, une sous-tâche, puis tout supprimer (dossier d'entraînement) ; bulles d'aide repositionnées près des boutons", "À la création d'un dossier, choix entre dossier vierge ou modèle", "Actions d'un dossier regroupées en deux menus : « Export / Import » et « Modèle »", "Préférences → Modèles : gérer ses modèles (renommer, supprimer, consulter le détail)", "Préférences : navigation par onglets verticaux (colonne à gauche)", "Ma journée : option « grouper par dossier » (desktop et mobile), avec en-têtes de dossier"] },
+                { v: "Alpha 1.5", date: "Juillet 2026", items: ["Modèles de dossier : enregistrez la liste de tâches d'un dossier sous un nom et réutilisez-la", "Appliquez un modèle à un nouveau dossier (bouton 📋) ou à un dossier existant (« Appliquer un modèle »)", "Gérez vos modèles : renommer, supprimer", "Mini-récap d'avancement sur chaque dossier : 4 compteurs colorés (tâches et sous-tâches) — Créé · Demandé · Reçu · Traité", "Tri des dossiers par charge restante : ce qu'il reste le plus à faire remonte en tête", "Visite guidée interactive : tâches, sous-tâches, import/export, modèles, raccourcis clavier (relançable dans l'Aide)", "Modèle de dossier d'exemple intégré (« Vente immobilière »)", "Pas à pas interactif : créer une tâche, une sous-tâche, puis tout supprimer (dossier d'entraînement) ; bulles d'aide repositionnées près des boutons", "À la création d'un dossier, choix entre dossier vierge ou modèle", "Actions d'un dossier regroupées en deux menus : « Export / Import » et « Modèle »", "Préférences → Modèles : gérer ses modèles (renommer, supprimer, consulter le détail)", "Préférences : navigation par onglets verticaux (colonne à gauche)", "Ma journée : option « grouper par dossier » (desktop et mobile), avec en-têtes de dossier"] },
                 { v: "Alpha 1.4", date: "Juillet 2026", items: ["Rappels par notification désormais fiables : sur ordinateur, et même lorsque Henri est en arrière-plan ou fermé", "Réception des rappels au bon moment rétablie (l'application pouvait auparavant n'afficher aucune notification)", "Installation en application peaufinée : nom « Henri » et icône corrigés", "Aide enrichie : nouvelles rubriques « Rappels » et « Installer l'app »", "Préférences → Appareils : liste des appareils recevant les rappels, avec possibilité d'en retirer"] },
                 { v: "Alpha 1.3", date: "Juin 2026", items: ["« Mes dossiers » désormais accessible sur mobile : navigation en pleine largeur, une colonne à la fois", "Balayez horizontalement (swipe) pour passer de Dossiers → Tâches → Sous-tâches → Détail, et revenir en arrière", "Icône ☀ pour aller à Ma journée, icône dossier pour revenir à Mes dossiers", "En-têtes mobiles uniformisés (logo et icônes)"] },
                 { v: "Alpha 1.2", date: "Juin 2026", items: ["Import de tâches dans un dossier existant et export d'une sélection de tâches", "Installation de l'app sur Chrome et Edge (bouton dédié, icônes, nom corrigé)", "Correction du curseur qui sautait en fin de champ pendant la saisie"] },
-                { v: "Alpha 1.1", date: "Mai 2026", items: ["Notifications push : rappels configurables par tâche et par mémo", "Rappels sur ordinateur et notifications même app au premier plan", "Application installable (PWA) avec fonctionnement hors ligne", "Nouvelle page de réinitialisation de mot de passe et de vérification d'email", "Réinitialisation du mot de passe envoyée via Brevo"] },
-                { v: "Alpha 1.0", date: "Mai 2026", items: ["Refonte de la vue mobile : détail tâche et mémo alignés sur l'ordinateur", "Menu compte sur mobile (déconnexion, préférences)", "« À venir » : popover regroupant tâches et mémos à venir", "Nouvelles icônes SVG dans toute l'application", "Lignes et listes de Ma journée affinées", "Désactivation du zoom involontaire sur mobile"] },
-                { v: "Alpha 0.9", date: "Avr. 2025", items: ["Suggestions Ma journée : importantes, en retard, aujourd'hui, récentes", "Fonds colorés sur les tâches selon priorité", "Focus automatique à la création d'un élément", "Recherche de dossier", "Système d'invitation et page d'administration", "Raccourcis clavier et encoche feedback"] },
-                { v: "Alpha 0.8", date: "Avr. 2025", items: ["Refonte complète du panneau détail (dossier, tâche, mémo)", "Raccourcis d'échéance (Aujourd'hui, Demain, Dans 1 sem…)", "Étoile ★ pour marquer une tâche importante", "Observations sur les mémos"] },
-                { v: "Alpha 0.7", date: "Avr. 2025", items: ["Ma journée : colonne suggestions", "Mémos : récurrence, rattachement dossier", "Suppression immédiate avec annulation", "Sons (validation, ajout)"] },
+                { v: "Alpha 1.1", date: "Mai 2026", items: ["Rappels par notification, réglables tâche par tâche et mémo par mémo", "Rappels sur ordinateur, y compris lorsque Henri est déjà ouvert devant vous", "Henri s'installe comme une application, et continue de fonctionner sans connexion", "Nouvelles pages de réinitialisation du mot de passe et de confirmation de l'adresse"] },
+                { v: "Alpha 1.0", date: "Mai 2026", items: ["Refonte de la vue mobile : détail tâche et mémo alignés sur l'ordinateur", "Menu compte sur mobile (déconnexion, préférences)", "« À venir » : popover regroupant tâches et mémos à venir", "Nouvelles icônes dans toute l'application", "Lignes et listes de Ma journée affinées", "Désactivation du zoom involontaire sur mobile"] },
+                { v: "Alpha 0.9", date: "Avr. 2026", items: ["Suggestions Ma journée : importantes, en retard, aujourd'hui, récentes", "Fonds colorés sur les tâches selon priorité", "Focus automatique à la création d'un élément", "Recherche de dossier", "Invitations et page d'administration", "Raccourcis clavier, et une encoche pour envoyer un retour"] },
+                { v: "Alpha 0.8", date: "Avr. 2026", items: ["Refonte complète du panneau détail (dossier, tâche, mémo)", "Raccourcis d'échéance (Aujourd'hui, Demain, Dans 1 sem…)", "Étoile ★ pour marquer une tâche importante", "Observations sur les mémos"] },
+                { v: "Alpha 0.7", date: "Avr. 2026", items: ["Ma journée : colonne suggestions", "Mémos : récurrence, rattachement dossier", "Suppression immédiate avec annulation", "Sons (validation, ajout)"] },
               ].map(({ v, date, items }) => (
                 <div key={v} className="bg-bg border border-border rounded-xl p-4">
                   <div className="flex items-center gap-2 mb-2">

@@ -18,9 +18,10 @@
 // se désynchroniser.
 //
 // Enfin, `enforced` : tant qu'il est faux, la politique **s'annonce sans jamais
-// bloquer**. C'est ce qui permet de la déployer avant que le second facteur ne
-// soit techniquement disponible (il demande Identity Platform) sans risquer de
-// verrouiller tout le monde dehors le jour dit.
+// bloquer**. Elle n'empêche pas de s'équiper — l'inscription volontaire est
+// ouverte dès aujourd'hui dans Préférences → Sécurité (`mfa.ts`) ; elle dit
+// seulement à partir de quand le second facteur sera exigé, et laisse le temps
+// de le poser avant que le jour dit ne verrouille qui que ce soit dehors.
 
 export type MfaPolicy = {
   /** Les comptes créés avant cette date sont les « comptes existants ». */
