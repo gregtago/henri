@@ -428,6 +428,22 @@ L'inversion ne coûte rien à tenir : ce sont les deux mêmes jetons, qui échan
 
 Il ne se montre **qu'au bout de 250 ms** (`.henri-attente`) : une session déjà ouverte se rétablit plus vite que ça, et une attente qui n'a pas eu lieu ne doit pas clignoter. Le sablier fait un tour complet (0 → 180 → 360°) avec deux temps morts — le sable a le temps de couler avant que le verre ne bascule — et s'immobilise sous `prefers-reduced-motion`.
 
+### La porte — un seul trajet, deux marches de sécurité
+
+Mes dossiers, Ma journée et le Calendrier refaisaient chacun le même trajet : attendre Firebase, montrer la connexion, monter l'application. Trois copies du même geste, donc trois endroits où oublier une marche. Tout tient désormais dans **`src/components/AuthGate.tsx`**, qui rend son contenu par une fonction : ce qui est derrière ne se monte pas tant que le trajet n'est pas fini — rien ne se peint à moitié, aucun abonnement Firestore ne s'ouvre pour un compte qui n'entrera pas.
+
+Le trajet compte quatre étapes, dans cet ordre : l'attente, la connexion, **l'adresse confirmée**, **le second facteur proposé**.
+
+**L'adresse se confirme avant d'entrer** (`VerifyEmailGate`), et c'est la seule des deux qui barre la route. Le seul lien entre un compte et une personne, c'est son adresse ; tant que personne n'a prouvé qu'il la relève, ce lien n'est qu'une déclaration. Elle commande aussi la suite : Identity Platform refuse d'inscrire un second facteur tant qu'elle n'est pas vérifiée, si bien qu'une adresse en suspens est une porte qui se fermera toute seule le jour de l'échéance. Trois règles rendent l'obstacle tenable — **le courriel part tout seul** en arrivant (une fois par session et par compte), **l'écran se retire de lui-même** dès que le lien est ouvert, où qu'il l'ait été (il redemande à Firebase toutes les 5 s, et jamais dans un onglet caché), et **« me déconnecter » reste offert** à qui s'est trompé d'adresse. On ne laisse personne devant une porte sans poignée.
+
+**Le second facteur se propose, il ne s'impose pas encore** (`MfaSuggestion`). L'échéance de chaque compte se calcule dans `mfaPolicy.ts` ; l'annoncer dans un onglet des Préférences, c'est ne l'annoncer qu'à ceux qui vont l'y lire — c'est-à-dire à ceux qui s'équiperaient de toute façon. L'écran vient donc au-devant, et porte la seule chose qui rende la demande recevable : **la date, et ce qu'il reste avant elle**. « Plus tard » est un vrai bouton.
+
+**Le rythme suit l'échéance** (`mfaNudge.ts`), comme une voix qui se rapproche : toutes les deux semaines tant qu'il reste plus d'un mois, chaque semaine dans le dernier mois, chaque jour dans la dernière semaine, à chaque ouverture une fois la date passée. Une proposition qui reviendrait à chaque démarrage s'écarterait sans être lue, et n'apprendrait qu'une chose — cliquer « Plus tard » sans regarder ; le jour dit, elle ne vaudrait plus rien.
+
+Les deux écrans reprennent la grammaire de la connexion — encre autour, carte claire dessus, logo en tête —, parce que ce sont les mêmes marches d'un même seuil.
+
+**Les Préférences, elles, restent ouvertes** sans passer par cette porte : c'est là que vivent la confirmation d'adresse, la double authentification, l'Aide et la déconnexion. Barrer l'écran qui explique l'obstacle enfermerait dehors sans rien offrir. Le travail, lui — dossiers, journée, calendrier — reste derrière.
+
 ---
 
 ## Composants
