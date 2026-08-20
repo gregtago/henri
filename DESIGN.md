@@ -442,6 +442,8 @@ Le trajet compte quatre étapes, dans cet ordre : l'attente, la connexion, **l'a
 
 Les deux écrans reprennent la grammaire de la connexion — encre autour, carte claire dessus, logo en tête —, parce que ce sont les mêmes marches d'un même seuil.
 
+**Une application citée est une application cliquable** (`AuthAppLinks`) : Google Authenticator, 1Password et Bitwarden mènent chacun à la page de son éditeur, qui envoie sur la bonne boutique selon l'appareil. Les nommer sans dire où les prendre laisse le lecteur les chercher lui-même, et une recherche remonte autant de copies que d'originaux. La liste vit à un seul endroit — elle est citée sur l'écran de proposition et dans Préférences → Sécurité, et deux listes finiraient par ne plus dire la même chose.
+
 **Les Préférences, elles, restent ouvertes** sans passer par cette porte : c'est là que vivent la confirmation d'adresse, la double authentification, l'Aide et la déconnexion. Barrer l'écran qui explique l'obstacle enfermerait dehors sans rien offrir. Le travail, lui — dossiers, journée, calendrier — reste derrière.
 
 ---
