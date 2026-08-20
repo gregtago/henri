@@ -802,7 +802,7 @@ export default function SettingsPage() {
                     title: "Confirmer l'adresse du compte",
                     body: <>
                       <p>Henri envoie un lien à l&apos;adresse de votre compte ; l&apos;ouvrir prouve qu&apos;elle est bien la vôtre.</p>
-                      <p>C&apos;est aussi la <strong className="text-tx">condition préalable à la double authentification</strong> : tant qu&apos;une adresse n&apos;est pas confirmée, elle ne peut pas être protégée — sans quoi n&apos;importe qui pourrait s&apos;inscrire avec l&apos;adresse d&apos;un autre et l&apos;enfermer dehors avec son propre téléphone.</p>
+                      <p>C&apos;est aussi le <strong className="text-tx">préalable à la double authentification</strong> : le second facteur ne s&apos;inscrit pas sur une adresse non confirmée.</p>
                     </>,
                   }}>Adresse du compte</SectionTitle>
                   <div className="bg-bg border border-border rounded-xl p-5">
@@ -845,8 +845,8 @@ export default function SettingsPage() {
                 <SectionTitle help={{
                   title: "La double authentification",
                   body: <>
-                    <p>Un mot de passe garde seul des dossiers couverts par le secret professionnel. La double authentification demande, en plus, un <strong className="text-tx">code à six chiffres</strong> lu sur votre téléphone dans une application d&apos;authentification (Google Authenticator, 1Password, Bitwarden…). Un mot de passe deviné ne suffit alors plus à entrer.</p>
-                    <p>Ces six chiffres changent toutes les 30 secondes. Gardez l&apos;application d&apos;authentification sur un téléphone dont vous ne vous séparez pas : c&apos;est elle, désormais, qui ouvre la porte avec votre mot de passe. En cas de perte, l&apos;Office peut retirer le second facteur de votre compte.</p>
+                    <p>À la connexion, Henri demande un <strong className="text-tx">code à six chiffres</strong> lu sur votre téléphone, en plus du mot de passe. Le code vient d&apos;une application d&apos;authentification — Google Authenticator, 1Password, Bitwarden…</p>
+                    <p>Ces six chiffres changent toutes les 30 secondes, et c&apos;est ce téléphone qui ouvre désormais le compte avec votre mot de passe. En cas de perte, l&apos;Office peut retirer le second facteur.</p>
                     <p>Tant que le premier code n&apos;est pas confirmé, rien n&apos;est activé : renoncer en cours de route est sans conséquence.</p>
                   </>,
                 }}>Double authentification</SectionTitle>
