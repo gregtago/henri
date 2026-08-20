@@ -394,6 +394,10 @@ Règles propres à cette vue :
 
 Layout vertical empilé. Pas de colonnes. Un seul écran à la fois, et la barre du bas dit lequel. **Rien en haut** : ce qui se touche est en bas, ce qui se lit commence tout en haut de l'écran. Les éléments tactiles font ≥ 30 px de côté, les chips de date sont en pill 20 px de rayon.
 
+Cette règle des 30 px vaut aussi pour les **commandes d'en-tête de colonne** — le « + » d'un nouveau dossier, d'une tâche, d'un mémo. Elles se dessinent en 24 px sous une souris, qui vise au pixel, et en **32 px sous un doigt**, qui en couvre le double (`iconBtn`, `AppShell.tsx`) ; l'en-tête se hausse de 34 à 42 px sur téléphone pour les loger. Un « + » de 24 px était la cible la plus manquée d'Henri, et c'est la première qu'on vise.
+
+Et **ce qui ne sert qu'au clavier ne s'affiche pas sur un écran qui n'en a pas** : le bouton « ? » des raccourcis clavier, posé en bas à droite, est réservé au grand écran (`hidden md:flex`). Sur téléphone il ne promettait rien de faisable, et tombait sur la barre du bas — à l'endroit exact où le pouce vise « Préférences ».
+
 ### La barre du bas — trois destinations, une seule pastille encrée
 
 La navigation vivait en haut à gauche, et pas au même endroit selon l'écran : un rond « ☀ » depuis les dossiers, un rond « dossier » depuis la journée, les Préférences enfouies dans le menu du compte. Trois endroits pour trois destinations, et aucun ne disait où l'on se trouve — le haut de l'écran est d'ailleurs le point le plus loin du pouce.

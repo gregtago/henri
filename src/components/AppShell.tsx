@@ -2588,7 +2588,9 @@ export default function AppShell({ view, onViewChange, active = true }: AppShell
 
   const btnGhost = "text-[14px] font-[inherit] bg-bg border border-border text-text-2 px-2 py-[2px] rounded cursor-pointer hover:border-border-strong hover:text-tx transition-all";
   const btnDanger = "text-[14px] font-[inherit] bg-bg border border-[var(--danger-border)] text-danger px-2 py-[2px] rounded cursor-pointer hover:bg-danger-bg-soft hover:border-danger-border transition-all";
-  const iconBtn = "w-6 h-6 flex items-center justify-center border-none bg-transparent rounded text-tx-3 text-sm cursor-pointer hover:bg-bg-hover hover:text-tx-2 transition-all";
+  // 32 px sous le doigt, 24 px sous le curseur : une souris vise au pixel, un
+  // pouce non — et « + Nouveau dossier » est la première chose qu'on touche.
+  const iconBtn = "w-8 h-8 md:w-6 md:h-6 flex items-center justify-center border-none bg-transparent rounded text-tx-3 text-sm cursor-pointer hover:bg-bg-hover hover:text-tx-2 transition-all";
   // La pastille de tri du bandeau « Dossiers » : même vocabulaire que les
   // autres bandeaux (11 px, bordure, coin arrondi), et non plus le menu
   // déroulant natif — qui imposait sa police, sa taille et son chevron.
@@ -3453,7 +3455,7 @@ export default function AppShell({ view, onViewChange, active = true }: AppShell
                     <Icon name={caseSortDirection === "asc" ? "chevron-up" : "chevron-down"} size={11} strokeWidth={2} />
                   </button>
                   <button data-tour="new-case" className={iconBtn} title="Nouveau dossier — vierge ou depuis un modèle (N)" onClick={() => setTemplatesModal({ mode: "new" })}>
-                    <span className="text-[18px] leading-none">+</span>
+                    <span className="text-[21px] md:text-[18px] leading-none">+</span>
                   </button>
                 </div>
 
@@ -3599,10 +3601,10 @@ export default function AppShell({ view, onViewChange, active = true }: AppShell
                     onClick={() => { setSelectionModeItems(p => !p); setSelectedItemIds([]); }}
                   >Sélection</button>
                   <button className={iconBtn} title="Nouveau mémo (M) — une chose à cocher" onClick={() => { if (!selectedCaseId) { showToast("Sélectionnez un dossier d'abord."); return; } setMemoComposer({ caseId: selectedCaseId }); }}>
-                    <span className="text-[13px] leading-none">☑</span>
+                    <span className="text-[15px] md:text-[13px] leading-none">☑</span>
                   </button>
                   <button data-tour="new-item" className={iconBtn} title="Nouvelle tâche (T)" onClick={async () => { setActiveColumn("items"); if (!user || !selectedCaseId) { showToast("Sélectionnez un dossier d'abord."); return; } const id = await createItem(user.uid, { caseId: selectedCaseId, level: 2, title: "Nouvelle tâche", status: "Créé", parentItemId: null }); setSelectedItemId(id); setSelectedItemIds([id]); setDetailTarget({ type: "item", id }); focusWhenReady(detailTitleRef); }}>
-                    <span className="text-[18px] leading-none">+</span>
+                    <span className="text-[21px] md:text-[18px] leading-none">+</span>
                   </button>
                 </div>
               </div>
@@ -3719,10 +3721,10 @@ export default function AppShell({ view, onViewChange, active = true }: AppShell
                     onClick={() => { setSelectionModeSubItems(p => !p); setSelectedSubItemIds([]); }}
                   >Sélection</button>
                   <button className={iconBtn} title="Nouveau mémo sous cette tâche (M) — une chose à cocher" onClick={() => { setActiveColumn("subitems"); if (!selectedItemId) { showToast("Sélectionnez une tâche d'abord."); return; } setMemoComposer({ caseId: selectedItem?.caseId ?? selectedCaseId, parentItemId: selectedItemId }); }}>
-                    <span className="text-[13px] leading-none">☑</span>
+                    <span className="text-[15px] md:text-[13px] leading-none">☑</span>
                   </button>
                   <button data-tour="new-subitem" className={iconBtn} title="Nouvelle sous-tâche (⇧T)" onClick={async () => { setActiveColumn("subitems"); if (!user || !selectedItemId) { showToast("Sélectionnez une tâche d'abord."); return; } const parentCaseId = selectedItem?.caseId ?? selectedCaseId; if (!parentCaseId) return; const id = await createItem(user.uid, { caseId: parentCaseId, parentItemId: selectedItemId, level: 3, title: "Nouvelle sous-tâche", status: "Créé" }); setSelectedSubItemId(id); setSelectedSubItemIds([id]); setActiveColumn("subitems"); setDetailTarget({ type: "item", id }); focusWhenReady(detailTitleRef); }}>
-                    <span className="text-[18px] leading-none">+</span>
+                    <span className="text-[21px] md:text-[18px] leading-none">+</span>
                   </button>
                 </div>
               </div>
@@ -4404,11 +4406,14 @@ export default function AppShell({ view, onViewChange, active = true }: AppShell
         </div>
       )}
 
-      {/* ── BOUTON ? RACCOURCIS ── */}
+      {/* ── BOUTON ? RACCOURCIS ──
+        * Grand écran seulement : il ouvre la liste des raccourcis clavier, et
+        * un téléphone n'a pas de clavier. Il tombait de surcroît sur la barre
+        * du bas, à l'endroit exact où le pouce vise « Préférences ». */}
       {!isMyDay && (
         <>
           <button
-            className="fixed bottom-5 right-5 w-8 h-8 rounded-full bg-tx text-bg text-[14px] font-semibold border-none cursor-pointer flex items-center justify-center shadow-lg hover:opacity-80 transition-opacity z-40"
+            className="hidden md:flex fixed bottom-5 right-5 w-8 h-8 rounded-full bg-tx text-bg text-[14px] font-semibold border-none cursor-pointer items-center justify-center shadow-lg hover:opacity-80 transition-opacity z-40"
             onClick={() => setIsShortcutsOpen(p => !p)}
             title="Raccourcis clavier"
           >?</button>
