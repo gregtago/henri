@@ -331,6 +331,16 @@ Les titres passent donc **à l'horizontale, en haut, sur un rail qui défile** (
 
 Sur grand écran les neuf titres tiennent d'une traite ; sur téléphone le rail glisse. Le même composant, sans variante à maintenir.
 
+### Un réglage se pose, il ne se signe pas
+
+Huit des dix onglets des Préférences enregistraient au geste — les Rappels écrivent la règle dès le clic (`saveReminderPolicy`), le Raccourci à la validation du lien, les Modèles au renommage. Seul **Apparence** demandait encore une signature : un bouton « Enregistrer » en haut à droite, qui n'apparaissait que là et que rien n'annonçait ailleurs.
+
+Le piège n'était pas la place perdue, c'était la promesse tenue à moitié : le choix s'appliquait à l'écran dès le clic — la police changeait, le thème basculait —, mais n'était écrit qu'après le bouton. Qui réglait sa densité et repartait par « Retour » emportait une interface changée qui redeviendrait celle d'avant au rechargement. Un réglage qu'on voit appliqué et qui ne l'est pas est pire qu'un réglage qui refuse.
+
+**Apparence écrit donc au geste, comme les autres**, et le bouton disparaît plutôt que de se répandre sur les neuf autres onglets, où il n'aurait rien eu à enregistrer. À sa place, le même « Enregistré ✓ » discret que les Rappels affichent : il paraît une seconde et s'efface, il confirme sans rien réclamer.
+
+**« Réinitialiser » reste**, seul dans l'en-tête : c'est une action, pas une confirmation — la seule commande de cet onglet qui fasse quelque chose qu'un réglage ne fait pas.
+
 ### Desktop — métaphore Finder à colonnes
 
 La vue principale est un **Miller column browser** : trois colonnes glissantes (Dossiers → Tâches → Sous-tâches) plus un panneau de détail à droite. Une 4ᵉ colonne contextuelle apparaît pour « Ma journée » et « Suggestions ».

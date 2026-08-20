@@ -101,7 +101,7 @@ const KEY_PLACEHOLDER = "hnr_votre_cle";
 // la page d'accueil des Préférences y lit la version courante, qui est la
 // première de la liste. Une seule source, pas deux à tenir d'accord.
 const VERSIONS: { v: string; date: string; items: string[] }[] = [
-                { v: "Alpha 1.9", date: "Août 2026", items: ["Téléphone : les trois destinations — Ma journée, Dossiers, Préférences — tiennent dans une barre en bas de l'écran, là où tombe le pouce. Celle qui est en pleine encre dit où vous êtes, et Ma journée porte le nombre de lignes du jour", "Téléphone : plus de barre en haut — l'écran commence directement par vos tâches, et Ma journée porte le jour en tête de liste", "Les Préférences s'ouvrent sur une page d'accueil : le logo, la version, votre adresse, les notifications de cet appareil, l'installation et la déconnexion. C'est ce que le rond du compte tenait — il disparaît donc du téléphone ; sur ordinateur, il ne bouge pas", "La page de connexion passe à l'encre : fond plein, carte claire posée dessus. La nuit, c'est l'inverse", "Téléphone : la barre du bas s'efface pendant que vous écrivez un mémo", "L'écran d'ouverture montre le logo et un sablier, au lieu du mot « Chargement »", "Double authentification : elle s'active dès maintenant, sans attendre l'échéance annoncée — Préférences → Sécurité. La connexion demande alors, après le mot de passe, un code à six chiffres lu sur votre téléphone", "Elle se retire du même écran, et l'échéance à laquelle elle sera exigée sur votre compte y est rappelée", "L'adresse du compte se confirme par un courriel de l'Office : c'est le préalable à la double authentification", "L'inscription s'ouvre aux adresses professionnelles du notariat : un lien reçu par courriel remplace l'attente d'une invitation", "Thème sombre : clair, sombre, ou celui de l'appareil — y compris quand il bascule tout seul le soir (Préférences → Apparence)", "Tout ce qui touche au compte tient derrière un rond unique, en haut à droite, au même endroit sur chaque écran : adresse, rappels de cet appareil, installation, Préférences, déconnexion. Ma journée y gagne l'accès aux Préférences", "Préférences : les titres passent en haut, sur un rail que le pouce fait défiler — l'écran entier revient au réglage", "Mes dossiers et Ma journée basculent instantanément : plus d'attente ni d'écran vide entre les deux", "Henri s'ouvre sur ce qu'il sait déjà : vos dossiers restent d'un lancement à l'autre au lieu d'être retéléchargés à chaque fois", "Ma journée, ligne de saisie : « # » désigne le dossier, « @ » l'échéance, « ! » l'importance, « > » la tâche sous laquelle ranger le mémo", "Touche Action de l'iPhone : noter un mémo à la voix ou au clavier sans ouvrir Henri — installation en un lien depuis Préférences → Raccourci iPhone", "Le bandeau d'échéances tient de nouveau sur une ligne sur téléphone", "Nouvelle icône « henri » sur tous les écrans d'accueil"] },
+                { v: "Alpha 1.9", date: "Août 2026", items: ["Préférences → Apparence : police, taille, thème et densité s'enregistrent dès le clic, comme les autres réglages — le bouton « Enregistrer » disparaît, un « Enregistré ✓ » le remplace. Un réglage posé ne se perd plus en quittant la page", "Téléphone : les trois destinations — Ma journée, Dossiers, Préférences — tiennent dans une barre en bas de l'écran, là où tombe le pouce. Celle qui est en pleine encre dit où vous êtes, et Ma journée porte le nombre de lignes du jour", "Téléphone : plus de barre en haut — l'écran commence directement par vos tâches, et Ma journée porte le jour en tête de liste", "Les Préférences s'ouvrent sur une page d'accueil : le logo, la version, votre adresse, les notifications de cet appareil, l'installation et la déconnexion. C'est ce que le rond du compte tenait — il disparaît donc du téléphone ; sur ordinateur, il ne bouge pas", "La page de connexion passe à l'encre : fond plein, carte claire posée dessus. La nuit, c'est l'inverse", "Téléphone : la barre du bas s'efface pendant que vous écrivez un mémo", "L'écran d'ouverture montre le logo et un sablier, au lieu du mot « Chargement »", "Double authentification : elle s'active dès maintenant, sans attendre l'échéance annoncée — Préférences → Sécurité. La connexion demande alors, après le mot de passe, un code à six chiffres lu sur votre téléphone", "Elle se retire du même écran, et l'échéance à laquelle elle sera exigée sur votre compte y est rappelée", "L'adresse du compte se confirme par un courriel de l'Office : c'est le préalable à la double authentification", "L'inscription s'ouvre aux adresses professionnelles du notariat : un lien reçu par courriel remplace l'attente d'une invitation", "Thème sombre : clair, sombre, ou celui de l'appareil — y compris quand il bascule tout seul le soir (Préférences → Apparence)", "Tout ce qui touche au compte tient derrière un rond unique, en haut à droite, au même endroit sur chaque écran : adresse, rappels de cet appareil, installation, Préférences, déconnexion. Ma journée y gagne l'accès aux Préférences", "Préférences : les titres passent en haut, sur un rail que le pouce fait défiler — l'écran entier revient au réglage", "Mes dossiers et Ma journée basculent instantanément : plus d'attente ni d'écran vide entre les deux", "Henri s'ouvre sur ce qu'il sait déjà : vos dossiers restent d'un lancement à l'autre au lieu d'être retéléchargés à chaque fois", "Ma journée, ligne de saisie : « # » désigne le dossier, « @ » l'échéance, « ! » l'importance, « > » la tâche sous laquelle ranger le mémo", "Touche Action de l'iPhone : noter un mémo à la voix ou au clavier sans ouvrir Henri — installation en un lien depuis Préférences → Raccourci iPhone", "Le bandeau d'échéances tient de nouveau sur une ligne sur téléphone", "Nouvelle icône « henri » sur tous les écrans d'accueil"] },
                 { v: "Alpha 1.8", date: "Août 2026", items: ["Poser une échéance propose désormais systématiquement un rappel le jour de l'échéance — sur une tâche comme sur un mémo, à l'ordinateur comme au téléphone", "L'heure de ce rappel se règle dans Préférences → Rappels (9h par défaut), et la proposition peut y être coupée", "Déplacer l'échéance déplace le rappel proposé ; la retirer le retire. Un rappel posé à la main n'est jamais remplacé", "Nouvelle puce « Échéance 09h » sous « Rappel », pour réarmer la proposition après l'avoir retirée"] },
                 { v: "Alpha 1.7", date: "Juillet 2026", items: ["Mobile — Ma journée : mémos et tâches ont désormais la même ligne (case à cocher à gauche) ; la tâche garde son filet d'avancement et une croix pour la retirer de la journée", "Cocher un mémo le fait disparaître de Ma journée : il est réalisé. Un lien discret en bas de la colonne rouvre les mémos réalisés, pour les consulter ou les décocher (ordinateur et téléphone)", "Mobile — cocher une tâche demande où elle en est, puis la retire de Ma journée : elle reste dans son dossier avec son nouveau statut", "Mobile — un mémo se crée et se modifie dans le même écran : mêmes champs, même disposition (étoile, échéance, rappel, dossier, répétition, observations)", "Rattacher un mémo à un dossier ne le transforme plus en tâche : il garde sa case à cocher et s'affiche sous les tâches du dossier", "Un mémo sans dossier s'efface définitivement 7 jours après avoir été réalisé — un pense-bête n'est pas une archive. Un mémo que vous n'avez pas coché, lui, ne disparaît jamais", "Un mémo s'ouvre en cliquant son texte, depuis Ma journée comme depuis la liste des tâches de son dossier"] },
                 { v: "Alpha 1.6", date: "Juillet 2026", items: ["Relances : une tâche avec rappel non traitée fait l'objet d'une nouvelle notification (toutes les 3 h par défaut, jusqu'à 3 fois)", "Une relance reste affichée jusqu'à ce que vous vous en occupiez — plus difficile à balayer qu'un simple rappel", "Pas de relance la nuit : une relance du soir est reportée au lendemain matin", "Récapitulatif du soir (18h) : les tâches de Ma journée encore ouvertes", "Rappel du lendemain (8h) : les tâches de la veille restées non traitées", "Interrupteur « Relancer tant que ce n'est pas fait » sur chaque rappel", "Nouvel onglet Préférences → Rappels : intervalle, nombre de relances, plage horaire, récapitulatifs"] },
@@ -142,6 +142,9 @@ export default function SettingsPage() {
   const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
   const [policy, setPolicy] = useState<ReminderPolicy>(DEFAULT_REMINDER_POLICY);
   const [policySaved, setPolicySaved] = useState(false);
+  // Le « Enregistré ✓ » de l'Apparence : un réglage chassé par un autre ne doit
+  // pas voir sa confirmation éteinte par le minuteur du précédent.
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [shortcut, setShortcut] = useState<ShortcutKeyInfo | null>(null);
   const [shortcutBusy, setShortcutBusy] = useState(false);
   const [shortcutShown, setShortcutShown] = useState(false);
@@ -164,6 +167,7 @@ export default function SettingsPage() {
     const loaded = loadSettings();
     setS(loaded);
     applySettings(loaded);
+    return () => { if (savedTimer.current) clearTimeout(savedTimer.current); };
   }, []);
 
   // Le titre choisi vient se ranger au bord gauche du rail : on voit toujours
@@ -496,24 +500,32 @@ export default function SettingsPage() {
     deleteCaseTemplate(user.uid, t.id).catch(() => {});
   };
 
+  /**
+   * Un réglage d'apparence se pose, il ne se signe pas.
+   *
+   * Le choix s'appliquait déjà à l'écran dès le clic, mais n'était écrit
+   * qu'après un bouton « Enregistrer » que seul cet onglet portait : partout
+   * ailleurs — Rappels, Raccourci, Modèles — le geste vaut enregistrement.
+   * Qui changeait de police et repartait voyait donc l'interface changer, puis
+   * l'oublier au rechargement. On écrit maintenant à chaque geste, et le
+   * « Enregistré ✓ » ne fait que le dire.
+   */
   const update = <K extends keyof UserSettings>(key: K, value: UserSettings[K]) => {
     const next = { ...s, [key]: value };
     setS(next);
+    saveSettings(next);
     applySettings(next);
-    setSaved(false);
-  };
-
-  const handleSave = () => {
-    saveSettings(s);
-    applySettings(s);
     setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    if (savedTimer.current) clearTimeout(savedTimer.current);
+    savedTimer.current = setTimeout(() => setSaved(false), 1800);
   };
 
   const handleReset = () => {
     setS(DEFAULT_SETTINGS);
     saveSettings(DEFAULT_SETTINGS);
     applySettings(DEFAULT_SETTINGS);
+    setSaved(false);
+    if (savedTimer.current) clearTimeout(savedTimer.current);
   };
 
   const row = "flex items-center justify-between py-3 border-b border-border last:border-0";
@@ -536,8 +548,8 @@ export default function SettingsPage() {
         </div>
         <div className="z-10 flex gap-2">
           {tab === "apparence" && <>
+            <span aria-live="polite" className={`self-center text-[12px] text-ok-strong transition-opacity ${saved ? "opacity-100" : "opacity-0"}`}>Enregistré ✓</span>
             <button onClick={handleReset} className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-3 px-3 py-1.5 rounded cursor-pointer hover:border-border-strong hover:text-tx-2 transition-all">Réinitialiser</button>
-            <button onClick={handleSave} className={`text-[12px] font-[inherit] px-4 py-1.5 rounded cursor-pointer transition-all ${saved ? "bg-ok text-white border border-ok" : "bg-tx text-bg border border-tx hover:opacity-90"}`}>{saved ? "Enregistré ✓" : "Enregistrer"}</button>
           </>}
         </div>
       </header>
