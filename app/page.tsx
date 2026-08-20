@@ -1,28 +1,5 @@
-"use client";
-
-import { onAuthStateChanged, type User } from "firebase/auth";
-import { useEffect, useState } from "react";
-import { auth } from "@/lib/firebase";
-import AuthPanel from "@/components/AuthPanel";
-import AppShell from "@/components/AppShell";
+import HenriApp from "@/components/HenriApp";
 
 export default function Home() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (nextUser) => {
-      setUser(nextUser);
-      setLoading(false);
-    });
-    return () => unsub();
-  }, []);
-
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center text-sm text-tx-2">
-      Chargement...
-    </div>
-  );
-
-  return user ? <AppShell /> : <AuthPanel />;
+  return <HenriApp initialView="cases" />;
 }

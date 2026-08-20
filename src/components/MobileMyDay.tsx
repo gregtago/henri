@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useRef, Fragment } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { User } from "firebase/auth";
 import {
   subscribeItems,
@@ -90,7 +90,12 @@ function folderPathOf(entry: SelectionEntry, cases: Case[], items: Item[]) {
  */
 type MemoSheetState = { draft: MemoDraft };
 
-export default function MobileMyDay({ user }: { user: User }) {
+export default function MobileMyDay({ user, onGoCases }: { user: User; onGoCases?: () => void }) {
+  // Retour à Mes dossiers : une bascule d'état quand le parent la tend (les
+  // deux vues vivent alors sous le même toit, l'écran change sans attendre),
+  // une vraie navigation sinon.
+  const router = useRouter();
+  const goCases = () => { if (onGoCases) onGoCases(); else router.push("/"); };
   // Réglages de relance (Préférences → Rappels), pour l'interrupteur des rappels.
   const reminderPolicy = useReminderPolicy(user.uid);
   const todayKey = getTodayKey();
@@ -624,14 +629,15 @@ export default function MobileMyDay({ user }: { user: User }) {
       <header style={{ background: "var(--bg)", borderBottom: "1px solid var(--border)", height: "48px", padding: "0 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, position: "relative" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           {/* Accès Mes dossiers — haut à gauche */}
-          <Link
-            href="/"
-            style={{ width: "32px", height: "32px", borderRadius: "50%", border: "1px solid var(--border)", background: "var(--bg-subtle)", color: "var(--text-2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, textDecoration: "none" }}
+          <button
+            type="button"
+            onClick={goCases}
+            style={{ width: "32px", height: "32px", padding: 0, borderRadius: "50%", border: "1px solid var(--border)", background: "var(--bg-subtle)", color: "var(--text-2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer", fontFamily: "inherit" }}
             title="Mes dossiers"
             aria-label="Mes dossiers"
           >
             <Icon name="folder" size={16} />
-          </Link>
+          </button>
           <img src="/logo-henri-new.png" alt="Henri" style={{ height: "24px" }} />
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -1525,13 +1531,13 @@ export default function MobileMyDay({ user }: { user: User }) {
               </div>
             </div>
 
-            <Link
-              href="/"
-              onClick={() => setShowMobileAnnounce(false)}
-              style={{ display: "block", width: "100%", textAlign: "center", boxSizing: "border-box", background: "var(--text)", color: "var(--bg)", padding: "12px", borderRadius: "10px", fontSize: "14px", fontWeight: 600, textDecoration: "none", marginBottom: "6px" }}
+            <button
+              type="button"
+              onClick={() => { setShowMobileAnnounce(false); goCases(); }}
+              style={{ display: "block", width: "100%", textAlign: "center", boxSizing: "border-box", background: "var(--text)", color: "var(--bg)", padding: "12px", border: "none", borderRadius: "10px", fontSize: "14px", fontWeight: 600, fontFamily: "inherit", cursor: "pointer", marginBottom: "6px" }}
             >
               Découvrir Mes dossiers
-            </Link>
+            </button>
             <button
               onClick={() => setShowMobileAnnounce(false)}
               style={{ display: "block", width: "100%", textAlign: "center", background: "transparent", border: "none", color: "var(--text-2)", padding: "8px", fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}

@@ -439,6 +439,7 @@ kbd {
 .side-tab {
   width: 28px;
   flex-shrink: 0;
+  font-family: inherit;
   display: flex;
   align-items: center;
   justify-content: center;
