@@ -1,10 +1,8 @@
 "use client";
 
-import { onAuthStateChanged, type User } from "firebase/auth";
+import { type User } from "firebase/auth";
 import { useCallback, useEffect, useState } from "react";
-import { auth } from "@/lib/firebase";
-import AuthPanel from "@/components/AuthPanel";
-import LoadingScreen from "@/components/LoadingScreen";
+import AuthGate from "@/components/AuthGate";
 import AppShell from "@/components/AppShell";
 import MobileMyDay from "@/components/MobileMyDay";
 
@@ -39,9 +37,19 @@ function useIsMobile() {
   return isMobile;
 }
 
+/**
+ * La porte d'abord, les deux vues ensuite.
+ *
+ * Attendre Firebase, montrer la connexion, exiger l'adresse confirmée, proposer
+ * le second facteur : tout cela vit dans `AuthGate`, pour Mes dossiers, Ma
+ * journée et le Calendrier à la fois. Ce qui suit ne se monte qu'une fois le
+ * trajet fini — et reçoit donc un compte, jamais un `null`.
+ */
 export default function HenriApp({ initialView }: { initialView: HenriView }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  return <AuthGate>{(user) => <HenriViews user={user} initialView={initialView} />}</AuthGate>;
+}
+
+function HenriViews({ user, initialView }: { user: User; initialView: HenriView }) {
   const [view, setView] = useState<HenriView>(initialView);
   const isMobile = useIsMobile();
   // Sur mobile les deux vues sont deux composants distincts. Celui qu'on ne
@@ -50,15 +58,7 @@ export default function HenriApp({ initialView }: { initialView: HenriView }) {
   const [bothMounted, setBothMounted] = useState(false);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (nextUser) => {
-      setUser(nextUser);
-      setLoading(false);
-    });
-    return () => unsub();
-  }, []);
-
-  useEffect(() => {
-    if (!user || !isMobile || bothMounted) return;
+    if (!isMobile || bothMounted) return;
     const start = () => setBothMounted(true);
     const idle = window as Window & {
       requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
@@ -70,7 +70,7 @@ export default function HenriApp({ initialView }: { initialView: HenriView }) {
     }
     const id = window.setTimeout(start, 1200);
     return () => window.clearTimeout(id);
-  }, [user, isMobile, bothMounted]);
+  }, [isMobile, bothMounted]);
 
   const goTo = useCallback((next: HenriView) => {
     setBothMounted(true);
@@ -90,10 +90,6 @@ export default function HenriApp({ initialView }: { initialView: HenriView }) {
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
-
-  if (loading) return <LoadingScreen />;
-
-  if (!user) return <AuthPanel />;
 
   // Sur grand écran, une seule coquille tient les deux vues : elle change de
   // visage sans se démonter, il n'y a rien à garder en réserve.
