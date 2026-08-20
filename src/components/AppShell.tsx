@@ -4692,15 +4692,6 @@ export default function AppShell({ view, onViewChange, active = true }: AppShell
         <MobileTabs
           active={isMyDay ? "myday" : "cases"}
           count={myDayCombined.length}
-          trailing={
-            <AccountMenu
-              uid={user.uid}
-              email={user.email}
-              onNotice={showToast}
-              onNotifStatusChange={setNotifStatus}
-              placement="top"
-            />
-          }
           onSelect={tab => {
             if (tab === "settings") router.push("/settings");
             else goToView(tab);

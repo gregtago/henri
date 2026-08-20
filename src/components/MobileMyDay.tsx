@@ -36,7 +36,6 @@ import {
   suggestTasks,
 } from "@/lib/memoTokens";
 import { Icon } from "./Icon";
-import AccountMenu from "./AccountMenu";
 import { ReminderPicker } from "./ReminderPicker";
 import { RecurrencePicker } from "./RecurrencePicker";
 import { useReminderPolicy, describeRepeat, dueDayReminder, dueReminderPatch } from "@/lib/reminderPolicy";
@@ -956,14 +955,6 @@ export default function MobileMyDay({ user, onGoCases }: { user: User; onGoCases
             active="myday"
             count={todayEntries.length}
             elevated={false}
-            trailing={
-              <AccountMenu
-                uid={user.uid}
-                email={user.email}
-                onNotice={(message) => window.alert(message)}
-                placement="top"
-              />
-            }
             onSelect={tab => {
               if (tab === "cases") goCases();
               else if (tab === "settings") router.push("/settings");

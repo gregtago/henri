@@ -315,9 +315,11 @@ Pas d'échelle Tailwind par défaut hors usage : on respecte les multiples de 2 
 
 Ce qui ne sert pas au travail se replie. Les rappels de cet appareil, l'installation, les Préférences et la déconnexion tenaient cinq boutons en haut à droite de « Dossiers » — et « Ma journée » avait, pour les mêmes choses, un menu tout autre, qui ne menait même pas aux Préférences. Deux grammaires, une barre encombrée à l'endroit précis où l'œil cherche des dossiers.
 
-**Tout tient désormais derrière un rond unique, au même endroit sur chaque écran** (`src/components/AccountMenu.tsx`) — en haut à droite sur grand écran, au bout de la barre du bas sur téléphone, où il se déplie vers le haut (`placement="top"`). Il porte la première lettre de l'adresse connectée : de quoi distinguer d'un coup d'œil le compte de travail du compte d'administration, qui sont deux comptes distincts. Le menu qu'il ouvre dit l'adresse en entier, puis les quatre commandes, dans cet ordre : les rappels sur cet appareil, l'installation (quand elle est possible), les Préférences, la déconnexion.
+**Tout tient désormais derrière un rond unique, en haut à droite du grand écran** (`src/components/AccountMenu.tsx`). Il porte la première lettre de l'adresse connectée : de quoi distinguer d'un coup d'œil le compte de travail du compte d'administration, qui sont deux comptes distincts. Le menu qu'il ouvre dit l'adresse en entier, puis les quatre commandes, dans cet ordre : les rappels sur cet appareil, l'installation (quand elle est possible), les Préférences, la déconnexion.
 
 La règle qui vaut au-delà de ce rond : **une commande qu'on touche une fois par mois n'a pas à occuper la barre que l'on regarde toute la journée.** Ce qui est fréquent — créer, trier, cocher — garde la place ; le reste se replie derrière un geste.
+
+**Sur téléphone, ce rond n'existe pas** : le compte est un onglet des Préférences (`Préférences → Compte` : l'adresse connectée, les rappels de cet appareil, l'installation, la déconnexion). Il n'était de toute façon qu'un raccourci vers elles, et deux destinations pour la même chose coûtaient au téléphone la seule largeur qui lui manquait — celle des trois noms de la barre du bas. Le geste des rappels de cet appareil, lui, ne vit qu'une fois : `useDeviceReminders` (`src/lib/deviceReminders.ts`), que le rond et l'onglet appellent tous les deux.
 
 Le logo suit la même règle et **ne figure plus dans l'en-tête du téléphone** : il ne se touche pas, il ne dit rien qu'on ne sache déjà une fois entré, et il occupait la largeur exacte qui manquait au reste. Il tient sa place là où l'on arrive — connexion, invitation, écran d'attente —, pas là où l'on travaille. Sur grand écran, où la place ne manque pas, il reste centré dans la barre du haut.
 
@@ -371,9 +373,9 @@ Trois règles la tiennent :
 
 - **elle dit où l'on est**, ce qu'aucun des ronds ne faisait : la pastille encrée est l'écran courant ;
 - **elle s'efface pendant qu'on écrit** un mémo — le clavier prend déjà la moitié de l'écran, et on ne navigue pas en pleine phrase ;
-- **elle ne coupe jamais un mot.** Seul l'écran courant porte son nom ; les deux autres se tiennent à leur icône. Trois mots, un compte et le rond du compte ne tiennent pas ensemble sur 390 px sans se couper en « Ma jou… », et un mot coupé ne dit plus rien. Les trois icônes sont déjà le vocabulaire de l'application — le soleil de Ma journée, le dossier, la roue —, et le nom reste annoncé aux lecteurs d'écran (`aria-label`).
+- **elle ne coupe jamais un mot, et les trois portent le leur.** Le corps du texte suit l'écran au lieu de sauter d'un palier à l'autre — `clamp(10.5px, 3.1vw, 12px)` sur `.henri-tab` — : 12 px dès 390 px de large, la taille des chips ; 10,5 px sur un écran de 320 px. Mesuré : à 12,5 px fixes, les trois noms réclamaient 367 px pour 356 disponibles sur un iPhone 14, et « Préférences » se coupait en « Préféren ».
 
-Au bout de la rangée, **le rond du compte**, dans sa propre pastille (`trailing`) : c'est la disposition d'un segmenté suivi d'un bouton séparé. Il garde la même place sur les trois écrans, pour que la pastille ne change pas de largeur quand on passe de l'un à l'autre.
+C'est ce qui a décidé du sort du rond du compte : tant qu'il occupait le bout de la rangée, les trois noms n'y tenaient à aucune taille lisible. Il est donc devenu un onglet des Préférences, dont il n'était que le raccourci.
 
 Le composant ne se positionne pas lui-même : Ma journée l'empile sous sa ligne de saisie, Dossiers et Préférences la font flotter au-dessus du contenu, qui se réserve la hauteur correspondante.
 

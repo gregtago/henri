@@ -1004,3 +1004,11 @@ kbd {
   .henri-sablier { animation: none; }
 }
 
+
+/* ── BARRE DU BAS (mobile) ──
+ * Les trois noms tiennent sur toutes les largeurs de téléphone, du 320 px au
+ * 430 px, parce que le corps du texte suit l'écran au lieu de sauter d'un
+ * palier à l'autre : 12 px dès 390 px de large — la taille des chips —, 10,5 px
+ * sur le plus petit écran. Un mot coupé en « Ma jou… » ne dit plus rien ; un mot
+ * un demi-point plus petit se lit encore. */
+.henri-tab { font-size: clamp(10.5px, 3.1vw, 12px); }
