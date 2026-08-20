@@ -392,6 +392,13 @@ kbd {
 
 /* ── MOBILE RESPONSIVE — VUE DOSSIERS ── */
 @media (max-width: 767px) {
+  /* L'en-tête de colonne se hausse pour loger des commandes qui se touchent
+   * (32 px de côté) : à 34 px, le « + » d'un nouveau dossier était une cible
+   * de 24 px, sous un doigt qui en couvre le double. */
+  .finder-header {
+    height: 42px;
+  }
+
   .finder-column {
     width: 100vw;
     flex-shrink: 0;
