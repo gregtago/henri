@@ -18,6 +18,7 @@
 // fois la date passée.
 
 import { useRouter } from "next/navigation";
+import AuthAppLinks from "@/components/AuthAppLinks";
 import type { MfaStanding } from "@/lib/mfaPolicy";
 
 export default function MfaSuggestion({ standing, onLater }: { standing: MfaStanding; onLater: () => void }) {
@@ -41,7 +42,7 @@ export default function MfaSuggestion({ standing, onLater }: { standing: MfaStan
 
         <div className="space-y-2.5">
           <p className="text-[13px] text-tx-2 leading-relaxed">
-            À la connexion, Henri demandera un <strong className="text-tx">code à six chiffres</strong> lu sur votre téléphone, en plus du mot de passe. Le code vient d&apos;une application d&apos;authentification — Google Authenticator, 1Password, Bitwarden…
+            À la connexion, Henri demandera un <strong className="text-tx">code à six chiffres</strong> lu sur votre téléphone, en plus du mot de passe. Le code vient d&apos;une application d&apos;authentification : <AuthAppLinks />.
           </p>
 
           {/* L'échéance, telle quelle : une date, et ce qu'il reste avant. */}

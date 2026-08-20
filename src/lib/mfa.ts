@@ -4,10 +4,10 @@
 // ne change pas ici. Ce fichier ne s'occupe que du geste : poser un code à six
 // chiffres sur son compte, et le présenter à la connexion.
 //
-// Le mécanisme est celui de toutes les applications d'authentification
-// (Google Authenticator, 1Password, Bitwarden…) : le compte et le téléphone
-// partagent une clé, chacun en tire le même code toutes les trente secondes.
-// La clé ne voyage qu'une fois, à l'inscription ; ensuite plus rien ne
+// Le mécanisme est celui de toutes les applications d'authentification (Google
+// Authenticator, Microsoft Authenticator, 1Password, Bitwarden…) : le compte et
+// le téléphone partagent une clé, chacun en tire le même code toutes les trente
+// secondes. La clé ne voyage qu'une fois, à l'inscription ; ensuite plus rien ne
 // transite, ce qui est précisément l'intérêt — un code lu sur un téléphone ne
 // se pêche pas dans une boîte aux lettres.
 //
