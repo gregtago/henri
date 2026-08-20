@@ -10,13 +10,42 @@
 const BREVO_API_KEY = process.env.BREVO_API_KEY!;
 const SENDER = { name: "Grégoire TAGOT", email: "noreply@mail.tagot.fr" };
 
+/**
+ * Un refus de Brevo, avec de quoi le reconnaître.
+ *
+ * Un `Error` nu obligeait les routes à relire le texte de la réponse pour
+ * savoir à qui la faute — et, faute de le faire, à répondre « L'envoi a
+ * échoué » quelle que soit la cause. Le statut et le code de Brevo voyagent
+ * donc avec l'erreur : le journal garde le détail, la route décide quoi en
+ * dire, et l'utilisateur n'a jamais sous les yeux ni notre adresse IP ni le
+ * lien d'administration que Brevo glisse dans ses messages.
+ */
+export class BrevoError extends Error {
+  constructor(readonly status: number, readonly code: string, readonly detail: string) {
+    super(`Brevo ${status} ${code}: ${detail}`);
+    this.name = "BrevoError";
+  }
+  /** Brevo refuse la clé parce que l'appel vient d'une IP qu'il ne connaît pas.
+   *  Sur Vercel, l'IP change à chaque invocation : c'est un réglage de compte
+   *  à lever (Sécurité → IP autorisées), jamais quelque chose que le code
+   *  puisse contourner. */
+  get isUnknownIp() {
+    return this.code === "unauthorized" && /unrecognised ip address/i.test(this.detail);
+  }
+}
+
 async function sendBrevoEmail(to: string, subject: string, html: string, text: string) {
   const res = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: { "api-key": BREVO_API_KEY, "Content-Type": "application/json" },
     body: JSON.stringify({ sender: SENDER, to: [{ email: to, name: to || to }], subject, htmlContent: html, textContent: text }),
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    const detail = await res.text();
+    let code = "";
+    try { code = String(JSON.parse(detail).code ?? ""); } catch {}
+    throw new BrevoError(res.status, code, detail);
+  }
 }
 
 export async function sendResetEmail(email: string, link: string) {

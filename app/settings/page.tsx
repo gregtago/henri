@@ -110,6 +110,10 @@ export default function SettingsPage() {
   const [linkBusy, setLinkBusy] = useState(false);
   const [admin, setAdmin] = useState(false);
   const [verifyState, setVerifyState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  // Ce que le serveur a répondu quand l'envoi a échoué. « Réessayez dans un
+  // instant » est un mauvais conseil quand la panne vient d'un réglage de
+  // compte : on préfère répéter la raison qu'il donne.
+  const [verifyError, setVerifyError] = useState<string | null>(null);
 
   useEffect(() => {
     const loaded = loadSettings();
@@ -205,9 +209,16 @@ export default function SettingsPage() {
     try {
       const idToken = await user.getIdToken();
       const res = await fetch("/api/verify-email", { method: "POST", headers: { authorization: `Bearer ${idToken}` } });
-      if (!res.ok) throw new Error(String(res.status));
+      if (!res.ok) {
+        const message = await res.json().then((body) => body?.error).catch(() => null);
+        setVerifyError(typeof message === "string" && message ? message : null);
+        setVerifyState("error");
+        return;
+      }
+      setVerifyError(null);
       setVerifyState("sent");
     } catch {
+      setVerifyError(null);
       setVerifyState("error");
     }
   };
@@ -567,7 +578,7 @@ export default function SettingsPage() {
                           <p className="text-[12px] text-ok-strong mt-2 leading-relaxed">Lien envoyé à {user.email}. Ouvrez-le, puis revenez cliquer « actualiser ».</p>
                         )}
                         {verifyState === "error" && (
-                          <p className="text-[12px] text-danger mt-2">L&apos;envoi a échoué. Réessayez dans un instant.</p>
+                          <p className="text-[12px] text-danger mt-2 leading-relaxed">{verifyError ?? "L'envoi a échoué. Réessayez dans un instant."}</p>
                         )}
                       </>
                     )}

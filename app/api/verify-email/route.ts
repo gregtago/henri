@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth } from "@/lib/firebase-admin";
-import { sendVerificationEmail } from "@/lib/brevo";
+import { sendVerificationEmail, BrevoError } from "@/lib/brevo";
 
 export async function POST(req: NextRequest) {
   const idToken = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
@@ -37,6 +37,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, alreadyVerified: false });
   } catch (err: unknown) {
     console.error("[api/verify-email]", err);
+
+    // Trois échecs bien distincts se cachaient derrière « L'envoi a échoué » :
+    // le service de courriel qui refuse l'appel, Firebase qui nous demande de
+    // lever le pied, et le reste. Le premier ne se règle que dans le compte
+    // Brevo ; le deuxième passe tout seul. Autant le dire.
+    if (err instanceof BrevoError && err.isUnknownIp) {
+      return NextResponse.json(
+        { error: "Le service de courriel refuse l'envoi (adresse IP non autorisée côté Brevo). Prévenez l'administrateur : c'est un réglage de compte, pas un problème passager." },
+        { status: 502 },
+      );
+    }
+    if (err instanceof BrevoError) {
+      return NextResponse.json({ error: "Le service de courriel a refusé l'envoi." }, { status: 502 });
+    }
+    // Firebase limite la cadence de `generateEmailVerificationLink` : à force
+    // de réessayer, on se fait fermer la porte pour quelques minutes.
+    const raw = err instanceof Error ? err.message : String(err);
+    if (/TOO_MANY_ATTEMPTS_TRY_LATER/i.test(raw)) {
+      return NextResponse.json(
+        { error: "Trop de demandes d'affilée. Patientez quelques minutes avant de réessayer." },
+        { status: 429 },
+      );
+    }
     return NextResponse.json({ error: "L'envoi a échoué." }, { status: 500 });
   }
 }
