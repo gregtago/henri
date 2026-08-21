@@ -383,3 +383,9 @@ réelles.
 
 *Proposition — juillet 2026. Maquette fonctionnelle branchée sur les données
 réelles, à ouvrir sur `/calendrier`.*
+
+---
+
+*Suite : `CALENDRIER-V2.md` — proposition d'amélioration de la vue en service
+(le statut « Reçu » absent du calendrier, la réglette de 90 jours, le filtre par
+dossier, le sas à ordonner, et huit défauts constatés dans le code).*
