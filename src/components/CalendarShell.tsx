@@ -14,16 +14,19 @@
 //
 // Voir CALENDRIER.md pour le raisonnement complet.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { User } from "firebase/auth";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Icon } from "@/components/Icon";
+import DueChips from "@/components/DueChips";
 import {
   subscribeCases,
   subscribeItems,
   subscribeFloatingTasks,
   subscribeEvents,
   subscribeMyDaySelections,
+  createItem,
   updateItem,
   updateFloatingTask,
   updateItemProgress,
@@ -31,7 +34,8 @@ import {
   addMyDaySelection,
 } from "@/lib/firestore";
 import type { Case, Event as HenriEvent, FloatingTask, Item, MyDaySelection, Status } from "@/lib/types";
-import { getDateKey, formatDateFR } from "@/lib/dates";
+import { STATUSES } from "@/lib/types";
+import { getDateKey, formatDateFR, atDueHour } from "@/lib/dates";
 import { addDays, type DelaiInfo } from "@/lib/delais";
 import {
   buildCalendarModel,
@@ -77,7 +81,11 @@ const startOfToday = () => {
 const shortDate = (date: Date) =>
   `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}`;
 
+/** Brouillon de création d'une tâche — pré-rempli selon le geste qui l'ouvre. */
+type Draft = { caseId: string | null; dueDate: Date | null };
+
 export default function CalendarShell({ user }: { user: User }) {
+  const router = useRouter();
   const [mode, setMode] = useState<Mode>("semaine");
   const [anchor, setAnchor] = useState<Date>(startOfToday);
   const [today, setToday] = useState<Date>(startOfToday);
@@ -93,6 +101,15 @@ export default function CalendarShell({ user }: { user: User }) {
   const [toast, setToast] = useState<string | null>(null);
   const [dragTaskId, setDragTaskId] = useState<string | null>(null);
   const [dropHour, setDropHour] = useState<number | null>(null);
+  const [draft, setDraft] = useState<Draft | null>(null);
+
+  // Miroir de `selected` pour les raccourcis clavier : un écouteur global ne
+  // doit ni capturer une valeur périmée, ni déclencher d'écriture depuis un
+  // updater d'état (StrictMode l'appellerait deux fois).
+  const selectedRef = useRef<CalendarEntry | null>(null);
+  useEffect(() => { selectedRef.current = selected; }, [selected]);
+  const draftRef = useRef<Draft | null>(null);
+  useEffect(() => { draftRef.current = draft; }, [draft]);
 
   const showToast = useCallback((message: string) => {
     setToast(message);
@@ -152,27 +169,35 @@ export default function CalendarShell({ user }: { user: User }) {
     [days, today, cases, items, floatingTasks, events, myDaySelections]
   );
 
+  // L'inspecteur suit la donnée : après un changement de statut, l'entrée
+  // sélectionnée est recherchée dans le modèle recalculé — même clé d'abord,
+  // même tâche sinon. Sans quoi le panneau montrerait l'état d'avant le clic.
+  useEffect(() => {
+    setSelected((current) => {
+      if (!current) return current;
+      const pool: CalendarEntry[] = [
+        ...model.souffrance,
+        ...model.days.flatMap((cell) => [...cell.entrant, ...cell.sortant, ...cell.fait]),
+        ...model.bars.map((bar) => ({
+          key: `${bar.task.id}-bar`,
+          task: bar.task,
+          reason: bar.overdueFrom ? ("relance" as const) : ("retour" as const),
+          overdue: !!bar.overdueFrom,
+        })),
+      ];
+      return (
+        pool.find((entry) => entry.key === current.key) ??
+        pool.find((entry) => entry.task.id === current.task.id) ??
+        current
+      );
+    });
+  }, [model]);
+
   // ── Navigation ──────────────────────────────────────────────────────────
   const step = useCallback(
     (direction: 1 | -1) => setAnchor((current) => addDays(current, direction * (mode === "jour" ? 1 : 7))),
     [mode]
   );
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (target && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))) return;
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
-      if (event.key === "ArrowRight") { event.preventDefault(); step(1); }
-      else if (event.key === "ArrowLeft") { event.preventDefault(); step(-1); }
-      else if (event.key.toLowerCase() === "s") setMode("semaine");
-      else if (event.key.toLowerCase() === "j") setMode("jour");
-      else if (event.key.toLowerCase() === "t") { setAnchor(startOfToday()); }
-      else if (event.key === "Escape") setSelected(null);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [step]);
 
   // ── Écritures ───────────────────────────────────────────────────────────
   const scheduleReminder = useCallback(
@@ -216,6 +241,75 @@ export default function CalendarShell({ user }: { user: User }) {
     [user.uid, today, showToast]
   );
 
+  // Ouvrir la tâche là où elle vit : Mes dossiers, dossier ouvert, tâche
+  // sélectionnée. Même mécanisme que le lien « Dossier » de Ma journée —
+  // la sélection attend dans sessionStorage, AppShell la restaure.
+  const openInCase = useCallback(
+    (task: CalendarTask) => {
+      if (task.kind === "floating" || !task.caseId) {
+        router.push("/my-day");
+        return;
+      }
+      sessionStorage.setItem(
+        "pendingSelection",
+        JSON.stringify({
+          caseId: task.caseId,
+          itemId: task.level === 3 && task.parentItemId ? task.parentItemId : task.id,
+          subItemId: task.level === 3 ? task.id : null,
+        })
+      );
+      router.push("/");
+    },
+    [router]
+  );
+
+  const createTask = useCallback(
+    async (caseId: string, title: string, due: Date | null) => {
+      await createItem(user.uid, {
+        caseId,
+        parentItemId: null,
+        level: 2,
+        title: title.trim(),
+        status: "Créé",
+        dueDate: due ? atDueHour(due).toISOString() : null,
+      });
+      const caseTitle = cases.find((entry) => entry.id === caseId)?.title ?? "le dossier";
+      showToast(
+        due
+          ? `Tâche créée dans ${caseTitle} — échéance ${shortDate(due)}.`
+          : `Tâche créée dans ${caseTitle}.`
+      );
+      setDraft(null);
+    },
+    [user.uid, cases, showToast]
+  );
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.key === "ArrowRight") { event.preventDefault(); step(1); }
+      else if (event.key === "ArrowLeft") { event.preventDefault(); step(-1); }
+      else if (event.key.toLowerCase() === "s") setMode("semaine");
+      else if (event.key.toLowerCase() === "j") setMode("jour");
+      else if (event.key.toLowerCase() === "t") { setAnchor(startOfToday()); }
+      else if (event.key.toLowerCase() === "n") { event.preventDefault(); setDraft({ caseId: null, dueDate: null }); }
+      else if (event.key === "Escape") {
+        if (draftRef.current) setDraft(null);
+        else setSelected(null);
+      }
+      else if (/^[1-4]$/.test(event.key)) {
+        // Les mêmes raccourcis 1–4 que dans le reste d'Henri : le statut de la
+        // tâche sélectionnée, sans rien ouvrir.
+        const current = selectedRef.current;
+        if (current && !current.task.isMemo) void advanceStatus(current.task, STATUSES[Number(event.key) - 1]);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [step, advanceStatus]);
+
   // ── Rendu ───────────────────────────────────────────────────────────────
   const periodLabel = useMemo(() => {
     if (mode === "jour") {
@@ -252,7 +346,14 @@ export default function CalendarShell({ user }: { user: User }) {
           <span className="text-[13px] text-tx ml-2 font-medium">{periodLabel}</span>
         </div>
 
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            className="cal-btn"
+            onClick={() => setDraft({ caseId: null, dueDate: null })}
+            title="Nouvelle tâche (N) — double-clic sur un jour pour pré-remplir l'échéance"
+          >
+            + Tâche
+          </button>
           <div className="cal-toggle">
             <button data-on={mode === "semaine"} onClick={() => setMode("semaine")} title="Vue semaine (S)">Semaine</button>
             <button data-on={mode === "jour"} onClick={() => setMode("jour")} title="Vue jour (J)">Jour</button>
@@ -279,6 +380,7 @@ export default function CalendarShell({ user }: { user: User }) {
                 selected={selected?.key === entry.key}
                 dimmed={!!hoveredTaskId && hoveredTaskId !== entry.task.id}
                 onSelect={() => setSelected(entry)}
+                onOpen={() => openInCase(entry.task)}
                 onHover={setHoveredTaskId}
                 onDragStart={setDragTaskId}
               />
@@ -295,7 +397,9 @@ export default function CalendarShell({ user }: { user: User }) {
               hoveredTaskId={hoveredTaskId}
               onSelect={setSelected}
               onHover={setHoveredTaskId}
+              onOpen={openInCase}
               onOpenDay={(date) => { setAnchor(date); setMode("jour"); }}
+              onDraftDay={(date) => setDraft({ caseId: null, dueDate: date })}
               onDragStart={setDragTaskId}
             />
           ) : (
@@ -307,6 +411,7 @@ export default function CalendarShell({ user }: { user: User }) {
               dropHour={dropHour}
               onSelect={setSelected}
               onHover={setHoveredTaskId}
+              onOpen={openInCase}
               onDragStart={setDragTaskId}
               onDropHour={async (hour) => {
                 const task = findTask(model.days[0], model.souffrance, dragTaskId);
@@ -319,14 +424,28 @@ export default function CalendarShell({ user }: { user: User }) {
           )}
         </main>
 
-        {/* ── INSPECTEUR ── */}
-        {selected && (
+        {/* ── PANNEAU DROIT ── créer prend la place d'inspecter : un seul
+          * panneau à la fois, jamais de modale (cf. CALENDRIER.md § 8). */}
+        {draft ? (
+          <TaskCreator
+            cases={cases}
+            draft={draft}
+            onClose={() => setDraft(null)}
+            onCreate={createTask}
+          />
+        ) : selected && (
           <Inspector
             entry={selected}
             onClose={() => setSelected(null)}
             onAddToMyDay={() => addToMyDay(selected.task)}
             onAdvance={(status) => advanceStatus(selected.task, status)}
             onDelai={(days) => setDelaiDays(selected.task, days)}
+            onOpenCase={() => openInCase(selected.task)}
+            onNewTask={
+              selected.task.caseId
+                ? () => setDraft({ caseId: selected.task.caseId, dueDate: null })
+                : undefined
+            }
           />
         )}
       </div>
@@ -352,11 +471,13 @@ type WeekProps = {
   hoveredTaskId: string | null;
   onSelect: (entry: CalendarEntry) => void;
   onHover: (taskId: string | null) => void;
+  onOpen: (task: CalendarTask) => void;
   onOpenDay: (date: Date) => void;
+  onDraftDay: (date: Date) => void;
   onDragStart: (taskId: string | null) => void;
 };
 
-function WeekView({ model, selected, hoveredTaskId, onSelect, onHover, onOpenDay, onDragStart }: WeekProps) {
+function WeekView({ model, selected, hoveredTaskId, onSelect, onHover, onOpen, onOpenDay, onDraftDay, onDragStart }: WeekProps) {
   const columnIndex = useMemo(() => {
     const map = new Map<string, number>();
     model.days.forEach((cell, index) => map.set(cell.dateKey, index));
@@ -394,7 +515,15 @@ function WeekView({ model, selected, hoveredTaskId, onSelect, onHover, onOpenDay
       <div className="cal-grid cal-band cal-band-out">
         <div className="cal-gutter"><span className="cal-gutter-label">à faire</span></div>
         {model.days.map((cell) => (
-          <div key={cell.dateKey} className="cal-cell" data-today={cell.isToday} data-weekend={cell.isWeekend} data-past={cell.isPast}>
+          <div
+            key={cell.dateKey}
+            className="cal-cell"
+            data-today={cell.isToday}
+            data-weekend={cell.isWeekend}
+            data-past={cell.isPast}
+            onDoubleClick={cell.isPast ? undefined : (event) => { if (event.target === event.currentTarget) onDraftDay(cell.date); }}
+            title={cell.isPast ? undefined : "Double-clic : nouvelle tâche à cette échéance"}
+          >
             {cell.isPast ? (
               <>
                 {cell.fait.slice(0, 5).map((entry) => (
@@ -405,6 +534,7 @@ function WeekView({ model, selected, hoveredTaskId, onSelect, onHover, onOpenDay
                     selected={selected?.key === entry.key}
                     dimmed={!!hoveredTaskId && hoveredTaskId !== entry.task.id}
                     onSelect={() => onSelect(entry)}
+                    onOpen={() => onOpen(entry.task)}
                     onHover={onHover}
                     onDragStart={onDragStart}
                   />
@@ -421,6 +551,7 @@ function WeekView({ model, selected, hoveredTaskId, onSelect, onHover, onOpenDay
                   selected={selected?.key === entry.key}
                   dimmed={!!hoveredTaskId && hoveredTaskId !== entry.task.id}
                   onSelect={() => onSelect(entry)}
+                  onOpen={() => onOpen(entry.task)}
                   onHover={onHover}
                   onDragStart={onDragStart}
                 />
@@ -495,7 +626,15 @@ function WeekView({ model, selected, hoveredTaskId, onSelect, onHover, onOpenDay
       <div className="cal-grid cal-band cal-band-in">
         <div className="cal-gutter"><span className="cal-gutter-label">échéances</span></div>
         {model.days.map((cell) => (
-          <div key={cell.dateKey} className="cal-cell" data-today={cell.isToday} data-weekend={cell.isWeekend} data-past={cell.isPast}>
+          <div
+            key={cell.dateKey}
+            className="cal-cell"
+            data-today={cell.isToday}
+            data-weekend={cell.isWeekend}
+            data-past={cell.isPast}
+            onDoubleClick={cell.isPast ? undefined : (event) => { if (event.target === event.currentTarget) onDraftDay(cell.date); }}
+            title={cell.isPast ? undefined : "Double-clic : nouvelle tâche à cette échéance"}
+          >
             {!cell.isPast && cell.entrant.map((entry) => (
               <EntryChip
                 key={entry.key}
@@ -504,6 +643,7 @@ function WeekView({ model, selected, hoveredTaskId, onSelect, onHover, onOpenDay
                 selected={selected?.key === entry.key}
                 dimmed={!!hoveredTaskId && hoveredTaskId !== entry.task.id}
                 onSelect={() => onSelect(entry)}
+                onOpen={() => onOpen(entry.task)}
                 onHover={onHover}
                 onDragStart={onDragStart}
               />
@@ -527,6 +667,7 @@ type DayProps = {
   dropHour: number | null;
   onSelect: (entry: CalendarEntry) => void;
   onHover: (taskId: string | null) => void;
+  onOpen: (task: CalendarTask) => void;
   onDragStart: (taskId: string | null) => void;
   onDropHour: (hour: number) => void;
   onHoverHour: (hour: number | null) => void;
@@ -534,7 +675,7 @@ type DayProps = {
 
 function DayView({
   cell, model, selected, hoveredTaskId, dropHour,
-  onSelect, onHover, onDragStart, onDropHour, onHoverHour,
+  onSelect, onHover, onOpen, onDragStart, onDropHour, onHoverHour,
 }: DayProps) {
   const hours = Array.from({ length: RAIL_END_HOUR - RAIL_START_HOUR + 1 }, (_, i) => RAIL_START_HOUR + i);
 
@@ -602,6 +743,7 @@ function DayView({
             hoveredTaskId={hoveredTaskId}
             onSelect={onSelect}
             onHover={onHover}
+            onOpen={onOpen}
             onDragStart={onDragStart}
           />
           <Lane
@@ -619,6 +761,7 @@ function DayView({
             hoveredTaskId={hoveredTaskId}
             onSelect={onSelect}
             onHover={onHover}
+            onOpen={onOpen}
             onDragStart={onDragStart}
           />
           <Lane
@@ -631,6 +774,7 @@ function DayView({
             hoveredTaskId={hoveredTaskId}
             onSelect={onSelect}
             onHover={onHover}
+            onOpen={onOpen}
             onDragStart={onDragStart}
           />
         </div>
@@ -662,10 +806,11 @@ type LaneProps = {
   hoveredTaskId: string | null;
   onSelect: (entry: CalendarEntry) => void;
   onHover: (taskId: string | null) => void;
+  onOpen: (task: CalendarTask) => void;
   onDragStart: (taskId: string | null) => void;
 };
 
-function Lane({ title, hint, entries, empty, variant, selected, hoveredTaskId, onSelect, onHover, onDragStart }: LaneProps) {
+function Lane({ title, hint, entries, empty, variant, selected, hoveredTaskId, onSelect, onHover, onOpen, onDragStart }: LaneProps) {
   return (
     <section className="cal-lane" data-variant={variant}>
       <div className="finder-header">
@@ -684,6 +829,7 @@ function Lane({ title, hint, entries, empty, variant, selected, hoveredTaskId, o
             selected={selected?.key === entry.key}
             dimmed={!!hoveredTaskId && hoveredTaskId !== entry.task.id}
             onSelect={() => onSelect(entry)}
+            onOpen={() => onOpen(entry.task)}
             onHover={onHover}
             onDragStart={onDragStart}
           />
@@ -704,11 +850,13 @@ type ChipProps = {
   selected: boolean;
   dimmed: boolean;
   onSelect: () => void;
+  /** Double-clic : ouvrir la tâche dans son dossier, geste Finder. */
+  onOpen?: () => void;
   onHover: (taskId: string | null) => void;
   onDragStart: (taskId: string | null) => void;
 };
 
-function EntryChip({ entry, variant, large, selected, dimmed, onSelect, onHover, onDragStart }: ChipProps) {
+function EntryChip({ entry, variant, large, selected, dimmed, onSelect, onOpen, onHover, onDragStart }: ChipProps) {
   const { task, reason, overdue } = entry;
   return (
     <button
@@ -724,9 +872,10 @@ function EntryChip({ entry, variant, large, selected, dimmed, onSelect, onHover,
       onDragStart={() => onDragStart(task.id)}
       onDragEnd={() => onDragStart(null)}
       onClick={onSelect}
+      onDoubleClick={onOpen}
       onMouseEnter={() => onHover(task.id)}
       onMouseLeave={() => onHover(null)}
-      title={explainEntry(entry)}
+      title={`${explainEntry(entry)} — double-clic : ouvrir le dossier`}
     >
       <span className="cal-chip-dot" style={{ background: STATUS_DOT[task.status] }} aria-hidden />
       <span className="cal-chip-title">{task.title}</span>
@@ -748,9 +897,11 @@ type InspectorProps = {
   onAddToMyDay: () => void;
   onAdvance: (status: Status) => void;
   onDelai: (days: number) => void;
+  onOpenCase: () => void;
+  onNewTask?: () => void;
 };
 
-function Inspector({ entry, onClose, onAddToMyDay, onAdvance, onDelai }: InspectorProps) {
+function Inspector({ entry, onClose, onAddToMyDay, onAdvance, onDelai, onOpenCase, onNewTask }: InspectorProps) {
   const { task } = entry;
   const [draftDelai, setDraftDelai] = useState(String(task.delai.days));
   useEffect(() => setDraftDelai(String(task.delai.days)), [task.id, task.delai.days]);
@@ -834,7 +985,171 @@ function Inspector({ entry, onClose, onAddToMyDay, onAdvance, onDelai }: Inspect
 
       <div className="cal-inspector-actions">
         <button className="detail-action-btn detail-action-primary" onClick={onAddToMyDay}>☀ Ma journée</button>
-        <Link href="/" className="detail-action-btn" style={{ textDecoration: "none" }}>Ouvrir le dossier</Link>
+        <button className="detail-action-btn" onClick={onOpenCase}>
+          {task.kind === "floating" || !task.caseId ? "Ouvrir Ma journée" : "Ouvrir le dossier"}
+        </button>
+      </div>
+      {onNewTask && (
+        <button className="cal-newtask-link" onClick={onNewTask}>
+          + Nouvelle tâche dans {task.caseTitle ?? "ce dossier"}
+        </button>
+      )}
+    </aside>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CRÉATION — une tâche naît dans un dossier ; le calendrier ne fait que lui
+// donner tout de suite une place dans le temps. Le panneau prend le slot de
+// l'inspecteur : un seul panneau à la fois, pas de modale.
+// ─────────────────────────────────────────────────────────────────────────────
+
+type CreatorProps = {
+  cases: Case[];
+  draft: Draft;
+  onClose: () => void;
+  onCreate: (caseId: string, title: string, due: Date | null) => void;
+};
+
+function TaskCreator({ cases, draft, onClose, onCreate }: CreatorProps) {
+  const open = useMemo(
+    () =>
+      cases
+        .filter((entry) => !entry.archived)
+        .sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "")),
+    [cases]
+  );
+
+  const [caseId, setCaseId] = useState<string | null>(draft.caseId);
+  const [query, setQuery] = useState("");
+  const [listOpen, setListOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [title, setTitle] = useState("");
+  const [due, setDue] = useState<Date | null>(draft.dueDate);
+
+  const caseInputRef = useRef<HTMLInputElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+
+  // Le curseur va là où il manque quelque chose : le dossier, sinon le titre.
+  useEffect(() => {
+    (draft.caseId ? titleInputRef : caseInputRef).current?.focus();
+  }, [draft.caseId]);
+
+  const selectedCase = open.find((entry) => entry.id === caseId) ?? null;
+
+  const strip = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const matches = useMemo(() => {
+    const needle = strip(query.trim());
+    const pool = needle ? open.filter((entry) => strip(entry.title).includes(needle)) : open;
+    return pool.slice(0, 8);
+  }, [open, query]);
+
+  const pickCase = (id: string) => {
+    setCaseId(id);
+    setQuery("");
+    setListOpen(false);
+    titleInputRef.current?.focus();
+  };
+
+  const canCreate = !!caseId && title.trim().length > 0;
+  const submit = () => {
+    if (canCreate) onCreate(caseId as string, title, due);
+  };
+
+  return (
+    <aside className="cal-inspector" onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); onClose(); } }}>
+      <div className="finder-header">
+        <span>Nouvelle tâche</span>
+        <button className="cal-icon-btn" onClick={onClose} title="Fermer (Échap)" aria-label="Fermer">
+          <Icon name="close" size={14} />
+        </button>
+      </div>
+
+      <div className="cal-inspector-body">
+        <p className="cal-section-label">Dossier</p>
+        <div className="cal-combo">
+          <input
+            ref={caseInputRef}
+            className="cal-input"
+            placeholder="Chercher un dossier…"
+            value={listOpen || !selectedCase ? query : selectedCase.title}
+            onFocus={() => { setListOpen(true); setActiveIndex(0); }}
+            onBlur={() => setListOpen(false)}
+            onChange={(event) => { setQuery(event.target.value); setListOpen(true); setActiveIndex(0); }}
+            onKeyDown={(event) => {
+              if (!listOpen) return;
+              if (event.key === "ArrowDown") { event.preventDefault(); setActiveIndex((i) => Math.min(i + 1, matches.length - 1)); }
+              else if (event.key === "ArrowUp") { event.preventDefault(); setActiveIndex((i) => Math.max(i - 1, 0)); }
+              else if (event.key === "Enter") { event.preventDefault(); if (matches[activeIndex]) pickCase(matches[activeIndex].id); }
+              // Tant que la liste est ouverte, Échap lui appartient — même règle
+              // que la ligne de saisie de Ma journée.
+              else if (event.key === "Escape") { event.stopPropagation(); setListOpen(false); }
+            }}
+            aria-label="Dossier de la tâche"
+          />
+          {listOpen && (
+            <div className="cal-combo-list">
+              {matches.length === 0 && <p className="cal-combo-empty">Aucun dossier à ce nom.</p>}
+              {matches.map((entry, index) => (
+                <button
+                  key={entry.id}
+                  className="cal-combo-item"
+                  data-active={index === activeIndex}
+                  onMouseEnter={() => setActiveIndex(index)}
+                  // mousedown : avant le blur de l'input, sinon la liste se ferme sans retenir.
+                  onMouseDown={(event) => { event.preventDefault(); pickCase(entry.id); }}
+                >
+                  {entry.title}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <p className="cal-section-label" style={{ marginTop: 16 }}>Titre</p>
+        <input
+          ref={titleInputRef}
+          className="cal-input"
+          placeholder="Demander l'état daté au syndic…"
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+          onKeyDown={(event) => { if (event.key === "Enter") submit(); }}
+          aria-label="Titre de la tâche"
+        />
+
+        <p className="cal-section-label" style={{ marginTop: 16 }}>Échéance</p>
+        <div style={{ marginBottom: 8 }}>
+          <DueChips
+            value={due ? due.toISOString() : null}
+            onPick={(date) => setDue(date)}
+            onClear={due ? () => setDue(null) : undefined}
+          />
+        </div>
+        <input
+          type="date"
+          className="cal-input"
+          value={due ? getDateKey(due) : ""}
+          onChange={(event) => {
+            if (!event.target.value) { setDue(null); return; }
+            const [y, m, d] = event.target.value.split("-").map(Number);
+            if (y < 1900 || y > 2100) return;
+            setDue(new Date(y, m - 1, d));
+          }}
+          aria-label="Échéance de la tâche"
+        />
+        {due && (
+          <p className="cal-note-hint" style={{ marginTop: 12 }}>
+            Elle apparaîtra dans « échéances » le {formatDateFR(due)}, et dans
+            « à faire » le jour où la demande devra partir.
+          </p>
+        )}
+      </div>
+
+      <div className="cal-inspector-actions">
+        <button className="detail-action-btn detail-action-primary" onClick={submit} disabled={!canCreate}>
+          Créer la tâche
+        </button>
+        <button className="detail-action-btn" onClick={onClose}>Annuler</button>
       </div>
     </aside>
   );

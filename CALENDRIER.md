@@ -331,7 +331,15 @@ Cohérent avec l'existant (DESIGN.md, « clavier first ») :
 | `S` / `J` | vue Semaine / vue Jour |
 | `←` / `→` | période précédente / suivante |
 | `T` | revenir à aujourd'hui |
-| `Échap` | fermer l'inspecteur |
+| `N` | nouvelle tâche (panneau droit) |
+| `1`–`4` | statut de la tâche sélectionnée — les mêmes raccourcis que partout |
+| `Échap` | fermer le panneau — la création d'abord, l'inspecteur ensuite |
+
+À la souris, deux gestes qui ne s'annoncent pas mais se découvrent (les
+infobulles les disent) : **double-clic sur une pastille** → la tâche s'ouvre
+dans son dossier, sélectionnée, comme le lien « Dossier » de Ma journée ;
+**double-clic sur une case de jour à venir** → nouvelle tâche, l'échéance déjà
+posée sur ce jour.
 
 Désactivé dès que le focus est dans un champ éditable.
 

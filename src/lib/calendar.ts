@@ -29,6 +29,9 @@ export type CalendarTask = {
   status: Item["status"];
   starred: boolean;
   level: 2 | 3 | null;
+  /** Pour une sous-tâche : la tâche qui la porte — nécessaire pour la
+   * resélectionner dans Mes dossiers depuis le calendrier. */
+  parentItemId: string | null;
   /** Un mémo se coche ; il n'a ni délai de retour, ni attente à dessiner. */
   isMemo: boolean;
   dueDate: Date | null;         // échéance portée par la tâche (ou l'échéance légale du dossier)
@@ -160,6 +163,7 @@ export const toCalendarTask = (
     status: item.status,
     starred: !!item.starred,
     level: item.level,
+    parentItemId: item.parentItemId ?? null,
     isMemo: false,
     dueDate,
     dueFromCase: !own && !!legal,
@@ -183,6 +187,7 @@ const floatingToTask = (task: FloatingTask): CalendarTask => ({
   status: task.status,
   starred: !!task.starred,
   level: null,
+  parentItemId: null,
   isMemo: true,
   dueDate: toDate(task.dueDate ?? null),
   dueFromCase: false,
