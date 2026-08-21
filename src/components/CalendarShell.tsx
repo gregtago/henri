@@ -1,16 +1,16 @@
 "use client";
 
-// Vue Calendrier — « les deux rives ».
+// Vue Calendrier.
 //
 // Parti pris : Henri n'a pas de rendez-vous, il a des pièces qui circulent.
-// Une grille horaire classique serait vide 90 % du temps. On remplace donc
-// les heures par un axe à deux rives :
-//   À FAIRE    — ce que je réalise ce jour-là (demandes à faire, relances)
-//   J'ATTENDS  — les demandes parties sans réponse, dessinées comme des durées
-//   ÉCHÉANCES  — ce qui tombe ce jour-là (échéance, retour attendu, rappel)
-//
-// La terminologie suit le cycle de vie d'une tâche dans Henri :
-// je la crée → je la réalise → j'attends le retour → traité, elle disparaît.
+// Une grille horaire classique serait vide 90 % du temps. La règle de
+// lecture : LE STATUT DÉCIDE DE LA PLACE, une seule place par tâche.
+//   Créé     → À FAIRE, le jour où la demande doit partir (le sas si dépassé)
+//   Demandé  → J'ATTENDS, une barre — la relance est un état de la barre
+//   Reçu     → la BANNETTE (le sas si l'échéance est dépassée)
+//   Traité   → le passé (« fait »)
+// La bande ÉCHÉANCES ne porte que des échéances ; les rappels vivent sur le
+// rail horaire de la vue Jour (et en compteur dans l'en-tête du jour).
 //
 // Voir CALENDRIER.md pour le raisonnement complet.
 
@@ -214,7 +214,7 @@ export default function CalendarShell({ user }: { user: User }) {
         ...model.souffrance,
         ...model.souffranceGroups.flatMap((group) => group.entries),
         ...model.bannette,
-        ...model.days.flatMap((cell) => [...cell.entrant, ...cell.sortant, ...cell.fait]),
+        ...model.days.flatMap((cell) => [...cell.entrant, ...cell.sortant, ...cell.rappels, ...cell.fait]),
         ...model.bars.map((bar) => ({
           key: `${bar.task.id}-bar`,
           task: bar.task,
@@ -633,6 +633,7 @@ const findTask = (model: ReturnType<typeof buildCalendarModel>, taskId: string |
   const pool: CalendarTask[] = [
     ...cell.entrant.map((entry) => entry.task),
     ...cell.sortant.map((entry) => entry.task),
+    ...cell.rappels.map((entry) => entry.task),
     ...model.souffrance.map((entry) => entry.task),
     ...model.souffranceGroups.flatMap((group) => group.entries.map((entry) => entry.task)),
     ...model.bannette.map((entry) => entry.task),
@@ -697,6 +698,11 @@ function WeekView({ model, selected, hoveredTaskId, onSelect, onHover, onOpen, o
           >
             <span className="cal-day-name">{DAY_NAMES[cell.date.getDay()]}</span>
             <span className="cal-day-num">{cell.date.getDate()}</span>
+            {cell.rappels.length > 0 && (
+              <span className="cal-day-bell" title={`${cell.rappels.length} rappel${cell.rappels.length > 1 ? "s" : ""} — ouvrir la vue Jour`}>
+                🔔{cell.rappels.length > 1 ? cell.rappels.length : ""}
+              </span>
+            )}
             <span className="cal-load" style={{ opacity: 0.15 + cell.load * 0.85 }} aria-hidden />
           </button>
         ))}
@@ -751,33 +757,12 @@ function WeekView({ model, selected, hoveredTaskId, onSelect, onHover, onOpen, o
                     onDragStart={onDragStart}
                   />
                 ))}
-                {/* Ce qui a déjà avancé aujourd'hui — le modèle le calculait,
-                  * la vue ne le montrait que sur les jours passés. */}
-                {cell.isToday &&
-                  (() => {
-                    const done = cell.fait.filter(
-                      (entry) => !cell.sortant.some((other) => other.task.id === entry.task.id)
-                    );
-                    if (done.length === 0) return null;
-                    return (
-                      <>
-                        <span className="cal-fait-label">avancé aujourd&apos;hui</span>
-                        {done.map((entry) => (
-                          <EntryChip
-                            key={entry.key}
-                            entry={entry}
-                            variant="fait"
-                            selected={selected?.key === entry.key}
-                            dimmed={!!hoveredTaskId && hoveredTaskId !== entry.task.id}
-                            onSelect={() => onSelect(entry)}
-                            onOpen={() => onOpen(entry.task)}
-                            onHover={onHover}
-                            onDragStart={onDragStart}
-                          />
-                        ))}
-                      </>
-                    );
-                  })()}
+                {/* Le réalisé du jour, en une ligne : « à faire » ne montre
+                  * que ce qui reste à faire — une tâche qui a avancé n'y a
+                  * plus sa place, même en grisé. */}
+                {cell.isToday && cell.fait.length > 0 && (
+                  <span className="cal-fait-count">✓ {cell.fait.length} tâche{cell.fait.length > 1 ? "s ont" : " a"} avancé aujourd&apos;hui</span>
+                )}
               </>
             )}
           </div>
@@ -825,7 +810,7 @@ function WeekView({ model, selected, hoveredTaskId, onSelect, onHover, onOpen, o
                 <span className="cal-bar-title">{bar.task.title}</span>
                 <span className="cal-bar-meta">
                   {bar.task.caseTitle ? `${bar.task.caseTitle} · ` : ""}
-                  {late ? `en retard depuis le ${shortDate(bar.overdueFrom as Date)}` : `attendu ${shortDate(bar.task.expectedReturn ?? bar.end)}`}
+                  {late ? `à relancer — retour attendu le ${shortDate(bar.task.expectedReturn ?? bar.end)}` : `attendu ${shortDate(bar.task.expectedReturn ?? bar.end)}`}
                 </span>
                 {endIndex !== undefined && !late && <span className="cal-bar-cap">◂</span>}
               </div>
@@ -905,13 +890,13 @@ function DayView({
   const hours = Array.from({ length: RAIL_END_HOUR - RAIL_START_HOUR + 1 }, (_, i) => RAIL_START_HOUR + i);
 
   // Le rail n'accueille que ce qui est réellement horodaté : les rappels.
-  const railEntries = cell.entrant.filter((entry) => entry.reason === "rappel");
-  const attendu = cell.entrant.filter((entry) => entry.reason !== "rappel");
+  const railEntries = cell.rappels;
+  const attendu = cell.entrant;
 
   // Ce que ça déclenche : une demande faite aujourd'hui revient à telle date.
   // C'est la contrepartie de la bande « à faire ».
   const engagements = cell.sortant
-    .filter((entry) => entry.reason === "lancement" || entry.reason === "relance")
+    .filter((entry) => entry.reason === "lancement")
     .map((entry) => ({ entry, back: entry.task.dueDate }));
 
   return (

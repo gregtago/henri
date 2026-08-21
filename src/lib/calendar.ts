@@ -76,8 +76,9 @@ export type DayCell = {
   isToday: boolean;
   isPast: boolean;
   isWeekend: boolean;
-  entrant: CalendarEntry[];  // rive haute
-  sortant: CalendarEntry[];  // rive basse
+  entrant: CalendarEntry[];  // échéances — et rien d'autre
+  sortant: CalendarEntry[];  // à faire — les lancements, et rien d'autre
+  rappels: CalendarEntry[];  // les rappels du jour — le rail de la vue Jour
   fait: CalendarEntry[];     // réalisé (jours passés)
   myDayCount: number;        // nb d'éléments mis dans Ma journée ce jour-là
   load: number;              // 0 → 1, intensité de charge relative à la fenêtre
@@ -278,15 +279,21 @@ export const buildCalendarModel = ({
 
     const entrant: CalendarEntry[] = [];
     const sortant: CalendarEntry[] = [];
+    const rappels: CalendarEntry[] = [];
     const fait: CalendarEntry[] = [];
 
     for (const task of tasks) {
-      // Les notes restent « ouvertes » : elles doivent pouvoir porter un rappel.
-      // Leur exclusion des rives basses est structurelle — pas d'échéance, donc
-      // pas de `launchAt` ; pas d'attente, donc pas de `expectedReturn`.
       const open = OPEN_STATUSES.has(task.status);
 
-      // ── Rive haute ──────────────────────────────────────────────────────
+      // ── La règle de lecture : le statut décide de la place, une seule
+      // place par tâche. Créé → « à faire » (le lancement). Demandé →
+      // « j'attends » (la barre — la relance est un état de la barre, pas
+      // une pastille : une tâche demandée n'est pas à faire, elle est en
+      // attente). Reçu → bannette. Traité → le passé. La bande « échéances »
+      // ne porte que des échéances ; le retour attendu est déjà dessiné par
+      // la fin de la barre, le rappel vit sur le rail de la vue Jour.
+
+      // ── Échéances : ce qui tombe ce jour-là, et rien d'autre ───────────
       if (open && sameDay(task.dueDate, date)) {
         entrant.push({
           key: `${task.id}-echeance`,
@@ -295,30 +302,15 @@ export const buildCalendarModel = ({
           overdue: false,
         });
       }
-      if (task.status === "Demandé" && sameDay(task.expectedReturn, date)) {
-        entrant.push({ key: `${task.id}-retour`, task, reason: "retour", overdue: false });
-      }
+
+      // ── Rappels : le seul objet horodaté — le rail de la vue Jour ──────
       if (open && sameDay(task.reminderAt, date)) {
-        entrant.push({ key: `${task.id}-rappel`, task, reason: "rappel", overdue: false });
+        rappels.push({ key: `${task.id}-rappel`, task, reason: "rappel", overdue: false });
       }
 
-      // ── Rive basse : ce qu'il faut envoyer ─────────────────────────────
-      // Le jour où la demande doit partir pour que la pièce revienne à temps.
+      // ── À faire : le jour où la demande doit partir ────────────────────
       if (task.status === "Créé" && sameDay(task.launchAt, date) && task.launchAt! >= todayStart) {
         sortant.push({ key: `${task.id}-lancement`, task, reason: "lancement", overdue: false });
-      }
-      // La relance se pose le jour du retour attendu dépassé, ou aujourd'hui si
-      // ce jour est déjà passé (une relance en retard se fait aujourd'hui).
-      if (task.status === "Demandé" && task.expectedReturn) {
-        const relanceDay = task.expectedReturn < todayStart ? todayStart : task.expectedReturn;
-        if (sameDay(relanceDay, date) && date >= todayStart) {
-          sortant.push({
-            key: `${task.id}-relance`,
-            task,
-            reason: "relance",
-            overdue: task.expectedReturn < todayStart,
-          });
-        }
       }
     }
 
@@ -345,6 +337,7 @@ export const buildCalendarModel = ({
       isWeekend: isWeekend(date),
       entrant,
       sortant,
+      rappels,
       fait,
       myDayCount: myDayByDate.get(dateKey) ?? 0,
       load: 0,

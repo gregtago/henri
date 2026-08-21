@@ -829,11 +829,11 @@ kbd {
 .cal-chip-case[data-link="true"] { cursor: pointer; }
 .cal-chip-case[data-link="true"]:hover { color: var(--accent); text-decoration: underline; }
 
-/* Sous les pastilles du jour : ce qui a déjà avancé */
-.cal-fait-label {
-  font-size: 9.5px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
-  color: var(--text-3); padding: 4px 4px 0;
-}
+/* Le réalisé du jour, en une ligne — « à faire » ne montre que le reste à faire */
+.cal-fait-count { font-size: 10.5px; color: var(--ok-fg); padding: 4px 4px 0; }
+
+/* Les rappels du jour, comptés dans l'en-tête — leur détail vit sur le rail */
+.cal-day-bell { font-size: 9.5px; color: var(--text-2); margin-left: 2px; }
 
 /* ── La réglette : 90 jours d'un seul tenant ─────────────────────────────
  * La fenêtre affichée n'est qu'un cadre posé dessus ; les attentes y courent
