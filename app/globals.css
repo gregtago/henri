@@ -1218,13 +1218,61 @@ tr[data-state="en cours"] .cal-print-state { color: var(--s1-fg); }
   .cal-print-tenable { color: #000; }
 }
 
-/* Mobile : la vue calendrier est une vue de bureau. On l'annonce plutôt que
- * de la déformer — cf. DESIGN.md, « mobile = compagnon ». */
+/* ── Bureau / mobile : deux montages, un seul modèle ─────────────────────
+ * La timeline est une vue d'écran large ; le téléphone reçoit ses
+ * conclusions en listes (.cal-mobile) — cf. DESIGN.md, « mobile =
+ * compagnon ». Le panneau (détail, création) passe en plein écran. */
+.cal-desktop { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.cal-mobile { display: none; }
+
+.mob { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 32px; background: var(--bg); }
+.mob-section { border-bottom: 1px solid var(--border); }
+.mob-list { padding: 4px 8px 12px; display: flex; flex-direction: column; gap: 4px; }
+.mob-empty { font-size: 12.5px; color: var(--text-3); padding: 6px 4px; margin: 0; }
+
+.mob-case { display: flex; flex-direction: column; }
+.mob-case-head {
+  display: flex; align-items: center; gap: 6px;
+  width: 100%; min-width: 0; text-align: left;
+  font: inherit; font-size: 13px; font-weight: 600; color: var(--text);
+  background: none; border: none; padding: 7px 4px 1px;
+  cursor: pointer;
+}
+.mob-case-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mob-case-meta { font-size: 11px; color: var(--text-2); margin: 0 0 4px; padding-left: 20px; }
+.mob-case-meta[data-late="true"] { color: var(--cal-late); }
+.mob-task {
+  display: flex; align-items: center; gap: 8px;
+  width: calc(100% - 16px); min-width: 0; text-align: left;
+  font: inherit; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 7px 9px; margin-left: 16px;
+  cursor: pointer;
+}
+.mob-task:active { background: var(--bg-hover); }
+.mob-task-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.mob-task-name { font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mob-task-meta { font-size: 11px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 @media (max-width: 767px) {
-  .cal-sas, .cal-inspector, .cal-rail, .cal-ruler, .cal-tenable { display: none; }
-  .plan-grid { grid-template-columns: 130px minmax(0, 1fr); }
-  .cal-lanes { grid-template-columns: minmax(0, 1fr); }
-  .cal-week { overflow-x: auto; }
+  .cal-desktop { display: none; }
+  .cal-mobile { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+
+  /* La barre d'outils garde l'essentiel : la navigation, + Tâche, le filtre */
+  .cal-period, .cal-toggle { display: none; }
+
+  /* Un pouce ne survole pas : les actions ✓ / → sont toujours visibles,
+   * et assez grandes pour être touchées */
+  .cal-mobile .cal-chip-done { display: inline-flex; width: 30px; height: 30px; font-size: 13px; }
+  .cal-mobile .cal-chip[data-large="true"] { padding: 8px 9px; }
+  .cal-mobile .cal-chip-meta { font-size: 11px; }
+
+  /* Le panneau — détail ou création — prend l'écran entier */
+  .cal-mobile .cal-inspector {
+    position: fixed; inset: 0; z-index: 70;
+    width: auto; border-left: none;
+  }
+  .cal-mobile .cal-inspector-actions .detail-action-btn { padding: 10px 12px; }
 }
 
 /* ── Pivot : les titres des réglages, à l'horizontale ─────────────────────

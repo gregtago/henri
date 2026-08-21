@@ -423,7 +423,7 @@ export default function CalendarShell({ user }: { user: User }) {
           <span className="cal-nav cal-nav-active">Calendrier</span>
         </nav>
 
-        <div className="flex items-center gap-1 ml-6">
+        <div className="cal-period flex items-center gap-1 ml-6">
           <button className="cal-step" onClick={() => step(-1)} title="Période précédente (←)" aria-label="Période précédente">
             <Icon name="arrow-left" size={14} />
           </button>
@@ -470,6 +470,10 @@ export default function CalendarShell({ user }: { user: User }) {
           </div>
         </div>
       </header>
+
+      {/* ── BUREAU ── la timeline est une vue d'écran large ; sur téléphone,
+        * .cal-mobile prend le relais avec les conclusions en listes. */}
+      <div className="cal-desktop">
 
       {/* ── LA RÉGLETTE ── en vue Jour seulement : les 90 jours de contexte
         * autour de la journée. Le planning, lui, est sa généralisation. */}
@@ -731,6 +735,44 @@ export default function CalendarShell({ user }: { user: User }) {
         )}
       </div>
 
+      </div>
+
+      {/* ── MOBILE ── le compagnon : pas la timeline, ses conclusions.
+        * Aujourd'hui, le retard, la bannette, et les dossiers avec leur date
+        * tenable — en listes, dans l'ordre où on les consulte d'un pouce. */}
+      <div className="cal-mobile">
+        <MobileCalendar
+          model={model}
+          cases={cases}
+          today={today}
+          selected={selected}
+          onSelect={setSelected}
+          actFor={actFor}
+          onDone={(task) => advanceStatus(task, "Traité")}
+          onFilterCase={setFilterCaseId}
+        />
+        {/* Le panneau (détail ou création) passe en plein écran sur mobile —
+          * même composant que le bureau, monté dans la portée .cal-mobile. */}
+        {draft ? (
+          <TaskCreator cases={cases} draft={draft} onClose={() => setDraft(null)} onCreate={createTask} />
+        ) : selected && (
+          <Inspector
+            entry={selected}
+            onClose={() => setSelected(null)}
+            onAddToMyDay={() => addToMyDay(selected.task)}
+            onAdvance={(status) => advanceStatus(selected.task, status)}
+            onDelai={(days) => setDelaiDays(selected.task, days)}
+            onDue={(date) => setDue(selected.task, date)}
+            onOpenCase={() => openInCase(selected.task)}
+            onNewTask={
+              selected.task.caseId
+                ? () => setDraft({ caseId: selected.task.caseId, dueDate: null })
+                : undefined
+            }
+          />
+        )}
+      </div>
+
       {toast && <div className="cal-toast">{toast}</div>}
 
       {echeancier && filterCase && (
@@ -919,6 +961,47 @@ const planEntry = (task: CalendarTask): CalendarEntry => ({
   overdue: false,
 });
 
+/** Les lignes du planning : un dossier, ses tâches à suivre, sa conclusion.
+ * Partagé entre le planning (desktop) et la liste des dossiers (mobile). */
+const buildPlanRows = (tasks: CalendarTask[], cases: Case[], today: Date): PlanRow[] => {
+  const byCase = new Map<string, CalendarTask[]>();
+  for (const task of tasks) {
+    if (task.isMemo || !task.caseId) continue;
+    const bucket = byCase.get(task.caseId) ?? [];
+    bucket.push(task);
+    byCase.set(task.caseId, bucket);
+  }
+  const casesById = new Map(cases.map((entry) => [entry.id, entry]));
+  const built: PlanRow[] = [];
+  for (const [caseId, caseTasks] of byCase) {
+    const caseData = casesById.get(caseId);
+    if (!caseData || caseData.archived) continue;
+    const open = caseTasks.filter((task) => OPEN_STATUSES.has(task.status));
+    if (open.length === 0) continue;
+    const children = open
+      .filter((task) => task.status !== "Reçu")
+      .sort((a, b) => (a.dueDate?.getTime() ?? Infinity) - (b.dueDate?.getTime() ?? Infinity));
+    const diamonds = open.filter((task) => task.dueDate && !task.dueFromCase);
+    const legalDue = toDatePosed(caseData.legalDueDate);
+    const dues = [...diamonds.map((task) => task.dueDate as Date), ...(legalDue ? [legalDue] : [])];
+    built.push({
+      caseData,
+      children,
+      diamonds,
+      legalDue,
+      tenable: computeTenable(open, today),
+      nextDue: dues.length ? new Date(Math.min(...dues.map((d) => d.getTime()))) : null,
+    });
+  }
+  // L'ordre du planning : le dossier le plus près de tomber d'abord.
+  return built.sort((a, b) => {
+    const dueA = a.nextDue?.getTime() ?? Infinity;
+    const dueB = b.nextDue?.getTime() ?? Infinity;
+    if (dueA !== dueB) return dueA - dueB;
+    return a.caseData.title.localeCompare(b.caseData.title);
+  });
+};
+
 function PlanningView({
   model, cases, today, rangeStart, rangeEnd, filterCaseId,
   selected, hoveredTaskId, onSelect, onHover, onOpen, actFor, onDraft,
@@ -932,44 +1015,7 @@ function PlanningView({
   );
   const inRange = (date: Date | null): date is Date => !!date && date >= rangeStart && date < rangeEnd;
 
-  const rows = useMemo(() => {
-    const byCase = new Map<string, CalendarTask[]>();
-    for (const task of model.tasks) {
-      if (task.isMemo || !task.caseId) continue;
-      const bucket = byCase.get(task.caseId) ?? [];
-      bucket.push(task);
-      byCase.set(task.caseId, bucket);
-    }
-    const casesById = new Map(cases.map((entry) => [entry.id, entry]));
-    const built: PlanRow[] = [];
-    for (const [caseId, tasks] of byCase) {
-      const caseData = casesById.get(caseId);
-      if (!caseData || caseData.archived) continue;
-      const open = tasks.filter((task) => OPEN_STATUSES.has(task.status));
-      if (open.length === 0) continue;
-      const children = open
-        .filter((task) => task.status !== "Reçu")
-        .sort((a, b) => (a.dueDate?.getTime() ?? Infinity) - (b.dueDate?.getTime() ?? Infinity));
-      const diamonds = open.filter((task) => task.dueDate && !task.dueFromCase);
-      const legalDue = toDatePosed(caseData.legalDueDate);
-      const dues = [...diamonds.map((task) => task.dueDate as Date), ...(legalDue ? [legalDue] : [])];
-      built.push({
-        caseData,
-        children,
-        diamonds,
-        legalDue,
-        tenable: computeTenable(open, today),
-        nextDue: dues.length ? new Date(Math.min(...dues.map((d) => d.getTime()))) : null,
-      });
-    }
-    // L'ordre du planning : le dossier le plus près de tomber d'abord.
-    return built.sort((a, b) => {
-      const dueA = a.nextDue?.getTime() ?? Infinity;
-      const dueB = b.nextDue?.getTime() ?? Infinity;
-      if (dueA !== dueB) return dueA - dueB;
-      return a.caseData.title.localeCompare(b.caseData.title);
-    });
-  }, [model.tasks, cases, today]);
+  const rows = useMemo(() => buildPlanRows(model.tasks, cases, today), [model.tasks, cases, today]);
 
   const months = useMemo(() => {
     const marks: { left: number; label: string; boundary: boolean }[] = [];
@@ -1965,6 +2011,218 @@ function Ruler({ today, windowStart, windowEnd, waits, dueDays, tenableDate, hov
       )}
 
       {hidden > 0 && <span className="cal-ruler-more">+{hidden}</span>}
+    </div>
+  );
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MOBILE — le compagnon.
+//
+// Un téléphone ne sert pas à planifier, il sert à vérifier. La timeline reste
+// à l'écran large ; le mobile reçoit ses conclusions, en listes verticales et
+// dans l'ordre où on les consulte d'un pouce :
+//   AUJOURD'HUI  — à faire, échéances, rappels du jour
+//   EN RETARD    — le sas
+//   BANNETTE     — les pièces reçues à exploiter
+//   DOSSIERS     — chaque dossier avec sa date tenable face à son échéance,
+//                  dépliable en la liste de ses pièces à suivre
+// Les actions au survol du bureau (→ ✓) sont toujours visibles ici : un pouce
+// ne survole pas. Toucher une ligne ouvre le détail en plein écran.
+// ─────────────────────────────────────────────────────────────────────────────
+
+type MobileProps = {
+  model: ReturnType<typeof buildCalendarModel>;
+  cases: Case[];
+  today: Date;
+  selected: CalendarEntry | null;
+  onSelect: (entry: CalendarEntry) => void;
+  actFor: (entry: CalendarEntry) => ChipAct | undefined;
+  onDone: (task: CalendarTask) => void;
+  onFilterCase: (caseId: string | null) => void;
+};
+
+/** La ligne d'état d'une pièce, en une phrase courte. */
+const mobileTaskLine = (task: CalendarTask, today: Date): string => {
+  const parts: string[] = [];
+  if (task.status === "Créé") {
+    if (task.launchAt) {
+      parts.push(
+        task.launchAt < today
+          ? `à lancer depuis ${daysAgo(task.launchAt, today)} j`
+          : `à lancer le ${shortDate(task.launchAt)}`
+      );
+    } else {
+      parts.push(`réponse sous ${task.delai.days} j`);
+    }
+  } else if (task.status === "Demandé") {
+    if (task.expectedReturn) {
+      parts.push(
+        task.expectedReturn < today
+          ? `demandé — en retard depuis le ${shortDate(task.expectedReturn)}`
+          : `demandé — attendu le ${shortDate(task.expectedReturn)}`
+      );
+    } else {
+      parts.push("demandé");
+    }
+  }
+  if (task.dueDate) parts.push(`éch. ${shortDate(task.dueDate)}`);
+  return parts.join(" · ");
+};
+
+function MobileCalendar({ model, cases, today, selected, onSelect, actFor, onDone, onFilterCase }: MobileProps) {
+  const [openCases, setOpenCases] = useState<Set<string>>(new Set());
+
+  const todayCell = model.days.find((cell) => cell.isToday) ?? null;
+  const rows = useMemo(() => buildPlanRows(model.tasks, cases, today), [model.tasks, cases, today]);
+
+  const lateEntries = [
+    ...model.souffrance,
+    ...model.souffranceGroups.flatMap((group) => group.entries),
+  ];
+
+  const chip = (entry: CalendarEntry, variant: "in" | "out" | "sas" | "recu", meta?: string, old?: boolean) => (
+    <EntryChip
+      key={entry.key}
+      entry={entry}
+      variant={variant}
+      large
+      meta={meta}
+      old={old}
+      selected={selected?.key === entry.key}
+      dimmed={false}
+      onSelect={() => onSelect(entry)}
+      onCase={entry.task.caseId ? () => onFilterCase(entry.task.caseId) : undefined}
+      act={
+        variant === "sas" || variant === "recu"
+          ? entry.task.isMemo
+            ? undefined
+            : { label: "✓", hint: "Marquer Traité", run: () => onDone(entry.task) }
+          : actFor(entry)
+      }
+      onHover={() => {}}
+      onDragStart={() => {}}
+    />
+  );
+
+  return (
+    <div className="mob">
+      {/* ── Aujourd'hui ── */}
+      <section className="mob-section">
+        <div className="finder-header">
+          <span>Aujourd&apos;hui</span>
+          <span className="text-tx-3">{formatDateFR(today)}</span>
+        </div>
+        <div className="mob-list">
+          {todayCell && todayCell.sortant.length + todayCell.entrant.length + todayCell.rappels.length === 0 && (
+            <p className="mob-empty">Rien à lancer, rien qui tombe, pas de rappel.</p>
+          )}
+          {todayCell?.sortant.map((entry) => chip(entry, "out", "demande à envoyer aujourd'hui"))}
+          {todayCell?.entrant.map((entry) => chip(entry, "in", "tombe aujourd'hui"))}
+          {todayCell?.rappels.map((entry) =>
+            chip(entry, "in", entry.task.reminderAt ? `rappel à ${String(entry.task.reminderAt.getHours()).padStart(2, "0")}h` : "rappel")
+          )}
+          {todayCell && todayCell.fait.length > 0 && (
+            <p className="cal-fait-count">✓ {todayCell.fait.length} tâche{todayCell.fait.length > 1 ? "s ont" : " a"} avancé aujourd&apos;hui</p>
+          )}
+        </div>
+      </section>
+
+      {/* ── En retard ── */}
+      <section className="mob-section">
+        <div className="finder-header">
+          <span>En retard</span>
+          <span className="text-tx-3">{lateEntries.length}</span>
+        </div>
+        <div className="mob-list">
+          {lateEntries.length === 0 && <p className="mob-empty">Rien en retard.</p>}
+          {lateEntries.map((entry) => chip(entry, "sas", sasMeta(entry, today)))}
+        </div>
+      </section>
+
+      {/* ── Bannette ── */}
+      <section className="mob-section">
+        <div className="finder-header">
+          <span>Bannette</span>
+          <span className="text-tx-3">{model.bannette.length}</span>
+        </div>
+        <div className="mob-list">
+          {model.bannette.length === 0 && <p className="mob-empty">Aucune pièce reçue en attente.</p>}
+          {model.bannette.map((entry) => {
+            const age = entry.task.receivedAt ? daysAgo(entry.task.receivedAt, today) : null;
+            const ageLabel = age === null ? "reçu" : age === 0 ? "reçu aujourd'hui" : `reçu il y a ${age} j`;
+            return chip(
+              entry,
+              "recu",
+              `${ageLabel}${entry.task.dueDate ? ` · éch. ${shortDate(entry.task.dueDate)}` : ""}`,
+              (age ?? 0) > 10
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ── Dossiers ── la conclusion du planning, sans le dessin */}
+      <section className="mob-section">
+        <div className="finder-header">
+          <span>Dossiers</span>
+          <span className="text-tx-3">{rows.length}</span>
+        </div>
+        <div className="mob-list">
+          {rows.length === 0 && <p className="mob-empty">Aucun dossier avec des tâches ouvertes.</p>}
+          {rows.map((row) => {
+            const isOpen = openCases.has(row.caseData.id);
+            const holds = row.tenable && row.legalDue ? row.tenable.date <= row.legalDue : null;
+            return (
+              <div key={row.caseData.id} className="mob-case">
+                <button
+                  className="mob-case-head"
+                  onClick={() =>
+                    setOpenCases((current) => {
+                      const next = new Set(current);
+                      if (next.has(row.caseData.id)) next.delete(row.caseData.id);
+                      else next.add(row.caseData.id);
+                      return next;
+                    })
+                  }
+                >
+                  <span className="plan-arrow" aria-hidden>{isOpen ? "▾" : "▸"}</span>
+                  <span className="mob-case-name">{row.caseData.title}</span>
+                  {holds === false && <span className="plan-hold" aria-hidden>⚠</span>}
+                  <span className="plan-count">{row.children.length}</span>
+                </button>
+                <p className="mob-case-meta" data-late={holds === false}>
+                  {row.legalDue ? `échéance ${shortDate(row.legalDue)}` : "sans échéance posée"}
+                  {row.tenable ? ` · tenable au plus tôt le ${shortDate(row.tenable.date)}` : ""}
+                </p>
+                {isOpen &&
+                  row.children.map((task) => {
+                    const entry = planEntry(task);
+                    const act = actFor(entry);
+                    return (
+                      <button key={task.id} className="mob-task" onClick={() => onSelect(entry)}>
+                        <span className="cal-chip-dot" style={{ background: STATUS_DOT[task.status] }} aria-hidden />
+                        <span className="mob-task-body">
+                          <span className="mob-task-name">{task.title}</span>
+                          <span className="mob-task-meta">{mobileTaskLine(task, today)}</span>
+                        </span>
+                        {act && (
+                          <span
+                            className="cal-chip-done"
+                            role="button"
+                            title={act.hint}
+                            onClick={(event) => { event.stopPropagation(); act.run(); }}
+                          >
+                            {act.label}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+              </div>
+            );
+          })}
+        </div>
+      </section>
     </div>
   );
 }

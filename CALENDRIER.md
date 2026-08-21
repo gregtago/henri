@@ -424,9 +424,15 @@ Désactivé dès que le focus est dans un champ éditable.
 - **Pas de modale**, pas d'icône SVG décorative, pas de nouvelle couleur : les
   teintes reprennent les statuts existants (ambre = demandé/sortant, bleu =
   reçu/sélection, vert = traité, rouge = retard).
-- **Pas de calendrier sur mobile.** Cette vue est dense et bi-directionnelle :
-  elle est faite pour un écran de bureau. Sur mobile, Ma journée reste la bonne
-  réponse (DESIGN.md : « mobile = compagnon »).
+- **Pas de timeline sur mobile — ses conclusions, oui** (revu le 21/08/2026).
+  Le planning est dense et bi-directionnel : il reste à l'écran de bureau. Mais
+  un téléphone sert à vérifier, et le calendrier mobile donne ce qui se vérifie
+  d'un pouce, en listes : aujourd'hui (à lancer, échéances, rappels), le
+  retard, la bannette, et les dossiers avec leur date tenable face à leur
+  échéance — dépliables en la liste de leurs pièces. Les actions ✓ et → sont
+  toujours visibles (un pouce ne survole pas), et le détail s'ouvre en plein
+  écran. Ma journée reste la vue de travail mobile (DESIGN.md : « mobile =
+  compagnon »).
 
 ---
 
