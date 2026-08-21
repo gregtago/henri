@@ -71,6 +71,41 @@ motif de pastille. Le geste au survol se réduit à → Demandé (lancement) et
 
 ---
 
+## 1 ter. Le planning — les dossiers à l'horizontale (21/08/2026)
+
+La vue Semaine à trois bandes est **remplacée** par un planning, sur une idée
+de l'utilisateur qui est la conclusion logique de la règle de lecture : la
+réglette, généralisée en vue principale.
+
+**Une ligne par dossier, dépliable en une ligne par tâche.** Toute la vie
+d'une pièce se lit de gauche à droite sur sa propre ligne :
+
+```
+              juil.        │ août       ▮aujourd'hui        │ sept.
+VENTE MARTIN ▸ ⚠        ▬▬▬▬▬▬▬▬▬▬▬▬▨▨▨▨   ◇        ◆
+  ├ État daté (syndic)  ▬▬▬▬▬▬▬▬▬▬▬▬▨▨▨▨              ← demandé, en dépassement
+  ├ Demander la DIA        ●┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈◆       ← à lancer le ●, échéance ◆
+VENTE DUPONT ▸             ▬▬▬▬▬▬▬     ◇◆
+```
+
+- **●** le jour où la demande doit partir (rouge si dépassé), un corridor
+  pointillé jusqu'à **◆** l'échéance ;
+- **la barre** : l'attente d'une pièce demandée, rouge au-delà du retour
+  attendu ;
+- sur la ligne du dossier : **◆** son échéance (rouge si intenable) face à
+  **◇** sa date tenable — « on signe quand ? » se lit d'un regard, dossier par
+  dossier, sans filtrer ;
+- **la bannette et le sas restent à gauche** : les pièces reçues et le retard
+  n'ont pas de date, donc pas de ligne de temps.
+
+La fenêtre porte 90 jours (30 en arrière, 60 en avant), `←`/`→` la déplacent
+d'une semaine, `T` la recentre. Un dossier trié par échéance la plus proche ;
+double-clic sur une piste = nouvelle tâche du dossier à cette date ; les
+survols allument toute la trace d'une pièce ; la vue Jour reste la vue de
+travail du matin (rail des rappels, couloirs), avec la réglette en contexte.
+
+---
+
 ## 2. Le parti pris : quatre idées
 
 ### Idée 1 — Trois bandes, dans l'ordre du cycle d'une tâche
@@ -362,7 +397,7 @@ Cohérent avec l'existant (DESIGN.md, « clavier first ») :
 
 | Touche | Effet |
 |---|---|
-| `S` / `J` | vue Semaine / vue Jour |
+| `P` (ou `S`) / `J` | le Planning / la vue Jour |
 | `←` / `→` | période précédente / suivante |
 | `T` | revenir à aujourd'hui |
 | `N` | nouvelle tâche (panneau droit) |

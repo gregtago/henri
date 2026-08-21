@@ -1,20 +1,24 @@
 "use client";
 
-// Vue Calendrier.
+// Vue Calendrier — le planning.
 //
 // Parti pris : Henri n'a pas de rendez-vous, il a des pièces qui circulent.
-// Une grille horaire classique serait vide 90 % du temps. La règle de
-// lecture : LE STATUT DÉCIDE DE LA PLACE, une seule place par tâche.
-//   Créé     → À FAIRE, le jour où la demande doit partir (le sas si dépassé)
-//   Demandé  → J'ATTENDS, une barre — hachurée quand le retour est dépassé
-//   Reçu     → la BANNETTE (le sas si l'échéance est dépassée)
-//   Traité   → le passé (« fait »)
-// La bande ÉCHÉANCES ne porte que des échéances ; les rappels vivent sur le
-// rail horaire de la vue Jour (et en compteur dans l'en-tête du jour).
+// La vue principale est une TIMELINE : une ligne par dossier, dépliable en
+// une ligne par tâche, et toute la vie d'une pièce se lit de gauche à droite
+// sur sa propre ligne — le lancement (●), l'attente (une barre, hachurée de
+// rouge quand le retour est dépassé), l'échéance (◆). La règle « une tâche,
+// un seul endroit » devient géométrique.
+//   Créé     → ● au jour du lancement, corridor pointillé jusqu'à ◆
+//   Demandé  → la barre d'attente
+//   Reçu     → la BANNETTE, à gauche (le sas si l'échéance est dépassée)
+//   Traité   → disparaît
+// Chaque ligne de dossier porte aussi sa date tenable (◇) face à son
+// échéance (◆) : « on signe quand ? » se lit dossier par dossier.
+// La vue Jour reste la vue de travail du matin (rail des rappels, couloirs).
 //
 // Voir CALENDRIER.md pour le raisonnement complet.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { User } from "firebase/auth";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -39,16 +43,19 @@ import { getDateKey, formatDateFR, atDueHour } from "@/lib/dates";
 import { addDays, type DelaiInfo } from "@/lib/delais";
 import {
   buildCalendarModel,
+  computeTenable,
   explainEntry,
   startOfWeek,
+  OPEN_STATUSES,
   REASON_LABELS,
   type CalendarEntry,
   type CalendarTask,
   type DayCell,
+  type Tenable,
   type WaitingBar,
 } from "@/lib/calendar";
 
-type Mode = "semaine" | "jour";
+type Mode = "planning" | "jour";
 
 const DAY_NAMES = ["dim.", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam."];
 const MONTH_NAMES = [
@@ -110,7 +117,7 @@ type Draft = { caseId: string | null; dueDate: Date | null };
 
 export default function CalendarShell({ user }: { user: User }) {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>("semaine");
+  const [mode, setMode] = useState<Mode>("planning");
   const [anchor, setAnchor] = useState<Date>(startOfToday);
   const [today, setToday] = useState<Date>(startOfToday);
 
@@ -246,6 +253,11 @@ export default function CalendarShell({ user }: { user: User }) {
     [mode]
   );
 
+  // La fenêtre du planning : 90 jours autour de l'ancre — 30 en arrière,
+  // 60 en avant, comme la réglette dont il est la généralisation.
+  const planStart = useMemo(() => addDays(anchor, -RULER_BACK), [anchor]);
+  const planEnd = useMemo(() => addDays(anchor, RULER_FORWARD + 1), [anchor]);
+
   // ── Écritures ───────────────────────────────────────────────────────────
   const scheduleReminder = useCallback(
     async (task: CalendarTask, date: Date, hour: number) => {
@@ -369,7 +381,7 @@ export default function CalendarShell({ user }: { user: User }) {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (event.key === "ArrowRight") { event.preventDefault(); step(1); }
       else if (event.key === "ArrowLeft") { event.preventDefault(); step(-1); }
-      else if (event.key.toLowerCase() === "s") setMode("semaine");
+      else if (event.key.toLowerCase() === "p" || event.key.toLowerCase() === "s") setMode("planning");
       else if (event.key.toLowerCase() === "j") setMode("jour");
       else if (event.key.toLowerCase() === "t") { setAnchor(startOfToday()); }
       else if (event.key.toLowerCase() === "n") { event.preventDefault(); setDraft({ caseId: null, dueDate: null }); }
@@ -396,13 +408,10 @@ export default function CalendarShell({ user }: { user: User }) {
     if (mode === "jour") {
       return `${DAY_NAMES[anchor.getDay()]} ${anchor.getDate()} ${MONTH_NAMES[anchor.getMonth()]} ${anchor.getFullYear()}`;
     }
-    const start = days[0];
-    const end = days[6];
-    const sameMonth = start.getMonth() === end.getMonth();
-    return sameMonth
-      ? `${start.getDate()} – ${end.getDate()} ${MONTH_NAMES[start.getMonth()]} ${start.getFullYear()}`
-      : `${start.getDate()} ${MONTH_NAMES[start.getMonth()]} – ${end.getDate()} ${MONTH_NAMES[end.getMonth()]} ${end.getFullYear()}`;
-  }, [mode, anchor, days]);
+    const start = planStart;
+    const end = addDays(planEnd, -1);
+    return `${start.getDate()} ${MONTH_NAMES[start.getMonth()]} – ${end.getDate()} ${MONTH_NAMES[end.getMonth()]} ${end.getFullYear()}`;
+  }, [mode, anchor, planStart, planEnd]);
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
@@ -456,15 +465,15 @@ export default function CalendarShell({ user }: { user: User }) {
             + Tâche
           </button>
           <div className="cal-toggle">
-            <button data-on={mode === "semaine"} onClick={() => setMode("semaine")} title="Vue semaine (S)">Semaine</button>
+            <button data-on={mode === "planning"} onClick={() => setMode("planning")} title="Le planning (P)">Planning</button>
             <button data-on={mode === "jour"} onClick={() => setMode("jour")} title="Vue jour (J)">Jour</button>
           </div>
         </div>
       </header>
 
-      {/* ── LA RÉGLETTE ── 90 jours d'un seul tenant : la fenêtre affichée
-        * n'est qu'un cadre posé dessus. C'est ici qu'une DIA se voit en entier,
-        * et qu'une attente hors de la semaine cesse d'être invisible. */}
+      {/* ── LA RÉGLETTE ── en vue Jour seulement : les 90 jours de contexte
+        * autour de la journée. Le planning, lui, est sa généralisation. */}
+      {mode === "jour" && (
       <Ruler
         today={today}
         windowStart={days[0]}
@@ -484,6 +493,7 @@ export default function CalendarShell({ user }: { user: User }) {
           })
         }
       />
+      )}
 
       {/* ── LA DATE TENABLE ── la vue conclut : « on signe quand ? ».
         * Un sens seulement sur un dossier filtré. Cliquer le bandeau
@@ -560,7 +570,7 @@ export default function CalendarShell({ user }: { user: User }) {
                 meta={sasMeta(entry, today)}
                 selected={selected?.key === entry.key}
                 dimmed={!!hoveredTaskId && hoveredTaskId !== entry.task.id}
-                canDrag
+                canDrag={mode === "jour"}
                 onSelect={() => setSelected(entry)}
                 onOpen={() => openInCase(entry.task)}
                 onCase={entry.task.caseId ? () => setFilterCaseId(entry.task.caseId) : undefined}
@@ -602,7 +612,7 @@ export default function CalendarShell({ user }: { user: User }) {
                         variant="sas"
                         selected={selected?.key === entry.key}
                         dimmed={!!hoveredTaskId && hoveredTaskId !== entry.task.id}
-                        canDrag
+                        canDrag={mode === "jour"}
                         onSelect={() => setSelected(entry)}
                         onOpen={() => openInCase(entry.task)}
                         act={{ label: "✓", hint: "Marquer Traité", run: () => advanceStatus(entry.task, "Traité") }}
@@ -639,7 +649,7 @@ export default function CalendarShell({ user }: { user: User }) {
                   old={(age ?? 0) > 10}
                   selected={selected?.key === entry.key}
                   dimmed={!!hoveredTaskId && hoveredTaskId !== entry.task.id}
-                  canDrag
+                  canDrag={mode === "jour"}
                   onSelect={() => setSelected(entry)}
                   onOpen={() => openInCase(entry.task)}
                   onCase={entry.task.caseId ? () => setFilterCaseId(entry.task.caseId) : undefined}
@@ -654,25 +664,21 @@ export default function CalendarShell({ user }: { user: User }) {
 
         {/* ── LE FLUX ── */}
         <main className="flex-1 min-w-0 flex flex-col">
-          {mode === "semaine" ? (
-            <WeekView
+          {mode === "planning" ? (
+            <PlanningView
               model={model}
+              cases={cases}
+              today={today}
+              rangeStart={planStart}
+              rangeEnd={planEnd}
+              filterCaseId={filterCaseId}
               selected={selected}
               hoveredTaskId={hoveredTaskId}
               onSelect={setSelected}
               onHover={setHoveredTaskId}
               onOpen={openInCase}
-              onOpenDay={(date) => { setAnchor(date); setMode("jour"); }}
-              onDraftDay={(date) => setDraft({ caseId: null, dueDate: date })}
-              onFilterCase={setFilterCaseId}
               actFor={actFor}
-              dragTaskId={dragTaskId}
-              onDropDay={async (date) => {
-                const task = findTask(model, dragTaskId);
-                setDragTaskId(null);
-                if (task) await setDue(task, date);
-              }}
-              onDragStart={setDragTaskId}
+              onDraft={(caseId, date) => setDraft({ caseId, dueDate: date })}
             />
           ) : (
             <DayView
@@ -865,238 +871,351 @@ const sasMeta = (entry: CalendarEntry, today: Date): string | undefined => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// VUE SEMAINE
+// LE PLANNING — les dossiers à l'horizontale.
+//
+// Une ligne par dossier, dépliable en une ligne par tâche. Toute la vie d'une
+// pièce se lit de gauche à droite sur sa propre ligne : ● le jour où la
+// demande doit partir, un corridor pointillé jusqu'à son échéance, la barre
+// d'attente quand elle est demandée (hachurée de rouge au-delà du retour
+// attendu), ◆ l'échéance. La ligne du dossier agrège tout cela et y pose ◇ la
+// date tenable face à ◆ son échéance : « on signe quand ? » se lit d'un
+// regard, dossier par dossier. Les pièces reçues ne sont pas ici : elles sont
+// dans la bannette. Double-clic sur une piste : nouvelle tâche du dossier, à
+// cette date.
 // ─────────────────────────────────────────────────────────────────────────────
 
-type WeekProps = {
+type PlanRow = {
+  caseData: Case;
+  /** Les tâches dessinées en lignes : Créé et Demandé — l'anticipation. */
+  children: CalendarTask[];
+  /** Les échéances ouvertes du dossier (Reçu compris), pour la ligne agrégée. */
+  diamonds: CalendarTask[];
+  legalDue: Date | null;
+  tenable: Tenable | null;
+  nextDue: Date | null;
+};
+
+type PlanningProps = {
   model: ReturnType<typeof buildCalendarModel>;
+  cases: Case[];
+  today: Date;
+  rangeStart: Date;
+  rangeEnd: Date;
+  filterCaseId: string | null;
   selected: CalendarEntry | null;
   hoveredTaskId: string | null;
   onSelect: (entry: CalendarEntry) => void;
   onHover: (taskId: string | null) => void;
   onOpen: (task: CalendarTask) => void;
-  onOpenDay: (date: Date) => void;
-  onDraftDay: (date: Date) => void;
-  onFilterCase: (caseId: string) => void;
   actFor: (entry: CalendarEntry) => ChipAct | undefined;
-  dragTaskId: string | null;
-  onDropDay: (date: Date) => void;
-  onDragStart: (taskId: string | null) => void;
+  onDraft: (caseId: string, date: Date) => void;
 };
 
-function WeekView({ model, selected, hoveredTaskId, onSelect, onHover, onOpen, onOpenDay, onDraftDay, onFilterCase, actFor, dragTaskId, onDropDay, onDragStart }: WeekProps) {
-  // Glisser une pastille sur un jour à venir = reporter son échéance à ce
-  // jour. Le pendant visuel du champ « reporter au » de l'inspecteur.
-  const [dropKey, setDropKey] = useState<string | null>(null);
-  const dropProps = (cell: DayCell) =>
-    cell.isPast || !dragTaskId
-      ? {}
-      : {
-          onDragOver: (event: React.DragEvent) => { event.preventDefault(); setDropKey(cell.dateKey); },
-          onDragLeave: () => setDropKey((current) => (current === cell.dateKey ? null : current)),
-          onDrop: (event: React.DragEvent) => { event.preventDefault(); setDropKey(null); onDropDay(cell.date); },
-        };
-  const columnIndex = useMemo(() => {
-    const map = new Map<string, number>();
-    model.days.forEach((cell, index) => map.set(cell.dateKey, index));
-    return map;
-  }, [model.days]);
+/** L'entrée d'inspecteur d'une ligne de tâche : son statut choisit le motif. */
+const planEntry = (task: CalendarTask): CalendarEntry => ({
+  key: `${task.id}-plan`,
+  task,
+  reason: task.status === "Demandé" ? "retour" : task.status === "Reçu" ? "recu" : "lancement",
+  overdue: false,
+});
 
-  // Toutes les barres de la fenêtre, sans plafond : la bande défile s'il le
-  // faut. Ce qui ne touche pas la semaine est réellement hors fenêtre — la
-  // réglette le montre, et la ligne du bas le compte honnêtement.
-  const visibleBars = model.bars;
-  const outOfWindow = model.allWaits.length - model.bars.length;
+function PlanningView({
+  model, cases, today, rangeStart, rangeEnd, filterCaseId,
+  selected, hoveredTaskId, onSelect, onHover, onOpen, actFor, onDraft,
+}: PlanningProps) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const total = rangeEnd.getTime() - rangeStart.getTime();
+  const pct = useCallback(
+    (date: Date) => Math.min(100, Math.max(0, ((date.getTime() - rangeStart.getTime()) / total) * 100)),
+    [rangeStart, total]
+  );
+  const inRange = (date: Date | null): date is Date => !!date && date >= rangeStart && date < rangeEnd;
+
+  const rows = useMemo(() => {
+    const byCase = new Map<string, CalendarTask[]>();
+    for (const task of model.tasks) {
+      if (task.isMemo || !task.caseId) continue;
+      const bucket = byCase.get(task.caseId) ?? [];
+      bucket.push(task);
+      byCase.set(task.caseId, bucket);
+    }
+    const casesById = new Map(cases.map((entry) => [entry.id, entry]));
+    const built: PlanRow[] = [];
+    for (const [caseId, tasks] of byCase) {
+      const caseData = casesById.get(caseId);
+      if (!caseData || caseData.archived) continue;
+      const open = tasks.filter((task) => OPEN_STATUSES.has(task.status));
+      if (open.length === 0) continue;
+      const children = open
+        .filter((task) => task.status !== "Reçu")
+        .sort((a, b) => (a.dueDate?.getTime() ?? Infinity) - (b.dueDate?.getTime() ?? Infinity));
+      const diamonds = open.filter((task) => task.dueDate && !task.dueFromCase);
+      const legalDue = toDatePosed(caseData.legalDueDate);
+      const dues = [...diamonds.map((task) => task.dueDate as Date), ...(legalDue ? [legalDue] : [])];
+      built.push({
+        caseData,
+        children,
+        diamonds,
+        legalDue,
+        tenable: computeTenable(open, today),
+        nextDue: dues.length ? new Date(Math.min(...dues.map((d) => d.getTime()))) : null,
+      });
+    }
+    // L'ordre du planning : le dossier le plus près de tomber d'abord.
+    return built.sort((a, b) => {
+      const dueA = a.nextDue?.getTime() ?? Infinity;
+      const dueB = b.nextDue?.getTime() ?? Infinity;
+      if (dueA !== dueB) return dueA - dueB;
+      return a.caseData.title.localeCompare(b.caseData.title);
+    });
+  }, [model.tasks, cases, today]);
+
+  const months = useMemo(() => {
+    const marks: { left: number; label: string; boundary: boolean }[] = [];
+    let cursor = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
+    while (cursor < rangeEnd) {
+      const from = cursor < rangeStart ? rangeStart : cursor;
+      marks.push({ left: pct(from), label: `${SHORT_MONTHS[cursor.getMonth()]}${cursor.getMonth() === 0 ? ` ${cursor.getFullYear()}` : ""}`, boundary: cursor >= rangeStart });
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+    }
+    return marks;
+  }, [rangeStart, rangeEnd, pct]);
+
+  // Un trait par lundi : la trame de fond du planning.
+  const weekMarks = useMemo(() => {
+    const marks: number[] = [];
+    let cursor = startOfWeek(rangeStart);
+    if (cursor < rangeStart) cursor = addDays(cursor, 7);
+    while (cursor < rangeEnd) {
+      marks.push(pct(cursor));
+      cursor = addDays(cursor, 7);
+    }
+    return marks;
+  }, [rangeStart, rangeEnd, pct]);
+
+  const dateAt = (event: React.MouseEvent<HTMLElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const ratio = (event.clientX - rect.left) / rect.width;
+    const date = new Date(rangeStart.getTime() + ratio * total);
+    date.setHours(0, 0, 0, 0);
+    return date;
+  };
+
+  const dim = (taskId: string) => !!hoveredTaskId && hoveredTaskId !== taskId;
+
+  const trackDeco = (
+    <>
+      {weekMarks.map((left) => (
+        <span key={left} className="plan-week" style={{ left: `${left}%` }} aria-hidden />
+      ))}
+      {inRange(today) && <span className="plan-today" style={{ left: `${pct(today)}%` }} aria-hidden />}
+    </>
+  );
+
+  /** La barre d'attente d'une tâche demandée, clippée à la fenêtre. */
+  const renderWait = (task: CalendarTask, tone: "case" | "task") => {
+    if (task.status !== "Demandé" || !task.requestedAt || !task.expectedReturn) return null;
+    const startAt = task.requestedAt;
+    const overdue = task.expectedReturn < today;
+    const endAt = overdue ? today : task.expectedReturn;
+    if (endAt < rangeStart || startAt >= rangeEnd) return null;
+    const from = pct(startAt);
+    const split = pct(addDays(task.expectedReturn, 1));
+    const to = pct(addDays(endAt, 1));
+    const mainEnd = overdue ? Math.min(split, to) : to;
+    const entry: CalendarEntry = { key: `${task.id}-plan`, task, reason: "retour", overdue };
+    const shared = {
+      onMouseEnter: () => onHover(task.id),
+      onMouseLeave: () => onHover(null),
+      onClick: (event: React.MouseEvent) => { event.stopPropagation(); onSelect(entry); },
+      title: explainEntry(entry),
+    };
+    return (
+      <span key={`${task.id}-wait`}>
+        <span className="plan-wait" data-tone={tone} data-dim={dim(task.id)} style={{ left: `${from}%`, width: `${Math.max(0.4, mainEnd - from)}%` }} {...shared} />
+        {overdue && split < to && (
+          <span className="plan-wait" data-late data-tone={tone} data-dim={dim(task.id)} style={{ left: `${split}%`, width: `${Math.max(0.4, to - split)}%` }} {...shared} />
+        )}
+      </span>
+    );
+  };
+
+  /** ◆ une échéance, cliquable. */
+  const renderDiamond = (task: CalendarTask, tone: "case" | "task") => {
+    if (!inRange(task.dueDate)) return null;
+    const entry: CalendarEntry = { key: `${task.id}-due`, task, reason: task.dueFromCase ? "legal" : "echeance", overdue: false };
+    return (
+      <span
+        key={`${task.id}-due`}
+        className="plan-due"
+        data-tone={tone}
+        data-dim={dim(task.id)}
+        style={{ left: `${pct(task.dueDate)}%` }}
+        onMouseEnter={() => onHover(task.id)}
+        onMouseLeave={() => onHover(null)}
+        onClick={(event) => { event.stopPropagation(); onSelect(entry); }}
+        title={explainEntry(entry)}
+      />
+    );
+  };
 
   return (
-    <div className="cal-week">
-      {/* En-têtes de jour */}
-      <div className="cal-grid cal-head">
-        <div className="cal-gutter" />
-        {model.days.map((cell) => (
-          <button
-            key={cell.dateKey}
-            className="cal-day-head"
-            data-today={cell.isToday}
-            data-weekend={cell.isWeekend}
-            data-past={cell.isPast}
-            onClick={() => onOpenDay(cell.date)}
-            title="Ouvrir la vue jour"
-          >
-            <span className="cal-day-name">{DAY_NAMES[cell.date.getDay()]}</span>
-            <span className="cal-day-num">{cell.date.getDate()}</span>
-            {cell.rappels.length > 0 && (
-              <span className="cal-day-bell" title={`${cell.rappels.length} rappel${cell.rappels.length > 1 ? "s" : ""} — ouvrir la vue Jour`}>
-                🔔{cell.rappels.length > 1 ? cell.rappels.length : ""}
-              </span>
-            )}
-            <span className="cal-load" style={{ opacity: 0.15 + cell.load * 0.85 }} aria-hidden />
-          </button>
-        ))}
-      </div>
-
-      {/* ── À FAIRE ── en tête : c'est ce qu'on regarde en premier le matin.
-        * Sur un jour passé, la même bande raconte ce qui a effectivement
-        * avancé ce jour-là, et combien on en avait prévu. */}
-      <div className="cal-grid cal-band cal-band-out">
-        <div className="cal-gutter"><span className="cal-gutter-label">à faire</span></div>
-        {model.days.map((cell) => (
-          <div
-            key={cell.dateKey}
-            className="cal-cell"
-            data-today={cell.isToday}
-            data-weekend={cell.isWeekend}
-            data-past={cell.isPast}
-            data-drop={dropKey === cell.dateKey}
-            onDoubleClick={cell.isPast ? undefined : (event) => { if (event.target === event.currentTarget) onDraftDay(cell.date); }}
-            title={cell.isPast ? undefined : "Double-clic : nouvelle tâche à cette échéance"}
-            {...dropProps(cell)}
-          >
-            {cell.isPast ? (
-              <>
-                {cell.fait.slice(0, 5).map((entry) => (
-                  <EntryChip
-                    key={entry.key}
-                    entry={entry}
-                    variant="fait"
-                    selected={selected?.key === entry.key}
-                    dimmed={!!hoveredTaskId && hoveredTaskId !== entry.task.id}
-                    onSelect={() => onSelect(entry)}
-                    onOpen={() => onOpen(entry.task)}
-                    onHover={onHover}
-                    onDragStart={onDragStart}
-                  />
-                ))}
-                {cell.fait.length > 5 && <span className="cal-more">+{cell.fait.length - 5} autres</span>}
-                {cell.myDayCount > 0 && <span className="cal-past-plan">{cell.myDayCount} prévues ce jour-là</span>}
-              </>
-            ) : (
-              <>
-                {cell.sortant.map((entry) => (
-                  <EntryChip
-                    key={entry.key}
-                    entry={entry}
-                    variant="out"
-                    selected={selected?.key === entry.key}
-                    dimmed={!!hoveredTaskId && hoveredTaskId !== entry.task.id}
-                    onSelect={() => onSelect(entry)}
-                    onOpen={() => onOpen(entry.task)}
-                    onCase={entry.task.caseId ? () => onFilterCase(entry.task.caseId as string) : undefined}
-                    act={actFor(entry)}
-                    onHover={onHover}
-                    onDragStart={onDragStart}
-                  />
-                ))}
-                {/* Le réalisé du jour, en une ligne : « à faire » ne montre
-                  * que ce qui reste à faire — une tâche qui a avancé n'y a
-                  * plus sa place, même en grisé. */}
-                {cell.isToday && cell.fait.length > 0 && (
-                  <span className="cal-fait-count">✓ {cell.fait.length} tâche{cell.fait.length > 1 ? "s ont" : " a"} avancé aujourd&apos;hui</span>
-                )}
-              </>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* ── LA LIGNE D'EAU : les attentes en cours, dessinées comme des durées ── */}
-      <div className="cal-water">
-        <div className="cal-grid cal-water-bg">
-          <div className="cal-gutter"><span className="cal-gutter-label">j'attends</span></div>
-          {model.days.map((cell) => (
-            <div key={cell.dateKey} className="cal-water-col" data-today={cell.isToday} data-weekend={cell.isWeekend} />
-          ))}
+    <div className="plan">
+      <div className="plan-grid">
+        {/* L'axe */}
+        <div className="plan-corner">
+          <span>{rows.length} dossier{rows.length > 1 ? "s" : ""}</span>
         </div>
-        <div className="cal-grid cal-bars">
-          <div className="cal-gutter" />
-          {visibleBars.map((bar) => {
-            const startIndex = columnIndex.get(getDateKey(bar.start));
-            const endIndex = columnIndex.get(getDateKey(bar.end));
-            const from = startIndex ?? 0;
-            const to = endIndex ?? model.days.length - 1;
-            const clippedStart = Math.max(0, Math.min(from, model.days.length - 1));
-            const clippedEnd = Math.max(clippedStart, Math.min(to, model.days.length - 1));
-            const late = !!bar.overdueFrom;
-            return (
-              <div
-                key={bar.task.id}
-                className="cal-bar"
-                data-late={late}
-                data-dim={!!hoveredTaskId && hoveredTaskId !== bar.task.id}
-                style={{ gridColumn: `${clippedStart + 2} / ${clippedEnd + 3}` }}
-                onMouseEnter={() => onHover(bar.task.id)}
-                onMouseLeave={() => onHover(null)}
+        <div className="plan-axis">
+          {months.map((mark) => (
+            <span key={mark.left} className="plan-month" data-boundary={mark.boundary} style={{ left: `${mark.left}%` }}>
+              {mark.label}
+            </span>
+          ))}
+          {inRange(today) && (
+            <span className="plan-today-label" style={{ left: `${pct(today)}%` }}>aujourd&apos;hui</span>
+          )}
+          {trackDeco}
+        </div>
+
+        {rows.length === 0 && (
+          <>
+            <div />
+            <p className="plan-empty">Aucun dossier avec des tâches ouvertes.</p>
+          </>
+        )}
+
+        {rows.map((row) => {
+          const isOpen = expanded.has(row.caseData.id) || filterCaseId === row.caseData.id;
+          const holds = row.tenable && row.legalDue ? row.tenable.date <= row.legalDue : null;
+          return (
+            <React.Fragment key={row.caseData.id}>
+              {/* ── La ligne du dossier ── */}
+              <button
+                className="plan-title plan-title-case"
                 onClick={() =>
-                  onSelect({
-                    key: `${bar.task.id}-bar`,
-                    task: bar.task,
-                    reason: "retour",
-                    overdue: late,
+                  setExpanded((current) => {
+                    const next = new Set(current);
+                    if (next.has(row.caseData.id)) next.delete(row.caseData.id);
+                    else next.add(row.caseData.id);
+                    return next;
                   })
                 }
-                title={`${bar.task.title} — demandé le ${shortDate(bar.start)}, attendu le ${shortDate(bar.task.expectedReturn ?? bar.end)}`}
+                title={isOpen ? "Replier" : `Déplier — ${row.children.length} tâche${row.children.length > 1 ? "s" : ""} à suivre`}
               >
-                {startIndex !== undefined && <span className="cal-bar-cap">▸</span>}
-                <span className="cal-bar-title">{bar.task.title}</span>
-                <span className="cal-bar-meta">
-                  {bar.task.caseTitle ? `${bar.task.caseTitle} · ` : ""}
-                  {late ? `en retard depuis le ${shortDate(bar.overdueFrom as Date)}` : `attendu ${shortDate(bar.task.expectedReturn ?? bar.end)}`}
-                </span>
-                {endIndex !== undefined && !late && <span className="cal-bar-cap">◂</span>}
+                <span className="plan-arrow" aria-hidden>{isOpen ? "▾" : "▸"}</span>
+                <span className="plan-case-name">{row.caseData.title}</span>
+                {holds === false && (
+                  <span className="plan-hold" title={`Échéance du ${row.legalDue ? formatDateFR(row.legalDue) : "?"} intenable — tenable au plus tôt le ${row.tenable ? formatDateFR(row.tenable.date) : "?"}`}>
+                    ⚠
+                  </span>
+                )}
+                <span className="plan-count">{row.children.length}</span>
+              </button>
+              <div
+                className="plan-track plan-track-case"
+                onDoubleClick={(event) => { if (event.target === event.currentTarget) onDraft(row.caseData.id, dateAt(event)); }}
+                title="Double-clic : nouvelle tâche du dossier à cette date"
+              >
+                {trackDeco}
+                {row.children.map((task) => renderWait(task, "case"))}
+                {row.diamonds.map((task) => renderDiamond(task, "case"))}
+                {inRange(row.legalDue) && (
+                  <span
+                    className="plan-legal"
+                    data-hold={holds !== false}
+                    style={{ left: `${pct(row.legalDue)}%` }}
+                    title={`Échéance du dossier : ${formatDateFR(row.legalDue)}${holds === false && row.tenable ? ` — intenable, tenable le ${formatDateFR(row.tenable.date)}` : ""}`}
+                    aria-hidden
+                  />
+                )}
+                {row.tenable && inRange(row.tenable.date) && (
+                  <span
+                    className="plan-tenable"
+                    data-dim={dim(row.tenable.critical.id)}
+                    style={{ left: `${pct(row.tenable.date)}%` }}
+                    onMouseEnter={() => onHover(row.tenable!.critical.id)}
+                    onMouseLeave={() => onHover(null)}
+                    onClick={(event) => { event.stopPropagation(); onSelect(planEntry(row.tenable!.critical)); }}
+                    title={`Tenable au plus tôt le ${formatDateFR(row.tenable.date)} — chemin critique : ${row.tenable.critical.title}`}
+                  />
+                )}
               </div>
-            );
-          })}
-          {outOfWindow > 0 && (
-            <div className="cal-bar-more" style={{ gridColumn: `2 / ${model.days.length + 2}` }}>
-              +{outOfWindow} attente{outOfWindow > 1 ? "s" : ""} hors de la semaine — visible{outOfWindow > 1 ? "s" : ""} sur la réglette
-            </div>
-          )}
-          {model.bars.length === 0 && (
-            <div className="cal-bar-more" style={{ gridColumn: `2 / ${model.days.length + 2}` }}>
-              Aucune pièce en attente cette semaine.
-            </div>
-          )}
-        </div>
-      </div>
 
-      {/* ── ÉCHÉANCES ── ce qui tombe ce jour-là : échéance de tâche ou de
-        * dossier, retour attendu d'une pièce, rappel programmé. */}
-      <div className="cal-grid cal-band cal-band-in">
-        <div className="cal-gutter"><span className="cal-gutter-label">échéances</span></div>
-        {model.days.map((cell) => (
-          <div
-            key={cell.dateKey}
-            className="cal-cell"
-            data-today={cell.isToday}
-            data-weekend={cell.isWeekend}
-            data-past={cell.isPast}
-            data-drop={dropKey === cell.dateKey}
-            onDoubleClick={cell.isPast ? undefined : (event) => { if (event.target === event.currentTarget) onDraftDay(cell.date); }}
-            title={cell.isPast ? undefined : "Double-clic : nouvelle tâche à cette échéance"}
-            {...dropProps(cell)}
-          >
-            {!cell.isPast && cell.entrant.map((entry) => (
-              <EntryChip
-                key={entry.key}
-                entry={entry}
-                variant="in"
-                selected={selected?.key === entry.key}
-                dimmed={!!hoveredTaskId && hoveredTaskId !== entry.task.id}
-                canDrag={entry.reason === "echeance" && !entry.task.isMemo}
-                onSelect={() => onSelect(entry)}
-                onOpen={() => onOpen(entry.task)}
-                onCase={entry.task.caseId ? () => onFilterCase(entry.task.caseId as string) : undefined}
-                act={actFor(entry)}
-                onHover={onHover}
-                onDragStart={onDragStart}
-              />
-            ))}
-          </div>
-        ))}
+              {/* ── Les lignes de tâches ── */}
+              {isOpen &&
+                row.children.map((task) => {
+                  const entry = planEntry(task);
+                  const act = actFor(entry);
+                  return (
+                    <React.Fragment key={task.id}>
+                      <div
+                        className="plan-title plan-title-task"
+                        data-dim={dim(task.id)}
+                        data-selected={selected?.task.id === task.id}
+                        onMouseEnter={() => onHover(task.id)}
+                        onMouseLeave={() => onHover(null)}
+                        onClick={() => onSelect(entry)}
+                        onDoubleClick={() => onOpen(task)}
+                        title={`${explainEntry(entry)} — double-clic : ouvrir le dossier`}
+                        role="button"
+                      >
+                        <span className="cal-chip-dot" style={{ background: STATUS_DOT[task.status] }} aria-hidden />
+                        <span className="plan-task-name">{task.title}</span>
+                        {task.starred && <span className="cal-chip-star">⭐</span>}
+                        {act && (
+                          <span
+                            className="cal-chip-done"
+                            role="button"
+                            title={act.hint}
+                            onClick={(event) => { event.stopPropagation(); act.run(); }}
+                          >
+                            {act.label}
+                          </span>
+                        )}
+                      </div>
+                      <div
+                        className="plan-track"
+                        onDoubleClick={(event) => { if (event.target === event.currentTarget) onDraft(row.caseData.id, dateAt(event)); }}
+                        title="Double-clic : nouvelle tâche du dossier à cette date"
+                      >
+                        {trackDeco}
+                        {/* Créé : le corridor — du jour où la demande doit partir à l'échéance */}
+                        {task.status === "Créé" && task.launchAt && task.dueDate && task.launchAt < rangeEnd && task.dueDate >= rangeStart && (
+                          <span
+                            className="plan-corridor"
+                            data-dim={dim(task.id)}
+                            style={{ left: `${pct(task.launchAt)}%`, width: `${Math.max(0, pct(task.dueDate) - pct(task.launchAt))}%` }}
+                            aria-hidden
+                          />
+                        )}
+                        {task.status === "Créé" && inRange(task.launchAt) && (
+                          <span
+                            className="plan-launch"
+                            data-late={task.launchAt < today}
+                            data-dim={dim(task.id)}
+                            style={{ left: `${pct(task.launchAt)}%` }}
+                            onMouseEnter={() => onHover(task.id)}
+                            onMouseLeave={() => onHover(null)}
+                            onClick={(event) => { event.stopPropagation(); onSelect({ key: `${task.id}-launch`, task, reason: "lancement", overdue: task.launchAt! < today }); }}
+                            title={explainEntry({ key: "", task, reason: "lancement", overdue: false })}
+                          />
+                        )}
+                        {renderWait(task, "task")}
+                        {renderDiamond(task, "task")}
+                      </div>
+                    </React.Fragment>
+                  );
+                })}
+            </React.Fragment>
+          );
+        })}
       </div>
     </div>
   );
 }
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // VUE JOUR

@@ -132,7 +132,7 @@ export const startOfWeek = (date: Date) => {
 
 const sameDay = (a: Date | null, b: Date) => !!a && getDateKey(a) === getDateKey(b);
 
-const OPEN_STATUSES = new Set(["Créé", "Demandé", "Reçu"]);
+export const OPEN_STATUSES = new Set(["Créé", "Demandé", "Reçu"]);
 
 /**
  * Date du dernier passage à un statut donné, lue dans la timeline d'événements.
@@ -483,14 +483,21 @@ export const buildCalendarModel = ({
   }
   const dueDays = Array.from(dueByDay.values()).sort((a, b) => a.date.getTime() - b.date.getTime());
 
-  // ── La date tenable ─────────────────────────────────────────────────────
-  // Pour chaque pièce ouverte, le jour au plus tôt où elle peut être là :
-  //   Créé     → aujourd'hui + délai (si la demande part aujourd'hui)
-  //   Demandé  → le retour attendu, ou aujourd'hui s'il est déjà passé
-  //   Reçu     → aujourd'hui (la matière est là)
-  // Le max de ces dates répond à « on signe quand ? », et la pièce qui le
-  // porte est le chemin critique. Le calcul n'a de sens que sur un dossier —
-  // c'est la vue filtrée qui l'affiche.
+  const tenable = computeTenable(tasks, todayStart);
+
+  return { days: cells, bars, allWaits, souffrance, souffranceGroups, bannette, dueDays, tasks, tenable };
+};
+
+/**
+ * La date tenable : pour chaque pièce ouverte, le jour au plus tôt où elle
+ * peut être là —
+ *   Créé     → aujourd'hui + délai (si la demande part aujourd'hui)
+ *   Demandé  → le retour attendu, ou aujourd'hui s'il est déjà passé
+ *   Reçu     → aujourd'hui (la matière est là)
+ * Le max de ces dates répond à « on signe quand ? », et la pièce qui le porte
+ * est le chemin critique. Le planning l'affiche dossier par dossier.
+ */
+export const computeTenable = (tasks: CalendarTask[], todayStart: Date): Tenable | null => {
   let tenable: Tenable | null = null;
   for (const task of tasks) {
     if (task.isMemo || !OPEN_STATUSES.has(task.status)) continue;
@@ -502,8 +509,7 @@ export const buildCalendarModel = ({
           : rollForward(addDays(todayStart, task.delai.days));
     if (!tenable || ready > tenable.date) tenable = { date: ready, critical: task };
   }
-
-  return { days: cells, bars, allWaits, souffrance, souffranceGroups, bannette, dueDays, tasks, tenable };
+  return tenable;
 };
 
 export const REASON_LABELS: Record<EntryReason, string> = {
