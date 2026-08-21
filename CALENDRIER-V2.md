@@ -8,6 +8,12 @@ défauts constatés dans le code.**
 Le code concerné : `src/components/CalendarShell.tsx`, `src/lib/calendar.ts`,
 `src/lib/delais.ts`, section `CALENDRIER` de `app/globals.css`.
 
+*Arbitrages du 21/08/2026 : la réglette (§ 3) et le filtre par dossier (§ 4)
+sont retenus tels quels. Pour les pièces reçues, le premier jet les posait dans
+la bande « à faire » ; l'arbitrage a tranché autrement — la grille est une vue
+d'anticipation, elle appartient aux tâches créées et demandées. Le § 2 propose
+donc la bannette à la place.*
+
 ---
 
 ## 1. Le point de départ : un cycle à quatre statuts, une vue qui en dessine deux
@@ -47,60 +53,95 @@ Trois manques, dans cet ordre de rentabilité.
 
 ---
 
-## 2. Manque n°1 — le retour n'a pas de lendemain
+## 2. Manque n°1 — le retour n'a pas de lendemain : la bannette
 
-### La règle proposée
+Le premier jet de ce document proposait de poser la pièce reçue en tête de la
+bande « à faire » du jour. L'arbitrage rendu est autre, et il est plus juste :
+**le calendrier est une vue d'anticipation.** Ce qui compte le plus dans la
+grille, ce sont les tâches créées et demandées — celles dont on n'a pas encore
+la matière, celles pour lesquelles la vue existe : faire revenir cette matière à
+temps. Une pièce reçue est exactement l'inverse. La matière est là, plus rien à
+anticiper, plus personne à attendre. **Elle n'a pas de date — donc pas de
+colonne.**
 
-> **Une pièce reçue et non traitée est à faire aujourd'hui — tous les jours,
-> jusqu'à ce qu'elle soit traitée.**
+Et une pastille qui se reposerait chaque matin dans la colonne du jour aurait le
+destin d'une bannière : répétée tous les jours, elle serait invisible au bout
+d'une semaine. La bande « à faire » reste donc celle de l'anticipation pure —
+les lancements d'abord (la date est un couperet calculé), les relances ensuite.
 
-Pas « le jour où elle est arrivée » : ce jour-là passe, et la pastille part avec
-lui dans le passé, là où personne ne la relit. Le travail qui reste à faire n'a
-pas d'autre date qu'aujourd'hui. C'est le même raisonnement que celui qui a mis
-le retard dans un sas plutôt que sur une case du passé — appliqué à l'autre bout
-du cycle.
+### La bannette
 
-Concrètement, un cinquième motif d'entrée (`EntryReason`) : `exploitation`. Il se
-pose dans la bande « à faire » de la colonne du jour, et nulle part ailleurs.
+Dans une étude, ce qui revient par le courrier ne se pose pas sur l'agenda : ça
+se pose dans une bannette. La colonne de gauche porte donc **deux tas**, les
+deux bouts du cycle, tous les deux sans date :
 
 ```
-  À FAIRE   ● Exploiter l'état daté      ● Demander la DIA
-            VENTE MARTIN · reçu il y a 6 j  VENTE DUPONT · −60 j
+┌────────────────────┐
+│ EN RETARD        4 │   ce que les dates condamnent
+│ ▌État daté         │
+│  VENTE MARTIN      │
+│  35 j de retard    │
+├────────────────────┤
+│ BANNETTE         7 │   ce que les retours apportent
+│ ▌Décompte de prêt  │
+│  VENTE MOREAU      │
+│  reçu il y a 2 j · éch. 12/09 │
+│ ▌Note d'urbanisme  │
+│  VENTE DUPONT      │
+│  reçu il y a 9 j   │
+└────────────────────┘
 ```
 
-La bande « à faire » cesse alors d'être une bande de courrier sortant pour
-devenir la bande du travail réel : *ce que je lance, ce que je relance, ce que
-j'exploite*. C'est ce que le notaire fait de sa journée, et c'est ce que la
-colonne « Ma journée » ne sait pas ordonner, parce qu'elle ne connaît pas les
-délais.
+Le tas du haut dit « tu es en train de perdre », celui du bas dit « tu as de
+quoi travailler ». Entre les deux, la grille reste pure : elle ne montre que
+l'anticipation — ce qu'il faut lancer, ce qu'on attend, ce qui tombe. C'est la
+même logique qui a sorti le retard du flux en V1 : ce qui n'a pas de jour ne se
+range pas dans une case ; appliquée à l'autre bout du cycle.
 
-### L'ordre dans la bande
+Le tas vit dans la colonne `cal-sas` existante, sous « En retard », et il est
+donc présent dans les deux modes — Semaine et Jour — sans rien implémenter deux
+fois.
 
-Trois natures dans une même bande, il faut donc un ordre, et il n'est pas
-arbitraire :
+### L'ordre du tas
 
-1. **les pièces reçues** — l'attente est déjà payée, le travail est disponible
-   maintenant, et c'est le seul des trois qui ne dépend de personne ;
-2. **les lancements du jour** — la date est un couperet calculé, la manquer coûte
-   toute la marge du dossier ;
-3. **les relances** — désagréables, reportables d'un jour sans dommage.
+Pas l'ordre d'arrivée : **l'ordre de la marge restante.** Une pièce s'exploite
+avant son échéance ; le tri est par échéance croissante (celle de la tâche,
+sinon celle du dossier), et les pièces sans échéance suivent, les plus
+anciennes d'abord. Chaque ligne dit son âge — « reçu il y a 6 j » — parce qu'une
+attente qu'on s'inflige à soi-même, après avoir payé trois semaines de syndic,
+est la plus bête des deux. Au-delà de 10 jours, l'âge passe à l'ambre.
 
-### L'âge, pas la date
+### Les deux tas communiquent
 
-Une pièce reçue affiche **depuis combien de jours elle attend d'être exploitée**,
-pas la date à laquelle elle est arrivée. « reçu il y a 6 j » se lit sans calcul,
-« reçu le 12/08 » demande de soustraire. Au-delà de 10 jours, la pastille prend
-le filet ambre : une pièce demandée pendant trois semaines et laissée à dormir
-six jours de plus, c'est un délai qu'on s'est infligé soi-même.
+Rien à câbler : une pièce reçue dont l'échéance passe entre déjà dans le sas
+(« Reçu » est dans `OPEN_STATUSES`, `src/lib/calendar.ts:357`). Une bannette
+qu'on laisse dormir se vide donc toute seule — par le haut, dans le tas des
+retards. C'est ce qui rend le tas honnête : il ne grossit jamais en silence, il
+finit par accuser.
+
+### On peut la vider
+
+Trois gestes, sans ouvrir l'inspecteur :
+
+- **« Traité » au survol** — exploiter une pièce, c'est la sortir du cycle ; le
+  même bouton que celui proposé pour le sas au § 5 ;
+- **glisser sur le rail** (vue Jour) — « je l'exploite jeudi à 10 h » pose le
+  rappel ; la mécanique de dépôt existe, il suffit que `findTask` voie ces
+  entrées (c'est le défaut n°4 du § 6) ;
+- **clic sur le nom du dossier** — le filtre du § 4 : la bannette d'un seul
+  dossier, c'est la pile à traiter avant sa signature.
+
+C'est aussi la meilleure réponse au second test du § 10 : la bannette est, de
+toute la vue, la chose la plus satisfaisante à vider.
 
 ### Ce que ça coûte
 
-Rien d'obligatoire. La date de réception se lit dans la timeline déjà
-journalisée (`progress_changed → Reçu`) par le même mécanisme que la date de
-demande — `buildRequestedAtIndex`, `src/lib/calendar.ts:109`, à généraliser en
-`buildStatusDateIndex(events, status)`. Un `receivedAt` dénormalisé sur l'`Item`
-relève de la même évolution que le `requestedAt` déjà envisagé au § 6 de la V1 :
-souhaitable, pas nécessaire.
+Identique au premier jet : rien d'obligatoire. La date de réception se lit dans
+la timeline déjà journalisée (`progress_changed → Reçu`), par le même mécanisme
+que la date de demande — `buildRequestedAtIndex`, `src/lib/calendar.ts:109`, à
+généraliser en `buildStatusDateIndex(events, status)`. Un `receivedAt`
+dénormalisé sur l'`Item` reste souhaitable, pas nécessaire — même statut que le
+`requestedAt` de la V1.
 
 ---
 
@@ -256,8 +297,8 @@ d'événements le demandera : **`requestedAt`** (déjà proposée en V1) et
 - **Pas de rendez-vous, pas de grille horaire remplie.** Le rail ne porte que les
   rappels, et c'est ce qui le rend honnête.
 - **Pas de calendrier sur mobile.** Inchangé : Ma journée reste la bonne réponse.
-- **Pas de couleur nouvelle.** Une pièce reçue reprend le bleu du statut `Reçu`,
-  l'exploitation en retard l'ambre déjà utilisé pour le sortant.
+- **Pas de couleur nouvelle.** La bannette reprend le bleu du statut `Reçu`,
+  et l'âge qui traîne l'ambre déjà utilisé pour le sortant.
 - **Pas de notification nouvelle.** Une pièce reçue qui dort n'a pas besoin d'un
   push : elle a besoin d'être visible le matin, ce qui est exactement ce que la
   bande « à faire » propose.
@@ -269,7 +310,7 @@ d'événements le demandera : **`requestedAt`** (déjà proposée en V1) et
 | Lot | Contenu | Effort | Ce qu'il rapporte |
 |---|---|---|---|
 | **0 — réparer** | les défauts 1 à 5 du § 6 | quelques dizaines de lignes | La vue tient enfin ses propres promesses |
-| **1 — le retour** | motif `exploitation`, ordre de la bande, âge en jours | modéré, aucune donnée nouvelle | Le manque le plus lourd : la vue montre enfin *son* travail, pas seulement celui des autres |
+| **1 — la bannette** | tas « Reçu » sous le sas : tri par marge restante, âge en jours, « Traité » au survol | modéré, aucune donnée nouvelle | Le manque le plus lourd : la vue montre enfin la matière disponible, sans toucher à la grille d'anticipation |
 | **2 — le sas** | retard affiché, tri, groupement par dossier, actions au survol | modéré | Le tas se vide depuis la vue, sans passer par les dossiers |
 | **3 — la réglette** | bande 90 jours, fenêtre déplaçable | le plus visuel, le plus coûteux en CSS | On voit une DIA en entier |
 | **4 — le dossier** | filtre par dossier, clic sur le nom, champ de recherche | faible | Une deuxième vue gratuite : le plan de charge d'un dossier |
