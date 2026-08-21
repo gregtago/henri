@@ -28,11 +28,12 @@
 import { Icon, type IconName } from "./Icon";
 import { tapFeedback } from "@/lib/haptics";
 
-export type MobileTab = "myday" | "cases" | "settings";
+export type MobileTab = "myday" | "cases" | "calendar" | "settings";
 
 const TABS: { key: MobileTab; label: string; icon: IconName }[] = [
   { key: "myday", label: "Ma journée", icon: "myday" },
   { key: "cases", label: "Dossiers", icon: "folder" },
+  { key: "calendar", label: "Calendrier", icon: "calendar" },
   { key: "settings", label: "Préférences", icon: "settings" },
 ];
 

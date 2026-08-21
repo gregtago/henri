@@ -957,6 +957,7 @@ export default function MobileMyDay({ user, onGoCases }: { user: User; onGoCases
             elevated={false}
             onSelect={tab => {
               if (tab === "cases") goCases();
+              else if (tab === "calendar") router.push("/calendrier");
               else if (tab === "settings") router.push("/settings");
             }}
           />

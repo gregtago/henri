@@ -4682,6 +4682,7 @@ export default function AppShell({ view, onViewChange, active = true }: AppShell
           count={myDayCombined.length}
           onSelect={tab => {
             if (tab === "settings") router.push("/settings");
+            else if (tab === "calendar") router.push("/calendrier");
             else goToView(tab);
           }}
         />

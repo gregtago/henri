@@ -1488,6 +1488,7 @@ export default function SettingsPage() {
           onSelect={tab => {
             if (tab === "myday") router.push("/my-day");
             else if (tab === "cases") router.push("/");
+            else if (tab === "calendar") router.push("/calendrier");
           }}
         />
       </div>

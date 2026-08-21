@@ -24,6 +24,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import DueChips from "@/components/DueChips";
+import MobileTabs from "@/components/MobileTabs";
 import {
   subscribeCases,
   subscribeItems,
@@ -751,6 +752,22 @@ export default function CalendarShell({ user }: { user: User }) {
           onDone={(task) => advanceStatus(task, "Traité")}
           onFilterCase={setFilterCaseId}
         />
+        {/* La barre du bas — la même pastille que partout ailleurs sur
+          * mobile : on arrive au calendrier par elle, on en repart par elle. */}
+        <div
+          className="md:hidden fixed left-3 right-3 z-30"
+          style={{ bottom: "calc(env(safe-area-inset-bottom) + 18px)" }}
+        >
+          <MobileTabs
+            active="calendar"
+            onSelect={(tab) => {
+              if (tab === "myday") router.push("/my-day");
+              else if (tab === "cases") router.push("/");
+              else if (tab === "settings") router.push("/settings");
+            }}
+          />
+        </div>
+
         {/* Le panneau (détail ou création) passe en plein écran sur mobile —
           * même composant que le bureau, monté dans la portée .cal-mobile. */}
         {draft ? (
