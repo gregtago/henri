@@ -18,7 +18,16 @@
 
 import type { FloatingTask, Item } from "./types";
 
-/** Une sous-tâche est finie quand elle est traitée. */
+/**
+ * Une tâche est finie quand elle est traitée.
+ *
+ * La seule lecture de « c'est fait » pour une tâche, et la seule à employer :
+ * une tâche traitée est finie sous une tâche mère (elle ne bloque plus rien) et
+ * finie partout ailleurs (elle ne se suggère plus, ne tient plus une ligne de
+ * Ma journée, ne s'affiche plus en retard). Les vues qui la relisaient à leur
+ * façon — « progressLevel !== 3 », « status !== "Traité" » — finissaient par
+ * diverger, et une tâche traitée réapparaissait là où on l'avait oubliée.
+ */
 export const isItemDone = (item: Item) => item.status === "Traité";
 
 /** Un mémo est fini quand il est coché. */

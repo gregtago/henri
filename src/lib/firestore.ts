@@ -170,17 +170,25 @@ export const updateItem = (uid: string, id: string, payload: Partial<Item>) =>
 /**
  * Faire avancer une tâche d'un statut.
  *
- * Passer une tâche en « Traité » lui retire son échéance. Une échéance dit
- * quand une tâche est attendue ; une tâche traitée n'est plus attendue nulle
- * part. La garder, c'était laisser la tâche revenir en retard, s'annoncer
- * « à échéance aujourd'hui » et occuper une case du calendrier alors qu'il
- * n'y a plus rien à y faire. Le statut porte désormais l'information ; la date
- * ne veut plus rien dire.
+ * **Une tâche traitée ne sort plus nulle part.** Elle reste dans son dossier,
+ * où on la retrouve, et cesse d'exister partout ailleurs : plus d'échéance,
+ * plus de rappel armé, plus de place dans Ma journée. Trois retraits, une
+ * seule idée — ce qui est fait ne réclame plus rien.
+ *
+ * - **l'échéance tombe.** Une échéance dit quand une tâche est attendue ; une
+ *   tâche traitée n'est plus attendue. La garder, c'était la laisser revenir
+ *   en retard et s'annoncer « à échéance aujourd'hui » ;
+ * - **le rappel tombe avec elle.** Un rappel posé pour une tâche finie ne
+ *   sonne que pour rien ;
+ * - **ses sélections Ma journée disparaissent.** Sans quoi la tâche restait
+ *   dans la journée en cours, marquée « Traité » et souvent en rouge, jusqu'à
+ *   ce qu'on pense à l'en retirer à la main.
  *
  * C'est le seul chemin par lequel une tâche change de statut (détail, raccourcis
- * 1–4, Ma journée, calendrier) : la règle vaut donc partout, sans que chaque
- * appelant ait à y penser. Rouvrir la tâche ne rend pas l'échéance — on la
- * repose si elle a encore un sens.
+ * 1–4, Ma journée, calendrier, et la conclusion automatique d'un contenant) :
+ * la règle vaut donc partout, sans que chaque appelant ait à y penser — et
+ * aucune vue ne doit la refaire de son côté. Rouvrir la tâche ne rend ni
+ * l'échéance ni le rappel : on les repose s'ils ont encore un sens.
  */
 export const updateItemProgress = async (uid: string, id: string, status: Status) => {
   const ref = doc(db, `users/${uid}/items/${id}`);
@@ -188,13 +196,34 @@ export const updateItemProgress = async (uid: string, id: string, status: Status
     status,
     progressLevel: getProgressLevel(status),
     lastProgressAt: serverTimestamp(),
-    ...(status === "Traité" ? { dueDate: null } : {}),
+    ...(status === "Traité" ? { dueDate: null, reminderAt: null, reminderSentAt: null } : {}),
     updatedAt: nowIso()
   });
   if (status !== "Traité") return;
+  await forgetMyDaySelections(uid, id);
   const snap = await getDoc(ref);
   const parentItemId = (snap.data()?.parentItemId as string | null | undefined) ?? null;
   if (parentItemId) await completeParentIfAllChildrenDone(uid, parentItemId);
+};
+
+/**
+ * Retirer une tâche de Ma journée — de toutes les journées où elle avait été
+ * mise, celle en cours comme celles à venir.
+ *
+ * Appelé au passage en « Traité ». L'échec (hors ligne, règle Firestore) ne
+ * doit pas invalider le changement de statut : les vues écartent de toute
+ * façon les tâches traitées, ce nettoyage évite seulement de traîner des
+ * sélections qui ne désignent plus rien.
+ */
+const forgetMyDaySelections = async (uid: string, itemId: string) => {
+  try {
+    const snap = await getDocs(
+      query(userCollection(uid, "myDaySelections"), where("refId", "==", itemId))
+    );
+    await Promise.all(snap.docs.map((docSnap) => deleteDoc(docSnap.ref)));
+  } catch (err) {
+    console.warn("[forgetMyDaySelections]", err);
+  }
 };
 
 /**

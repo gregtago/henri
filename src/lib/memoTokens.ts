@@ -33,6 +33,7 @@
 // mêmes propositions dans le même ordre.
 
 import type { Case, Item } from "./types";
+import { isItemDone } from "./completion";
 import { getDueSuggestions, type DueSuggestion } from "./dates";
 
 /** Ce qu'un jeton règle sur le mémo. */
@@ -174,6 +175,10 @@ export const suggestDues = (query: string): DueSuggestion[] => {
  * Les tâches de **premier niveau** seulement : un mémo descend d'un cran, pas de
  * deux. Sans dossier retenu, il n'y a rien à proposer — un mémo se pose sous une
  * tâche *de son dossier*, il faut donc commencer par « # ».
+ *
+ * Les tâches **traitées** ne sont pas proposées : on ne pose pas une chose à
+ * faire sous une tâche finie. Y accrocher un mémo ouvert la rouvrirait par la
+ * bande — une tâche ne peut pas être traitée et porter du travail en cours.
  */
 export const suggestTasks = (
   items: Item[],
@@ -187,7 +192,10 @@ export const suggestTasks = (
   return items
     .filter(
       (entry) =>
-        entry.caseId === caseId && !entry.parentItemId && matchesQuery(entry.title, needle)
+        entry.caseId === caseId &&
+        !entry.parentItemId &&
+        !isItemDone(entry) &&
+        matchesQuery(entry.title, needle)
     )
     .sort((a, b) => {
       const byRank = rank(a.title, b.title);

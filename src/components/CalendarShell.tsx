@@ -1659,7 +1659,11 @@ function Inspector({ entry, onClose, onAddToMyDay, onAdvance, onDelai, onDue, on
       </div>
 
       <div className="cal-inspector-actions">
-        <button className="detail-action-btn detail-action-primary" onClick={onAddToMyDay}>☀ Ma journée</button>
+        {/* Une tâche traitée ne se met pas dans la journée : elle est finie, et
+          * n'apparaît ici que comme trace du jour où elle l'a été. */}
+        {OPEN_STATUSES.has(task.status) && (
+          <button className="detail-action-btn detail-action-primary" onClick={onAddToMyDay}>☀ Ma journée</button>
+        )}
         <button className="detail-action-btn" onClick={onOpenCase}>
           {task.kind === "floating" || !task.caseId ? "Ouvrir Ma journée" : "Ouvrir le dossier"}
         </button>
