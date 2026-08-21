@@ -722,6 +722,7 @@ kbd {
 .cal-cell[data-weekend="true"] { background: rgba(0, 0, 0, 0.015); }
 .cal-cell[data-past="true"] { background: rgba(0, 0, 0, 0.012); }
 .cal-cell[data-today="true"] { box-shadow: inset 1px 0 0 var(--accent), inset -1px 0 0 var(--accent); }
+.cal-cell[data-drop="true"] { background: var(--s2-bg); box-shadow: inset 0 0 0 1px var(--accent); }
 .cal-more { font-size: 10.5px; color: var(--text-3); padding-left: 4px; }
 .cal-past-plan { font-size: 10.5px; color: var(--text-3); padding-left: 4px; }
 
@@ -835,6 +836,30 @@ kbd {
   color: var(--text-3); padding: 4px 4px 0;
 }
 
+/* ── La date tenable : la vue conclut ────────────────────────────────────
+ * « On signe quand ? » — le max des « prête au plus tôt » des pièces
+ * ouvertes du dossier filtré, avec la pièce critique nommée. Trois tons :
+ * ça tient, ça tient si on lance aujourd'hui, ça ne tient plus. */
+.cal-tenable {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  width: 100%; text-align: left;
+  font: inherit; font-size: 12.5px; color: var(--text);
+  padding: 7px 14px;
+  border: none; border-bottom: 1px solid var(--border);
+  background: var(--bg-subtle);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.cal-tenable:hover { background: var(--bg-hover); }
+.cal-tenable strong { font-weight: 600; }
+.cal-tenable-main { color: var(--text-2); }
+.cal-tenable-verdict { margin-left: auto; font-weight: 500; }
+.cal-tenable[data-tone="ok"] .cal-tenable-verdict { color: var(--ok-fg); }
+.cal-tenable[data-tone="warn"] { background: var(--warn-bg-soft); }
+.cal-tenable[data-tone="warn"] .cal-tenable-verdict { color: var(--s1-fg); }
+.cal-tenable[data-tone="late"] { background: var(--danger-bg-soft); }
+.cal-tenable[data-tone="late"] .cal-tenable-verdict { color: var(--cal-late); }
+
 /* ── La réglette : 90 jours d'un seul tenant ─────────────────────────────
  * La fenêtre affichée n'est qu'un cadre posé dessus ; les attentes y courent
  * en entier, hachure rouge au-delà du retour attendu ; les échéances sont des
@@ -888,6 +913,13 @@ kbd {
 .cal-ruler-more {
   position: absolute; right: 6px; bottom: 2px;
   font-size: 9.5px; color: var(--text-3);
+  pointer-events: none;
+}
+/* La date tenable, en losange sur la réglette */
+.cal-ruler-tenable {
+  position: absolute; top: 50%; width: 8px; height: 8px;
+  transform: translate(-50%, -50%) rotate(45deg);
+  background: var(--bg); border: 2px solid var(--accent);
   pointer-events: none;
 }
 
@@ -1031,10 +1063,58 @@ kbd {
   padding: 7px 14px; border-radius: 6px; z-index: 50;
 }
 
+/* ── L'échéancier : la vue qui sort de l'étude ───────────────────────────
+ * Un panneau plein écran à l'écran, une page propre à l'impression :
+ * seul .cal-print-page est visible sur papier. */
+.cal-print-overlay {
+  position: fixed; inset: 0; z-index: 60;
+  background: var(--bg);
+  overflow-y: auto;
+  padding: 24px;
+}
+.cal-print-actions {
+  display: flex; gap: 8px; justify-content: flex-end;
+  max-width: 720px; margin: 0 auto 16px;
+}
+.cal-print-page {
+  max-width: 720px; margin: 0 auto;
+  background: var(--bg);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 40px 48px;
+}
+.cal-print-head { border-bottom: 2px solid var(--text); padding-bottom: 10px; margin-bottom: 20px; }
+.cal-print-head h1 { font-size: 18px; font-weight: 600; margin: 0 0 2px; }
+.cal-print-head p { font-size: 12.5px; color: var(--text-2); margin: 0; }
+.cal-print-table { width: 100%; border-collapse: collapse; }
+.cal-print-table td { padding: 7px 8px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: baseline; }
+.cal-print-state { width: 70px; font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-3); white-space: nowrap; }
+tr[data-state="fait"] .cal-print-state { color: var(--ok-fg); }
+tr[data-state="reçue"] .cal-print-state { color: var(--accent); }
+tr[data-state="en cours"] .cal-print-state { color: var(--s1-fg); }
+.cal-print-title { font-weight: 500; }
+.cal-print-detail { color: var(--text-2); }
+.cal-print-tenable { font-size: 14px; margin: 20px 0 0; }
+.cal-print-note { font-size: 10.5px; color: var(--text-3); margin: 18px 0 0; }
+
+@media print {
+  body * { visibility: hidden; }
+  .cal-print-overlay { position: absolute; inset: 0; padding: 0; overflow: visible; }
+  .cal-print-page, .cal-print-page * { visibility: visible; }
+  .cal-print-page { border: none; border-radius: 0; max-width: none; margin: 0; padding: 0; }
+  .cal-print-actions { display: none; }
+  /* Sur papier : noir sur blanc, quoi qu'il arrive du thème */
+  .cal-print-page { background: #fff; color: #000; }
+  .cal-print-head { border-color: #000; }
+  .cal-print-head h1, .cal-print-title { color: #000; }
+  .cal-print-head p, .cal-print-detail, .cal-print-note, .cal-print-state { color: #444; }
+  .cal-print-table td { border-color: #ddd; }
+  .cal-print-tenable { color: #000; }
+}
+
 /* Mobile : la vue calendrier est une vue de bureau. On l'annonce plutôt que
  * de la déformer — cf. DESIGN.md, « mobile = compagnon ». */
 @media (max-width: 767px) {
-  .cal-sas, .cal-inspector, .cal-rail, .cal-ruler { display: none; }
+  .cal-sas, .cal-inspector, .cal-rail, .cal-ruler, .cal-tenable { display: none; }
   .cal-lanes { grid-template-columns: minmax(0, 1fr); }
   .cal-week { overflow-x: auto; }
 }

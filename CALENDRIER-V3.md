@@ -5,6 +5,14 @@ réglette, le filtre par dossier — tout est en service). Ce document part d'un
 constat simple : **la vue sait désormais tout montrer. La marche suivante n'est
 pas de montrer plus, c'est de conclure.**
 
+*Arbitrages du 21/08/2026 : les § 1 (le geste), 2 (la date tenable) et 4
+(l'échéancier) sont réalisés — branche `claude/calendar-v3`. Le § 3 (barème
+observé) est **abandonné** : le délai de traitement est une décision de
+l'utilisateur, pas une statistique — Henri ne propose pas de chiffre déduit de
+l'historique, il applique celui que le notaire a fixé (ou le barème par
+défaut, corrigeable d'un clic). Le § 5 (jalons) reste différé, en attente de
+son signal d'usage.*
+
 Aujourd'hui le calendrier expose des faits — cette demande doit partir jeudi,
 cette attente dure depuis 34 jours, cette pièce dort dans la bannette. La
 conclusion, c'est encore le notaire qui la tire : *« donc ma signature du 30
@@ -207,14 +215,13 @@ que les `appointments` de la V1 : une décision produit, pas un lot de plus.
 |---|---|---|---|
 | **A — le geste** | action au survol selon le motif (→ Demandé, ↻ Relancé, ✓ Reçu) ; glisser une échéance d'un jour à l'autre | faible | la bande du matin se coche sans ouvrir un seul panneau |
 | **B — la date tenable** | bandeau du dossier filtré, chemin critique, losange sur la réglette | modéré | la vue répond à « on signe quand ? » — la question du métier |
-| **C — le barème observé** | médiane des délais vécus par nature de pièce, « appliquer » d'un clic | modéré | Henri cesse de deviner, il commence à savoir |
+| ~~C — le barème observé~~ | abandonné : le délai est une décision de l'utilisateur, pas une statistique | — | — |
 | **D — l'échéancier client** | page imprimable du dossier filtré, dates prudentes | modéré | le calendrier produit un document qui sort de l'étude |
 | **E — les jalons** | dates types d'une vente sur la réglette | **champ nouveau** | à décider seulement si A–D confirment l'usage |
 
 A et B forment la paire à faire d'abord : A rend chaque geste immédiat, B donne
-au geste sa conséquence visible. C est le pari long — celui qui, au bout de six
-mois d'usage, rend le barème de l'étude plus juste que celui de n'importe quel
-concurrent. D est celui qui se montre à un client.
+au geste sa conséquence visible. D est celui qui se montre à un client. A, B et
+D sont réalisés ; E attend sa décision produit.
 
 ---
 

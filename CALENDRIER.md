@@ -333,7 +333,7 @@ Cohérent avec l'existant (DESIGN.md, « clavier first ») :
 | `T` | revenir à aujourd'hui |
 | `N` | nouvelle tâche (panneau droit) |
 | `1`–`4` | statut de la tâche sélectionnée — les mêmes raccourcis que partout |
-| `Échap` | fermer, dans l'ordre : la création, l'inspecteur, le filtre de dossier |
+| `Échap` | fermer, dans l'ordre : l'échéancier, la création, l'inspecteur, le filtre |
 
 À la souris, deux gestes qui ne s'annoncent pas mais se découvrent (les
 infobulles les disent) : **double-clic sur une pastille** → la tâche s'ouvre

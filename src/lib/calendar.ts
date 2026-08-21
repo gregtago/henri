@@ -16,7 +16,7 @@
 import type { Case, FloatingTask, Item, MyDaySelection, Event as HenriEvent } from "./types";
 import { getDateKey, toDate } from "./dates";
 import { getContainerIds } from "./completion";
-import { addDays, expectedReturnDate, inferDelai, isWeekend, latestLaunchDate, resolveDelai, type DelaiInfo } from "./delais";
+import { addDays, expectedReturnDate, inferDelai, isWeekend, latestLaunchDate, resolveDelai, rollForward, type DelaiInfo } from "./delais";
 
 export type TaskKind = "item" | "floating" | "case";
 
@@ -39,6 +39,7 @@ export type CalendarTask = {
   reminderAt: Date | null;
   requestedAt: Date | null;     // date de passage au statut « Demandé » (lue dans la timeline)
   receivedAt: Date | null;      // date de passage au statut « Reçu » — l'âge de la bannette
+  treatedAt: Date | null;       // date de passage au statut « Traité » — pour l'échéancier
   expectedReturn: Date | null;  // requestedAt + délai de la pièce
   launchAt: Date | null;        // échéance − délai : dernier jour pour lancer la demande
   delai: DelaiInfo;
@@ -92,6 +93,13 @@ export type SouffranceGroup = {
   entries: CalendarEntry[];
 };
 
+/** « On signe quand ? » — la date au plus tôt à laquelle toutes les pièces
+ * ouvertes peuvent être là, et la pièce qui la porte (le chemin critique). */
+export type Tenable = {
+  date: Date;
+  critical: CalendarTask;
+};
+
 export type CalendarModel = {
   days: DayCell[];
   bars: WaitingBar[];
@@ -104,6 +112,10 @@ export type CalendarModel = {
   bannette: CalendarEntry[];
   /** Échéances ouvertes par jour, pour les traits de la réglette. */
   dueDays: { date: Date; count: number }[];
+  /** Toutes les tâches du modèle, statuts fermés compris — pour l'échéancier. */
+  tasks: CalendarTask[];
+  /** Date tenable et chemin critique. Un sens sur un dossier filtré. */
+  tenable: Tenable | null;
 };
 
 const startOfDay = (date: Date) => {
@@ -162,12 +174,19 @@ const buildProgressIndex = (events: HenriEvent[]) => {
   return index;
 };
 
+export type StatusDates = {
+  requestedAt?: Date | null;
+  receivedAt?: Date | null;
+  treatedAt?: Date | null;
+};
+
 export const toCalendarTask = (
   item: Item,
   caseData: Case | undefined,
-  requestedAt: Date | null,
-  receivedAt: Date | null = null
+  dates: StatusDates = {}
 ): CalendarTask => {
+  const requestedAt = dates.requestedAt ?? null;
+  const receivedAt = dates.receivedAt ?? null;
   // `delaiDays` est le délai que l'utilisateur a fixé sur la tâche ; à défaut,
   // on retombe sur l'estimation déduite du libellé.
   const delai = resolveDelai(item);
@@ -193,6 +212,7 @@ export const toCalendarTask = (
     reminderAt: toDate(item.reminderAt ?? null),
     requestedAt: item.status === "Demandé" ? (requestedAt ?? toDate(item.updatedAt)) : requestedAt,
     receivedAt: item.status === "Reçu" ? (receivedAt ?? toDate(item.updatedAt)) : receivedAt,
+    treatedAt: item.status === "Traité" ? (dates.treatedAt ?? toDate(item.updatedAt)) : (dates.treatedAt ?? null),
     expectedReturn:
       item.status === "Demandé" && (requestedAt ?? toDate(item.updatedAt))
         ? expectedReturnDate((requestedAt ?? toDate(item.updatedAt)) as Date, days)
@@ -218,6 +238,7 @@ const floatingToTask = (task: FloatingTask): CalendarTask => ({
   reminderAt: toDate(task.reminderAt ?? null),
   requestedAt: null,
   receivedAt: null,
+  treatedAt: null,
   expectedReturn: null,
   launchAt: null,
   delai: inferDelai(task.title),
@@ -246,6 +267,7 @@ export const buildCalendarModel = ({
   const casesById = new Map(cases.map((c) => [c.id, c]));
   const requestedIndex = buildStatusDateIndex(events, "Demandé");
   const receivedIndex = buildStatusDateIndex(events, "Reçu");
+  const treatedIndex = buildStatusDateIndex(events, "Traité");
   const progressIndex = buildProgressIndex(events);
   const itemsById = new Map(items.map((i) => [i.id, i]));
 
@@ -261,7 +283,11 @@ export const buildCalendarModel = ({
       .filter((item) => !casesById.get(item.caseId)?.archived)
       .filter((item) => !containerIds.has(item.id))
       .map((item) =>
-        toCalendarTask(item, casesById.get(item.caseId), requestedIndex.get(item.id) ?? null, receivedIndex.get(item.id) ?? null)
+        toCalendarTask(item, casesById.get(item.caseId), {
+          requestedAt: requestedIndex.get(item.id),
+          receivedAt: receivedIndex.get(item.id),
+          treatedAt: treatedIndex.get(item.id),
+        })
       ),
     ...floatingTasks.map(floatingToTask),
   ];
@@ -329,7 +355,11 @@ export const buildCalendarModel = ({
         if (!item) continue;
         fait.push({
           key: `${progress.itemId}-fait-${progress.status}`,
-          task: toCalendarTask(item, casesById.get(item.caseId), requestedIndex.get(item.id) ?? null, receivedIndex.get(item.id) ?? null),
+          task: toCalendarTask(item, casesById.get(item.caseId), {
+            requestedAt: requestedIndex.get(item.id),
+            receivedAt: receivedIndex.get(item.id),
+            treatedAt: treatedIndex.get(item.id),
+          }),
           reason: "fait",
           overdue: false,
           reachedStatus: progress.status as Item["status"],
@@ -461,7 +491,27 @@ export const buildCalendarModel = ({
   }
   const dueDays = Array.from(dueByDay.values()).sort((a, b) => a.date.getTime() - b.date.getTime());
 
-  return { days: cells, bars, allWaits, souffrance, souffranceGroups, bannette, dueDays };
+  // ── La date tenable ─────────────────────────────────────────────────────
+  // Pour chaque pièce ouverte, le jour au plus tôt où elle peut être là :
+  //   Créé     → aujourd'hui + délai (si la demande part aujourd'hui)
+  //   Demandé  → le retour attendu, ou aujourd'hui s'il est déjà passé
+  //   Reçu     → aujourd'hui (la matière est là)
+  // Le max de ces dates répond à « on signe quand ? », et la pièce qui le
+  // porte est le chemin critique. Le calcul n'a de sens que sur un dossier —
+  // c'est la vue filtrée qui l'affiche.
+  let tenable: Tenable | null = null;
+  for (const task of tasks) {
+    if (task.isMemo || !OPEN_STATUSES.has(task.status)) continue;
+    const ready =
+      task.status === "Reçu"
+        ? todayStart
+        : task.status === "Demandé"
+          ? (task.expectedReturn && task.expectedReturn > todayStart ? task.expectedReturn : todayStart)
+          : rollForward(addDays(todayStart, task.delai.days));
+    if (!tenable || ready > tenable.date) tenable = { date: ready, critical: task };
+  }
+
+  return { days: cells, bars, allWaits, souffrance, souffranceGroups, bannette, dueDays, tasks, tenable };
 };
 
 export const REASON_LABELS: Record<EntryReason, string> = {

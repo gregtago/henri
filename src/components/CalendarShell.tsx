@@ -92,6 +92,12 @@ const startOfDayMs = (date: Date) => {
 const daysAgo = (date: Date, today: Date) =>
   Math.max(0, Math.round((startOfDayMs(today) - startOfDayMs(date)) / DAY_MS));
 
+const toDatePosed = (value?: string | null): Date | null => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
 // La réglette : 90 jours — 30 en arrière, 60 en avant. C'est la seule vue
 // d'Henri où un délai notarial (une DIA fait 60 jours) tient en entier.
 const RULER_BACK = 30;
@@ -122,6 +128,7 @@ export default function CalendarShell({ user }: { user: User }) {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [filterCaseId, setFilterCaseId] = useState<string | null>(null);
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+  const [echeancier, setEcheancier] = useState(false);
 
   // Miroir de `selected` pour les raccourcis clavier : un écouteur global ne
   // doit ni capturer une valeur périmée, ni déclencher d'écriture depuis un
@@ -132,6 +139,8 @@ export default function CalendarShell({ user }: { user: User }) {
   useEffect(() => { draftRef.current = draft; }, [draft]);
   const filterRef = useRef<string | null>(null);
   useEffect(() => { filterRef.current = filterCaseId; }, [filterCaseId]);
+  const echeancierRef = useRef(false);
+  useEffect(() => { echeancierRef.current = echeancier; }, [echeancier]);
 
   const showToast = useCallback((message: string) => {
     setToast(message);
@@ -189,6 +198,7 @@ export default function CalendarShell({ user }: { user: User }) {
     [floatingTasks, filterCaseId]
   );
   const filterCase = filterCaseId ? cases.find((entry) => entry.id === filterCaseId) ?? null : null;
+  useEffect(() => { if (!filterCaseId) setEcheancier(false); }, [filterCaseId]);
 
   const model = useMemo(
     () =>
@@ -311,6 +321,42 @@ export default function CalendarShell({ user }: { user: User }) {
     [user.uid, showToast]
   );
 
+  // Relancer ne change pas le statut — la pièce est toujours demandée — ça
+  // repose le point de départ de l'attente. On journalise un passage
+  // Demandé → Demandé : buildStatusDateIndex garde le plus récent, la barre
+  // repart d'aujourd'hui, et la prochaine relance se recalcule. Zéro champ
+  // nouveau, et l'historique des relances est écrit par construction.
+  const noteRelance = useCallback(
+    async (task: CalendarTask) => {
+      if (task.kind !== "item") return;
+      await logStatusEvent(user.uid, task.id, "Demandé", "Demandé");
+      showToast("Relance notée — l'attente repart d'aujourd'hui.");
+    },
+    [user.uid, showToast]
+  );
+
+  // Chaque motif de pastille n'a qu'un seul coup naturel. Un bouton au
+  // survol, jamais deux : celui du motif.
+  const actFor = useCallback(
+    (entry: CalendarEntry): ChipAct | undefined => {
+      const task = entry.task;
+      if (task.isMemo) return undefined;
+      switch (entry.reason) {
+        case "lancement":
+          return { label: "→", hint: "Demande envoyée — passer en Demandé", run: () => advanceStatus(task, "Demandé") };
+        case "relance":
+          return { label: "↻", hint: "Relance faite — l'attente repart d'aujourd'hui", run: () => noteRelance(task) };
+        case "retour":
+        case "echeance":
+        case "legal":
+          return { label: "✓", hint: "C'est arrivé — passer en Reçu", run: () => advanceStatus(task, "Reçu") };
+        default:
+          return undefined;
+      }
+    },
+    [advanceStatus, noteRelance]
+  );
+
   const createTask = useCallback(
     async (caseId: string, title: string, due: Date | null) => {
       await createItem(user.uid, {
@@ -344,8 +390,9 @@ export default function CalendarShell({ user }: { user: User }) {
       else if (event.key.toLowerCase() === "t") { setAnchor(startOfToday()); }
       else if (event.key.toLowerCase() === "n") { event.preventDefault(); setDraft({ caseId: null, dueDate: null }); }
       else if (event.key === "Escape") {
-        // Un Échap, une chose : la création, puis l'inspecteur, puis le filtre.
-        if (draftRef.current) setDraft(null);
+        // Un Échap, une chose : l'échéancier, la création, l'inspecteur, le filtre.
+        if (echeancierRef.current) setEcheancier(false);
+        else if (draftRef.current) setDraft(null);
         else if (selectedRef.current) setSelected(null);
         else if (filterRef.current) setFilterCaseId(null);
       }
@@ -395,15 +442,24 @@ export default function CalendarShell({ user }: { user: User }) {
           </button>
           <span className="text-[13px] text-tx ml-2 font-medium">{periodLabel}</span>
           {filterCase && (
-            <button
-              className="cal-filter-pill"
-              onClick={() => setFilterCaseId(null)}
-              title="Toute la vue est restreinte à ce dossier — cliquer pour retirer le filtre (Échap)"
-            >
-              <Icon name="folder" size={11} />
-              <span className="cal-filter-title">{filterCase.title}</span>
-              <span aria-hidden>×</span>
-            </button>
+            <>
+              <button
+                className="cal-filter-pill"
+                onClick={() => setFilterCaseId(null)}
+                title="Toute la vue est restreinte à ce dossier — cliquer pour retirer le filtre (Échap)"
+              >
+                <Icon name="folder" size={11} />
+                <span className="cal-filter-title">{filterCase.title}</span>
+                <span aria-hidden>×</span>
+              </button>
+              <button
+                className="cal-btn"
+                onClick={() => setEcheancier(true)}
+                title="L'échéancier du dossier, prêt à imprimer pour le client"
+              >
+                Échéancier
+              </button>
+            </>
           )}
         </div>
 
@@ -431,6 +487,7 @@ export default function CalendarShell({ user }: { user: User }) {
         windowEnd={days[days.length - 1]}
         waits={model.allWaits}
         dueDays={model.dueDays}
+        tenableDate={filterCase ? model.tenable?.date ?? null : null}
         hoveredTaskId={hoveredTaskId}
         onHover={setHoveredTaskId}
         onJump={(date) => setAnchor(date)}
@@ -443,6 +500,60 @@ export default function CalendarShell({ user }: { user: User }) {
           })
         }
       />
+
+      {/* ── LA DATE TENABLE ── la vue conclut : « on signe quand ? ».
+        * Un sens seulement sur un dossier filtré. Cliquer le bandeau
+        * sélectionne la pièce critique. */}
+      {filterCase && model.tenable && (() => {
+        const tenable = model.tenable;
+        const posed = toDatePosed(filterCase.legalDueDate);
+        const critical = tenable.critical;
+        const criticalState =
+          critical.status === "Reçu"
+            ? "reçue — à exploiter"
+            : critical.status === "Demandé"
+              ? `demandée${critical.requestedAt ? ` le ${shortDate(critical.requestedAt)}` : ""}`
+              : "pas encore lancée";
+        const diff = posed ? Math.round((startOfDayMs(posed) - startOfDayMs(tenable.date)) / DAY_MS) : null;
+        // « Tient si la demande part aujourd'hui » : le vrai signal d'alarme,
+        // celui qui arrive à temps — le point de non-retour de la pièce
+        // critique est atteint alors que la date posée tient encore.
+        const mustLaunchToday =
+          critical.status === "Créé" &&
+          diff !== null && diff >= 0 &&
+          !!critical.launchAt && startOfDayMs(critical.launchAt) <= startOfDayMs(today);
+        const tone = diff === null ? "neutral" : diff < 0 ? "late" : mustLaunchToday ? "warn" : "ok";
+        return (
+          <button
+            className="cal-tenable"
+            data-tone={tone}
+            onClick={() =>
+              setSelected({
+                key: `${critical.id}-critical`,
+                task: critical,
+                reason: critical.status === "Reçu" ? "recu" : critical.status === "Demandé" ? "retour" : "lancement",
+                overdue: tone === "late",
+              })
+            }
+            title="La date au plus tôt à laquelle toutes les pièces ouvertes peuvent être là — cliquer pour voir la pièce critique"
+          >
+            <span className="cal-tenable-main">
+              ▸ Signature tenable au plus tôt le <strong>{formatDateFR(tenable.date)}</strong>
+              {" — chemin critique : "}
+              <strong>{critical.title}</strong> ({critical.delai.days} j, {criticalState})
+            </span>
+            {posed && diff !== null && (
+              <span className="cal-tenable-verdict">
+                {diff < 0
+                  ? `échéance du ${shortDate(posed)} intenable de ${-diff} j`
+                  : mustLaunchToday
+                    ? `l'échéance du ${shortDate(posed)} tient si la demande part aujourd'hui`
+                    : `échéance du ${shortDate(posed)} : marge de ${diff} j`}
+              </span>
+            )}
+          </button>
+        );
+      })()}
 
       <div className="flex flex-1 min-h-0">
         {/* ── LE SAS ── tout ce qui a franchi sa date sans être traité */}
@@ -465,11 +576,11 @@ export default function CalendarShell({ user }: { user: User }) {
                 meta={sasMeta(entry, today)}
                 selected={selected?.key === entry.key}
                 dimmed={!!hoveredTaskId && hoveredTaskId !== entry.task.id}
-                canDrag={mode === "jour"}
+                canDrag
                 onSelect={() => setSelected(entry)}
                 onOpen={() => openInCase(entry.task)}
                 onCase={entry.task.caseId ? () => setFilterCaseId(entry.task.caseId) : undefined}
-                onDone={entry.task.isMemo ? undefined : () => advanceStatus(entry.task, "Traité")}
+                act={entry.task.isMemo ? undefined : { label: "✓", hint: "Marquer Traité", run: () => advanceStatus(entry.task, "Traité") }}
                 onHover={setHoveredTaskId}
                 onDragStart={setDragTaskId}
               />
@@ -507,10 +618,10 @@ export default function CalendarShell({ user }: { user: User }) {
                         variant="sas"
                         selected={selected?.key === entry.key}
                         dimmed={!!hoveredTaskId && hoveredTaskId !== entry.task.id}
-                        canDrag={mode === "jour"}
+                        canDrag
                         onSelect={() => setSelected(entry)}
                         onOpen={() => openInCase(entry.task)}
-                        onDone={() => advanceStatus(entry.task, "Traité")}
+                        act={{ label: "✓", hint: "Marquer Traité", run: () => advanceStatus(entry.task, "Traité") }}
                         onHover={setHoveredTaskId}
                         onDragStart={setDragTaskId}
                       />
@@ -544,11 +655,11 @@ export default function CalendarShell({ user }: { user: User }) {
                   old={(age ?? 0) > 10}
                   selected={selected?.key === entry.key}
                   dimmed={!!hoveredTaskId && hoveredTaskId !== entry.task.id}
-                  canDrag={mode === "jour"}
+                  canDrag
                   onSelect={() => setSelected(entry)}
                   onOpen={() => openInCase(entry.task)}
                   onCase={entry.task.caseId ? () => setFilterCaseId(entry.task.caseId) : undefined}
-                  onDone={() => advanceStatus(entry.task, "Traité")}
+                  act={{ label: "✓", hint: "Marquer Traité", run: () => advanceStatus(entry.task, "Traité") }}
                   onHover={setHoveredTaskId}
                   onDragStart={setDragTaskId}
                 />
@@ -570,6 +681,13 @@ export default function CalendarShell({ user }: { user: User }) {
               onOpenDay={(date) => { setAnchor(date); setMode("jour"); }}
               onDraftDay={(date) => setDraft({ caseId: null, dueDate: date })}
               onFilterCase={setFilterCaseId}
+              actFor={actFor}
+              dragTaskId={dragTaskId}
+              onDropDay={async (date) => {
+                const task = findTask(model, dragTaskId);
+                setDragTaskId(null);
+                if (task) await setDue(task, date);
+              }}
               onDragStart={setDragTaskId}
             />
           ) : (
@@ -583,6 +701,7 @@ export default function CalendarShell({ user }: { user: User }) {
               onHover={setHoveredTaskId}
               onOpen={openInCase}
               onFilterCase={setFilterCaseId}
+              actFor={actFor}
               onDragStart={setDragTaskId}
               onDropHour={async (hour) => {
                 const task = findTask(model, dragTaskId);
@@ -623,6 +742,113 @@ export default function CalendarShell({ user }: { user: User }) {
       </div>
 
       {toast && <div className="cal-toast">{toast}</div>}
+
+      {echeancier && filterCase && (
+        <Echeancier
+          caseData={filterCase}
+          tasks={model.tasks}
+          tenable={model.tenable}
+          today={today}
+          onClose={() => setEcheancier(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// L'ÉCHÉANCIER — la vue qui sort de l'étude.
+//
+// Le dossier filtré raconte exactement ce que le client demande au téléphone :
+// qu'est-ce qui est parti, qu'est-ce qu'on attend, on signe quand. Ce panneau
+// le met en page pour l'impression, avec les règles d'écriture qui changent
+// quand le lecteur change : les dates calculées deviennent des « vers le »,
+// la date tenable devient « envisageable à partir du » — un délai estimé ne
+// se promet pas à un client. Ni retards internes, ni bannette, ni rappels :
+// le client voit le circuit de son dossier, pas la cuisine.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ECHEANCIER_STATUS_ORDER: Record<Status, number> = { "Traité": 0, "Reçu": 1, "Demandé": 2, "Créé": 3 };
+
+type EcheancierProps = {
+  caseData: Case;
+  tasks: CalendarTask[];
+  tenable: { date: Date; critical: CalendarTask } | null;
+  today: Date;
+  onClose: () => void;
+};
+
+function Echeancier({ caseData, tasks, tenable, today, onClose }: EcheancierProps) {
+  const rows = useMemo(
+    () =>
+      tasks
+        .filter((task) => !task.isMemo && task.kind === "item")
+        .sort((a, b) => {
+          const order = ECHEANCIER_STATUS_ORDER[a.status] - ECHEANCIER_STATUS_ORDER[b.status];
+          if (order !== 0) return order;
+          const dateA = a.treatedAt ?? a.receivedAt ?? a.requestedAt ?? a.dueDate;
+          const dateB = b.treatedAt ?? b.receivedAt ?? b.requestedAt ?? b.dueDate;
+          return (dateA?.getTime() ?? Infinity) - (dateB?.getTime() ?? Infinity);
+        }),
+    [tasks]
+  );
+
+  const describe = (task: CalendarTask): { state: string; detail: string } => {
+    switch (task.status) {
+      case "Traité":
+        return { state: "fait", detail: task.treatedAt ? `réglée le ${formatDateFR(task.treatedAt)}` : "réglée" };
+      case "Reçu":
+        return { state: "reçue", detail: task.receivedAt ? `reçue le ${formatDateFR(task.receivedAt)}` : "reçue" };
+      case "Demandé":
+        return {
+          state: "en cours",
+          detail: `demandée${task.requestedAt ? ` le ${formatDateFR(task.requestedAt)}` : ""}${
+            task.expectedReturn ? ` — attendue vers le ${formatDateFR(task.expectedReturn)}` : ""
+          }`,
+        };
+      default:
+        return { state: "à venir", detail: `à demander — réponse sous ${task.delai.days} jours` };
+    }
+  };
+
+  return (
+    <div className="cal-print-overlay" role="dialog" aria-label="Échéancier du dossier">
+      <div className="cal-print-actions">
+        <button className="cal-btn" onClick={() => window.print()}>Imprimer</button>
+        <button className="cal-btn" onClick={onClose}>Fermer (Échap)</button>
+      </div>
+      <div className="cal-print-page">
+        <header className="cal-print-head">
+          <h1>{caseData.title}</h1>
+          <p>Échéancier au {formatDateFR(today)}</p>
+        </header>
+        <table className="cal-print-table">
+          <tbody>
+            {rows.map((task) => {
+              const { state, detail } = describe(task);
+              return (
+                <tr key={task.id} data-state={state}>
+                  <td className="cal-print-state">{state}</td>
+                  <td className="cal-print-title">{task.title}</td>
+                  <td className="cal-print-detail">{detail}</td>
+                </tr>
+              );
+            })}
+            {rows.length === 0 && (
+              <tr><td colSpan={3} className="cal-print-detail">Aucune pièce dans ce dossier.</td></tr>
+            )}
+          </tbody>
+        </table>
+        {tenable && (
+          <p className="cal-print-tenable">
+            ▸ Signature envisageable à partir du <strong>{formatDateFR(tenable.date)}</strong>
+          </p>
+        )}
+        <p className="cal-print-note">
+          Dates estimées d&apos;après les délais habituels de réponse des administrations et
+          organismes consultés — données à titre indicatif.
+        </p>
+      </div>
     </div>
   );
 }
@@ -640,6 +866,9 @@ const findTask = (model: ReturnType<typeof buildCalendarModel>, taskId: string |
   ];
   return pool.find((task) => task.id === taskId) ?? null;
 };
+
+/** L'action au survol d'une pastille : une seule, celle de son motif. */
+export type ChipAct = { label: string; hint: string; run: () => void };
 
 /** Ce que la ligne du sas doit dire : de combien, et depuis quand. */
 const sasMeta = (entry: CalendarEntry, today: Date): string | undefined => {
@@ -664,10 +893,24 @@ type WeekProps = {
   onOpenDay: (date: Date) => void;
   onDraftDay: (date: Date) => void;
   onFilterCase: (caseId: string) => void;
+  actFor: (entry: CalendarEntry) => ChipAct | undefined;
+  dragTaskId: string | null;
+  onDropDay: (date: Date) => void;
   onDragStart: (taskId: string | null) => void;
 };
 
-function WeekView({ model, selected, hoveredTaskId, onSelect, onHover, onOpen, onOpenDay, onDraftDay, onFilterCase, onDragStart }: WeekProps) {
+function WeekView({ model, selected, hoveredTaskId, onSelect, onHover, onOpen, onOpenDay, onDraftDay, onFilterCase, actFor, dragTaskId, onDropDay, onDragStart }: WeekProps) {
+  // Glisser une pastille sur un jour à venir = reporter son échéance à ce
+  // jour. Le pendant visuel du champ « reporter au » de l'inspecteur.
+  const [dropKey, setDropKey] = useState<string | null>(null);
+  const dropProps = (cell: DayCell) =>
+    cell.isPast || !dragTaskId
+      ? {}
+      : {
+          onDragOver: (event: React.DragEvent) => { event.preventDefault(); setDropKey(cell.dateKey); },
+          onDragLeave: () => setDropKey((current) => (current === cell.dateKey ? null : current)),
+          onDrop: (event: React.DragEvent) => { event.preventDefault(); setDropKey(null); onDropDay(cell.date); },
+        };
   const columnIndex = useMemo(() => {
     const map = new Map<string, number>();
     model.days.forEach((cell, index) => map.set(cell.dateKey, index));
@@ -714,8 +957,10 @@ function WeekView({ model, selected, hoveredTaskId, onSelect, onHover, onOpen, o
             data-today={cell.isToday}
             data-weekend={cell.isWeekend}
             data-past={cell.isPast}
+            data-drop={dropKey === cell.dateKey}
             onDoubleClick={cell.isPast ? undefined : (event) => { if (event.target === event.currentTarget) onDraftDay(cell.date); }}
             title={cell.isPast ? undefined : "Double-clic : nouvelle tâche à cette échéance"}
+            {...dropProps(cell)}
           >
             {cell.isPast ? (
               <>
@@ -747,6 +992,7 @@ function WeekView({ model, selected, hoveredTaskId, onSelect, onHover, onOpen, o
                     onSelect={() => onSelect(entry)}
                     onOpen={() => onOpen(entry.task)}
                     onCase={entry.task.caseId ? () => onFilterCase(entry.task.caseId as string) : undefined}
+                    act={actFor(entry)}
                     onHover={onHover}
                     onDragStart={onDragStart}
                   />
@@ -855,8 +1101,10 @@ function WeekView({ model, selected, hoveredTaskId, onSelect, onHover, onOpen, o
             data-today={cell.isToday}
             data-weekend={cell.isWeekend}
             data-past={cell.isPast}
+            data-drop={dropKey === cell.dateKey}
             onDoubleClick={cell.isPast ? undefined : (event) => { if (event.target === event.currentTarget) onDraftDay(cell.date); }}
             title={cell.isPast ? undefined : "Double-clic : nouvelle tâche à cette échéance"}
+            {...dropProps(cell)}
           >
             {!cell.isPast && cell.entrant.map((entry) => (
               <EntryChip
@@ -865,9 +1113,11 @@ function WeekView({ model, selected, hoveredTaskId, onSelect, onHover, onOpen, o
                 variant="in"
                 selected={selected?.key === entry.key}
                 dimmed={!!hoveredTaskId && hoveredTaskId !== entry.task.id}
+                canDrag={entry.reason === "echeance" && !entry.task.isMemo}
                 onSelect={() => onSelect(entry)}
                 onOpen={() => onOpen(entry.task)}
                 onCase={entry.task.caseId ? () => onFilterCase(entry.task.caseId as string) : undefined}
+                act={actFor(entry)}
                 onHover={onHover}
                 onDragStart={onDragStart}
               />
@@ -893,6 +1143,7 @@ type DayProps = {
   onHover: (taskId: string | null) => void;
   onOpen: (task: CalendarTask) => void;
   onFilterCase: (caseId: string) => void;
+  actFor: (entry: CalendarEntry) => ChipAct | undefined;
   onDragStart: (taskId: string | null) => void;
   onDropHour: (hour: number) => void;
   onHoverHour: (hour: number | null) => void;
@@ -900,7 +1151,7 @@ type DayProps = {
 
 function DayView({
   cell, model, selected, hoveredTaskId, dropHour,
-  onSelect, onHover, onOpen, onFilterCase, onDragStart, onDropHour, onHoverHour,
+  onSelect, onHover, onOpen, onFilterCase, actFor, onDragStart, onDropHour, onHoverHour,
 }: DayProps) {
   const hours = Array.from({ length: RAIL_END_HOUR - RAIL_START_HOUR + 1 }, (_, i) => RAIL_START_HOUR + i);
 
@@ -1000,6 +1251,7 @@ function DayView({
             empty="Rien à faire aujourd'hui."
             variant="out"
             canDrag
+            actFor={actFor}
             selected={selected}
             hoveredTaskId={hoveredTaskId}
             onSelect={onSelect}
@@ -1020,6 +1272,7 @@ function DayView({
             empty="Aucune demande en attente."
             variant="wait"
             canDrag
+            actFor={actFor}
             selected={selected}
             hoveredTaskId={hoveredTaskId}
             onSelect={onSelect}
@@ -1035,6 +1288,7 @@ function DayView({
             empty="Aucune échéance aujourd'hui."
             variant="in"
             canDrag
+            actFor={actFor}
             selected={selected}
             hoveredTaskId={hoveredTaskId}
             onSelect={onSelect}
@@ -1078,10 +1332,11 @@ type LaneProps = {
   onHover: (taskId: string | null) => void;
   onOpen: (task: CalendarTask) => void;
   onFilterCase: (caseId: string) => void;
+  actFor?: (entry: CalendarEntry) => ChipAct | undefined;
   onDragStart: (taskId: string | null) => void;
 };
 
-function Lane({ title, hint, entries, empty, variant, canDrag, selected, hoveredTaskId, onSelect, onHover, onOpen, onFilterCase, onDragStart }: LaneProps) {
+function Lane({ title, hint, entries, empty, variant, canDrag, selected, hoveredTaskId, onSelect, onHover, onOpen, onFilterCase, actFor, onDragStart }: LaneProps) {
   return (
     <section className="cal-lane" data-variant={variant}>
       <div className="finder-header">
@@ -1103,6 +1358,7 @@ function Lane({ title, hint, entries, empty, variant, canDrag, selected, hovered
             onSelect={() => onSelect(entry)}
             onOpen={() => onOpen(entry.task)}
             onCase={entry.task.caseId ? () => onFilterCase(entry.task.caseId as string) : undefined}
+            act={actFor?.(entry)}
             onHover={onHover}
             onDragStart={onDragStart}
           />
@@ -1134,13 +1390,14 @@ type ChipProps = {
   onOpen?: () => void;
   /** Clic sur le nom du dossier : restreindre toute la vue à ce dossier. */
   onCase?: () => void;
-  /** ✓ au survol : marquer Traité sans ouvrir l'inspecteur. */
-  onDone?: () => void;
+  /** L'action au survol — le coup naturel du motif (→ Demandé, ↻ Relancé,
+   * ✓ Reçu) ou ✓ Traité dans le sas et la bannette. */
+  act?: ChipAct;
   onHover: (taskId: string | null) => void;
   onDragStart: (taskId: string | null) => void;
 };
 
-function EntryChip({ entry, variant, large, canDrag, meta, old, selected, dimmed, onSelect, onOpen, onCase, onDone, onHover, onDragStart }: ChipProps) {
+function EntryChip({ entry, variant, large, canDrag, meta, old, selected, dimmed, onSelect, onOpen, onCase, act, onHover, onDragStart }: ChipProps) {
   const { task, reason, overdue } = entry;
   return (
     <button
@@ -1176,14 +1433,14 @@ function EntryChip({ entry, variant, large, canDrag, meta, old, selected, dimmed
       {reason === "relance" && <span className="cal-chip-tag">relance</span>}
       {reason === "lancement" && <span className="cal-chip-tag">−{task.delai.days} j</span>}
       {task.starred && <span className="cal-chip-star">⭐</span>}
-      {onDone && (
+      {act && (
         <span
           className="cal-chip-done"
           role="button"
-          title="Marquer Traité"
-          onClick={(event) => { event.stopPropagation(); onDone(); }}
+          title={act.hint}
+          onClick={(event) => { event.stopPropagation(); act.run(); }}
         >
-          ✓
+          {act.label}
         </span>
       )}
       {meta && <span className="cal-chip-meta" data-old={!!old}>{meta}</span>}
@@ -1504,13 +1761,15 @@ type RulerProps = {
   windowEnd: Date;
   waits: WaitingBar[];
   dueDays: { date: Date; count: number }[];
+  /** La date tenable du dossier filtré — dessinée en losange. */
+  tenableDate?: Date | null;
   hoveredTaskId: string | null;
   onHover: (taskId: string | null) => void;
   onJump: (date: Date) => void;
   onPick: (bar: WaitingBar) => void;
 };
 
-function Ruler({ today, windowStart, windowEnd, waits, dueDays, hoveredTaskId, onHover, onJump, onPick }: RulerProps) {
+function Ruler({ today, windowStart, windowEnd, waits, dueDays, tenableDate, hoveredTaskId, onHover, onJump, onPick }: RulerProps) {
   const start = useMemo(() => addDays(today, -RULER_BACK), [today]);
   const end = useMemo(() => addDays(today, RULER_FORWARD + 1), [today]); // borne exclue : le dernier jour est entier
   const total = end.getTime() - start.getTime();
@@ -1608,6 +1867,15 @@ function Ruler({ today, windowStart, windowEnd, waits, dueDays, hoveredTaskId, o
           aria-hidden
         />
       ))}
+
+      {tenableDate && tenableDate >= start && tenableDate < end && (
+        <span
+          className="cal-ruler-tenable"
+          style={{ left: `${pct(tenableDate)}%` }}
+          title={`Signature tenable au plus tôt le ${formatDateFR(tenableDate)}`}
+          aria-hidden
+        />
+      )}
 
       {hidden > 0 && <span className="cal-ruler-more">+{hidden}</span>}
     </div>
