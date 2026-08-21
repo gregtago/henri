@@ -52,7 +52,7 @@ La règle est désormais celle-ci, et tout le reste s'y plie :
 | Statut | Sa place, la seule |
 |---|---|
 | **Créé** | « à faire », le jour où la demande doit partir — le sas si ce jour est passé |
-| **Demandé** | « j'attends », une barre — **la relance est un état de la barre** (hachures rouges, libellé « à relancer »), pas une pastille : une tâche demandée n'est pas à faire, elle est en attente |
+| **Demandé** | « j'attends », une barre — hachurée de rouge quand le retour attendu est dépassé : une tâche demandée n'est pas à faire, elle est en attente |
 | **Reçu** | la bannette — le sas si l'échéance est dépassée |
 | **Traité** | le passé (« fait ») ; aujourd'hui, une simple ligne de compteur sous « à faire » |
 
@@ -62,6 +62,11 @@ Et deux exclusions qui découlent de la règle :
   n'y figure plus (la fin de la barre le dessine déjà), le rappel non plus ;
 - les **rappels** vivent sur le rail horaire de la vue Jour — en semaine,
   l'en-tête du jour porte un compteur 🔔 qui y mène.
+
+*Arbitrage du même jour : les « relances » sont **supprimées** de la vue. Henri
+montre l'attente qui dure — la barre hachurée dit depuis quand — mais ne
+prescrit pas de relance : relancer ou non est un jugement du notaire, pas un
+motif de pastille.*
 
 ---
 

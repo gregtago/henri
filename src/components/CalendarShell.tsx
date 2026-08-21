@@ -6,7 +6,7 @@
 // Une grille horaire classique serait vide 90 % du temps. La règle de
 // lecture : LE STATUT DÉCIDE DE LA PLACE, une seule place par tâche.
 //   Créé     → À FAIRE, le jour où la demande doit partir (le sas si dépassé)
-//   Demandé  → J'ATTENDS, une barre — la relance est un état de la barre
+//   Demandé  → J'ATTENDS, une barre — hachurée quand le retour est dépassé
 //   Reçu     → la BANNETTE (le sas si l'échéance est dépassée)
 //   Traité   → le passé (« fait »)
 // La bande ÉCHÉANCES ne porte que des échéances ; les rappels vivent sur le
@@ -218,7 +218,7 @@ export default function CalendarShell({ user }: { user: User }) {
         ...model.bars.map((bar) => ({
           key: `${bar.task.id}-bar`,
           task: bar.task,
-          reason: bar.overdueFrom ? ("relance" as const) : ("retour" as const),
+          reason: "retour" as const,
           overdue: !!bar.overdueFrom,
         })),
       ];
@@ -438,7 +438,7 @@ export default function CalendarShell({ user }: { user: User }) {
           setSelected({
             key: `${bar.task.id}-bar`,
             task: bar.task,
-            reason: bar.overdueFrom ? "relance" : "retour",
+            reason: "retour",
             overdue: !!bar.overdueFrom,
           })
         }
@@ -800,7 +800,7 @@ function WeekView({ model, selected, hoveredTaskId, onSelect, onHover, onOpen, o
                   onSelect({
                     key: `${bar.task.id}-bar`,
                     task: bar.task,
-                    reason: late ? "relance" : "retour",
+                    reason: "retour",
                     overdue: late,
                   })
                 }
@@ -810,7 +810,7 @@ function WeekView({ model, selected, hoveredTaskId, onSelect, onHover, onOpen, o
                 <span className="cal-bar-title">{bar.task.title}</span>
                 <span className="cal-bar-meta">
                   {bar.task.caseTitle ? `${bar.task.caseTitle} · ` : ""}
-                  {late ? `à relancer — retour attendu le ${shortDate(bar.task.expectedReturn ?? bar.end)}` : `attendu ${shortDate(bar.task.expectedReturn ?? bar.end)}`}
+                  {late ? `en retard depuis le ${shortDate(bar.overdueFrom as Date)}` : `attendu ${shortDate(bar.task.expectedReturn ?? bar.end)}`}
                 </span>
                 {endIndex !== undefined && !late && <span className="cal-bar-cap">◂</span>}
               </div>
@@ -999,7 +999,7 @@ function DayView({
             entries={model.bars.map((bar) => ({
               key: `${bar.task.id}-wait`,
               task: bar.task,
-              reason: bar.overdueFrom ? ("relance" as const) : ("retour" as const),
+              reason: "retour" as const,
               overdue: !!bar.overdueFrom,
             }))}
             empty="Aucune demande en attente."
@@ -1158,7 +1158,6 @@ function EntryChip({ entry, variant, large, canDrag, meta, old, selected, dimmed
           {task.caseTitle}
         </span>
       )}
-      {reason === "relance" && <span className="cal-chip-tag">relance</span>}
       {reason === "lancement" && <span className="cal-chip-tag">−{task.delai.days} j</span>}
       {task.starred && <span className="cal-chip-star">⭐</span>}
       {onDone && (
