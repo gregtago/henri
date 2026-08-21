@@ -6,7 +6,7 @@
 // Une grille horaire classique serait vide 90 % du temps. La règle de
 // lecture : LE STATUT DÉCIDE DE LA PLACE, une seule place par tâche.
 //   Créé     → À FAIRE, le jour où la demande doit partir (le sas si dépassé)
-//   Demandé  → J'ATTENDS, une barre — la relance est un état de la barre
+//   Demandé  → J'ATTENDS, une barre — hachurée quand le retour est dépassé
 //   Reçu     → la BANNETTE (le sas si l'échéance est dépassée)
 //   Traité   → le passé (« fait »)
 // La bande ÉCHÉANCES ne porte que des échéances ; les rappels vivent sur le
@@ -228,7 +228,7 @@ export default function CalendarShell({ user }: { user: User }) {
         ...model.bars.map((bar) => ({
           key: `${bar.task.id}-bar`,
           task: bar.task,
-          reason: bar.overdueFrom ? ("relance" as const) : ("retour" as const),
+          reason: "retour" as const,
           overdue: !!bar.overdueFrom,
         })),
       ];
@@ -321,20 +321,6 @@ export default function CalendarShell({ user }: { user: User }) {
     [user.uid, showToast]
   );
 
-  // Relancer ne change pas le statut — la pièce est toujours demandée — ça
-  // repose le point de départ de l'attente. On journalise un passage
-  // Demandé → Demandé : buildStatusDateIndex garde le plus récent, la barre
-  // repart d'aujourd'hui, et la prochaine relance se recalcule. Zéro champ
-  // nouveau, et l'historique des relances est écrit par construction.
-  const noteRelance = useCallback(
-    async (task: CalendarTask) => {
-      if (task.kind !== "item") return;
-      await logStatusEvent(user.uid, task.id, "Demandé", "Demandé");
-      showToast("Relance notée — l'attente repart d'aujourd'hui.");
-    },
-    [user.uid, showToast]
-  );
-
   // Chaque motif de pastille n'a qu'un seul coup naturel. Un bouton au
   // survol, jamais deux : celui du motif.
   const actFor = useCallback(
@@ -344,8 +330,6 @@ export default function CalendarShell({ user }: { user: User }) {
       switch (entry.reason) {
         case "lancement":
           return { label: "→", hint: "Demande envoyée — passer en Demandé", run: () => advanceStatus(task, "Demandé") };
-        case "relance":
-          return { label: "↻", hint: "Relance faite — l'attente repart d'aujourd'hui", run: () => noteRelance(task) };
         case "retour":
         case "echeance":
         case "legal":
@@ -354,7 +338,7 @@ export default function CalendarShell({ user }: { user: User }) {
           return undefined;
       }
     },
-    [advanceStatus, noteRelance]
+    [advanceStatus]
   );
 
   const createTask = useCallback(
@@ -495,7 +479,7 @@ export default function CalendarShell({ user }: { user: User }) {
           setSelected({
             key: `${bar.task.id}-bar`,
             task: bar.task,
-            reason: bar.overdueFrom ? "relance" : "retour",
+            reason: "retour",
             overdue: !!bar.overdueFrom,
           })
         }
@@ -682,7 +666,6 @@ export default function CalendarShell({ user }: { user: User }) {
               onDraftDay={(date) => setDraft({ caseId: null, dueDate: date })}
               onFilterCase={setFilterCaseId}
               actFor={actFor}
-              onRelance={noteRelance}
               dragTaskId={dragTaskId}
               onDropDay={async (date) => {
                 const task = findTask(model, dragTaskId);
@@ -896,13 +879,12 @@ type WeekProps = {
   onDraftDay: (date: Date) => void;
   onFilterCase: (caseId: string) => void;
   actFor: (entry: CalendarEntry) => ChipAct | undefined;
-  onRelance: (task: CalendarTask) => void;
   dragTaskId: string | null;
   onDropDay: (date: Date) => void;
   onDragStart: (taskId: string | null) => void;
 };
 
-function WeekView({ model, selected, hoveredTaskId, onSelect, onHover, onOpen, onOpenDay, onDraftDay, onFilterCase, actFor, onRelance, dragTaskId, onDropDay, onDragStart }: WeekProps) {
+function WeekView({ model, selected, hoveredTaskId, onSelect, onHover, onOpen, onOpenDay, onDraftDay, onFilterCase, actFor, dragTaskId, onDropDay, onDragStart }: WeekProps) {
   // Glisser une pastille sur un jour à venir = reporter son échéance à ce
   // jour. Le pendant visuel du champ « reporter au » de l'inspecteur.
   const [dropKey, setDropKey] = useState<string | null>(null);
@@ -1048,7 +1030,7 @@ function WeekView({ model, selected, hoveredTaskId, onSelect, onHover, onOpen, o
                   onSelect({
                     key: `${bar.task.id}-bar`,
                     task: bar.task,
-                    reason: late ? "relance" : "retour",
+                    reason: "retour",
                     overdue: late,
                   })
                 }
@@ -1058,18 +1040,8 @@ function WeekView({ model, selected, hoveredTaskId, onSelect, onHover, onOpen, o
                 <span className="cal-bar-title">{bar.task.title}</span>
                 <span className="cal-bar-meta">
                   {bar.task.caseTitle ? `${bar.task.caseTitle} · ` : ""}
-                  {late ? `à relancer — retour attendu le ${shortDate(bar.task.expectedReturn ?? bar.end)}` : `attendu ${shortDate(bar.task.expectedReturn ?? bar.end)}`}
+                  {late ? `en retard depuis le ${shortDate(bar.overdueFrom as Date)}` : `attendu ${shortDate(bar.task.expectedReturn ?? bar.end)}`}
                 </span>
-                {late && (
-                  <span
-                    className="cal-bar-act"
-                    role="button"
-                    title="Relance faite — l'attente repart d'aujourd'hui"
-                    onClick={(event) => { event.stopPropagation(); onRelance(bar.task); }}
-                  >
-                    ↻
-                  </span>
-                )}
                 {endIndex !== undefined && !late && <span className="cal-bar-cap">◂</span>}
               </div>
             );
@@ -1263,7 +1235,7 @@ function DayView({
             entries={model.bars.map((bar) => ({
               key: `${bar.task.id}-wait`,
               task: bar.task,
-              reason: bar.overdueFrom ? ("relance" as const) : ("retour" as const),
+              reason: "retour" as const,
               overdue: !!bar.overdueFrom,
             }))}
             empty="Aucune demande en attente."
@@ -1427,7 +1399,6 @@ function EntryChip({ entry, variant, large, canDrag, meta, old, selected, dimmed
           {task.caseTitle}
         </span>
       )}
-      {reason === "relance" && <span className="cal-chip-tag">relance</span>}
       {reason === "lancement" && <span className="cal-chip-tag">−{task.delai.days} j</span>}
       {task.starred && <span className="cal-chip-star">⭐</span>}
       {act && (

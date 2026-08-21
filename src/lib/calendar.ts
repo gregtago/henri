@@ -4,7 +4,7 @@
 // Ce module transforme les dossiers, tâches et mémos en une lecture temporelle
 // à deux rives :
 //
-//   • À FAIRE    : ce que je réalise ce jour-là — demandes à faire, relances.
+//   • À FAIRE    : les demandes à envoyer ce jour-là.
 //   • J'ATTENDS  : les demandes parties dont le retour n'est pas arrivé.
 //   • ÉCHÉANCES  : ce qui tombe ce jour-là.
 //
@@ -51,7 +51,6 @@ export type EntryReason =
   | "legal"       // rive haute — échéance légale de dossier
   | "rappel"      // rive haute — un rappel est programmé ce jour
   | "lancement"   // rive basse — dernier jour pour envoyer la demande
-  | "relance"     // rive basse — la pièce n'est pas revenue, il faut relancer
   | "recu"        // bannette — la pièce est là, elle attend d'être exploitée
   | "fait";       // passé — le statut a avancé ce jour-là
 
@@ -313,8 +312,8 @@ export const buildCalendarModel = ({
 
       // ── La règle de lecture : le statut décide de la place, une seule
       // place par tâche. Créé → « à faire » (le lancement). Demandé →
-      // « j'attends » (la barre — la relance est un état de la barre, pas
-      // une pastille : une tâche demandée n'est pas à faire, elle est en
+      // « j'attends » (la barre — hachurée de rouge quand le retour attendu
+      // est dépassé : une tâche demandée n'est pas à faire, elle est en
       // attente). Reçu → bannette. Traité → le passé. La bande « échéances »
       // ne porte que des échéances ; le retour attendu est déjà dessiné par
       // la fin de la barre, le rappel vit sur le rail de la vue Jour.
@@ -410,9 +409,9 @@ export const buildCalendarModel = ({
   // dépassées, points de non-retour franchis. Dans un calendrier, ce retard-là
   // n'a pas de date — il a un tas, et un tas se met devant la porte.
   //
-  // Les relances en retard, elles, ne viennent PAS ici : leur action a une date
-  // évidente — aujourd'hui — et elles sont déjà posées sur la rive basse du
-  // jour. On évite ainsi de compter deux fois la même tâche.
+  // Une attente dépassée ne vient PAS ici : elle se lit sur sa barre,
+  // hachurée de rouge jusqu'à aujourd'hui. On ne compte pas deux fois la
+  // même tâche.
   const rawSouffrance: CalendarEntry[] = [];
   for (const task of tasks) {
     if (task.isMemo) continue; // un mémo se coche, il ne se met pas en retard ici
@@ -513,7 +512,6 @@ export const REASON_LABELS: Record<EntryReason, string> = {
   legal: "Échéance du dossier",
   rappel: "Rappel",
   lancement: "À faire au plus tard",
-  relance: "Relance",
   recu: "Reçu — à exploiter",
   fait: "Fait",
 };
@@ -526,10 +524,10 @@ export const explainEntry = (entry: CalendarEntry): string => {
   switch (reason) {
     case "lancement":
       return `Échéance ${fmt(task.dueDate)} − ${task.delai.days} j de délai (${task.delai.label}) → à faire le ${fmt(task.launchAt)}`;
-    case "relance":
-      return `Demandé le ${fmt(task.requestedAt)}, le retour était attendu le ${fmt(task.expectedReturn)} (${task.delai.label})`;
     case "retour":
-      return `Demandé le ${fmt(task.requestedAt)} · retour sous ${task.delai.days} j (${task.delai.label})`;
+      return task.expectedReturn && entry.overdue
+        ? `Demandé le ${fmt(task.requestedAt)}, le retour était attendu le ${fmt(task.expectedReturn)} (${task.delai.label})`
+        : `Demandé le ${fmt(task.requestedAt)} · retour sous ${task.delai.days} j (${task.delai.label})`;
     case "legal":
       return `Échéance du dossier ${task.caseTitle ?? ""}`.trim();
     case "rappel":

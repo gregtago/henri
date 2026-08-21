@@ -11,7 +11,10 @@ observé) est **abandonné** : le délai de traitement est une décision de
 l'utilisateur, pas une statistique — Henri ne propose pas de chiffre déduit de
 l'historique, il applique celui que le notaire a fixé (ou le barème par
 défaut, corrigeable d'un clic). Le § 5 (jalons) reste différé, en attente de
-son signal d'usage.*
+son signal d'usage. Second arbitrage : les « relances » sont supprimées de la
+vue — ni pastille, ni ↻ ; la barre hachurée montre l'attente qui dure, et
+relancer reste un jugement du notaire. Le geste du § 1 se réduit à → Demandé
+et ✓ Reçu.*
 
 Aujourd'hui le calendrier expose des faits — cette demande doit partir jeudi,
 cette attente dure depuis 34 jours, cette pièce dort dans la bannette. La
