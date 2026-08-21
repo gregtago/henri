@@ -351,3 +351,9 @@ s'ouvre tous les matins. Les lots 0, 1 et 2 visent ce second critère ; les lots
 
 *Proposition — août 2026. Elle porte sur la vue en service sur `/calendrier`,
 et n'introduit aucun champ obligatoire au modèle de données.*
+
+---
+
+*Suite : `CALENDRIER-V3.md` — la vue qui raisonne : le geste au survol selon le
+motif, la date tenable et le chemin critique du dossier, le barème observé,
+l'échéancier imprimable pour le client.*
