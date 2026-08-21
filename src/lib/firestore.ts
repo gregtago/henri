@@ -104,15 +104,18 @@ export const subscribeItemEvents = (
   );
 
 /**
- * Tout l'historique, pour le calendrier et lui seul.
+ * L'historique des changements de statut, pour le calendrier et lui seul.
  *
  * Les barres « j'attends » se déduisent du dernier passage au statut
  * « Demandé », qui peut dater de plusieurs mois : borner cette lecture à la
  * semaine affichée effacerait les demandes les plus anciennes — précisément
- * celles qu'il faut voir.
+ * celles qu'il faut voir. On borne donc par le type, pas par la date : seuls
+ * les `progress_changed` intéressent le calendrier (dates de demande, de
+ * réception, réalisé du passé) — commentaires et autres événements restent
+ * au serveur.
  */
 export const subscribeEvents = (uid: string, onChange: (events: Event[]) => void) =>
-  onSnapshot(userCollection(uid, "events"), (snapshot) => {
+  onSnapshot(query(userCollection(uid, "events"), where("type", "==", "progress_changed")), (snapshot) => {
     const data = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })) as Event[];
     onChange(data);
   });

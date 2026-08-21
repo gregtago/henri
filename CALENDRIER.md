@@ -37,6 +37,75 @@ C'est cette réalité-là que la vue doit rendre visible. D'où la proposition.
 
 ---
 
+## 1 bis. La règle de lecture (mise au point du 21/08/2026)
+
+Le premier essai en conditions réelles a rendu son verdict : la vue était
+incompréhensible, parce qu'une même tâche pouvait apparaître à deux endroits
+avec deux sens différents — une tâche **demandée** se retrouvait dans « à
+faire » (au titre de la relance) tout en courant dans « j'attends », et la
+bande « échéances » entassait échéances, retours attendus et rappels.
+
+La règle est désormais celle-ci, et tout le reste s'y plie :
+
+> **Le statut décide de la place. Une tâche n'apparaît qu'à un seul endroit.**
+
+| Statut | Sa place, la seule |
+|---|---|
+| **Créé** | « à faire », le jour où la demande doit partir — le sas si ce jour est passé |
+| **Demandé** | « j'attends », une barre — hachurée de rouge quand le retour attendu est dépassé : une tâche demandée n'est pas à faire, elle est en attente |
+| **Reçu** | la bannette — le sas si l'échéance est dépassée |
+| **Traité** | le passé (« fait ») ; aujourd'hui, une simple ligne de compteur sous « à faire » |
+
+Et deux exclusions qui découlent de la règle :
+
+- la bande « échéances » ne porte **que des échéances**. Le retour attendu
+  n'y figure plus (la fin de la barre le dessine déjà), le rappel non plus ;
+- les **rappels** vivent sur le rail horaire de la vue Jour — en semaine,
+  l'en-tête du jour porte un compteur 🔔 qui y mène.
+
+*Arbitrage du même jour : les « relances » sont **supprimées** de la vue. Henri
+montre l'attente qui dure — la barre hachurée dit depuis quand — mais ne
+prescrit pas de relance : relancer ou non est un jugement du notaire, pas un
+motif de pastille. Le geste au survol se réduit à → Demandé (lancement) et
+✓ Reçu (échéance).*
+
+---
+
+## 1 ter. Le planning — les dossiers à l'horizontale (21/08/2026)
+
+La vue Semaine à trois bandes est **remplacée** par un planning, sur une idée
+de l'utilisateur qui est la conclusion logique de la règle de lecture : la
+réglette, généralisée en vue principale.
+
+**Une ligne par dossier, dépliable en une ligne par tâche.** Toute la vie
+d'une pièce se lit de gauche à droite sur sa propre ligne :
+
+```
+              juil.        │ août       ▮aujourd'hui        │ sept.
+VENTE MARTIN ▸ ⚠        ▬▬▬▬▬▬▬▬▬▬▬▬▨▨▨▨   ◇        ◆
+  ├ État daté (syndic)  ▬▬▬▬▬▬▬▬▬▬▬▬▨▨▨▨              ← demandé, en dépassement
+  ├ Demander la DIA        ●┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈◆       ← à lancer le ●, échéance ◆
+VENTE DUPONT ▸             ▬▬▬▬▬▬▬     ◇◆
+```
+
+- **●** le jour où la demande doit partir (rouge si dépassé), un corridor
+  pointillé jusqu'à **◆** l'échéance ;
+- **la barre** : l'attente d'une pièce demandée, rouge au-delà du retour
+  attendu ;
+- sur la ligne du dossier : **◆** son échéance (rouge si intenable) face à
+  **◇** sa date tenable — « on signe quand ? » se lit d'un regard, dossier par
+  dossier, sans filtrer ;
+- **la bannette et le sas restent à gauche** : les pièces reçues et le retard
+  n'ont pas de date, donc pas de ligne de temps.
+
+La fenêtre porte 90 jours (30 en arrière, 60 en avant), `←`/`→` la déplacent
+d'une semaine, `T` la recentre. Un dossier trié par échéance la plus proche ;
+double-clic sur une piste = nouvelle tâche du dossier à cette date ; les
+survols allument toute la trace d'une pièce ; la vue Jour reste la vue de
+travail du matin (rail des rappels, couloirs), avec la réglette en contexte.
+
+---
+
 ## 2. Le parti pris : quatre idées
 
 ### Idée 1 — Trois bandes, dans l'ordre du cycle d'une tâche
@@ -328,10 +397,18 @@ Cohérent avec l'existant (DESIGN.md, « clavier first ») :
 
 | Touche | Effet |
 |---|---|
-| `S` / `J` | vue Semaine / vue Jour |
+| `P` (ou `S`) / `J` | le Planning / la vue Jour |
 | `←` / `→` | période précédente / suivante |
 | `T` | revenir à aujourd'hui |
-| `Échap` | fermer l'inspecteur |
+| `N` | nouvelle tâche (panneau droit) |
+| `1`–`4` | statut de la tâche sélectionnée — les mêmes raccourcis que partout |
+| `Échap` | fermer, dans l'ordre : l'échéancier, la création, l'inspecteur, le filtre |
+
+À la souris, deux gestes qui ne s'annoncent pas mais se découvrent (les
+infobulles les disent) : **double-clic sur une pastille** → la tâche s'ouvre
+dans son dossier, sélectionnée, comme le lien « Dossier » de Ma journée ;
+**double-clic sur une case de jour à venir** → nouvelle tâche, l'échéance déjà
+posée sur ce jour.
 
 Désactivé dès que le focus est dans un champ éditable.
 
@@ -383,3 +460,9 @@ réelles.
 
 *Proposition — juillet 2026. Maquette fonctionnelle branchée sur les données
 réelles, à ouvrir sur `/calendrier`.*
+
+---
+
+*Suite : `CALENDRIER-V2.md` — proposition d'amélioration de la vue en service
+(le statut « Reçu » absent du calendrier, la réglette de 90 jours, le filtre par
+dossier, le sas à ordonner, et huit défauts constatés dans le code).*

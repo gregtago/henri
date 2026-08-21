@@ -4,7 +4,7 @@
 // Ce module transforme les dossiers, tâches et mémos en une lecture temporelle
 // à deux rives :
 //
-//   • À FAIRE    : ce que je réalise ce jour-là — demandes à faire, relances.
+//   • À FAIRE    : les demandes à envoyer ce jour-là.
 //   • J'ATTENDS  : les demandes parties dont le retour n'est pas arrivé.
 //   • ÉCHÉANCES  : ce qui tombe ce jour-là.
 //
@@ -16,7 +16,7 @@
 import type { Case, FloatingTask, Item, MyDaySelection, Event as HenriEvent } from "./types";
 import { getDateKey, toDate } from "./dates";
 import { getContainerIds } from "./completion";
-import { addDays, expectedReturnDate, inferDelai, isWeekend, latestLaunchDate, resolveDelai, type DelaiInfo } from "./delais";
+import { addDays, expectedReturnDate, inferDelai, isWeekend, latestLaunchDate, resolveDelai, rollForward, type DelaiInfo } from "./delais";
 
 export type TaskKind = "item" | "floating" | "case";
 
@@ -29,12 +29,17 @@ export type CalendarTask = {
   status: Item["status"];
   starred: boolean;
   level: 2 | 3 | null;
+  /** Pour une sous-tâche : la tâche qui la porte — nécessaire pour la
+   * resélectionner dans Mes dossiers depuis le calendrier. */
+  parentItemId: string | null;
   /** Un mémo se coche ; il n'a ni délai de retour, ni attente à dessiner. */
   isMemo: boolean;
   dueDate: Date | null;         // échéance portée par la tâche (ou l'échéance légale du dossier)
   dueFromCase: boolean;         // l'échéance vient du dossier, pas de la tâche
   reminderAt: Date | null;
   requestedAt: Date | null;     // date de passage au statut « Demandé » (lue dans la timeline)
+  receivedAt: Date | null;      // date de passage au statut « Reçu » — l'âge de la bannette
+  treatedAt: Date | null;       // date de passage au statut « Traité » — pour l'échéancier
   expectedReturn: Date | null;  // requestedAt + délai de la pièce
   launchAt: Date | null;        // échéance − délai : dernier jour pour lancer la demande
   delai: DelaiInfo;
@@ -46,7 +51,7 @@ export type EntryReason =
   | "legal"       // rive haute — échéance légale de dossier
   | "rappel"      // rive haute — un rappel est programmé ce jour
   | "lancement"   // rive basse — dernier jour pour envoyer la demande
-  | "relance"     // rive basse — la pièce n'est pas revenue, il faut relancer
+  | "recu"        // bannette — la pièce est là, elle attend d'être exploitée
   | "fait";       // passé — le statut a avancé ce jour-là
 
 export type CalendarEntry = {
@@ -71,18 +76,46 @@ export type DayCell = {
   isToday: boolean;
   isPast: boolean;
   isWeekend: boolean;
-  entrant: CalendarEntry[];  // rive haute
-  sortant: CalendarEntry[];  // rive basse
+  entrant: CalendarEntry[];  // échéances — et rien d'autre
+  sortant: CalendarEntry[];  // à faire — les lancements, et rien d'autre
+  rappels: CalendarEntry[];  // les rappels du jour — le rail de la vue Jour
   fait: CalendarEntry[];     // réalisé (jours passés)
   myDayCount: number;        // nb d'éléments mis dans Ma journée ce jour-là
   load: number;              // 0 → 1, intensité de charge relative à la fenêtre
 };
 
+/** Tâches en retard par la seule échéance de leur dossier, repliées ensemble :
+ * une signature reportée ne doit pas noyer les vraies urgences du sas. */
+export type SouffranceGroup = {
+  caseId: string;
+  caseTitle: string;
+  dueDate: Date | null;
+  entries: CalendarEntry[];
+};
+
+/** « On signe quand ? » — la date au plus tôt à laquelle toutes les pièces
+ * ouvertes peuvent être là, et la pièce qui la porte (le chemin critique). */
+export type Tenable = {
+  date: Date;
+  critical: CalendarTask;
+};
+
 export type CalendarModel = {
   days: DayCell[];
   bars: WaitingBar[];
+  /** Toutes les attentes en cours, sans découpe de fenêtre — la réglette. */
+  allWaits: WaitingBar[];
   /** Le « sas » : tout ce qui aurait dû être traité et ne l'a pas été. */
   souffrance: CalendarEntry[];
+  souffranceGroups: SouffranceGroup[];
+  /** La bannette : les pièces reçues qui attendent d'être exploitées. */
+  bannette: CalendarEntry[];
+  /** Échéances ouvertes par jour, pour les traits de la réglette. */
+  dueDays: { date: Date; count: number }[];
+  /** Toutes les tâches du modèle, statuts fermés compris — pour l'échéancier. */
+  tasks: CalendarTask[];
+  /** Date tenable et chemin critique. Un sens sur un dossier filtré. */
+  tenable: Tenable | null;
 };
 
 const startOfDay = (date: Date) => {
@@ -99,19 +132,20 @@ export const startOfWeek = (date: Date) => {
 
 const sameDay = (a: Date | null, b: Date) => !!a && getDateKey(a) === getDateKey(b);
 
-const OPEN_STATUSES = new Set(["Créé", "Demandé", "Reçu"]);
+export const OPEN_STATUSES = new Set(["Créé", "Demandé", "Reçu"]);
 
 /**
- * Date de passage au statut « Demandé », lue dans la timeline d'événements.
+ * Date du dernier passage à un statut donné, lue dans la timeline d'événements.
  * Aucun champ à ajouter au modèle : Henri journalise déjà les changements de
- * statut (`logStatusEvent`). À défaut d'événement, on retombe sur `updatedAt`.
+ * statut (`logStatusEvent`). À défaut d'événement, l'appelant retombe sur
+ * `updatedAt`.
  */
-export const buildRequestedAtIndex = (events: HenriEvent[]) => {
+export const buildStatusDateIndex = (events: HenriEvent[], status: string) => {
   const index = new Map<string, Date>();
   for (const event of events) {
     if (event.type !== "progress_changed") continue;
     const to = (event.payload as { to?: string } | null | undefined)?.to;
-    if (to !== "Demandé") continue;
+    if (to !== status) continue;
     const at = toDate(event.createdAt);
     if (!at) continue;
     const known = index.get(event.itemId);
@@ -119,6 +153,9 @@ export const buildRequestedAtIndex = (events: HenriEvent[]) => {
   }
   return index;
 };
+
+export const buildRequestedAtIndex = (events: HenriEvent[]) =>
+  buildStatusDateIndex(events, "Demandé");
 
 /** Index des jours où le statut d'une tâche a avancé (pour le « réalisé »). */
 const buildProgressIndex = (events: HenriEvent[]) => {
@@ -137,11 +174,19 @@ const buildProgressIndex = (events: HenriEvent[]) => {
   return index;
 };
 
+export type StatusDates = {
+  requestedAt?: Date | null;
+  receivedAt?: Date | null;
+  treatedAt?: Date | null;
+};
+
 export const toCalendarTask = (
   item: Item,
   caseData: Case | undefined,
-  requestedAt: Date | null
+  dates: StatusDates = {}
 ): CalendarTask => {
+  const requestedAt = dates.requestedAt ?? null;
+  const receivedAt = dates.receivedAt ?? null;
   // `delaiDays` est le délai que l'utilisateur a fixé sur la tâche ; à défaut,
   // on retombe sur l'estimation déduite du libellé.
   const delai = resolveDelai(item);
@@ -160,11 +205,14 @@ export const toCalendarTask = (
     status: item.status,
     starred: !!item.starred,
     level: item.level,
+    parentItemId: item.parentItemId ?? null,
     isMemo: false,
     dueDate,
     dueFromCase: !own && !!legal,
     reminderAt: toDate(item.reminderAt ?? null),
     requestedAt: item.status === "Demandé" ? (requestedAt ?? toDate(item.updatedAt)) : requestedAt,
+    receivedAt: item.status === "Reçu" ? (receivedAt ?? toDate(item.updatedAt)) : receivedAt,
+    treatedAt: item.status === "Traité" ? (dates.treatedAt ?? toDate(item.updatedAt)) : (dates.treatedAt ?? null),
     expectedReturn:
       item.status === "Demandé" && (requestedAt ?? toDate(item.updatedAt))
         ? expectedReturnDate((requestedAt ?? toDate(item.updatedAt)) as Date, days)
@@ -183,11 +231,14 @@ const floatingToTask = (task: FloatingTask): CalendarTask => ({
   status: task.status,
   starred: !!task.starred,
   level: null,
+  parentItemId: null,
   isMemo: true,
   dueDate: toDate(task.dueDate ?? null),
   dueFromCase: false,
   reminderAt: toDate(task.reminderAt ?? null),
   requestedAt: null,
+  receivedAt: null,
+  treatedAt: null,
   expectedReturn: null,
   launchAt: null,
   delai: inferDelai(task.title),
@@ -214,7 +265,9 @@ export const buildCalendarModel = ({
 }: BuildInput): CalendarModel => {
   const todayStart = startOfDay(today);
   const casesById = new Map(cases.map((c) => [c.id, c]));
-  const requestedIndex = buildRequestedAtIndex(events);
+  const requestedIndex = buildStatusDateIndex(events, "Demandé");
+  const receivedIndex = buildStatusDateIndex(events, "Reçu");
+  const treatedIndex = buildStatusDateIndex(events, "Traité");
   const progressIndex = buildProgressIndex(events);
   const itemsById = new Map(items.map((i) => [i.id, i]));
 
@@ -229,7 +282,13 @@ export const buildCalendarModel = ({
     ...items
       .filter((item) => !casesById.get(item.caseId)?.archived)
       .filter((item) => !containerIds.has(item.id))
-      .map((item) => toCalendarTask(item, casesById.get(item.caseId), requestedIndex.get(item.id) ?? null)),
+      .map((item) =>
+        toCalendarTask(item, casesById.get(item.caseId), {
+          requestedAt: requestedIndex.get(item.id),
+          receivedAt: receivedIndex.get(item.id),
+          treatedAt: treatedIndex.get(item.id),
+        })
+      ),
     ...floatingTasks.map(floatingToTask),
   ];
 
@@ -245,15 +304,21 @@ export const buildCalendarModel = ({
 
     const entrant: CalendarEntry[] = [];
     const sortant: CalendarEntry[] = [];
+    const rappels: CalendarEntry[] = [];
     const fait: CalendarEntry[] = [];
 
     for (const task of tasks) {
-      // Les notes restent « ouvertes » : elles doivent pouvoir porter un rappel.
-      // Leur exclusion des rives basses est structurelle — pas d'échéance, donc
-      // pas de `launchAt` ; pas d'attente, donc pas de `expectedReturn`.
       const open = OPEN_STATUSES.has(task.status);
 
-      // ── Rive haute ──────────────────────────────────────────────────────
+      // ── La règle de lecture : le statut décide de la place, une seule
+      // place par tâche. Créé → « à faire » (le lancement). Demandé →
+      // « j'attends » (la barre — hachurée de rouge quand le retour attendu
+      // est dépassé : une tâche demandée n'est pas à faire, elle est en
+      // attente). Reçu → bannette. Traité → le passé. La bande « échéances »
+      // ne porte que des échéances ; le retour attendu est déjà dessiné par
+      // la fin de la barre, le rappel vit sur le rail de la vue Jour.
+
+      // ── Échéances : ce qui tombe ce jour-là, et rien d'autre ───────────
       if (open && sameDay(task.dueDate, date)) {
         entrant.push({
           key: `${task.id}-echeance`,
@@ -262,30 +327,15 @@ export const buildCalendarModel = ({
           overdue: false,
         });
       }
-      if (task.status === "Demandé" && sameDay(task.expectedReturn, date)) {
-        entrant.push({ key: `${task.id}-retour`, task, reason: "retour", overdue: false });
-      }
+
+      // ── Rappels : le seul objet horodaté — le rail de la vue Jour ──────
       if (open && sameDay(task.reminderAt, date)) {
-        entrant.push({ key: `${task.id}-rappel`, task, reason: "rappel", overdue: false });
+        rappels.push({ key: `${task.id}-rappel`, task, reason: "rappel", overdue: false });
       }
 
-      // ── Rive basse : ce qu'il faut envoyer ─────────────────────────────
-      // Le jour où la demande doit partir pour que la pièce revienne à temps.
+      // ── À faire : le jour où la demande doit partir ────────────────────
       if (task.status === "Créé" && sameDay(task.launchAt, date) && task.launchAt! >= todayStart) {
         sortant.push({ key: `${task.id}-lancement`, task, reason: "lancement", overdue: false });
-      }
-      // La relance se pose le jour du retour attendu dépassé, ou aujourd'hui si
-      // ce jour est déjà passé (une relance en retard se fait aujourd'hui).
-      if (task.status === "Demandé" && task.expectedReturn) {
-        const relanceDay = task.expectedReturn < todayStart ? todayStart : task.expectedReturn;
-        if (sameDay(relanceDay, date) && date >= todayStart) {
-          sortant.push({
-            key: `${task.id}-relance`,
-            task,
-            reason: "relance",
-            overdue: task.expectedReturn < todayStart,
-          });
-        }
       }
     }
 
@@ -296,7 +346,11 @@ export const buildCalendarModel = ({
         if (!item) continue;
         fait.push({
           key: `${progress.itemId}-fait-${progress.status}`,
-          task: toCalendarTask(item, casesById.get(item.caseId), requestedIndex.get(item.id) ?? null),
+          task: toCalendarTask(item, casesById.get(item.caseId), {
+            requestedAt: requestedIndex.get(item.id),
+            receivedAt: receivedIndex.get(item.id),
+            treatedAt: treatedIndex.get(item.id),
+          }),
           reason: "fait",
           overdue: false,
           reachedStatus: progress.status as Item["status"],
@@ -312,6 +366,7 @@ export const buildCalendarModel = ({
       isWeekend: isWeekend(date),
       entrant,
       sortant,
+      rappels,
       fait,
       myDayCount: myDayByDate.get(dateKey) ?? 0,
       load: 0,
@@ -320,16 +375,22 @@ export const buildCalendarModel = ({
 
   // Charge relative : sert au fond de colonne. Le sortant pèse plus lourd que
   // l'entrant (envoyer coûte du temps, recevoir n'en coûte pas toujours).
+  // Normalisée contre une charge de référence, pas contre la fenêtre : sinon
+  // le jour le plus chargé serait toujours à fond, même dans une semaine
+  // calme, et la jauge ne saurait jamais dire « semaine tranquille ».
+  const REFERENCE_LOAD = 8;
   const rawLoads = cells.map((cell) => cell.entrant.length + cell.sortant.length * 1.5);
-  const maxLoad = Math.max(1, ...rawLoads);
+  const maxLoad = Math.max(REFERENCE_LOAD, ...rawLoads);
   cells.forEach((cell, index) => {
     cell.load = Math.min(1, rawLoads[index] / maxLoad);
   });
 
   // ── Barres d'attente ────────────────────────────────────────────────────
+  // `allWaits` porte toutes les attentes en cours, sans découpe : c'est la
+  // matière de la réglette. `bars` n'est que sa restriction à la fenêtre.
   const windowStart = days[0];
   const windowEnd = days[days.length - 1];
-  const bars: WaitingBar[] = tasks
+  const allWaits: WaitingBar[] = tasks
     .filter((task) => !task.isMemo && task.status === "Demandé" && task.requestedAt && task.expectedReturn)
     .map((task) => ({
       task,
@@ -340,38 +401,115 @@ export const buildCalendarModel = ({
     // Une barre qui a dépassé son retour attendu continue de courir jusqu'à
     // aujourd'hui : l'attente n'est pas finie tant que la pièce n'est pas là.
     .map((bar) => ({ ...bar, end: bar.end < todayStart ? todayStart : bar.end }))
-    .filter((bar) => bar.end >= windowStart && bar.start <= windowEnd)
     .sort((a, b) => a.start.getTime() - b.start.getTime());
+  const bars = allWaits.filter((bar) => bar.end >= windowStart && bar.start <= windowEnd);
 
   // ── Le sas « en souffrance » ────────────────────────────────────────────
   // Ce qui a franchi sa date et n'a plus de jour où se poser : échéances
   // dépassées, points de non-retour franchis. Dans un calendrier, ce retard-là
   // n'a pas de date — il a un tas, et un tas se met devant la porte.
   //
-  // Les relances en retard, elles, ne viennent PAS ici : leur action a une date
-  // évidente — aujourd'hui — et elles sont déjà posées sur la rive basse du
-  // jour. On évite ainsi de compter deux fois la même tâche.
-  const souffrance: CalendarEntry[] = [];
+  // Une attente dépassée ne vient PAS ici : elle se lit sur sa barre,
+  // hachurée de rouge jusqu'à aujourd'hui. On ne compte pas deux fois la
+  // même tâche.
+  const rawSouffrance: CalendarEntry[] = [];
   for (const task of tasks) {
     if (task.isMemo) continue; // un mémo se coche, il ne se met pas en retard ici
     if (!OPEN_STATUSES.has(task.status)) continue;
     if (task.dueDate && task.dueDate < todayStart) {
-      souffrance.push({ key: `${task.id}-souffrance-echeance`, task, reason: "echeance", overdue: true });
+      rawSouffrance.push({ key: `${task.id}-souffrance-echeance`, task, reason: "echeance", overdue: true });
       continue;
     }
     if (task.status === "Créé" && task.launchAt && task.launchAt < todayStart && task.dueDate) {
       // Le point de non-retour est franchi : l'échéance est mathématiquement
       // menacée même si elle est encore dans le futur.
-      souffrance.push({ key: `${task.id}-souffrance-lancement`, task, reason: "lancement", overdue: true });
+      rawSouffrance.push({ key: `${task.id}-souffrance-lancement`, task, reason: "lancement", overdue: true });
     }
   }
-  souffrance.sort((a, b) => {
+  rawSouffrance.sort((a, b) => {
     const dateA = a.task.dueDate ?? a.task.expectedReturn ?? a.task.launchAt;
     const dateB = b.task.dueDate ?? b.task.expectedReturn ?? b.task.launchAt;
     return (dateA?.getTime() ?? 0) - (dateB?.getTime() ?? 0);
   });
 
-  return { days: cells, bars, souffrance };
+  // Une tâche en retard par la seule échéance de son dossier rejoint le groupe
+  // de ce dossier : une signature reportée verse d'un coup vingt tâches dans le
+  // sas, et les vraies urgences — celles qui portent leur propre date —
+  // passeraient sous la ligne de flottaison.
+  const souffrance = rawSouffrance.filter((entry) => !entry.task.dueFromCase);
+  const groupsByCase = new Map<string, CalendarEntry[]>();
+  for (const entry of rawSouffrance) {
+    if (!entry.task.dueFromCase || !entry.task.caseId) continue;
+    const bucket = groupsByCase.get(entry.task.caseId) ?? [];
+    bucket.push(entry);
+    groupsByCase.set(entry.task.caseId, bucket);
+  }
+  const souffranceGroups: SouffranceGroup[] = Array.from(groupsByCase.entries())
+    .map(([caseId, entries]) => ({
+      caseId,
+      caseTitle: entries[0].task.caseTitle ?? casesById.get(caseId)?.title ?? "Dossier",
+      dueDate: entries[0].task.dueDate,
+      entries,
+    }))
+    .sort((a, b) => (a.dueDate?.getTime() ?? 0) - (b.dueDate?.getTime() ?? 0));
+
+  // ── La bannette ─────────────────────────────────────────────────────────
+  // Les pièces reçues et pas encore exploitées. Pas de date, donc pas de
+  // colonne : la matière est là, plus rien à anticiper. Tri par marge
+  // restante — échéance croissante, puis les sans-échéance, les plus
+  // anciennes d'abord. Une pièce reçue dont l'échéance passe n'est pas ici :
+  // elle est déjà montée dans le sas.
+  const bannette: CalendarEntry[] = tasks
+    .filter((task) => !task.isMemo && task.status === "Reçu")
+    .filter((task) => !(task.dueDate && task.dueDate < todayStart))
+    .map((task) => ({ key: `${task.id}-recu`, task, reason: "recu" as const, overdue: false }))
+    .sort((a, b) => {
+      const dueA = a.task.dueDate?.getTime();
+      const dueB = b.task.dueDate?.getTime();
+      if (dueA !== undefined && dueB !== undefined) return dueA - dueB;
+      if (dueA !== undefined) return -1;
+      if (dueB !== undefined) return 1;
+      return (a.task.receivedAt?.getTime() ?? 0) - (b.task.receivedAt?.getTime() ?? 0);
+    });
+
+  // ── Échéances par jour, pour les traits de la réglette ──────────────────
+  const dueByDay = new Map<string, { date: Date; count: number }>();
+  for (const task of tasks) {
+    if (!OPEN_STATUSES.has(task.status) || !task.dueDate) continue;
+    const key = getDateKey(task.dueDate);
+    const known = dueByDay.get(key);
+    if (known) known.count += 1;
+    else dueByDay.set(key, { date: task.dueDate, count: 1 });
+  }
+  const dueDays = Array.from(dueByDay.values()).sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  const tenable = computeTenable(tasks, todayStart);
+
+  return { days: cells, bars, allWaits, souffrance, souffranceGroups, bannette, dueDays, tasks, tenable };
+};
+
+/**
+ * La date tenable : pour chaque pièce ouverte, le jour au plus tôt où elle
+ * peut être là —
+ *   Créé     → aujourd'hui + délai (si la demande part aujourd'hui)
+ *   Demandé  → le retour attendu, ou aujourd'hui s'il est déjà passé
+ *   Reçu     → aujourd'hui (la matière est là)
+ * Le max de ces dates répond à « on signe quand ? », et la pièce qui le porte
+ * est le chemin critique. Le planning l'affiche dossier par dossier.
+ */
+export const computeTenable = (tasks: CalendarTask[], todayStart: Date): Tenable | null => {
+  let tenable: Tenable | null = null;
+  for (const task of tasks) {
+    if (task.isMemo || !OPEN_STATUSES.has(task.status)) continue;
+    const ready =
+      task.status === "Reçu"
+        ? todayStart
+        : task.status === "Demandé"
+          ? (task.expectedReturn && task.expectedReturn > todayStart ? task.expectedReturn : todayStart)
+          : rollForward(addDays(todayStart, task.delai.days));
+    if (!tenable || ready > tenable.date) tenable = { date: ready, critical: task };
+  }
+  return tenable;
 };
 
 export const REASON_LABELS: Record<EntryReason, string> = {
@@ -380,7 +518,7 @@ export const REASON_LABELS: Record<EntryReason, string> = {
   legal: "Échéance du dossier",
   rappel: "Rappel",
   lancement: "À faire au plus tard",
-  relance: "Relance",
+  recu: "Reçu — à exploiter",
   fait: "Fait",
 };
 
@@ -392,16 +530,20 @@ export const explainEntry = (entry: CalendarEntry): string => {
   switch (reason) {
     case "lancement":
       return `Échéance ${fmt(task.dueDate)} − ${task.delai.days} j de délai (${task.delai.label}) → à faire le ${fmt(task.launchAt)}`;
-    case "relance":
-      return `Demandé le ${fmt(task.requestedAt)}, le retour était attendu le ${fmt(task.expectedReturn)} (${task.delai.label})`;
     case "retour":
-      return `Demandé le ${fmt(task.requestedAt)} · retour sous ${task.delai.days} j (${task.delai.label})`;
+      return task.expectedReturn && entry.overdue
+        ? `Demandé le ${fmt(task.requestedAt)}, le retour était attendu le ${fmt(task.expectedReturn)} (${task.delai.label})`
+        : `Demandé le ${fmt(task.requestedAt)} · retour sous ${task.delai.days} j (${task.delai.label})`;
     case "legal":
       return `Échéance du dossier ${task.caseTitle ?? ""}`.trim();
     case "rappel":
       return `Rappel le ${fmt(task.reminderAt)}`;
     case "echeance":
       return `Échéance de la tâche : ${fmt(task.dueDate)}`;
+    case "recu":
+      return task.dueDate
+        ? `Reçu le ${fmt(task.receivedAt)} — à exploiter avant l'échéance du ${fmt(task.dueDate)}`
+        : `Reçu le ${fmt(task.receivedAt)} — en attente d'exploitation`;
     case "fait":
       return `Passée en « ${entry.reachedStatus} » ce jour-là`;
   }

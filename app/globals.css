@@ -597,6 +597,21 @@ kbd {
 .cal-nav:hover { background: var(--bg-hover); color: var(--text); }
 .cal-nav-active { background: var(--bg-active); color: var(--text); font-weight: 500; }
 
+/* Le filtre par dossier : une pastille dans la barre d'outils, une croix, Échap */
+.cal-filter-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  font: inherit; font-size: 12px; font-weight: 500;
+  color: var(--accent);
+  background: var(--s2-bg);
+  border: 1px solid var(--accent);
+  border-radius: 20px;
+  padding: 2px 9px; margin-left: 10px;
+  cursor: pointer;
+  max-width: 220px;
+}
+.cal-filter-pill:hover { background: var(--bg-hover); }
+.cal-filter-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 .cal-btn, .cal-step {
   display: inline-flex;
   align-items: center;
@@ -640,7 +655,23 @@ kbd {
   background: var(--bg-subtle);
   overflow: hidden;
 }
-.cal-sas-list { flex: 1; overflow-y: auto; padding: 4px 6px 12px; display: flex; flex-direction: column; gap: 3px; }
+.cal-sas-list { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 6px 12px; display: flex; flex-direction: column; gap: 3px; }
+
+/* Un dossier dont l'échéance est passée : une ligne repliée, pas vingt pastilles */
+.cal-sas-group { display: flex; flex-direction: column; gap: 3px; }
+.cal-sas-group-head {
+  display: flex; align-items: center; gap: 5px;
+  width: 100%; text-align: left;
+  font: inherit; font-size: 11.5px; font-weight: 500; color: var(--text);
+  background: var(--bg); border: 1px solid var(--border); border-left: 2px solid var(--cal-late);
+  border-radius: 3px; padding: 3px 6px; cursor: pointer;
+}
+.cal-sas-group-head:hover { background: var(--bg-hover); }
+.cal-sas-group-arrow { font-size: 9px; color: var(--text-3); }
+.cal-sas-group-title { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-sas-group-count { font-size: 10.5px; color: var(--text-3); }
+.cal-sas-group-meta { font-size: 10px; color: var(--cal-late); padding-left: 13px; margin: -2px 0 0; }
+.cal-sas-group .cal-chip { margin-left: 10px; width: auto; }
 
 /* Grille de semaine */
 .cal-week { display: flex; flex-direction: column; flex: 1; min-height: 0; }
@@ -691,6 +722,7 @@ kbd {
 .cal-cell[data-weekend="true"] { background: rgba(0, 0, 0, 0.015); }
 .cal-cell[data-past="true"] { background: rgba(0, 0, 0, 0.012); }
 .cal-cell[data-today="true"] { box-shadow: inset 1px 0 0 var(--accent), inset -1px 0 0 var(--accent); }
+.cal-cell[data-drop="true"] { background: var(--s2-bg); box-shadow: inset 0 0 0 1px var(--accent); }
 .cal-more { font-size: 10.5px; color: var(--text-3); padding-left: 4px; }
 .cal-past-plan { font-size: 10.5px; color: var(--text-3); padding-left: 4px; }
 
@@ -700,7 +732,7 @@ kbd {
 .cal-water-col { border-right: 1px solid var(--border); }
 .cal-water-col[data-weekend="true"] { background: rgba(0, 0, 0, 0.02); }
 .cal-water-col[data-today="true"] { box-shadow: inset 1px 0 0 var(--accent), inset -1px 0 0 var(--accent); }
-.cal-bars { position: relative; padding: 6px 0 8px; row-gap: 3px; min-height: 46px; }
+.cal-bars { position: relative; padding: 6px 0 8px; row-gap: 3px; min-height: 46px; max-height: 148px; overflow-y: auto; }
 .cal-bar {
   display: flex; align-items: center; gap: 6px;
   margin: 0 3px;
@@ -767,6 +799,236 @@ kbd {
 }
 .cal-chip[data-overdue="true"] .cal-chip-tag { color: var(--cal-late); background: var(--danger-bg-soft); border-color: var(--danger-border); }
 .cal-chip-star { font-size: 9px; flex-shrink: 0; }
+
+/* Une pièce reçue : le bleu du statut, rien de plus */
+.cal-chip[data-variant="recu"] { border-left-color: var(--accent); }
+
+/* Seconde ligne d'une pastille : le retard, l'âge — le chiffre qui hiérarchise */
+.cal-chip { flex-wrap: wrap; }
+.cal-chip-meta {
+  flex-basis: 100%;
+  font-size: 10px; color: var(--text-3);
+  padding-left: 11px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cal-chip[data-variant="sas"] .cal-chip-meta { color: var(--cal-late); }
+.cal-chip-meta[data-old="true"] { color: var(--s1-fg); }
+
+/* ✓ au survol : marquer Traité sans ouvrir quoi que ce soit */
+.cal-chip-done {
+  display: none;
+  align-items: center; justify-content: center;
+  width: 16px; height: 16px; flex-shrink: 0;
+  font-size: 10px; color: var(--ok-fg);
+  border: 1px solid var(--border); border-radius: 3px;
+  background: var(--bg);
+}
+.cal-chip:hover .cal-chip-done { display: inline-flex; }
+.cal-chip-done:hover { background: var(--ok-bg, var(--bg-hover)); border-color: var(--ok-fg); }
+
+/* Le nom du dossier devient un lien : ne voir que lui */
+.cal-chip-case[data-link="true"] { cursor: pointer; }
+.cal-chip-case[data-link="true"]:hover { color: var(--accent); text-decoration: underline; }
+
+/* Le réalisé du jour, en une ligne — « à faire » ne montre que le reste à faire */
+.cal-fait-count { font-size: 10.5px; color: var(--ok-fg); padding: 4px 4px 0; }
+
+/* Les rappels du jour, comptés dans l'en-tête — leur détail vit sur le rail */
+.cal-day-bell { font-size: 9.5px; color: var(--text-2); margin-left: 2px; }
+
+/* ── La date tenable : la vue conclut ────────────────────────────────────
+ * « On signe quand ? » — le max des « prête au plus tôt » des pièces
+ * ouvertes du dossier filtré, avec la pièce critique nommée. Trois tons :
+ * ça tient, ça tient si on lance aujourd'hui, ça ne tient plus. */
+.cal-tenable {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  width: 100%; text-align: left;
+  font: inherit; font-size: 12.5px; color: var(--text);
+  padding: 7px 14px;
+  border: none; border-bottom: 1px solid var(--border);
+  background: var(--bg-subtle);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.cal-tenable:hover { background: var(--bg-hover); }
+.cal-tenable strong { font-weight: 600; }
+.cal-tenable-main { color: var(--text-2); }
+.cal-tenable-verdict { margin-left: auto; font-weight: 500; }
+.cal-tenable[data-tone="ok"] .cal-tenable-verdict { color: var(--ok-fg); }
+.cal-tenable[data-tone="warn"] { background: var(--warn-bg-soft); }
+.cal-tenable[data-tone="warn"] .cal-tenable-verdict { color: var(--s1-fg); }
+.cal-tenable[data-tone="late"] { background: var(--danger-bg-soft); }
+.cal-tenable[data-tone="late"] .cal-tenable-verdict { color: var(--cal-late); }
+
+/* ── La réglette : 90 jours d'un seul tenant ─────────────────────────────
+ * La fenêtre affichée n'est qu'un cadre posé dessus ; les attentes y courent
+ * en entier, hachure rouge au-delà du retour attendu ; les échéances sont des
+ * traits. C'est le seul endroit d'Henri où une DIA de 60 jours se voit. */
+.cal-ruler {
+  position: relative;
+  height: 48px;
+  flex-shrink: 0;
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  overflow: hidden;
+  user-select: none;
+}
+.cal-ruler-month {
+  position: absolute; top: 2px;
+  font-size: 9px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-3);
+  padding-left: 4px;
+  pointer-events: none;
+}
+.cal-ruler-month[data-boundary="true"] { border-left: 1px solid var(--border); height: 100%; }
+.cal-ruler-window {
+  position: absolute; top: 0; bottom: 0;
+  background: var(--s2-bg);
+  border-left: 1px solid var(--accent);
+  border-right: 1px solid var(--accent);
+  opacity: 0.55;
+  pointer-events: none;
+}
+.cal-ruler-today {
+  position: absolute; top: 0; bottom: 0; width: 2px;
+  background: var(--accent);
+  pointer-events: none;
+}
+.cal-ruler-bar {
+  position: absolute; height: 3px; border-radius: 2px;
+  background: var(--warn-accent);
+  cursor: pointer;
+  transition: opacity 0.1s;
+}
+.cal-ruler-bar:hover { height: 5px; margin-top: -1px; }
+.cal-ruler-bar[data-late="true"] { background: var(--cal-late); }
+.cal-ruler-bar[data-dim="true"] { opacity: 0.25; }
+.cal-ruler-tick {
+  position: absolute; bottom: 2px; width: 2px;
+  background: var(--text-2); opacity: 0.55;
+  border-radius: 1px;
+  pointer-events: none;
+}
+.cal-ruler-more {
+  position: absolute; right: 6px; bottom: 2px;
+  font-size: 9.5px; color: var(--text-3);
+  pointer-events: none;
+}
+/* La date tenable, en losange sur la réglette */
+.cal-ruler-tenable {
+  position: absolute; top: 50%; width: 8px; height: 8px;
+  transform: translate(-50%, -50%) rotate(45deg);
+  background: var(--bg); border: 2px solid var(--accent);
+  pointer-events: none;
+}
+
+/* ── LE PLANNING ── les dossiers à l'horizontale ─────────────────────────
+ * Une ligne par dossier, dépliable en une ligne par tâche. Sur chaque ligne,
+ * la vie d'une pièce de gauche à droite : ● lancement, corridor pointillé,
+ * barre d'attente (rouge au-delà du retour attendu), ◆ échéance. La ligne du
+ * dossier porte ◆ son échéance (rouge si intenable) et ◇ sa date tenable. */
+.plan { flex: 1; min-height: 0; overflow: auto; background: var(--bg); }
+.plan-grid { display: grid; grid-template-columns: 240px minmax(0, 1fr); min-width: 640px; }
+.plan-corner {
+  position: sticky; top: 0; z-index: 3;
+  display: flex; align-items: center;
+  height: 28px; padding: 0 10px;
+  font-size: 10.5px; color: var(--text-3);
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border); border-right: 1px solid var(--border);
+}
+.plan-axis {
+  position: sticky; top: 0; z-index: 2;
+  height: 28px; overflow: hidden;
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border);
+}
+.plan-month {
+  position: absolute; top: 4px;
+  font-size: 9px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-3); padding-left: 4px; pointer-events: none;
+}
+.plan-month[data-boundary="true"] { border-left: 1px solid var(--border-strong); height: 100%; }
+.plan-today-label {
+  position: absolute; bottom: 2px; transform: translateX(-50%);
+  font-size: 9px; font-weight: 600; color: var(--accent); pointer-events: none;
+}
+.plan-week { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--border); opacity: 0.55; pointer-events: none; }
+.plan-today { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); pointer-events: none; }
+
+.plan-title {
+  display: flex; align-items: center; gap: 6px;
+  min-width: 0; text-align: left; font: inherit;
+  border: none; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border);
+}
+.plan-title-case {
+  height: 30px; padding: 0 8px 0 8px;
+  font-size: 12px; font-weight: 600; color: var(--text);
+  background: var(--bg-subtle); cursor: pointer;
+}
+.plan-title-case:hover { background: var(--bg-hover); }
+.plan-arrow { font-size: 9px; color: var(--text-3); width: 10px; flex-shrink: 0; }
+.plan-case-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.plan-hold { font-size: 11px; flex-shrink: 0; }
+.plan-count { font-size: 10.5px; font-weight: 400; color: var(--text-3); flex-shrink: 0; }
+.plan-title-task {
+  height: 26px; padding: 0 8px 0 24px;
+  font-size: 12px; color: var(--text);
+  background: var(--bg); cursor: pointer;
+}
+.plan-title-task:hover { background: var(--bg-hover); }
+.plan-title-task[data-selected="true"] { background: var(--s2-bg); }
+.plan-title-task[data-dim="true"] { opacity: 0.45; }
+.plan-task-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.plan-track { position: relative; height: 26px; border-bottom: 1px solid var(--border); overflow: hidden; }
+.plan-track-case { height: 30px; background: var(--bg-subtle); }
+.plan-empty { grid-column: 2; font-size: 12.5px; color: var(--text-3); padding: 16px; margin: 0; }
+
+.plan-wait {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  height: 6px; border-radius: 3px;
+  background: var(--warn-accent);
+  cursor: pointer; transition: opacity 0.1s;
+}
+.plan-track-case .plan-wait { height: 4px; opacity: 0.8; }
+.plan-wait[data-late="true"] { background: var(--cal-late); }
+.plan-wait:hover { height: 8px; }
+.plan-due {
+  position: absolute; top: 50%;
+  width: 8px; height: 8px;
+  transform: translate(-50%, -50%) rotate(45deg);
+  background: var(--bg); border: 2px solid var(--text-2);
+  cursor: pointer; transition: opacity 0.1s;
+}
+.plan-track-case .plan-due { width: 7px; height: 7px; }
+.plan-legal {
+  position: absolute; top: 50%;
+  width: 10px; height: 10px;
+  transform: translate(-50%, -50%) rotate(45deg);
+  background: var(--text); border: 2px solid var(--text);
+  pointer-events: none;
+}
+.plan-legal[data-hold="false"] { background: var(--cal-late); border-color: var(--cal-late); }
+.plan-tenable {
+  position: absolute; top: 50%;
+  width: 9px; height: 9px;
+  transform: translate(-50%, -50%) rotate(45deg);
+  background: var(--bg); border: 2px solid var(--accent);
+  cursor: pointer; transition: opacity 0.1s;
+}
+.plan-launch {
+  position: absolute; top: 50%;
+  width: 8px; height: 8px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: var(--bg); border: 2px solid var(--warn-accent);
+  cursor: pointer; transition: opacity 0.1s;
+}
+.plan-launch[data-late="true"] { border-color: var(--cal-late); }
+.plan-corridor { position: absolute; top: 50%; border-top: 1px dashed var(--border-strong); pointer-events: none; }
+.plan-wait[data-dim="true"], .plan-due[data-dim="true"], .plan-tenable[data-dim="true"], .plan-launch[data-dim="true"], .plan-corridor[data-dim="true"] { opacity: 0.2; }
 
 /* Vue jour */
 .cal-day { display: flex; flex-direction: column; flex: 1; min-height: 0; }
@@ -864,6 +1126,43 @@ kbd {
 }
 
 .cal-inspector-actions { display: flex; gap: 6px; padding: 10px 14px; border-top: 1px solid var(--border); background: var(--bg-subtle); }
+.cal-inspector-actions .detail-action-btn:disabled { opacity: 0.45; cursor: default; }
+
+/* Le raccourci « créer dans le même dossier », sous les actions de l'inspecteur */
+.cal-newtask-link {
+  font: inherit; font-size: 12px; text-align: left;
+  color: var(--text-2); background: var(--bg-subtle);
+  border: none; border-top: 1px solid var(--border);
+  padding: 8px 14px; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cal-newtask-link:hover { background: var(--bg-hover); color: var(--text); }
+
+/* Panneau « Nouvelle tâche » — mêmes champs que le reste d'Henri */
+.cal-input {
+  width: 100%;
+  font: inherit; font-size: 13px; color: var(--text);
+  padding: 6px 9px;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg);
+}
+.cal-input:focus { outline: none; border-color: var(--border-strong); }
+.cal-input::placeholder { color: var(--text-3); }
+
+.cal-combo { position: relative; }
+.cal-combo-list {
+  position: absolute; top: 100%; left: 0; right: 0; z-index: 30;
+  margin-top: 2px; max-height: 220px; overflow-y: auto;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+}
+.cal-combo-item {
+  display: block; width: 100%; text-align: left;
+  font: inherit; font-size: 12.5px; color: var(--text);
+  padding: 6px 9px; border: none; background: none; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cal-combo-item[data-active="true"] { background: var(--bg-hover); }
+.cal-combo-empty { font-size: 12px; color: var(--text-3); padding: 8px 9px; margin: 0; }
 
 .cal-toast {
   position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
@@ -871,10 +1170,59 @@ kbd {
   padding: 7px 14px; border-radius: 6px; z-index: 50;
 }
 
+/* ── L'échéancier : la vue qui sort de l'étude ───────────────────────────
+ * Un panneau plein écran à l'écran, une page propre à l'impression :
+ * seul .cal-print-page est visible sur papier. */
+.cal-print-overlay {
+  position: fixed; inset: 0; z-index: 60;
+  background: var(--bg);
+  overflow-y: auto;
+  padding: 24px;
+}
+.cal-print-actions {
+  display: flex; gap: 8px; justify-content: flex-end;
+  max-width: 720px; margin: 0 auto 16px;
+}
+.cal-print-page {
+  max-width: 720px; margin: 0 auto;
+  background: var(--bg);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 40px 48px;
+}
+.cal-print-head { border-bottom: 2px solid var(--text); padding-bottom: 10px; margin-bottom: 20px; }
+.cal-print-head h1 { font-size: 18px; font-weight: 600; margin: 0 0 2px; }
+.cal-print-head p { font-size: 12.5px; color: var(--text-2); margin: 0; }
+.cal-print-table { width: 100%; border-collapse: collapse; }
+.cal-print-table td { padding: 7px 8px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: baseline; }
+.cal-print-state { width: 70px; font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-3); white-space: nowrap; }
+tr[data-state="fait"] .cal-print-state { color: var(--ok-fg); }
+tr[data-state="reçue"] .cal-print-state { color: var(--accent); }
+tr[data-state="en cours"] .cal-print-state { color: var(--s1-fg); }
+.cal-print-title { font-weight: 500; }
+.cal-print-detail { color: var(--text-2); }
+.cal-print-tenable { font-size: 14px; margin: 20px 0 0; }
+.cal-print-note { font-size: 10.5px; color: var(--text-3); margin: 18px 0 0; }
+
+@media print {
+  body * { visibility: hidden; }
+  .cal-print-overlay { position: absolute; inset: 0; padding: 0; overflow: visible; }
+  .cal-print-page, .cal-print-page * { visibility: visible; }
+  .cal-print-page { border: none; border-radius: 0; max-width: none; margin: 0; padding: 0; }
+  .cal-print-actions { display: none; }
+  /* Sur papier : noir sur blanc, quoi qu'il arrive du thème */
+  .cal-print-page { background: #fff; color: #000; }
+  .cal-print-head { border-color: #000; }
+  .cal-print-head h1, .cal-print-title { color: #000; }
+  .cal-print-head p, .cal-print-detail, .cal-print-note, .cal-print-state { color: #444; }
+  .cal-print-table td { border-color: #ddd; }
+  .cal-print-tenable { color: #000; }
+}
+
 /* Mobile : la vue calendrier est une vue de bureau. On l'annonce plutôt que
  * de la déformer — cf. DESIGN.md, « mobile = compagnon ». */
 @media (max-width: 767px) {
-  .cal-sas, .cal-inspector, .cal-rail { display: none; }
+  .cal-sas, .cal-inspector, .cal-rail, .cal-ruler, .cal-tenable { display: none; }
+  .plan-grid { grid-template-columns: 130px minmax(0, 1fr); }
   .cal-lanes { grid-template-columns: minmax(0, 1fr); }
   .cal-week { overflow-x: auto; }
 }
