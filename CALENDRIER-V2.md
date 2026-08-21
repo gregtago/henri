@@ -320,6 +320,17 @@ L'ordre n'est pas celui de l'ambition, c'est celui du rapport valeur/effort. Le
 lot 0 se fait en une fois. Le lot 1 est le seul qui change ce que la vue
 *raconte* ; les autres améliorent ce qu'elle montre déjà.
 
+**Mise à jour du 21/08/2026 — tout est réalisé.** Les six lots sont en service
+sur `/calendrier`, plus les gestes d'écriture arrivés entre-temps : changement
+de statut (`1`–`4` et inspecteur), ✓ « Traité » au survol dans le sas et la
+bannette, report d'échéance depuis l'inspecteur, ouverture du dossier au
+double-clic, création de tâche (`N`, « + Tâche », double-clic sur un jour,
+depuis l'inspecteur). Détail d'implémentation notable : le « reporter au… » du
+§ 5 vit dans l'inspecteur plutôt qu'au survol — une date se choisit, elle ne se
+clique pas ; et la jauge de charge (§ 6, défaut 6) est normalisée contre une
+charge de référence fixe plutôt qu'une moyenne glissante, ce qui suffit à lui
+faire dire « semaine tranquille ».
+
 ---
 
 ## 10. Le test

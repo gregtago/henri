@@ -597,6 +597,21 @@ kbd {
 .cal-nav:hover { background: var(--bg-hover); color: var(--text); }
 .cal-nav-active { background: var(--bg-active); color: var(--text); font-weight: 500; }
 
+/* Le filtre par dossier : une pastille dans la barre d'outils, une croix, Échap */
+.cal-filter-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  font: inherit; font-size: 12px; font-weight: 500;
+  color: var(--accent);
+  background: var(--s2-bg);
+  border: 1px solid var(--accent);
+  border-radius: 20px;
+  padding: 2px 9px; margin-left: 10px;
+  cursor: pointer;
+  max-width: 220px;
+}
+.cal-filter-pill:hover { background: var(--bg-hover); }
+.cal-filter-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 .cal-btn, .cal-step {
   display: inline-flex;
   align-items: center;
@@ -640,7 +655,23 @@ kbd {
   background: var(--bg-subtle);
   overflow: hidden;
 }
-.cal-sas-list { flex: 1; overflow-y: auto; padding: 4px 6px 12px; display: flex; flex-direction: column; gap: 3px; }
+.cal-sas-list { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 6px 12px; display: flex; flex-direction: column; gap: 3px; }
+
+/* Un dossier dont l'échéance est passée : une ligne repliée, pas vingt pastilles */
+.cal-sas-group { display: flex; flex-direction: column; gap: 3px; }
+.cal-sas-group-head {
+  display: flex; align-items: center; gap: 5px;
+  width: 100%; text-align: left;
+  font: inherit; font-size: 11.5px; font-weight: 500; color: var(--text);
+  background: var(--bg); border: 1px solid var(--border); border-left: 2px solid var(--cal-late);
+  border-radius: 3px; padding: 3px 6px; cursor: pointer;
+}
+.cal-sas-group-head:hover { background: var(--bg-hover); }
+.cal-sas-group-arrow { font-size: 9px; color: var(--text-3); }
+.cal-sas-group-title { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-sas-group-count { font-size: 10.5px; color: var(--text-3); }
+.cal-sas-group-meta { font-size: 10px; color: var(--cal-late); padding-left: 13px; margin: -2px 0 0; }
+.cal-sas-group .cal-chip { margin-left: 10px; width: auto; }
 
 /* Grille de semaine */
 .cal-week { display: flex; flex-direction: column; flex: 1; min-height: 0; }
@@ -700,7 +731,7 @@ kbd {
 .cal-water-col { border-right: 1px solid var(--border); }
 .cal-water-col[data-weekend="true"] { background: rgba(0, 0, 0, 0.02); }
 .cal-water-col[data-today="true"] { box-shadow: inset 1px 0 0 var(--accent), inset -1px 0 0 var(--accent); }
-.cal-bars { position: relative; padding: 6px 0 8px; row-gap: 3px; min-height: 46px; }
+.cal-bars { position: relative; padding: 6px 0 8px; row-gap: 3px; min-height: 46px; max-height: 148px; overflow-y: auto; }
 .cal-bar {
   display: flex; align-items: center; gap: 6px;
   margin: 0 3px;
@@ -767,6 +798,98 @@ kbd {
 }
 .cal-chip[data-overdue="true"] .cal-chip-tag { color: var(--cal-late); background: var(--danger-bg-soft); border-color: var(--danger-border); }
 .cal-chip-star { font-size: 9px; flex-shrink: 0; }
+
+/* Une pièce reçue : le bleu du statut, rien de plus */
+.cal-chip[data-variant="recu"] { border-left-color: var(--accent); }
+
+/* Seconde ligne d'une pastille : le retard, l'âge — le chiffre qui hiérarchise */
+.cal-chip { flex-wrap: wrap; }
+.cal-chip-meta {
+  flex-basis: 100%;
+  font-size: 10px; color: var(--text-3);
+  padding-left: 11px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cal-chip[data-variant="sas"] .cal-chip-meta { color: var(--cal-late); }
+.cal-chip-meta[data-old="true"] { color: var(--s1-fg); }
+
+/* ✓ au survol : marquer Traité sans ouvrir quoi que ce soit */
+.cal-chip-done {
+  display: none;
+  align-items: center; justify-content: center;
+  width: 16px; height: 16px; flex-shrink: 0;
+  font-size: 10px; color: var(--ok-fg);
+  border: 1px solid var(--border); border-radius: 3px;
+  background: var(--bg);
+}
+.cal-chip:hover .cal-chip-done { display: inline-flex; }
+.cal-chip-done:hover { background: var(--ok-bg, var(--bg-hover)); border-color: var(--ok-fg); }
+
+/* Le nom du dossier devient un lien : ne voir que lui */
+.cal-chip-case[data-link="true"] { cursor: pointer; }
+.cal-chip-case[data-link="true"]:hover { color: var(--accent); text-decoration: underline; }
+
+/* Sous les pastilles du jour : ce qui a déjà avancé */
+.cal-fait-label {
+  font-size: 9.5px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--text-3); padding: 4px 4px 0;
+}
+
+/* ── La réglette : 90 jours d'un seul tenant ─────────────────────────────
+ * La fenêtre affichée n'est qu'un cadre posé dessus ; les attentes y courent
+ * en entier, hachure rouge au-delà du retour attendu ; les échéances sont des
+ * traits. C'est le seul endroit d'Henri où une DIA de 60 jours se voit. */
+.cal-ruler {
+  position: relative;
+  height: 48px;
+  flex-shrink: 0;
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  overflow: hidden;
+  user-select: none;
+}
+.cal-ruler-month {
+  position: absolute; top: 2px;
+  font-size: 9px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-3);
+  padding-left: 4px;
+  pointer-events: none;
+}
+.cal-ruler-month[data-boundary="true"] { border-left: 1px solid var(--border); height: 100%; }
+.cal-ruler-window {
+  position: absolute; top: 0; bottom: 0;
+  background: var(--s2-bg);
+  border-left: 1px solid var(--accent);
+  border-right: 1px solid var(--accent);
+  opacity: 0.55;
+  pointer-events: none;
+}
+.cal-ruler-today {
+  position: absolute; top: 0; bottom: 0; width: 2px;
+  background: var(--accent);
+  pointer-events: none;
+}
+.cal-ruler-bar {
+  position: absolute; height: 3px; border-radius: 2px;
+  background: var(--warn-accent);
+  cursor: pointer;
+  transition: opacity 0.1s;
+}
+.cal-ruler-bar:hover { height: 5px; margin-top: -1px; }
+.cal-ruler-bar[data-late="true"] { background: var(--cal-late); }
+.cal-ruler-bar[data-dim="true"] { opacity: 0.25; }
+.cal-ruler-tick {
+  position: absolute; bottom: 2px; width: 2px;
+  background: var(--text-2); opacity: 0.55;
+  border-radius: 1px;
+  pointer-events: none;
+}
+.cal-ruler-more {
+  position: absolute; right: 6px; bottom: 2px;
+  font-size: 9.5px; color: var(--text-3);
+  pointer-events: none;
+}
 
 /* Vue jour */
 .cal-day { display: flex; flex-direction: column; flex: 1; min-height: 0; }
@@ -911,7 +1034,7 @@ kbd {
 /* Mobile : la vue calendrier est une vue de bureau. On l'annonce plutôt que
  * de la déformer — cf. DESIGN.md, « mobile = compagnon ». */
 @media (max-width: 767px) {
-  .cal-sas, .cal-inspector, .cal-rail { display: none; }
+  .cal-sas, .cal-inspector, .cal-rail, .cal-ruler { display: none; }
   .cal-lanes { grid-template-columns: minmax(0, 1fr); }
   .cal-week { overflow-x: auto; }
 }
