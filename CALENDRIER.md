@@ -37,6 +37,34 @@ C'est cette réalité-là que la vue doit rendre visible. D'où la proposition.
 
 ---
 
+## 1 bis. La règle de lecture (mise au point du 21/08/2026)
+
+Le premier essai en conditions réelles a rendu son verdict : la vue était
+incompréhensible, parce qu'une même tâche pouvait apparaître à deux endroits
+avec deux sens différents — une tâche **demandée** se retrouvait dans « à
+faire » (au titre de la relance) tout en courant dans « j'attends », et la
+bande « échéances » entassait échéances, retours attendus et rappels.
+
+La règle est désormais celle-ci, et tout le reste s'y plie :
+
+> **Le statut décide de la place. Une tâche n'apparaît qu'à un seul endroit.**
+
+| Statut | Sa place, la seule |
+|---|---|
+| **Créé** | « à faire », le jour où la demande doit partir — le sas si ce jour est passé |
+| **Demandé** | « j'attends », une barre — **la relance est un état de la barre** (hachures rouges + ↻), pas une pastille : une tâche demandée n'est pas à faire, elle est en attente |
+| **Reçu** | la bannette — le sas si l'échéance est dépassée |
+| **Traité** | le passé (« fait ») ; aujourd'hui, une simple ligne de compteur sous « à faire » |
+
+Et deux exclusions qui découlent de la règle :
+
+- la bande « échéances » ne porte **que des échéances**. Le retour attendu
+  n'y figure plus (la fin de la barre le dessine déjà), le rappel non plus ;
+- les **rappels** vivent sur le rail horaire de la vue Jour — en semaine,
+  l'en-tête du jour porte un compteur 🔔 qui y mène.
+
+---
+
 ## 2. Le parti pris : quatre idées
 
 ### Idée 1 — Trois bandes, dans l'ordre du cycle d'une tâche
