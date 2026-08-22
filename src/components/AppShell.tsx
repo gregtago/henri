@@ -69,7 +69,8 @@ import {
   getCaseLevelMemos,
   getCompletion,
   getContainerIds,
-  getItemMemos
+  getItemMemos,
+  isItemDone
 } from "@/lib/completion";
 import { buildQuickMemo, listRecentlyDoneMemos } from "@/lib/memos";
 import {
@@ -612,6 +613,12 @@ export default function AppShell({ view, onViewChange, active = true }: AppShell
   // contenants, pas des tâches — voir src/lib/completion.ts.
   const containerIds = useMemo(() => getContainerIds(items, floatingTasks), [items, floatingTasks]);
 
+  /** Cette tâche est-elle traitée ? Lecture par identifiant, pour les listes de sélection. */
+  const isDoneId = (id: string) => {
+    const entry = items.find((item) => item.id === id);
+    return !!entry && isItemDone(entry);
+  };
+
   // Décompte des tâches ET sous-tâches par statut, pour le mini-récap sur chaque
   // dossier et le tri par charge restante. Les contenants en sont exclus : leur
   // statut n'est que le résumé de ce qu'ils portent, et le compter reviendrait à
@@ -758,6 +765,11 @@ export default function AppShell({ view, onViewChange, active = true }: AppShell
     };
   }, [items, user]);
   const reminderItems = items.filter((item) => {
+    // Une tâche traitée ne réclame plus rien : elle n'a pas à s'annoncer « à
+    // échéance », ni à se proposer pour Ma journée. Les tâches traitées avant
+    // que l'échéance ne tombe d'elle-même (`updateItemProgress`) ont gardé une
+    // date : c'est le statut qui tranche, pas elle.
+    if (isItemDone(item)) return false;
     const dueKey = getDateKeyFromValue(item.dueDate);
     if (!dueKey || dueKey > todayKey) return false;
     // Exclure si déjà rappelé aujourd'hui
@@ -864,6 +876,11 @@ export default function AppShell({ view, onViewChange, active = true }: AppShell
         return caseItem ? { type: "case" as const, data: caseItem, selectionId: entry.id } : null;
       }
       const item = items.find((entryItem) => entryItem.id === entry.refId);
+      // Une tâche traitée quitte la journée sur-le-champ. Sa sélection est
+      // effacée au passage en « Traité » (`updateItemProgress`) ; on l'écarte
+      // aussi à l'affichage, pour les sélections d'avant cette règle et pour
+      // le geste fait depuis un autre appareil.
+      if (item && isItemDone(item)) return null;
       return item ? { type: "item" as const, data: item, selectionId: entry.id } : null;
     })
     .filter(
@@ -1230,7 +1247,7 @@ export default function AppShell({ view, onViewChange, active = true }: AppShell
         .map((entry) => entry.refId)
     );
     const notAdded = (item: Item) => !todaySelectionRefIds.has(item.id);
-    const notDone = (item: Item) => getProgressLevel(item.status) !== 3;
+    const notDone = (item: Item) => !isItemDone(item);
     // Tâche actionnable : sous-tâche (level 3) OU tâche sans sous-tâches (level 2 feuille)
     const itemIdsWithChildren = new Set(items.filter(i => i.parentItemId).map(i => i.parentItemId!));
     const isLeaf = (item: Item) => item.level === 3 || !itemIdsWithChildren.has(item.id);
@@ -1326,7 +1343,7 @@ export default function AppShell({ view, onViewChange, active = true }: AppShell
     return items
       .filter((item) => windowSelectionIds.has(item.id))
       .filter((item) => !todaySelectionIds.has(item.id))
-      .filter((item) => getProgressLevel(item.status) !== 3)
+      .filter((item) => !isItemDone(item))
       .filter((item) => {
         const referenceDate = toDate(item.lastProgressAt) ?? toDate(item.createdAt);
         return referenceDate ? referenceDate.getTime() <= stagnantThreshold.getTime() : false;
@@ -1892,6 +1909,13 @@ export default function AppShell({ view, onViewChange, active = true }: AppShell
     // Garde-fou : ne pas créer de doublon si une sélection existe déjà pour la même cible aujourd'hui
     const alreadyInMyDay = (refType: "case" | "item" | "subitem", refId: string) =>
       myDaySelections.some(s => s.dateKey === todayKey && s.refType === refType && s.refId === refId);
+    // Une tâche traitée ne rentre pas dans la journée — elle en ressortirait
+    // aussitôt (voir `updateItemProgress`), ce qui ressemblerait à une panne.
+    const targetId = detailTarget?.type === "item" ? detailItem?.id : (activeColumn === "subitems" ? selectedSubItemId : activeColumn === "items" ? selectedItemId : null);
+    if (targetId && isDoneId(targetId)) {
+      showToast("Cette tâche est traitée — elle reste dans son dossier.");
+      return;
+    }
 
     if (detailTarget?.type === "case") {
       if (alreadyInMyDay("case", detailTarget.id)) {
@@ -1971,16 +1995,17 @@ export default function AppShell({ view, onViewChange, active = true }: AppShell
     }
     await updateItemProgress(user.uid, detailItem.id, status);
     await logStatusEvent(user.uid, detailItem.id, detailItem.status, status);
-    // Si la tâche est marquée Traité, supprimer toutes ses sélections Ma journée
-    // pour éviter qu'elle continue à apparaître avec un point jaune
+    // Les sélections Ma journée d'une tâche traitée sont effacées par
+    // `updateItemProgress` — la règle vaut pour tous les chemins, pas seulement
+    // pour celui-ci. On ne retire ici que la copie locale, pour que la ligne et
+    // son point jaune s'en aillent sans attendre le retour du serveur.
     if (status === "Traité") {
-      const orphanSels = myDaySelections.filter(s =>
-        (s.refType === "item" || s.refType === "subitem") && s.refId === detailItem.id
+      const doneIds = new Set(
+        myDaySelections
+          .filter(s => (s.refType === "item" || s.refType === "subitem") && s.refId === detailItem.id)
+          .map(s => s.id)
       );
-      for (const sel of orphanSels) {
-        setLegacyMyDaySelections(prev => prev.filter(x => x.id !== sel.id));
-        deleteMyDaySelection(user.uid, sel.id).catch(() => {});
-      }
+      if (doneIds.size > 0) setLegacyMyDaySelections(prev => prev.filter(x => !doneIds.has(x.id)));
     }
   };
 
@@ -1992,13 +2017,12 @@ export default function AppShell({ view, onViewChange, active = true }: AppShell
       return;
     }
     playDone();
-    // L'échéance tombe avec le passage en « Traité » (updateItemProgress).
+    // L'échéance, le rappel et la place dans Ma journée tombent avec le passage
+    // en « Traité » (updateItemProgress) : ici, seule la copie locale s'efface,
+    // pour que la ligne parte tout de suite.
     await updateItemProgress(user.uid, item.id, "Traité");
     await logStatusEvent(user.uid, item.id, item.status, "Traité");
-    if (selectionId) {
-      await deleteMyDaySelection(user.uid, selectionId);
-      setLegacyMyDaySelections(prev => prev.filter(s => s.id !== selectionId));
-    }
+    if (selectionId) setLegacyMyDaySelections(prev => prev.filter(s => s.id !== selectionId));
     setMyDayDetailId(null);
   };
 
@@ -3615,10 +3639,16 @@ export default function AppShell({ view, onViewChange, active = true }: AppShell
                     className={btnGhost}
                     onClick={async () => {
                       if (!user || selectedItemIds.length === 0) return;
-                      await Promise.all(selectedItemIds.map(id =>
+                      // Une tâche traitée ne rentre pas dans la journée : elle
+                      // en ressortirait aussitôt, sans qu'on sache pourquoi.
+                      const toAdd = selectedItemIds.filter(id => !isDoneId(id));
+                      if (toAdd.length === 0) { showToast("Ces tâches sont traitées — rien à mettre dans la journée."); return; }
+                      await Promise.all(toAdd.map(id =>
                         addMyDaySelection(user.uid, { dateKey: todayKey, refType: "item", refId: id })
                       ));
-                      showToast("☀ Ajouté à Ma journée.");
+                      showToast(toAdd.length < selectedItemIds.length
+                        ? `☀ Ajouté à Ma journée — ${selectedItemIds.length - toAdd.length} tâche(s) traitée(s) écartée(s).`
+                        : "☀ Ajouté à Ma journée.");
                     }}
                   >Ma journée</button>
                   <button className={btnGhost} onClick={handleExportSelectedItems}>Exporter</button>
@@ -3636,8 +3666,8 @@ export default function AppShell({ view, onViewChange, active = true }: AppShell
                   // échéance posée aujourd'hui (à 9 h) ne doit pas virer au
                   // rouge à 9 h 01.
                   const dueKey = getDateKeyFromValue(entry.dueDate);
-                  const isOverdue = !!dueKey && dueKey < todayKey && getProgressLevel(entry.status) !== 3;
-                  const isDueToday = dueKey === todayKey && !isOverdue;
+                  const isOverdue = !!dueKey && dueKey < todayKey && !isItemDone(entry);
+                  const isDueToday = dueKey === todayKey && !isOverdue && !isItemDone(entry);
                   const rowBg = entry.starred ? "rgba(251,191,36,0.12)" : isOverdue ? "rgba(239,68,68,0.08)" : isDueToday ? "rgba(34,197,94,0.08)" : undefined;
                   return (
                   <div
@@ -3674,7 +3704,7 @@ export default function AppShell({ view, onViewChange, active = true }: AppShell
                       </div>
                       <p className="text-[12.5px] text-tx-3 mt-0.5 truncate min-h-[1.25rem]">
                         {entry.dueDate ? (
-                          <>Éch. <span className={dueKey && dueKey < todayKey ? "text-danger-soft" : ""}>{formatDateFR(entry.dueDate)}</span></>
+                          <>Éch. <span className={isOverdue ? "text-danger-soft" : ""}>{formatDateFR(entry.dueDate)}</span></>
                         ) : (
                           (() => {
                             const subCount = getSubItems(items, entry.id).length;
@@ -3735,10 +3765,14 @@ export default function AppShell({ view, onViewChange, active = true }: AppShell
                     className={btnGhost}
                     onClick={async () => {
                       if (!user || selectedSubItemIds.length === 0) return;
-                      await Promise.all(selectedSubItemIds.map(id =>
+                      const toAdd = selectedSubItemIds.filter(id => !isDoneId(id));
+                      if (toAdd.length === 0) { showToast("Ces sous-tâches sont traitées — rien à mettre dans la journée."); return; }
+                      await Promise.all(toAdd.map(id =>
                         addMyDaySelection(user.uid, { dateKey: todayKey, refType: "subitem", refId: id })
                       ));
-                      showToast("☀ Ajouté à Ma journée.");
+                      showToast(toAdd.length < selectedSubItemIds.length
+                        ? `☀ Ajouté à Ma journée — ${selectedSubItemIds.length - toAdd.length} sous-tâche(s) traitée(s) écartée(s).`
+                        : "☀ Ajouté à Ma journée.");
                     }}
                   >Ma journée</button>
                   <button className={btnDanger} onClick={handleDelete}>Supprimer</button>

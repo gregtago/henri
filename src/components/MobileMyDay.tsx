@@ -22,8 +22,7 @@ import {
 } from "@/lib/firestore";
 import type { Item, Case, FloatingTask, MyDaySelection, Recurrence, Status } from "@/lib/types";
 import { getTodayKey, getDateKeyFromValue, formatDateFR, atDueHour } from "@/lib/dates";
-import { getProgressLevel } from "@/lib/progress";
-import { countOpenChildren, describeOpenChildren, getCompletion, isContainer } from "@/lib/completion";
+import { countOpenChildren, describeOpenChildren, getCompletion, isContainer, isItemDone } from "@/lib/completion";
 import { refusedFeedback, successFeedback, tapFeedback } from "@/lib/haptics";
 import { MEMO_TTL_DAYS, buildQuickMemo, listRecentlyDoneMemos } from "@/lib/memos";
 import {
@@ -188,7 +187,11 @@ export default function MobileMyDay({ user, onGoCases }: { user: User; onGoCases
     const entries: SelectionEntry[] = [];
     for (const s of sels) {
       const item = items.find(i => i.id === s.refId);
-      if (item) entries.push({ selectionId: s.id, type: "item", item });
+      // Une tâche traitée quitte la journée. Sa sélection est effacée au
+      // passage en « Traité » (`updateItemProgress`) ; on l'écarte aussi ici,
+      // pour les sélections d'avant cette règle et pour le geste fait depuis
+      // un autre appareil.
+      if (item && !isItemDone(item)) entries.push({ selectionId: s.id, type: "item", item });
     }
     // Un mémo réalisé quitte la journée. Il reste visible le temps de
     // l'animation de complétion (`completingIds`), puis s'efface de la liste :
@@ -259,7 +262,7 @@ export default function MobileMyDay({ user, onGoCases }: { user: User; onGoCases
     const addedIds = new Set(myDaySelections.filter(s => s.dateKey === todayKey).map(s => s.refId));
     const itemIdsWithChildren = new Set(items.filter(i => i.parentItemId).map(i => i.parentItemId!));
     const isLeaf = (item: Item) => item.level === 3 || !itemIdsWithChildren.has(item.id);
-    const notDone = (item: Item) => getProgressLevel(item.status) !== 3;
+    const notDone = (item: Item) => !isItemDone(item);
     const notAdded = (item: Item) => !addedIds.has(item.id);
     const threshold = new Date(Date.now() - 5 * 86400000);
 
@@ -582,9 +585,10 @@ export default function MobileMyDay({ user, onGoCases }: { user: User; onGoCases
       await logStatusEvent(user.uid, entry.item.id, entry.item.status, status);
     }
     // Le détail garde sa propre copie de la tâche : on y répercute le statut, et
-    // la disparition de l'échéance qui l'accompagne quand la tâche est traitée.
+    // ce qui tombe avec lui quand la tâche est traitée — l'échéance et le
+    // rappel (`updateItemProgress`).
     setDetailEntry(prev => prev?.item?.id === entry.item!.id
-      ? { ...prev, item: { ...prev.item!, status, ...(status === "Traité" ? { dueDate: null } : {}) } }
+      ? { ...prev, item: { ...prev.item!, status, ...(status === "Traité" ? { dueDate: null, reminderAt: null } : {}) } }
       : prev);
   };
 
