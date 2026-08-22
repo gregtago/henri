@@ -41,7 +41,7 @@ npm run dev
   - `users/{uid}/floatingTasks`
   - `users/{uid}/pushTokens` (appareils recevant les notifications)
   - `users/{uid}/settings/reminders` (réglages de relance, lus par les Cloud Functions)
-  - `users/{uid}/reminderDigests` (garde anti-doublon des récapitulatifs quotidiens)
+  - `users/{uid}/reminderDigests` (garde anti-doublon des récapitulatifs quotidiens, et les canaux empruntés)
 - **Mes dossiers et Ma journée : deux adresses, une seule page.** `/` et
   `/my-day` mènent toujours aux deux vues — les liens, les notifications et le
   raccourci de l'écran d'accueil (`start_url`) restent valables —, mais les deux
@@ -69,6 +69,20 @@ npm run dev
   plusieurs mois), et le rattrapage de `lastProgressAt` le lit une fois, tant
   qu'il reste des tâches à dater (`fetchProgressEvents`).
 - Un seed est inséré au premier login si aucun dossier n'existe.
+- **Double authentification (TOTP).** L'inscription vit dans
+  `src/lib/mfa.ts` et s'affiche dans Préférences → Sécurité. L'écran donne trois
+  chemins vers la même clé, parce qu'aucun ne marche partout : un **carré à
+  photographier** (`src/lib/qrcode.ts`, encodeur QR calculé dans le navigateur —
+  une clé TOTP n'a rien à faire dans l'URL d'une image hébergée ailleurs), le
+  lien `otpauth://` pour qui lit l'écran depuis son téléphone, et la clé en
+  clair pour la saisie à la main. Le carré manquait : il ne restait que le lien,
+  inerte sur un ordinateur, et trente-deux lettres à recopier.
+  Deux refus d'Identity Platform sont rattrapés sur place plutôt que renvoyés à
+  l'utilisateur : l'adresse non vérifiée (section juste au-dessus) et la
+  connexion trop ancienne (`auth/requires-recent-login`), qui redemande le mot
+  de passe sans perdre la clé en cours. Tout autre refus affiche sa phrase
+  **et son code** — `auth/operation-not-allowed` veut dire que le second facteur
+  n'est pas ouvert côté projet Firebase, ce qu'aucune reformulation ne dirait.
 - **Thème clair / sombre / système** : le choix vit dans les préférences locales
   (`src/lib/settings.ts`, `applyTheme`) et se pose en `data-theme` sur `<html>` ;
   la table sombre est dans `app/globals.css`. Un script inline de `app/layout.tsx`
@@ -307,7 +321,23 @@ Trois fonctions planifiées dans `functions/index.js` (fuseau `Europe/Paris`) :
 | --- | --- | --- |
 | `generateRecurringTasks` | 6h | crée les tâches récurrentes du jour |
 | `sendDueReminders` | toutes les 5 min | envoie les rappels échus **et replanifie les relances** |
-| `sendDailyDigest` | toutes les heures | envoie le récap du soir / du lendemain matin aux créneaux configurés |
+| `sendDailyDigest` | toutes les heures | envoie le récap du soir / du lendemain matin aux créneaux configurés, **par notification et par email** |
+
+**Le récap part par deux canaux, et le second ne suppose rien.** La notification
+demande un appareil enregistré dans `users/{uid}/pushTokens` et une autorisation
+accordée dans ce navigateur ; à défaut, la fonction repartait sans rien envoyer —
+c'est ce qui faisait un récapitulatif qui « n'arrive pas » alors que rien n'avait
+échoué. L'email, lui, part à l'adresse du compte (lue par `getAuth().getUser(uid)`),
+porte la **liste complète** des tâches là où la notification en montre trois, et se
+coupe par `recapEmailEnabled` (Préférences → Rappels). La garde anti-doublon
+`users/{uid}/reminderDigests/{dateKey}_{slot}` se pose dès qu'un des deux canaux est
+parti, et note lesquels dans `channels`.
+
+L'envoi passe par Brevo (`functions/recapEmail.js`), même expéditeur et même gabarit
+que les autres courriels de l'Office. La clé vit dans Secret Manager, déclarée par la
+fonction via `defineSecret("BREVO_API_KEY")` : le workflow `deploy-functions.yml` la
+recopie depuis le secret GitHub `BREVO_API_KEY` (même valeur que sur Vercel) avant
+chaque déploiement, et échoue franchement s'il ne la trouve pas.
 
 Relance : quand un rappel part et que la tâche n'est pas « Traité », `sendDueReminders`
 réarme le rappel (`reminderAt` = maintenant + `repeatIntervalHours`, `reminderSentAt`
