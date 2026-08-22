@@ -24,6 +24,7 @@ import { isSuperAdmin } from "@/lib/superAdminClient";
 import MobileTabs from "@/components/MobileTabs";
 import InstallButton from "@/components/InstallButton";
 import AuthAppLinks from "@/components/AuthAppLinks";
+import QrCode from "@/components/QrCode";
 import InfoButton, { InfoModal } from "@/components/InfoModal";
 import { useDeviceReminders } from "@/lib/deviceReminders";
 import { mfaStanding } from "@/lib/mfaPolicy";
@@ -31,7 +32,10 @@ import {
   confirmTotpEnrollment,
   enrolledFactors,
   formatSecretKey,
+  mfaErrorCode,
   mfaMessage,
+  needsRecentLogin,
+  reauthenticateWithPassword,
   removeSecondFactor,
   startTotpEnrollment,
   totpLink,
@@ -102,6 +106,7 @@ const KEY_PLACEHOLDER = "hnr_votre_cle";
 // la page d'accueil des Préférences y lit la version courante, qui est la
 // première de la liste. Une seule source, pas deux à tenir d'accord.
 const VERSIONS: { v: string; date: string; items: string[] }[] = [
+                { v: "Alpha 1.10", date: "Août 2026", items: ["Double authentification : l'écran d'activation affiche enfin un carré à photographier. Il n'y avait jusqu'ici qu'un bouton — inerte sur un ordinateur, aucun navigateur de bureau ne sachant ouvrir une application d'authentification — et une clé de trente-deux lettres à recopier à la main", "Si Firebase refuse l'activation parce que la connexion est trop ancienne, votre mot de passe se redemande sur place : plus besoin de se déconnecter, et la clé en cours n'est pas perdue", "En cas de refus, le code d'erreur exact s'affiche sous le message : de quoi dire à l'Office ce qui bloque, au lieu de réessayer sans fin", "Le récapitulatif du soir et du matin part désormais aussi par email, à l'adresse de votre compte, avec la liste complète des tâches. La notification, elle, suppose un appareil sur lequel vous les aviez autorisées — sans quoi le récapitulatif n'arrivait nulle part", "Nouvel interrupteur « Aussi par email » dans Préférences → Rappels"] },
                 { v: "Alpha 1.9", date: "Août 2026", items: ["La confirmation de votre adresse est désormais demandée avant d'entrer : le courriel part tout seul, et l'écran se retire de lui-même dès que vous ouvrez le lien — depuis l'ordinateur comme depuis le téléphone", "La double authentification vous est proposée à l'ouverture, avec la date à laquelle elle sera exigée sur votre compte et le nombre de jours qui restent. Les applications d'authentification citées y sont des liens, qui mènent à la page de leur éditeur. « Plus tard » entre dans Henri : rien n'est bloqué. La proposition se fait rare quand l'échéance est loin, quotidienne dans la dernière semaine", "Préférences : un lien peut désormais ouvrir directement le bon onglet (par exemple Préférences → Sécurité)", "Téléphone : les boutons « + » en haut des colonnes — nouveau dossier, nouvelle tâche, nouveau mémo — passent de 24 à 32 px : ils se touchent enfin du premier coup", "Téléphone : le bouton « ? » des raccourcis clavier, en bas à droite, disparaît — un téléphone n'a pas de clavier, et il tombait sur la barre du bas. Celui des Préférences, lui, reste", "Téléphone : la barre du bas se pose un peu plus haut, à distance du bord de l'écran", "Préférences : les explications se rangent derrière une pastille « ? », contre le titre de chaque section — on les ouvre quand on en a besoin, elles ne barrent plus l'écran avant le premier réglage", "Les notes de version quittent le rail des titres : elles s'ouvrent depuis les mentions légales, et depuis le numéro de version de la page d'accueil", "Les bandes verticales « Dossiers » et « Ma journée » sur les côtés de l'écran disparaissent, ainsi que leur réglage", "Préférences → Apparence : l'aperçu de texte disparaît — l'écran entier change déjà sous vos yeux", "Préférences : plus de barre « Retour » en haut sur téléphone — la barre du bas y va déjà, d'un pouce", "Préférences → Apparence : police, taille, thème et densité s'enregistrent dès le clic, comme les autres réglages — le bouton « Enregistrer » disparaît, un « Enregistré ✓ » le remplace. Un réglage posé ne se perd plus en quittant la page", "Téléphone : les trois destinations — Ma journée, Dossiers, Préférences — tiennent dans une barre en bas de l'écran, là où tombe le pouce. Celle qui est en pleine encre dit où vous êtes, et Ma journée porte le nombre de lignes du jour", "Téléphone : plus de barre en haut — l'écran commence directement par vos tâches, et Ma journée porte le jour en tête de liste", "Les Préférences s'ouvrent sur une page d'accueil : le logo, la version, votre adresse, les notifications de cet appareil, l'installation et la déconnexion. C'est ce que le rond du compte tenait — il disparaît donc du téléphone ; sur ordinateur, il ne bouge pas", "La page de connexion passe à l'encre : fond plein, carte claire posée dessus. La nuit, c'est l'inverse", "Téléphone : la barre du bas s'efface pendant que vous écrivez un mémo", "L'écran d'ouverture montre le logo et un sablier, au lieu du mot « Chargement »", "Double authentification : elle s'active dès maintenant, sans attendre l'échéance annoncée — Préférences → Sécurité. La connexion demande alors, après le mot de passe, un code à six chiffres lu sur votre téléphone", "Elle se retire du même écran, et l'échéance à laquelle elle sera exigée sur votre compte y est rappelée", "L'adresse du compte se confirme par un courriel de l'Office : c'est le préalable à la double authentification", "L'inscription s'ouvre aux adresses professionnelles du notariat : un lien reçu par courriel remplace l'attente d'une invitation", "Thème sombre : clair, sombre, ou celui de l'appareil — y compris quand il bascule tout seul le soir (Préférences → Apparence)", "Tout ce qui touche au compte tient derrière un rond unique, en haut à droite, au même endroit sur chaque écran : adresse, rappels de cet appareil, installation, Préférences, déconnexion. Ma journée y gagne l'accès aux Préférences", "Préférences : les titres passent en haut, sur un rail que le pouce fait défiler — l'écran entier revient au réglage", "Mes dossiers et Ma journée basculent instantanément : plus d'attente ni d'écran vide entre les deux", "Henri s'ouvre sur ce qu'il sait déjà : vos dossiers restent d'un lancement à l'autre au lieu d'être retéléchargés à chaque fois", "Ma journée, ligne de saisie : « # » désigne le dossier, « @ » l'échéance, « ! » l'importance, « > » la tâche sous laquelle ranger le mémo", "Touche Action de l'iPhone : noter un mémo à la voix ou au clavier sans ouvrir Henri — installation en un lien depuis Préférences → Raccourci iPhone", "Le bandeau d'échéances tient de nouveau sur une ligne sur téléphone", "Nouvelle icône « henri » sur tous les écrans d'accueil"] },
                 { v: "Alpha 1.8", date: "Août 2026", items: ["Poser une échéance propose désormais systématiquement un rappel le jour de l'échéance — sur une tâche comme sur un mémo, à l'ordinateur comme au téléphone", "L'heure de ce rappel se règle dans Préférences → Rappels (9h par défaut), et la proposition peut y être coupée", "Déplacer l'échéance déplace le rappel proposé ; la retirer le retire. Un rappel posé à la main n'est jamais remplacé", "Nouvelle puce « Échéance 09h » sous « Rappel », pour réarmer la proposition après l'avoir retirée"] },
                 { v: "Alpha 1.7", date: "Juillet 2026", items: ["Mobile — Ma journée : mémos et tâches ont désormais la même ligne (case à cocher à gauche) ; la tâche garde son filet d'avancement et une croix pour la retirer de la journée", "Cocher un mémo le fait disparaître de Ma journée : il est réalisé. Un lien discret en bas de la colonne rouvre les mémos réalisés, pour les consulter ou les décocher (ordinateur et téléphone)", "Mobile — cocher une tâche demande où elle en est, puis la retire de Ma journée : elle reste dans son dossier avec son nouveau statut", "Mobile — un mémo se crée et se modifie dans le même écran : mêmes champs, même disposition (étoile, échéance, rappel, dossier, répétition, observations)", "Rattacher un mémo à un dossier ne le transforme plus en tâche : il garde sa case à cocher et s'affiche sous les tâches du dossier", "Un mémo sans dossier s'efface définitivement 7 jours après avoir été réalisé — un pense-bête n'est pas une archive. Un mémo que vous n'avez pas coché, lui, ne disparaît jamais", "Un mémo s'ouvre en cliquant son texte, depuis Ma journée comme depuis la liste des tâches de son dossier"] },
@@ -199,6 +204,10 @@ export default function SettingsPage() {
   const [mfaCode, setMfaCode] = useState("");
   const [mfaBusy, setMfaBusy] = useState(false);
   const [mfaError, setMfaError] = useState<string | null>(null);
+  const [mfaErrorDetail, setMfaErrorDetail] = useState<string | null>(null);
+  // Le mot de passe redemandé quand Identity Platform réclame une connexion
+  // récente : `null` tant qu'il ne l'a pas réclamée.
+  const [mfaPassword, setMfaPassword] = useState<string | null>(null);
   const [mfaKeyCopied, setMfaKeyCopied] = useState(false);
   const [mfaJustEnrolled, setMfaJustEnrolled] = useState(false);
   // Les notes de version ne valent pas un onglet du rail : on les ouvre depuis
@@ -336,22 +345,77 @@ export default function SettingsPage() {
   // attente de son premier code (la clé et le champ), un facteur inscrit
   // (sa date, et de quoi le retirer). Renoncer en cours de route ne laisse
   // aucune trace — la clé n'est inscrite qu'une fois le code confirmé.
+  // Une erreur porte deux choses : ce qu'il faut faire (la phrase) et de quoi
+  // la faire diagnostiquer (le code). La phrase seule laissait l'Office sans
+  // prise quand le refus venait du projet, pas du geste.
+  //
+  // `allowReauth` distingue les deux moments : à l'inscription, un refus pour
+  // connexion trop ancienne se rattrape en retapant son mot de passe, ici même.
+  // Au retrait, non — le compte porte déjà un second facteur, et le mot de
+  // passe seul ne suffirait pas à le re-présenter.
+  const reportMfaError = (err: unknown, allowReauth = true) => {
+    if (err === null) { setMfaError(null); setMfaErrorDetail(null); return; }
+    setMfaErrorDetail(mfaErrorCode(err));
+    if (needsRecentLogin(err)) {
+      if (allowReauth) {
+        setMfaError(mfaMessage(err));
+        setMfaPassword("");
+      } else {
+        setMfaError("Par sécurité, cette opération demande une connexion récente. Déconnectez-vous, reconnectez-vous, puis recommencez.");
+      }
+      return;
+    }
+    setMfaError(mfaMessage(err));
+  };
+
   useEffect(() => {
     setFactors(enrolledFactors(user));
     setMfaSecret(null);
     setMfaCode("");
-    setMfaError(null);
+    reportMfaError(null);
+    setMfaPassword(null);
+    // `reportMfaError` ne fait que poser trois états : le mettre en dépendance
+    // ne ferait que remonter cet effet à chaque rendu, pour rien.
   }, [user]);
 
   const handleStartMfa = async () => {
     if (!user || mfaBusy) return;
     setMfaBusy(true);
-    setMfaError(null);
+    reportMfaError(null);
     try {
       setMfaSecret(await startTotpEnrollment(user));
       setMfaCode("");
+      setMfaPassword(null);
     } catch (err) {
-      setMfaError(mfaMessage(err));
+      reportMfaError(err);
+    } finally {
+      setMfaBusy(false);
+    }
+  };
+
+  // Le mot de passe re-présenté, puis on reprend là où l'on en était : la clé
+  // se demande à nouveau si elle n'était pas encore ouverte.
+  const handleReauth = async (password: string) => {
+    if (!user || mfaBusy) return;
+    if (!password) { setMfaError("Saisissez votre mot de passe."); return; }
+    setMfaBusy(true);
+    reportMfaError(null);
+    try {
+      await reauthenticateWithPassword(user, password);
+      setMfaPassword(null);
+      if (!mfaSecret) {
+        setMfaSecret(await startTotpEnrollment(user));
+        setMfaCode("");
+      }
+    } catch (err) {
+      const code = mfaErrorCode(err);
+      if (code === "auth/wrong-password" || code === "auth/invalid-credential" || code === "auth/invalid-login-credentials") {
+        setMfaError("Ce mot de passe n'est pas le bon.");
+        setMfaErrorDetail(code);
+      } else {
+        reportMfaError(err);
+      }
+      setMfaPassword(password);
     } finally {
       setMfaBusy(false);
     }
@@ -360,14 +424,15 @@ export default function SettingsPage() {
   const handleCancelMfa = () => {
     setMfaSecret(null);
     setMfaCode("");
-    setMfaError(null);
+    reportMfaError(null);
+    setMfaPassword(null);
   };
 
   const handleConfirmMfa = async () => {
     if (!user || !mfaSecret || mfaBusy) return;
     if (mfaCode.trim().length < 6) { setMfaError("Le code compte six chiffres."); return; }
     setMfaBusy(true);
-    setMfaError(null);
+    reportMfaError(null);
     try {
       const { name, os } = describeDevice(navigator.userAgent);
       await confirmTotpEnrollment(user, mfaSecret, mfaCode, os ? `${name} · ${os}` : name);
@@ -378,7 +443,7 @@ export default function SettingsPage() {
       setMfaJustEnrolled(true);
       setTimeout(() => setMfaJustEnrolled(false), 6000);
     } catch (err) {
-      setMfaError(mfaMessage(err));
+      reportMfaError(err);
     } finally {
       setMfaBusy(false);
     }
@@ -398,13 +463,13 @@ export default function SettingsPage() {
     if (!user || mfaBusy) return;
     if (!window.confirm("Retirer la double authentification ? Votre mot de passe gardera seul vos dossiers.")) return;
     setMfaBusy(true);
-    setMfaError(null);
+    reportMfaError(null);
     try {
       await removeSecondFactor(user, factor.uid);
       await user.reload().catch(() => {});
       setFactors(enrolledFactors(auth.currentUser));
     } catch (err) {
-      setMfaError(mfaMessage(err));
+      reportMfaError(err, false);
     } finally {
       setMfaBusy(false);
     }
@@ -912,13 +977,25 @@ export default function SettingsPage() {
                        conséquence. */
                     <div className="space-y-4 pt-1">
                       <div>
-                        <p><strong className="text-tx">1.</strong> Depuis votre téléphone, touchez ce bouton : votre application d&apos;authentification s&apos;ouvre et retient le compte.</p>
+                        <p><strong className="text-tx">1.</strong> Ouvrez votre application d&apos;authentification sur votre téléphone, choisissez « Ajouter un compte », et photographiez ce carré.</p>
+                        <div className="mt-3">
+                          <QrCode value={totpLink(mfaSecret, user.email)} label="Code à photographier avec votre application d'authentification" />
+                        </div>
+
+                        {/* Le carré vaut pour l'ordinateur, où le téléphone
+                          * regarde l'écran. Sur le téléphone lui-même, il n'y a
+                          * rien à photographier : le lien y range le compte
+                          * d'un geste, et la clé reste le dernier recours. */}
+                        <p className="text-[11.5px] text-tx-3 mt-3">
+                          Vous lisez ceci depuis votre téléphone ? Touchez plutôt ce bouton — l&apos;application s&apos;ouvre et retient le compte.
+                        </p>
                         <a href={totpLink(mfaSecret, user.email)}
-                          className="inline-block mt-2 text-[12px] font-[inherit] bg-tx text-bg border border-tx px-4 py-1.5 rounded cursor-pointer hover:opacity-90 transition-all no-underline">
+                          className="inline-block mt-2 text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-border-strong transition-all no-underline">
                           Ouvrir mon application d&apos;authentification
                         </a>
-                        <p className="text-[11.5px] text-tx-3 mt-2">
-                          Sur un ordinateur, ce bouton ne mène nulle part : saisissez plutôt la clé ci-dessous dans l&apos;application de votre téléphone (« Saisir une clé de configuration »).
+
+                        <p className="text-[11.5px] text-tx-3 mt-3">
+                          Rien ne veut lire le carré ? Saisissez cette clé à la main dans l&apos;application (« Saisir une clé de configuration »).
                         </p>
                         <div className="flex items-center gap-2 flex-wrap mt-2">
                           <code className="text-[12.5px] text-tx bg-bg-subtle border border-border rounded px-2.5 py-1.5 select-all break-all tracking-wider">
@@ -957,7 +1034,38 @@ export default function SettingsPage() {
                     </div>
                   )}
 
-                  {mfaError && <p className="text-[12px] text-danger">{mfaError}</p>}
+                  {mfaError && (
+                    <div className="space-y-1">
+                      <p className="text-[12px] text-danger">{mfaError}</p>
+                      {mfaErrorDetail && <p className="text-[11px] text-tx-3">Code : {mfaErrorDetail}</p>}
+                    </div>
+                  )}
+
+                  {/* Connexion trop ancienne : plutôt que de renvoyer le
+                    * lecteur se déconnecter — ce qui perdait la clé en cours
+                    * d'inscription —, on redemande le mot de passe ici, et la
+                    * suite reprend d'elle-même. */}
+                  {mfaPassword !== null && (
+                    <div className="flex items-center gap-2 flex-wrap pt-1">
+                      <input
+                        type="password"
+                        autoComplete="current-password"
+                        placeholder="Votre mot de passe"
+                        value={mfaPassword}
+                        onChange={(e) => setMfaPassword(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleReauth(mfaPassword)}
+                        className="w-[220px] text-[13px] font-[inherit] bg-bg-subtle border border-border rounded px-3 py-1.5 text-tx outline-none focus:border-border-strong"
+                      />
+                      <button disabled={mfaBusy} onClick={() => handleReauth(mfaPassword)}
+                        className="text-[12px] font-[inherit] bg-tx text-bg border border-tx px-4 py-1.5 rounded cursor-pointer hover:opacity-90 transition-all disabled:opacity-50">
+                        {mfaBusy ? "…" : "Continuer"}
+                      </button>
+                      <button disabled={mfaBusy} onClick={() => { setMfaPassword(null); reportMfaError(null); }}
+                        className="text-[12px] font-[inherit] bg-transparent border border-border text-tx-2 px-3 py-1.5 rounded cursor-pointer hover:border-border-strong transition-all disabled:opacity-50">
+                        Renoncer
+                      </button>
+                    </div>
+                  )}
                 </div>
               </section>
             </div>
@@ -1040,7 +1148,10 @@ export default function SettingsPage() {
               <section>
                 <SectionTitle help={{
                   title: "Le récapitulatif du soir et du matin",
-                  body: <p>Le récapitulatif ne dépend pas des rappels : il couvre <em>toutes</em> les tâches de Ma journée, même celles pour lesquelles vous n&apos;aviez posé aucun rappel. Le soir, ce qu&apos;il reste ; le matin, ce qui n&apos;a pas été fait la veille.</p>,
+                  body: <>
+                    <p>Le récapitulatif ne dépend pas des rappels : il couvre <em>toutes</em> les tâches de Ma journée, même celles pour lesquelles vous n&apos;aviez posé aucun rappel. Le soir, ce qu&apos;il reste ; le matin, ce qui n&apos;a pas été fait la veille.</p>
+                    <p>Il part par <strong className="text-tx">notification et par email</strong>. La notification demande un appareil sur lequel vous les avez autorisées ; l&apos;email arrive de toute façon, à l&apos;adresse de votre compte — et porte la liste complète, là où la notification n&apos;en montre que les premières.</p>
+                  </>,
                 }}>Récapitulatif des tâches non traitées</SectionTitle>
                 <div className="bg-bg border border-border rounded-xl overflow-hidden px-4">
                   <div className={row}>
@@ -1060,6 +1171,12 @@ export default function SettingsPage() {
                     <select disabled={!user || !policy.recapEnabled} className={sel} value={policy.recapMorningHour} onChange={e => updatePolicy("recapMorningHour", Number(e.target.value))}>
                       {HOURS.map(h => <option key={h} value={h}>{formatHour(h)}</option>)}
                     </select>
+                  </div>
+                  <div className={row}>
+                    <div><p className={lbl}>Aussi par email</p><p className={sublbl}>À l'adresse du compte, avec la liste complète des tâches</p></div>
+                    <button disabled={!user || !policy.recapEnabled} onClick={() => updatePolicy("recapEmailEnabled", !policy.recapEmailEnabled)} style={{background: policy.recapEmailEnabled && policy.recapEnabled ? "var(--accent)" : "var(--border-strong)", position:"relative", width:40, height:22, borderRadius:11, cursor: user && policy.recapEnabled ? "pointer" : "not-allowed", border:"none", flexShrink:0, transition:"background 0.2s", opacity: user && policy.recapEnabled ? 1 : 0.5}}>
+                      <span style={{position:"absolute", top:3, left: policy.recapEmailEnabled && policy.recapEnabled ? 21 : 3, width:16, height:16, background:"var(--bg)", borderRadius:"50%", boxShadow:"0 1px 3px rgba(0,0,0,0.2)", transition:"left 0.2s", display:"block"}} />
+                    </button>
                   </div>
                 </div>
               </section>

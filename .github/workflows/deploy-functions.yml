@@ -9,6 +9,12 @@ name: Deploy Firebase Functions
 # clé de compte de service Firebase) dans Settings → Secrets and variables →
 # Actions du dépôt. Le compte de service doit avoir les rôles permettant de
 # déployer des fonctions v2 (ex. Éditeur + Utilisateur du compte de service).
+#
+# Second secret, BREVO_API_KEY : la clé d'envoi des courriels de l'Office, la
+# même que celle posée sur Vercel. Elle sert au récapitulatif quotidien envoyé
+# par email (sendDailyDigest), qui la déclare — le déploiement la recopie donc
+# dans Secret Manager avant de partir, et échoue franchement si elle manque
+# plutôt que de laisser un récap muet.
 
 on:
   push:
@@ -58,6 +64,20 @@ jobs:
           fi
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-sa.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-sa.json" >> "$GITHUB_ENV"
+
+      # La clé Brevo vit dans Secret Manager, pas dans le dépôt. On la repose à
+      # chaque déploiement : c'est idempotent, et cela évite qu'une rotation de
+      # clé oblige à passer par la console.
+      - name: Sync Brevo API key to Secret Manager
+        env:
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+        run: |
+          if [ -z "$BREVO_API_KEY" ]; then
+            echo "::error::Secret BREVO_API_KEY manquant. sendDailyDigest le déclare : sans lui dans Secret Manager, le déploiement sera refusé. Ajoutez-le dans Settings → Secrets and variables → Actions (même valeur que sur Vercel)."
+            exit 1
+          fi
+          printf '%s' "$BREVO_API_KEY" | firebase functions:secrets:set BREVO_API_KEY \
+            --project henri-11598 --non-interactive --data-file -
 
       - name: Deploy functions
         run: firebase deploy --only functions --project henri-11598 --non-interactive

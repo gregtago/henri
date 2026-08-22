@@ -22,8 +22,10 @@
 // d'erreur pour comprendre qu'il a tapé le mauvais chiffre.
 
 import {
+  EmailAuthProvider,
   getMultiFactorResolver,
   multiFactor,
+  reauthenticateWithCredential,
   TotpMultiFactorGenerator,
   type Auth,
   type MultiFactorError,
@@ -71,6 +73,29 @@ export const confirmTotpEnrollment = async (
 ): Promise<void> => {
   const assertion = TotpMultiFactorGenerator.assertionForEnrollment(secret, code.trim());
   await multiFactor(user).enroll(assertion, label);
+};
+
+/**
+ * Identity Platform a refusé faute de connexion récente.
+ *
+ * Poser une serrure sur un compte est une opération sensible : le fournisseur
+ * exige que le mot de passe ait été présenté il y a peu, et non qu'une session
+ * ouverte le matin serve encore le soir. C'est le refus qui donnait
+ * l'impression que « la double authentification ne s'installe pas » : le
+ * bouton répondait une phrase, et la phrase demandait de se déconnecter.
+ */
+export const needsRecentLogin = (error: unknown): boolean =>
+  errorCode(error) === "auth/requires-recent-login";
+
+/**
+ * Re-présenter le mot de passe, sans quitter l'écran.
+ *
+ * Se déconnecter puis se reconnecter faisait la même chose, en perdant la
+ * clé en cours d'inscription et le fil de ce qu'on était en train de faire.
+ */
+export const reauthenticateWithPassword = async (user: User, password: string): Promise<void> => {
+  if (!user.email) throw new Error("no-email");
+  await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
 };
 
 /** Retire un facteur inscrit. Demande une connexion récente. */
@@ -131,6 +156,10 @@ export const completeSignInWithCode = async (
 
 // ── Ce que l'écran affiche quand quelque chose ne passe pas ──────────────────
 
+/** Le code d'erreur Firebase, ou la chaîne vide si l'objet n'en porte pas. */
+const errorCode = (error: unknown): string =>
+  (typeof error === "object" && error !== null ? (error as { code?: string }).code : "") ?? "";
+
 /**
  * Une phrase, jamais un code d'erreur.
  *
@@ -138,8 +167,7 @@ export const completeSignInWithCode = async (
  * personne ne vaut pas mieux que pas de message du tout.
  */
 export const mfaMessage = (error: unknown): string => {
-  const code = typeof error === "object" && error !== null ? (error as { code?: string }).code : "";
-  switch (code) {
+  switch (errorCode(error)) {
     case "auth/invalid-verification-code":
     case "auth/invalid-verification-id":
     case "auth/missing-verification-code":
@@ -149,7 +177,7 @@ export const mfaMessage = (error: unknown): string => {
     case "auth/unverified-email":
       return "Confirmez d'abord votre adresse, juste au-dessus.";
     case "auth/requires-recent-login":
-      return "Par sécurité, cette opération demande une connexion récente. Déconnectez-vous, reconnectez-vous, puis recommencez.";
+      return "Par sécurité, cette opération demande une connexion récente. Retapez votre mot de passe ci-dessous.";
     case "auth/second-factor-already-in-use":
       return "Cette application d'authentification est déjà inscrite sur votre compte.";
     case "auth/maximum-second-factor-count-exceeded":
@@ -159,8 +187,24 @@ export const mfaMessage = (error: unknown): string => {
     case "auth/operation-not-allowed":
     case "auth/admin-restricted-operation":
     case "auth/unsupported-first-factor":
-      return "La double authentification n'est pas encore ouverte sur votre compte. Réessayez plus tard.";
+      // Ce n'est pas le compte qui est en cause : le second facteur n'est pas
+      // ouvert sur le projet lui-même. Rien de ce que fera le lecteur n'y
+      // changera quoi que ce soit — autant le lui dire, et lui dire à qui en
+      // parler, plutôt que de le laisser réessayer indéfiniment.
+      return "La double authentification n'est pas activée côté serveur. Signalez-le à l'Office : le réglage se pose une fois, pour tout le monde.";
+    case "auth/network-request-failed":
+      return "La connexion au serveur a échoué. Vérifiez votre réseau, puis recommencez.";
     default:
       return "L'opération n'a pas abouti. Réessayez dans un instant.";
   }
 };
+
+/**
+ * Le code d'erreur brut, à afficher en tout petit sous la phrase.
+ *
+ * Une phrase suffit à celui qui peut agir ; elle ne suffit pas à celui qu'on
+ * appelle au secours. Le code dit en quatre mots ce qu'aucune reformulation ne
+ * dira — et c'est lui, pas la phrase, qui permet de trancher entre « le
+ * réglage n'est pas ouvert sur le projet » et « ce compte a mal tapé ».
+ */
+export const mfaErrorCode = (error: unknown): string | null => errorCode(error) || null;

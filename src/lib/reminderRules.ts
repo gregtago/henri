@@ -26,6 +26,15 @@ export type ReminderPolicy = {
   dayEndHour: number;
   /** Récapitulatif des tâches non traitées (soir + lendemain matin). */
   recapEnabled: boolean;
+  /**
+   * Envoyer aussi le récapitulatif par courriel.
+   *
+   * La notification suppose un appareil enregistré et une autorisation
+   * accordée ; le courriel ne suppose rien. C'est pour cela qu'il est actif
+   * par défaut : un récap qui n'arrive nulle part vaut moins qu'un récap de
+   * trop, qui se coupe ici.
+   */
+  recapEmailEnabled: boolean;
   /** Heure du récap du soir (tâches encore ouvertes aujourd'hui). */
   recapEveningHour: number;
   /** Heure du récap du matin (tâches d'hier restées ouvertes). */
@@ -47,6 +56,7 @@ export const DEFAULT_REMINDER_POLICY: ReminderPolicy = {
   dayStartHour: 8,
   dayEndHour: 20,
   recapEnabled: true,
+  recapEmailEnabled: true,
   recapEveningHour: 18,
   recapMorningHour: 8,
   dueReminderHour: 9,
@@ -68,6 +78,7 @@ export function normalizeReminderPolicy(raw: unknown): ReminderPolicy {
     dayStartHour: num(data.dayStartHour, DEFAULT_REMINDER_POLICY.dayStartHour, 0, 23),
     dayEndHour: num(data.dayEndHour, DEFAULT_REMINDER_POLICY.dayEndHour, 1, 24),
     recapEnabled: typeof data.recapEnabled === "boolean" ? data.recapEnabled : DEFAULT_REMINDER_POLICY.recapEnabled,
+    recapEmailEnabled: typeof data.recapEmailEnabled === "boolean" ? data.recapEmailEnabled : DEFAULT_REMINDER_POLICY.recapEmailEnabled,
     recapEveningHour: num(data.recapEveningHour, DEFAULT_REMINDER_POLICY.recapEveningHour, 0, 23),
     recapMorningHour: num(data.recapMorningHour, DEFAULT_REMINDER_POLICY.recapMorningHour, 0, 23),
     dueReminderHour: num(data.dueReminderHour, DEFAULT_REMINDER_POLICY.dueReminderHour, DUE_REMINDER_OFF, 23),

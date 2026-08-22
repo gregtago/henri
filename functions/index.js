@@ -1,8 +1,21 @@
 const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { defineSecret } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, Timestamp } = require("firebase-admin/firestore");
+const { getAuth } = require("firebase-admin/auth");
+const { sendRecapEmail } = require("./recapEmail");
 
 initializeApp();
+
+/**
+ * La clé de l'expéditeur des courriels de l'Office.
+ *
+ * Elle vit dans Secret Manager, jamais dans le dépôt : elle ouvre l'envoi
+ * depuis `noreply@mail.tagot.fr`, c'est-à-dire depuis l'adresse à laquelle
+ * les clients de l'Office font confiance. Absente, le récap part quand même
+ * en notification — c'est le courriel qui manque, pas la fonction.
+ */
+const BREVO_API_KEY = defineSecret("BREVO_API_KEY");
 
 /**
  * Calcule la prochaine occurrence d'une récurrence à partir d'une date de référence.
@@ -217,6 +230,7 @@ const DEFAULT_POLICY = {
   dayStartHour: 8,
   dayEndHour: 20,
   recapEnabled: true,
+  recapEmailEnabled: true,
   recapEveningHour: 18,
   recapMorningHour: 8,
   // Heure du rappel proposé le jour de l'échéance (-1 = aucune proposition).
@@ -484,9 +498,14 @@ exports.sendDueReminders = onSchedule(
  *
  * C'est le filet de sécurité des rappels individuels : une tâche prévue pour
  * le jour J et jamais traitée revient le soir même, puis le lendemain.
+ *
+ * **Deux canaux, et le second ne dépend de rien.** La notification demande un
+ * appareil enregistré et une autorisation accordée ; le courriel part à
+ * l'adresse du compte, qui existe toujours. Le récap ne se tait donc plus
+ * faute d'appareil — il se coupe dans Préférences → Rappels, et là seulement.
  */
 exports.sendDailyDigest = onSchedule(
-  { schedule: "0 * * * *", timeZone: "Europe/Paris", region: "europe-west1" },
+  { schedule: "0 * * * *", timeZone: "Europe/Paris", region: "europe-west1", secrets: [BREVO_API_KEY] },
   async () => {
     const db = getFirestore();
     const messaging = getMessaging();
@@ -497,6 +516,7 @@ exports.sendDailyDigest = onSchedule(
 
     const userRefs = await db.collection("users").listDocuments();
     let totalSent = 0;
+    let totalEmails = 0;
     let totalUsers = 0;
 
     for (const userRef of userRefs) {
@@ -519,10 +539,8 @@ exports.sendDailyDigest = onSchedule(
         const guardRef = db.doc(`users/${uid}/reminderDigests/${targetKey}_${slot}`);
         if ((await guardRef.get()).exists) continue;
 
-        const tokensSnap = await db.collection(`users/${uid}/pushTokens`).get();
-        const tokenStrings = tokensSnap.docs.map(d => d.data().token).filter(Boolean);
-        if (tokenStrings.length === 0) continue;
-
+        // La liste d'abord : sans rien à dire, il n'y a ni notification ni
+        // courriel à envoyer, et surtout pas de garde à poser.
         const titles = await collectOpenTitles(db, uid, targetKey);
         if (titles.length === 0) continue;
 
@@ -534,32 +552,87 @@ exports.sendDailyDigest = onSchedule(
         const shown = titles.slice(0, 3).join(" · ");
         const body = n > 3 ? `${shown} … +${n - 3}` : shown;
 
-        const successCount = await pushToUser(db, messaging, uid, tokenStrings, {
-          title: notifTitle,
-          body,
-          tag: `digest-${targetKey}-${slot}`,
-          url: "/my-day",
-          sticky: true,
-        });
+        // Deux chemins, indépendants : un appareil qui n'a jamais accordé les
+        // notifications ne doit plus faire taire le récap. C'est exactement ce
+        // qui se passait — la fonction repartait avant même d'avoir regardé
+        // s'il y avait quelque chose à dire.
+        const tokensSnap = await db.collection(`users/${uid}/pushTokens`).get();
+        const tokenStrings = tokensSnap.docs.map(d => d.data().token).filter(Boolean);
 
-        if (successCount > 0) {
-          totalSent += successCount;
+        let pushCount = 0;
+        if (tokenStrings.length > 0) {
+          pushCount = await pushToUser(db, messaging, uid, tokenStrings, {
+            title: notifTitle,
+            body,
+            tag: `digest-${targetKey}-${slot}`,
+            url: "/my-day",
+            sticky: true,
+          });
+        }
+
+        let emailSent = false;
+        if (policy.recapEmailEnabled) {
+          emailSent = await mailRecap(uid, slot, titles);
+        }
+
+        // La garde vaut pour le créneau, pas pour un canal : elle se pose dès
+        // qu'un des deux est parti, et jamais si les deux ont échoué — la
+        // fonction ne repassera pas sur ce créneau aujourd'hui, mais un rejeu
+        // manuel trouvera alors le terrain libre. Un échec total se voit dans
+        // les journaux plutôt que de disparaître.
+        if (pushCount > 0 || emailSent) {
+          totalSent += pushCount;
+          if (emailSent) totalEmails++;
           totalUsers++;
           await guardRef.set({
             dateKey: targetKey,
             slot,
             count: n,
             sentAt: nowIso(),
+            channels: [...(pushCount > 0 ? ["push"] : []), ...(emailSent ? ["email"] : [])],
           });
+        } else {
+          console.warn(`[sendDailyDigest] rien n'est parti pour uid=${uid} (${slot}, ${n} tâche(s)) : ni appareil joignable, ni courriel.`);
         }
       } catch (err) {
         console.error(`[sendDailyDigest] Erreur pour uid=${uid}:`, err);
       }
     }
 
-    console.log(`[sendDailyDigest] ${hour}h — ${totalSent} envois pour ${totalUsers} utilisateur(s).`);
+    console.log(`[sendDailyDigest] ${hour}h — ${totalSent} notification(s) et ${totalEmails} courriel(s) pour ${totalUsers} utilisateur(s).`);
   }
 );
+
+/**
+ * Envoie le récapitulatif par courriel, et dit si c'est parti.
+ *
+ * Tout ce qui peut manquer manque en silence, et sans faire tomber le reste :
+ * la clé Brevo n'est pas configurée, le compte n'a plus d'adresse, Brevo
+ * refuse. Un récap est un confort — il ne doit jamais empêcher la notification
+ * du voisin de partir.
+ */
+async function mailRecap(uid, slot, titles) {
+  const apiKey = BREVO_API_KEY.value();
+  if (!apiKey) {
+    console.warn(`[sendDailyDigest] BREVO_API_KEY absente : pas de courriel pour uid=${uid}.`);
+    return false;
+  }
+  let email = null;
+  try {
+    email = (await getAuth().getUser(uid)).email || null;
+  } catch (err) {
+    console.error(`[sendDailyDigest] compte introuvable uid=${uid}:`, err);
+    return false;
+  }
+  if (!email) return false;
+  try {
+    await sendRecapEmail(apiKey, { to: email, slot, titles });
+    return true;
+  } catch (err) {
+    console.error(`[sendDailyDigest] courriel refusé pour uid=${uid}:`, err);
+    return false;
+  }
+}
 
 /**
  * Titres des tâches prévues pour `dateKey` et non encore traitées :
